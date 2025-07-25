@@ -1,3 +1,11 @@
+from militares.permissoes_simples import (
+    requer_edicao_militares, requer_edicao_fichas_conceito,
+    requer_gerenciamento_quadros_vagas, requer_gerenciamento_comissoes,
+    requer_gerenciamento_usuarios, requer_assinatura_documentos,
+    requer_funcao_especial, apenas_visualizacao_comissao
+)
+
+
 from django.shortcuts import render, get_object_or_404, redirect
 from django.core.files.base import ContentFile
 from django.contrib import messages
@@ -8408,6 +8416,7 @@ def comissao_detail(request, pk):
     return render(request, 'militares/comissao/detail.html', context)
 
 @login_required
+@requer_gerenciamento_comissoes
 def comissao_create(request):
     """Criar nova comissão de promoção de oficiais"""
     if request.method == 'POST':

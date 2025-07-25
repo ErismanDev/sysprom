@@ -26,8 +26,9 @@ class ControleAcessoComissaoMiddleware:
         self.get_response = get_response
     
     def __call__(self, request):
-        # TEMPORARIAMENTE DESABILITADO PARA DEBUG
-        return self.get_response(request)
+        # Verificar se o usuário está autenticado
+        if not request.user.is_authenticated:
+            return self.get_response(request)
         
         # Verificar se o usuário está autenticado
         if not request.user.is_authenticated:

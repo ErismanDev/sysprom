@@ -1,0 +1,518 @@
+{% extends 'base.html' %}
+
+{% block title %}Nova Promoção - SysProm - CBMEPI{% endblock %}
+
+{% block extra_css %}
+<style>
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    }
+    
+    .card.shadow-lg {
+        box-shadow: 0 1rem 3rem rgba(0,0,0,.175) !important;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    
+    .invalid-feedback {
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+    
+    .form-label.fw-bold {
+        color: #495057;
+        margin-bottom: 0.5rem;
+    }
+    
+    .card-header.bg-light {
+        background-color: #f8f9fa !important;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .text-danger {
+        color: #dc3545 !important;
+    }
+    
+    /* Autocomplete Styles */
+    .autocomplete-item {
+        padding: 12px 15px;
+        cursor: pointer;
+        border-bottom: 1px solid #f8f9fa;
+        transition: background-color 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .autocomplete-item:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .autocomplete-item.selected {
+        background-color: #667eea;
+        color: white;
+    }
+    
+    .autocomplete-item:last-child {
+        border-bottom: none;
+    }
+    
+    .autocomplete-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        object-fit: cover;
+        background: #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        color: #6c757d;
+        font-weight: 600;
+    }
+    
+    .autocomplete-info {
+        flex: 1;
+    }
+    
+    .autocomplete-name {
+        font-weight: 500;
+        font-size: 14px;
+        margin-bottom: 2px;
+    }
+    
+    .autocomplete-details {
+        font-size: 12px;
+        color: #6c757d;
+    }
+    
+    .autocomplete-posto {
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: #e9ecef;
+        color: #495057;
+    }
+    
+    /* Input com ícone */
+    #id_militar_search {
+        padding-left: 40px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-gradient-primary text-white py-3">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-medal fa-2x me-3"></i>
+                        <div>
+                            <h4 class="mb-0">{% if is_historica %}Promoção Histórica{% else %}Nova Promoção{% endif %}</h4>
+                            <small class="opacity-75">
+                                {% if is_historica %}
+                                    Registrar promoção histórica (não atualiza o militar)
+                                {% else %}
+                                    Registrar promoção de militar
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-body p-4">
+                    <form method="post" novalidate class="needs-validation">
+                        {% csrf_token %}
+                        
+                        <!-- Seleção do Militar -->
+                        <div class="card mb-4 border-0 shadow-sm">
+                            <div class="card-header bg-light border-0">
+                                <h6 class="mb-0 text-primary">
+                                    <i class="fas fa-user me-2"></i>1. Seleção do Militar
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-12">
+                                        <label for="id_militar" class="form-label fw-bold">
+                                            Militar <span class="text-danger">*</span>
+                                        </label>
+                                        <div class="position-relative">
+                                            <input type="text" 
+                                                   id="id_militar_search" 
+                                                   class="form-control" 
+                                                   placeholder="🔍 Digite o nome, posto ou matrícula..."
+                                                   autocomplete="off"
+                                                   {% if militar_pre_selecionado %}value="{{ militar_pre_selecionado.get_posto_graduacao_display }} {{ militar_pre_selecionado.nome_completo }} - {{ militar_pre_selecionado.matricula }}"{% endif %}>
+                                            <input type="hidden" name="militar" id="id_militar" required
+                                                   {% if militar_pre_selecionado %}value="{{ militar_pre_selecionado.pk }}"{% endif %}>
+                                            <i class="fas fa-search position-absolute" style="left: 15px; top: 50%; transform: translateY(-50%); color: #6c757d; z-index: 2;"></i>
+                                            
+                                            <!-- Autocomplete -->
+                                            <div class="autocomplete-container" id="autocompleteContainer" style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e9ecef; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 1000; max-height: 300px; overflow-y: auto; display: none;">
+                                                <!-- Itens do autocomplete serão inseridos aqui -->
+                                            </div>
+                                        </div>
+                                        <div class="form-text">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Digite o nome, posto ou matrícula do militar que será promovido
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Detalhes da Promoção -->
+                        <div class="card mb-4 border-0 shadow-sm">
+                            <div class="card-header bg-light border-0">
+                                <h6 class="mb-0 text-info">
+                                    <i class="fas fa-arrow-up me-2"></i>2. Detalhes da Promoção
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label for="id_posto_anterior" class="form-label fw-bold">
+                                            Posto Anterior
+                                        </label>
+                                        <select name="posto_anterior" id="id_posto_anterior" class="form-select">
+                                            <option value="">Usar posto atual do militar</option>
+                                            {% for codigo, nome in postos %}
+                                                <option value="{{ codigo }}">{{ nome }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="form-text">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Posto anterior (deixe vazio para usar o atual)
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="id_posto_novo" class="form-label fw-bold">
+                                            Novo Posto <span class="text-danger">*</span>
+                                        </label>
+                                        <select name="posto_novo" id="id_posto_novo" class="form-select" required>
+                                            <option value="">Selecione o novo posto...</option>
+                                            {% for codigo, nome in postos %}
+                                                <option value="{{ codigo }}">{{ nome }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="form-text">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Posto para o qual o militar será promovido
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {% if not is_historica %}
+                                <div class="row g-3 mt-2">
+                                    <div class="col-md-12">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="is_historica" id="id_is_historica">
+                                            <label class="form-check-label" for="id_is_historica">
+                                                <i class="fas fa-history me-1"></i>
+                                                Promoção histórica (não atualiza o militar)
+                                            </label>
+                                        </div>
+                                        <div class="form-text">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Marque esta opção para registrar uma promoção passada sem alterar o posto atual do militar
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                    <div class="col-md-6">
+                                        <label for="id_criterio" class="form-label fw-bold">
+                                            Critério <span class="text-danger">*</span>
+                                        </label>
+                                        <select name="criterio" id="id_criterio" class="form-select" required>
+                                            <option value="">Selecione o critério...</option>
+                                            {% for codigo, nome in criterios %}
+                                                <option value="{{ codigo }}">{{ nome }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="form-text">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Critério utilizado para a promoção
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row g-3 mt-2">
+                                    <div class="col-md-6">
+                                        <label for="id_data_promocao" class="form-label fw-bold">
+                                            Data da Promoção <span class="text-danger">*</span>
+                                        </label>
+                                        <input type="date" name="data_promocao" id="id_data_promocao" 
+                                               class="form-control" required>
+                                        <div class="form-text">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Data em que a promoção foi efetivada
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="id_data_publicacao" class="form-label fw-bold">
+                                            Data da Publicação
+                                        </label>
+                                        <input type="date" name="data_publicacao" id="id_data_publicacao" 
+                                               class="form-control" value="{{ today }}">
+                                        <div class="form-text">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Data da publicação no Diário Oficial
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row g-3 mt-2">
+                                    <div class="col-md-12">
+                                        <label for="id_numero_ato" class="form-label fw-bold">
+                                            Número do Ato
+                                        </label>
+                                        <input type="text" name="numero_ato" id="id_numero_ato" 
+                                               class="form-control" placeholder="Ex: PORTARIA Nº 123/2024">
+                                        <div class="form-text">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Número do ato administrativo da promoção
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row g-3 mt-2">
+                                    <div class="col-md-12">
+                                        <label for="id_observacoes" class="form-label fw-bold">
+                                            Observações
+                                        </label>
+                                        <textarea name="observacoes" id="id_observacoes" 
+                                                  class="form-control" rows="3" 
+                                                  placeholder="Observações adicionais sobre a promoção..."></textarea>
+                                        <div class="form-text">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Observações complementares (opcional)
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Botões de Ação -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'militares:promocao_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Voltar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Registrar Promoção
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const militarSearchInput = document.getElementById('id_militar_search');
+    const militarHiddenInput = document.getElementById('id_militar');
+    const autocompleteContainer = document.getElementById('autocompleteContainer');
+    const postoAnteriorSelect = document.getElementById('id_posto_anterior');
+    const postoNovoSelect = document.getElementById('id_posto_novo');
+
+    let searchTimeout;
+    let selectedIndex = -1;
+    
+    // Carregar militar pré-selecionado se existir
+    {% if militar_pre_selecionado %}
+    setTimeout(function() {
+        var militarPreSelecionado = {
+            id: '{{ militar_pre_selecionado.pk }}',
+            nome: '{{ militar_pre_selecionado.nome_completo }}',
+            posto: '{{ militar_pre_selecionado.get_posto_graduacao_display }}',
+            matricula: '{{ militar_pre_selecionado.matricula }}'
+        };
+        selectMilitar(militarPreSelecionado);
+    }, 100);
+    {% endif %}
+    
+    // Função para buscar militares via AJAX
+    function searchMilitares(query) {
+        console.log('Buscando militares com query:', query);
+        if (query.length < 2) {
+            hideAutocomplete();
+            return;
+        }
+        
+        fetch(`{% url 'militares:militar_search_ajax' %}?q=${encodeURIComponent(query)}`)
+            .then(response => {
+                console.log('Response status da busca:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('Resultados da busca:', data.results);
+                showAutocomplete(data.results);
+            })
+            .catch(error => {
+                console.error('Erro na busca:', error);
+                hideAutocomplete();
+            });
+    }
+    
+    // Função para mostrar autocomplete
+    function showAutocomplete(results) {
+        if (results.length === 0) {
+            hideAutocomplete();
+            return;
+        }
+        
+        autocompleteContainer.innerHTML = '';
+        
+        results.forEach((militar, index) => {
+            const item = document.createElement('div');
+            item.classList.add('autocomplete-item');
+            item.setAttribute('data-id', militar.id);
+            item.setAttribute('data-posto', militar.posto);
+            item.setAttribute('data-nome', militar.nome);
+            item.setAttribute('data-matricula', militar.matricula);
+            
+            item.innerHTML = `
+                <div class="autocomplete-avatar">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="autocomplete-info">
+                    <div class="autocomplete-name">${militar.nome}</div>
+                    <div class="autocomplete-details">
+                        ${militar.posto} - ${militar.matricula}
+                    </div>
+                </div>
+                <span class="autocomplete-posto">${militar.posto}</span>
+            `;
+            
+            item.addEventListener('click', function() {
+                selectMilitar(militar);
+            });
+            
+            autocompleteContainer.appendChild(item);
+        });
+        
+        autocompleteContainer.style.display = 'block';
+        selectedIndex = -1;
+    }
+    
+    // Função para esconder autocomplete
+    function hideAutocomplete() {
+        autocompleteContainer.style.display = 'none';
+        selectedIndex = -1;
+    }
+    
+    // Função para selecionar militar
+    function selectMilitar(militar) {
+        console.log('Selecionando militar:', militar);
+        militarSearchInput.value = `${militar.posto} ${militar.nome} - ${militar.matricula}`;
+        militarHiddenInput.value = militar.id;
+        hideAutocomplete();
+        
+        // Buscar informações do militar para preencher os campos
+        console.log('Buscando informações do militar ID:', militar.id);
+        fetch(`{% url 'militares:militar_info_ajax' %}?militar_id=${militar.id}`)
+            .then(response => {
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Dados recebidos:', data);
+                
+                // Verificar se há erro (ex: coronel selecionado)
+                if (data.error) {
+                    console.error('Erro:', data.error);
+                    alert('Erro: ' + data.error);
+                    return;
+                }
+                
+                if (data.posto_atual) {
+                    postoAnteriorSelect.value = data.posto_atual;
+                    console.log('Posto anterior definido:', data.posto_atual);
+                }
+                if (data.proxima_promocao) {
+                    postoNovoSelect.value = data.proxima_promocao;
+                    console.log('Próxima promoção definida:', data.proxima_promocao);
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao buscar informações do militar:', error);
+            });
+    }
+    
+    // Event listeners
+    militarSearchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            searchMilitares(this.value.trim());
+        }, 300);
+    });
+    
+    militarSearchInput.addEventListener('focus', function() {
+        if (this.value.trim()) {
+            searchMilitares(this.value.trim());
+        }
+    });
+    
+    // Navegação com teclado
+    militarSearchInput.addEventListener('keydown', function(e) {
+        const autocompleteItems = autocompleteContainer.querySelectorAll('.autocomplete-item');
+        
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            selectedIndex = Math.min(selectedIndex + 1, autocompleteItems.length - 1);
+            updateSelectedItem(autocompleteItems);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            selectedIndex = Math.max(selectedIndex - 1, -1);
+            updateSelectedItem(autocompleteItems);
+        } else if (e.key === 'Enter' && selectedIndex >= 0) {
+            e.preventDefault();
+            if (autocompleteItems[selectedIndex]) {
+                const militarId = autocompleteItems[selectedIndex].getAttribute('data-id');
+                const militarNome = autocompleteItems[selectedIndex].getAttribute('data-nome');
+                const militarPosto = autocompleteItems[selectedIndex].getAttribute('data-posto');
+                const militarMatricula = autocompleteItems[selectedIndex].getAttribute('data-matricula');
+                
+                selectMilitar({
+                    id: militarId,
+                    nome: militarNome,
+                    posto: militarPosto,
+                    matricula: militarMatricula
+                });
+            }
+        } else if (e.key === 'Escape') {
+            hideAutocomplete();
+        }
+    });
+    
+    function updateSelectedItem(items) {
+        items.forEach((item, index) => {
+            if (index === selectedIndex) {
+                item.classList.add('selected');
+            } else {
+                item.classList.remove('selected');
+            }
+        });
+    }
+    
+    // Esconder autocomplete quando clicar fora
+    document.addEventListener('click', function(event) {
+        if (!militarSearchInput.contains(event.target) && !autocompleteContainer.contains(event.target)) {
+            hideAutocomplete();
+        }
+    });
+});
+</script>
+{% endblock %} 

@@ -1,0 +1,497 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - SysProm - CBMEPI{% endblock %}
+
+{% block extra_css %}
+<style>
+    .editor-container {
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        margin-bottom: 20px;
+    }
+    .editor-toolbar {
+        background: #f8f9fa;
+        border-bottom: 1px solid #ddd;
+        padding: 10px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+    .editor-button {
+        padding: 5px 10px;
+        border: 1px solid #ccc;
+        background: white;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 12px;
+    }
+    .editor-button:hover {
+        background: #e9ecef;
+    }
+    .editor-button.active {
+        background: #007bff;
+        color: white;
+        border-color: #007bff;
+    }
+    .editor-content {
+        min-height: 300px;
+        padding: 15px;
+        outline: none;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        line-height: 1.6;
+    }
+    .editor-content:focus {
+        background: #fff;
+    }
+    .font-size-selector {
+        width: 80px;
+        padding: 3px;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+    }
+    .color-picker {
+        width: 30px;
+        height: 30px;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+        cursor: pointer;
+    }
+    .alignment-group {
+        display: flex;
+        gap: 2px;
+    }
+    .alignment-button {
+        padding: 5px 8px;
+        border: 1px solid #ccc;
+        background: white;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 11px;
+    }
+    .editor-stats {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-top: none;
+        border-radius: 0 0 4px 4px;
+        font-size: 12px;
+        color: #6c757d;
+    }
+    .editor-stats span {
+        margin-right: 15px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-center">
+  <div style="width: 100%; max-width: 1000px;">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">
+            <i class="fas fa-edit me-2"></i>
+            {{ title }}
+        </h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <a href="{% url 'militares:meu_voto_detail' voto.pk %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i>
+                Voltar ao Voto
+            </a>
+        </div>
+    </div>
+    
+    <form method="post" id="voto-form">
+        {% csrf_token %}
+        
+        <!-- Informações da Deliberação -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-gavel me-2"></i>
+                    Informações da Deliberação
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Número:</strong> {{ voto.deliberacao.numero }}</p>
+                        <p><strong>Assunto:</strong> {{ voto.deliberacao.assunto }}</p>
+                        <p><strong>Tipo:</strong> {{ voto.deliberacao.get_tipo_display }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Data da Sessão:</strong> {{ voto.deliberacao.sessao.data_sessao|date:"d/m/Y" }}</p>
+                        <p><strong>Comissão:</strong> {{ voto.deliberacao.sessao.comissao.nome }}</p>
+                        <p><strong>Membro:</strong> {{ voto.membro.militar.nome_completo }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Opção de Voto -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-check-circle me-2"></i>
+                    Opção de Voto
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="radio" name="voto" id="voto_favor" value="FAVOR" 
+                           {% if voto.voto == 'FAVOR' %}checked{% endif %}>
+                    <label class="form-check-label" for="voto_favor">
+                        <i class="fas fa-thumbs-up text-success me-2"></i>
+                        <strong>Favor</strong>
+                    </label>
+                </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="radio" name="voto" id="voto_contra" value="CONTRA"
+                           {% if voto.voto == 'CONTRA' %}checked{% endif %}>
+                    <label class="form-check-label" for="voto_contra">
+                        <i class="fas fa-thumbs-down text-danger me-2"></i>
+                        <strong>Contra</strong>
+                    </label>
+                </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="radio" name="voto" id="voto_abstencao" value="ABSTENCAO"
+                           {% if voto.voto == 'ABSTENCAO' %}checked{% endif %}>
+                    <label class="form-check-label" for="voto_abstencao">
+                        <i class="fas fa-minus-circle text-secondary me-2"></i>
+                        <strong>Abstenção</strong>
+                    </label>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Voto Proferido com Editor CKEditor 5 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-comment me-2"></i>
+                    Voto Proferido
+                    <small class="text-muted ms-2">
+                        <i class="fas fa-info-circle"></i>
+                        Editor Personalizado - Formatação Avançada
+                    </small>
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Digite aqui o texto do voto que você proferiu durante a sessão. Utilize o editor personalizado para formatação avançada.
+                </p>
+                
+                <!-- Editor Personalizado -->
+                <div class="editor-container">
+                    <div class="editor-toolbar">
+                        <!-- Formatação de Texto -->
+                        <button type="button" class="editor-button" data-command="bold" title="Negrito">
+                            <i class="fas fa-bold"></i>
+                        </button>
+                        <button type="button" class="editor-button" data-command="italic" title="Itálico">
+                            <i class="fas fa-italic"></i>
+                        </button>
+                        <button type="button" class="editor-button" data-command="underline" title="Sublinhado">
+                            <i class="fas fa-underline"></i>
+                        </button>
+                        <button type="button" class="editor-button" data-command="strikeThrough" title="Tachado">
+                            <i class="fas fa-strikethrough"></i>
+                        </button>
+                        
+                        <div style="width: 1px; height: 20px; background: #ddd; margin: 0 5px;"></div>
+                        
+                        <!-- Tamanho da Fonte -->
+                        <select class="font-size-selector" id="fontSize">
+                            <option value="12">12px</option>
+                            <option value="14" selected>14px</option>
+                            <option value="16">16px</option>
+                            <option value="18">18px</option>
+                            <option value="20">20px</option>
+                            <option value="24">24px</option>
+                            <option value="28">28px</option>
+                            <option value="32">32px</option>
+                        </select>
+                        
+                        <!-- Cor da Fonte -->
+                        <input type="color" class="color-picker" id="fontColor" value="#000000" title="Cor da Fonte">
+                        
+                        <div style="width: 1px; height: 20px; background: #ddd; margin: 0 5px;"></div>
+                        
+                        <!-- Alinhamento -->
+                        <div class="alignment-group">
+                            <button type="button" class="alignment-button" data-command="justifyLeft" title="Alinhar à Esquerda">
+                                <i class="fas fa-align-left"></i>
+                            </button>
+                            <button type="button" class="alignment-button" data-command="justifyCenter" title="Centralizar">
+                                <i class="fas fa-align-center"></i>
+                            </button>
+                            <button type="button" class="alignment-button" data-command="justifyRight" title="Alinhar à Direita">
+                                <i class="fas fa-align-right"></i>
+                            </button>
+                            <button type="button" class="alignment-button" data-command="justifyFull" title="Justificar">
+                                <i class="fas fa-align-justify"></i>
+                            </button>
+                        </div>
+                        
+                        <div style="width: 1px; height: 20px; background: #ddd; margin: 0 5px;"></div>
+                        
+                        <!-- Listas -->
+                        <button type="button" class="editor-button" data-command="insertUnorderedList" title="Lista com Marcadores">
+                            <i class="fas fa-list-ul"></i>
+                        </button>
+                        <button type="button" class="editor-button" data-command="insertOrderedList" title="Lista Numerada">
+                            <i class="fas fa-list-ol"></i>
+                        </button>
+                        
+                        <!-- Recuo -->
+                        <button type="button" class="editor-button" data-command="outdent" title="Diminuir Recuo">
+                            <i class="fas fa-outdent"></i>
+                        </button>
+                        <button type="button" class="editor-button" data-command="indent" title="Aumentar Recuo">
+                            <i class="fas fa-indent"></i>
+                        </button>
+                        
+                        <div style="width: 1px; height: 20px; background: #ddd; margin: 0 5px;"></div>
+                        
+                        <!-- Links e Citações -->
+                        <button type="button" class="editor-button" id="createLink" title="Inserir Link">
+                            <i class="fas fa-link"></i>
+                        </button>
+                        <button type="button" class="editor-button" data-command="formatBlock" data-value="blockquote" title="Citação">
+                            <i class="fas fa-quote-right"></i>
+                        </button>
+                        
+                        <!-- Limpar Formatação -->
+                        <button type="button" class="editor-button" data-command="removeFormat" title="Limpar Formatação">
+                            <i class="fas fa-eraser"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="editor-content" id="votoEditor" contenteditable="true" 
+                         placeholder="Digite aqui o texto do voto que você proferiu durante a sessão...">
+                        {% if voto.voto_proferido %}
+                            {{ voto.voto_proferido|safe }}
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Campo hidden para enviar os dados -->
+                <textarea name="voto_proferido" id="voto_proferido_hidden" style="display: none;"></textarea>
+                
+                <!-- Estatísticas do Editor -->
+                <div class="editor-stats">
+                    <span id="wordCount">0 palavras</span>
+                    <span id="charCount">0 caracteres</span>
+                    <span id="timeSpent">Tempo: 00:00</span>
+                    <span id="lastSave">Último save: -</span>
+                </div>
+                
+                <div class="form-text mt-2">
+                    <i class="fas fa-lightbulb me-1"></i>
+                    <strong>Dicas do Editor Personalizado:</strong>
+                    <ul class="mt-1 mb-0">
+                        <li>Use os botões da barra de ferramentas para formatação</li>
+                        <li>Use <strong>Ctrl+B</strong> para negrito</li>
+                        <li>Use <strong>Ctrl+I</strong> para itálico</li>
+                        <li>Use <strong>Ctrl+U</strong> para sublinhado</li>
+                        <li>Use <strong>Tab</strong> para recuo</li>
+                        <li>Use <strong>Shift+Tab</strong> para reduzir recuo</li>
+                        <li>Use <strong>Ctrl+Z</strong> para desfazer</li>
+                        <li>Use <strong>Ctrl+Y</strong> para refazer</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Confirmação de Senha -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-lock me-2"></i>
+                    Confirmação de Senha
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Digite sua senha para confirmar a edição do voto.
+                </p>
+                <div class="form-group">
+                    <label for="senha_votante" class="form-label">Senha</label>
+                    <input type="password" class="form-control" id="senha_votante" name="senha_votante" 
+                           placeholder="Digite sua senha" required>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Botões de Ação -->
+        <div class="d-flex justify-content-between">
+            <a href="{% url 'militares:meu_voto_detail' voto.pk %}" class="btn btn-secondary">
+                <i class="fas fa-times me-1"></i>
+                Cancelar
+            </a>
+            <button type="submit" class="btn btn-warning">
+                <i class="fas fa-save me-1"></i>
+                Atualizar Voto
+            </button>
+        </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const editor = document.getElementById('votoEditor');
+    const hiddenField = document.getElementById('voto_proferido_hidden');
+    
+    // Função para executar comandos do editor
+    function execCommand(command, value = null) {
+        document.execCommand(command, false, value);
+        editor.focus();
+    }
+    
+    // Event listeners para botões da toolbar
+    document.querySelectorAll('.editor-button').forEach(button => {
+        button.addEventListener('click', function() {
+            const command = this.getAttribute('data-command');
+            const value = this.getAttribute('data-value');
+            
+            if (command) {
+                execCommand(command, value);
+            }
+        });
+    });
+    
+    // Tamanho da fonte
+    document.getElementById('fontSize').addEventListener('change', function() {
+        execCommand('fontSize', this.value);
+    });
+    
+    // Cor da fonte
+    document.getElementById('fontColor').addEventListener('change', function() {
+        execCommand('foreColor', this.value);
+    });
+    
+    // Alinhamento
+    document.querySelectorAll('.alignment-button').forEach(button => {
+        button.addEventListener('click', function() {
+            const command = this.getAttribute('data-command');
+            execCommand(command);
+        });
+    });
+    
+    // Link
+    document.getElementById('createLink').addEventListener('click', function() {
+        const url = prompt('Digite a URL do link:');
+        if (url) {
+            execCommand('createLink', url);
+        }
+    });
+    
+    // Sincronizar conteúdo com campo hidden
+    editor.addEventListener('input', function() {
+        hiddenField.value = this.innerHTML;
+    });
+    
+    // Carregar conteúdo inicial
+    if (editor.innerHTML.trim()) {
+        hiddenField.value = editor.innerHTML;
+    }
+    
+    // Placeholder
+    editor.addEventListener('focus', function() {
+        if (this.innerHTML === '') {
+            this.innerHTML = '';
+        }
+    });
+    
+    editor.addEventListener('blur', function() {
+        if (this.innerHTML === '') {
+            this.innerHTML = '';
+        }
+    });
+
+    // Função para mostrar notificação
+    function showNotification(message, type = 'error') {
+        // Remover notificações existentes
+        const existingNotifications = document.querySelectorAll('.custom-notification');
+        existingNotifications.forEach(notification => notification.remove());
+        
+        // Criar nova notificação
+        const notification = document.createElement('div');
+        notification.className = `custom-notification alert alert-${type === 'error' ? 'danger' : 'success'} alert-dismissible fade show`;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            min-width: 300px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            border-radius: 10px;
+            border: none;
+        `;
+        
+        notification.innerHTML = `
+            <i class="fas fa-${type === 'error' ? 'exclamation-triangle' : 'check-circle'} me-2"></i>
+            <strong>${type === 'error' ? 'Atenção' : 'Sucesso'}:</strong> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Auto-remover após 5 segundos
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+    
+    // Validação do formulário
+    const form = document.getElementById('voto-form');
+    const radioButtons = document.querySelectorAll('input[name="voto"]');
+    
+    form.addEventListener('submit', function(e) {
+        let votoSelecionado = false;
+        radioButtons.forEach(radio => {
+            if (radio.checked) {
+                votoSelecionado = true;
+            }
+        });
+        
+        if (!votoSelecionado) {
+            e.preventDefault();
+            showNotification('Você deve escolher uma opção de voto (Favor, Contra ou Abstenção).');
+            // Destacar os radio buttons
+            radioButtons.forEach(radio => {
+                radio.closest('.form-check').style.backgroundColor = '#fff3cd';
+                radio.closest('.form-check').style.border = '2px solid #ffc107';
+                radio.closest('.form-check').style.borderRadius = '8px';
+                radio.closest('.form-check').style.padding = '10px';
+            });
+            return false;
+        }
+        
+        const senha = document.getElementById('senha_votante').value;
+        if (!senha) {
+            e.preventDefault();
+            showNotification('Você deve digitar sua senha para confirmar a edição.');
+            // Destacar o campo de senha
+            const senhaField = document.getElementById('senha_votante');
+            senhaField.style.border = '2px solid #dc3545';
+            senhaField.style.boxShadow = '0 0 0 0.2rem rgba(220, 53, 69, 0.25)';
+            return false;
+        }
+        
+        // Garantir que o valor do editor seja copiado para o campo
+        hiddenField.value = editor.innerHTML;
+    });
+});
+</script>
+{% endblock %} 

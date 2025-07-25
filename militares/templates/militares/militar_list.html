@@ -1,0 +1,1207 @@
+{% extends 'base.html' %}
+
+{% block title %}Bombeiros Militares{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Busca Discreta */
+    .search-discreet {
+        position: relative;
+        margin: 20px 0;
+        transition: all 0.3s ease;
+    }
+    
+    .search-input-discreet {
+        width: 100%;
+        max-width: 400px;
+        padding: 12px 45px 12px 45px;
+        border: 2px solid #e9ecef;
+        border-radius: 25px;
+        font-size: 14px;
+        background: white;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    
+    .search-input-discreet:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        transform: translateY(-1px);
+    }
+    
+    .search-icon-discreet {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+        font-size: 16px;
+        z-index: 2;
+        transition: color 0.3s ease;
+    }
+    
+    .search-input-discreet:focus + .search-icon-discreet {
+        color: #667eea;
+    }
+    
+    .search-clear-discreet {
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: #6c757d;
+        cursor: pointer;
+        font-size: 14px;
+        display: none;
+        transition: color 0.3s ease;
+    }
+    
+    .search-clear-discreet:hover {
+        color: #dc3545;
+    }
+    
+    /* Autocomplete */
+    .autocomplete-container {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        max-width: 400px;
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        z-index: 1000;
+        max-height: 300px;
+        overflow-y: auto;
+        display: none;
+    }
+    
+    .autocomplete-item {
+        padding: 12px 15px;
+        cursor: pointer;
+        border-bottom: 1px solid #f8f9fa;
+        transition: background-color 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .autocomplete-item:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .autocomplete-item.selected {
+        background-color: #667eea;
+        color: white;
+    }
+    
+    /* Seletor de itens por página */
+    .itens-por-pagina-container {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 15px 0;
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #e9ecef;
+    }
+    
+    .itens-por-pagina-container label {
+        margin: 0;
+        font-weight: 500;
+        color: #495057;
+    }
+    
+    .itens-por-pagina-container select {
+        padding: 6px 12px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        background: white;
+        font-size: 14px;
+        min-width: 80px;
+    }
+    
+    .itens-por-pagina-container select:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+    }
+    
+    /* Paginação */
+    .pagination-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 20px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #e9ecef;
+    }
+    
+    .pagination-info {
+        font-size: 14px;
+        color: #6c757d;
+    }
+    
+    .pagination {
+        margin: 0;
+    }
+    
+    .pagination .page-link {
+        color: #667eea;
+        border: 1px solid #dee2e6;
+        padding: 8px 12px;
+        margin: 0 2px;
+        border-radius: 4px;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+    
+    .pagination .page-link:hover {
+        background-color: #667eea;
+        color: white;
+        border-color: #667eea;
+    }
+    
+    .pagination .page-item.active .page-link {
+        background-color: #667eea;
+        border-color: #667eea;
+        color: white;
+    }
+    
+    .pagination .page-item.disabled .page-link {
+        color: #6c757d;
+        background-color: #fff;
+        border-color: #dee2e6;
+    }
+    
+    .autocomplete-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        object-fit: cover;
+        background: #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        color: #6c757d;
+        font-weight: 600;
+    }
+    
+    .autocomplete-info {
+        flex: 1;
+    }
+    
+    .autocomplete-name {
+        font-weight: 500;
+        font-size: 14px;
+        margin-bottom: 2px;
+    }
+    
+    .autocomplete-details {
+        font-size: 12px;
+        color: #6c757d;
+    }
+    
+    .autocomplete-posto {
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: #e9ecef;
+        color: #495057;
+    }
+    
+    /* Filtros discretos */
+    .filters-discreet {
+        margin-top: 15px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        opacity: 0.7;
+        transition: opacity 0.3s ease;
+    }
+    
+    .filters-discreet:hover {
+        opacity: 1;
+    }
+    
+    .filter-select-discreet {
+        padding: 6px 12px;
+        border: 1px solid #e9ecef;
+        border-radius: 15px;
+        font-size: 12px;
+        background: white;
+        color: #495057;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .filter-select-discreet:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+    }
+    
+    /* Animações */
+    .fade-in {
+        animation: fadeIn 0.3s ease-in;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .highlight {
+        background-color: #fff3cd !important;
+        transition: background-color 0.3s ease;
+    }
+    
+    /* Transições para cabeçalhos de grupos */
+    .table-group-divider {
+        transition: all 0.3s ease;
+    }
+    
+    .table-group-divider.fade-in {
+        animation: fadeIn 0.3s ease-in;
+    }
+    
+    /* Responsivo */
+    @media (max-width: 768px) {
+        .search-input-discreet {
+            max-width: 100%;
+            font-size: 16px; /* Evita zoom no iOS */
+        }
+        
+        .autocomplete-container {
+            max-width: 100%;
+        }
+        
+        .filters-discreet {
+            flex-direction: column;
+        }
+    }
+    
+    /* Estilo para destacar a seção NVRR */
+    .linha-nvrr {
+        background-color: rgba(13, 202, 240, 0.05) !important;
+    }
+    
+    .linha-nvrr:hover {
+        background-color: rgba(13, 202, 240, 0.1) !important;
+    }
+    
+    .nvrr-header {
+        background: linear-gradient(135deg, #0dcaf0 0%, #0aa2c0 100%) !important;
+        color: white !important;
+    }
+    
+    .nvrr-header h6 {
+        color: white !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <div>
+        <h1 class="h2">
+            <i class="fas fa-users me-2"></i>
+            Bombeiros Militares
+        </h1>
+        <small class="text-muted">
+            <i class="fas fa-info-circle me-1"></i>
+            Total: {{ militares|length }} militares 
+            {% if militares %}
+                {% with nvrr_count=0 %}
+                    {% for militar in militares %}
+                        {% if militar.posto_graduacao == 'NVRR' or militar.quadro == 'NVRR' %}
+                            {% with nvrr_count=nvrr_count|add:1 %}{% endwith %}
+                        {% endif %}
+                    {% endfor %}
+                    {% if nvrr_count > 0 %}
+                        ({{ nvrr_count }} NVRR não computados no efetivo)
+                    {% endif %}
+                {% endwith %}
+            {% endif %}
+        </small>
+    </div>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{% url 'militares:militar_create' %}" class="btn btn-sm btn-primary">
+                <i class="fas fa-plus me-1"></i>Novo Militar
+            </a>
+            <a href="{% url 'militares:militar_dashboard' %}" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+            </a>
+            <a href="{% url 'militares:exportar_excel' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" class="btn btn-sm btn-success" title="Exportar lista de militares para Excel (CSV)">
+                <i class="fas fa-file-excel me-1"></i>Exportar Excel
+            </a>
+        </div>
+    </div>
+</div>
+
+{% if request.user.is_superuser or request.user.is_staff %}
+<div class="mb-3 d-inline-block">
+    <button type="button" class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#reordenarModal">
+        <i class="fas fa-sort-numeric-up-alt me-1"></i> Reordenar Antiguidade
+    </button>
+</div>
+
+<!-- Modal para Reordenar Antiguidade -->
+<div class="modal fade" id="reordenarModal" tabindex="-1" aria-labelledby="reordenarModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reordenarModalLabel">
+                    <i class="fas fa-sort-numeric-up-alt me-2"></i>Reordenar Antiguidade
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'militares:militares_reordenar' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Selecione o posto para corrigir repetições e gaps na numeração de antiguidade.
+                    </div>
+                    <div class="mb-3">
+                        <label for="posto_reordenar" class="form-label">Posto/Graduação:</label>
+                        <select name="posto" id="posto_reordenar" class="form-select" required>
+                            <option value="">Selecione um posto...</option>
+                            <option value="CB">Coronel</option>
+                            <option value="TC">Tenente Coronel</option>
+                            <option value="MJ">Major</option>
+                            <option value="CP">Capitão</option>
+                            <option value="1T">1º Tenente</option>
+                            <option value="2T">2º Tenente</option>
+                            <option value="ST">Subtenente</option>
+                            <option value="1S">1º Sargento</option>
+                            <option value="2S">2º Sargento</option>
+                            <option value="3S">3º Sargento</option>
+                            <option value="CAB">Cabo</option>
+                            <option value="SD">Soldado</option>
+                        </select>
+                    </div>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Atenção:</strong> Esta ação irá corrigir apenas repetições e gaps na numeração, mantendo a ordem atual dos demais militares. Apenas os militares com problemas de numeração serão alterados.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-sort-numeric-up-alt me-1"></i> Reordenar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Busca Discreta -->
+<div class="search-discreet">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-6">
+                <div class="position-relative">
+                    <input type="text" 
+                           id="pesquisaMilitares" 
+                           class="search-input-discreet" 
+                           placeholder="🔍 Digite o nome, posto ou matrícula..."
+                           autocomplete="off">
+                    <i class="fas fa-search search-icon-discreet"></i>
+                    <button class="search-clear-discreet" id="searchClear" title="Limpar busca">
+                            <i class="fas fa-times"></i>
+                        </button>
+
+                    
+                    <!-- Autocomplete -->
+                    <div class="autocomplete-container" id="autocompleteContainer">
+                        <!-- Itens do autocomplete serão inseridos aqui -->
+                    </div>
+                </div>
+                
+                <!-- Filtros Discretos -->
+                <form id="filtrosForm" method="get" class="filters-discreet">
+                    <select name="posto" id="filterPosto" class="filter-select-discreet">
+                        <option value="">Todos os Postos</option>
+                        <option value="cb">Coronel</option>
+                        <option value="tc">Tenente Coronel</option>
+                        <option value="mj">Major</option>
+                        <option value="cp">Capitão</option>
+                        <option value="1t">1º Tenente</option>
+                        <option value="2t">2º Tenente</option>
+                        <option value="st">Subtenente</option>
+                        <option value="1s">1º Sargento</option>
+                        <option value="2s">2º Sargento</option>
+                        <option value="3s">3º Sargento</option>
+                        <option value="cab">Cabo</option>
+                        <option value="sd">Soldado</option>
+                        <option value="nvrr">NVRR</option>
+                    </select>
+                    <select name="situacao" id="filterSituacao" class="filter-select-discreet">
+                        <option value="">Todas as Situações</option>
+                        <option value="at">Ativo</option>
+                        <option value="in">Inativo</option>
+                    </select>
+                    <button type="button" id="limparFiltros" class="btn btn-outline-secondary btn-sm" title="Limpar todos os filtros">
+                        <i class="fas fa-times"></i> Limpar
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Resultados -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="m-0 font-weight-bold">
+            <i class="fas fa-list me-2"></i>
+            Lista de Militares ({{ total_militares }} total)
+        </h6>
+        <small class="text-muted">
+            <i class="fas fa-info-circle me-1"></i>
+            {% if page_obj.paginator.num_pages > 1 %}
+                Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+            {% else %}
+                Todos os militares
+            {% endif %}
+        </small>
+    </div>
+    
+                <!-- Seletor de itens por página -->
+            <div class="itens-por-pagina-container">
+                <label for="itensPorPagina">
+                    <i class="fas fa-list-ol me-1"></i>
+                    Itens por página:
+                </label>
+                <form method="get" id="itensForm">
+                    {% if query %}
+                        <input type="hidden" name="q" value="{{ query }}">
+                    {% endif %}
+                    {% if posto_filtro %}
+                        <input type="hidden" name="posto" value="{{ posto_filtro }}">
+                    {% endif %}
+                    {% if situacao_filtro %}
+                        <input type="hidden" name="situacao" value="{{ situacao_filtro }}">
+                    {% endif %}
+                    {% if quadro_filtro %}
+                        <input type="hidden" name="quadro" value="{{ quadro_filtro }}">
+                    {% endif %}
+                    <select id="itensPorPagina" name="itens_por_pagina" onchange="document.getElementById('itensForm').submit()">
+                        <option value="20" {% if itens_por_pagina == 20 %}selected{% endif %}>20</option>
+                        <option value="50" {% if itens_por_pagina == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if itens_por_pagina == 100 %}selected{% endif %}>100</option>
+                    </select>
+                </form>
+            </div>
+            
+
+    <div class="card-body" id="militares-lista">
+        {% if militares %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="selectAllMilitares" title="Selecionar todos os militares">
+                                    <label class="form-check-label" for="selectAllMilitares">
+                                        <i class="fas fa-check-square text-primary"></i>
+                                    </label>
+                                </div>
+                            </th>
+                            <th>Foto</th>
+                            <th>Quadro</th>
+                            <th>Nome</th>
+                            <th>Posto/Graduação</th>
+                            <th>Antiguidade</th>
+                            <th>Última Promoção</th>
+                            <th>Situação</th>
+                                                                <th>Idade</th>
+                                    <th>Tempo de Serviço</th>
+                                    <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Seção: NVRR (No Início) -->
+                        {% regroup militares by quadro as militares_por_quadro %}
+                        {% for grupo in militares_por_quadro %}
+                            {% if grupo.grouper == 'NVRR' %}
+                                <!-- Tarja do NVRR -->
+                                <tr class="table-group-divider">
+                                    <td colspan="10" class="nvrr-header">
+                                        <h6 class="mb-0 fw-bold">
+                                            <i class="fas fa-users fa-lg me-1"></i>
+                                            <span class="ms-2">NVRR</span>
+                                            <small class="ms-2 opacity-75">(Não computado no efetivo)</small>
+                                        </h6>
+                                    </td>
+                                </tr>
+                                
+                                <!-- Lista de Militares do NVRR -->
+                                {% for militar in grupo.list %}
+                                    <tr class="linha-militar linha-nvrr" data-nome="{{ militar.nome_completo|lower }}" data-posto="{{ militar.get_posto_graduacao_display|lower }}" data-matricula="{{ militar.matricula|lower }}" data-situacao="{{ militar.get_situacao_display|lower }}">
+                                        <td class="text-center align-middle">
+                                            <div class="form-check">
+                                                <input class="form-check-input militar-checkbox" type="checkbox" value="{{ militar.pk }}">
+                                            </div>
+                                        </td>
+                                        <td class="text-center align-middle">
+                                            {% if militar.foto %}
+                                                <img src="{{ militar.foto.url }}" alt="Foto" class="rounded-circle" style="width: 40px; height: 40px; object-fit: cover;">
+                                            {% else %}
+                                                <div class="bg-light border rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                                    <i class="fas fa-user text-muted"></i>
+                                                </div>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">{{ militar.get_quadro_display }}</span>
+                                        </td>
+                                        <td>
+                                            <div>
+                                                <strong>{{ militar.nome_completo }}</strong>
+                                                {% if militar.nome_guerra %}
+                                                    <br><small class="text-muted">{{ militar.nome_guerra }}</small>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">{{ militar.get_posto_graduacao_display }}</span>
+                                        </td>
+                                        <td>
+                                            <span class="text-muted fst-italic">NVRR</span>
+                                        </td>
+                                        <td>
+                                            {% if militar.data_promocao_atual %}
+                                                <small class="text-muted">{{ militar.data_promocao_atual|date:"d/m/Y" }}</small>
+                                            {% else %}
+                                                <span class="text-muted fst-italic">—</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if militar.situacao == 'AT' %}
+                                                <span class="badge bg-success">{{ militar.get_situacao_display }}</span>
+                                            {% elif militar.situacao == 'IN' %}
+                                                <span class="badge bg-warning">{{ militar.get_situacao_display }}</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ militar.get_situacao_display }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ militar.idade }} anos</td>
+                                        <td>{{ militar.tempo_servico }} anos</td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <a href="{% url 'militares:militar_detail' militar.pk %}" 
+                                                   class="btn btn-outline-primary" title="Visualizar">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                {% if not menu_permissions.is_consultor %}
+                                                <a href="{% url 'militares:militar_edit' militar.pk %}" 
+                                                   class="btn btn-outline-warning" title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <a href="{% url 'militares:militar_delete' militar.pk %}" 
+                                                   class="btn btn-outline-danger" title="Excluir">
+                                                    <i class="fas fa-trash"></i>
+                                                </a>
+                                                <a href="{% url 'militares:militar_transferir_inativo' militar.pk %}" 
+                                                   class="btn btn-outline-warning" title="Transferir para Inativo">
+                                                    <i class="fas fa-user-times"></i>
+                                                </a>
+                                                {% if militar.fichaconceitooficiais %}
+                                                    <a href="{% url 'militares:ficha_conceito_edit' militar.fichaconceitooficiais.pk %}" 
+                                                       class="btn btn-outline-info" title="Editar Ficha de Conceito">
+                                                        <i class="fas fa-clipboard-list"></i>
+                                                    </a>
+                                                {% else %}
+                                                    <a href="{% url 'militares:ficha_conceito_create' %}" 
+                                                       class="btn btn-outline-success" title="Criar Ficha de Conceito">
+                                                        <i class="fas fa-plus"></i>
+                                                    </a>
+                                                {% endif %}
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            {% endif %}
+                        {% endfor %}
+                        
+                        <!-- Seção: Militares Gerais (excluindo NVRR) -->
+                        {% regroup militares by posto_graduacao as militares_por_posto %}
+                        {% for grupo in militares_por_posto %}
+                            {% if grupo.grouper != 'NVRR' %}
+                                <!-- Tarja do Posto -->
+                                <tr class="table-group-divider">
+                                    <td colspan="10" class="bg-primary bg-opacity-25">
+                                        <h6 class="mb-0 text-dark fw-bold">
+                                            {% if grupo.grouper == 'CB' %}
+                                                <i class="fas fa-star text-warning fa-lg me-1"></i>
+                                                <i class="fas fa-star text-warning fa-lg me-1"></i>
+                                                <i class="fas fa-star text-warning fa-lg me-1"></i>
+                                                <span class="ms-2">Coronéis</span>
+                                            {% elif grupo.grouper == 'TC' %}
+                                                <i class="fas fa-star text-warning fa-lg me-1"></i>
+                                                <i class="fas fa-star text-warning fa-lg me-1"></i>
+                                                <i class="fas fa-star text-light fa-lg me-1"></i>
+                                                <span class="ms-2">Tenentes-Coronéis</span>
+                                            {% elif grupo.grouper == 'MJ' %}
+                                                <i class="fas fa-star text-warning fa-lg me-1"></i>
+                                                <i class="fas fa-star text-light fa-lg me-1"></i>
+                                                <i class="fas fa-star text-light fa-lg me-1"></i>
+                                                <span class="ms-2">Majores</span>
+                                            {% elif grupo.grouper == 'CP' %}
+                                                <i class="fas fa-star text-light fa-lg me-1"></i>
+                                                <i class="fas fa-star text-light fa-lg me-1"></i>
+                                                <i class="fas fa-star text-light fa-lg me-1"></i>
+                                                <span class="ms-2">Capitães</span>
+                                            {% elif grupo.grouper == '1T' %}
+                                                <i class="fas fa-star text-light fa-lg me-1"></i>
+                                                <i class="fas fa-star text-light fa-lg me-1"></i>
+                                                <span class="ms-2">1º Tenentes</span>
+                                            {% elif grupo.grouper == '2T' %}
+                                                <i class="fas fa-star text-light fa-lg me-1"></i>
+                                                <span class="ms-2">2º Tenentes</span>
+                                            {% elif grupo.grouper == 'AS' %}
+                                                <span class="ms-2">Aspirantes a Oficial</span>
+                                            {% elif grupo.grouper == 'AA' %}
+                                                <span class="ms-2">Alunos de Adaptação</span>
+                                            {% elif grupo.grouper == 'ST' %}
+                                                <span class="ms-2">Subtenentes</span>
+                                            {% elif grupo.grouper == '1S' %}
+                                                <span class="ms-2">1º Sargentos</span>
+                                            {% elif grupo.grouper == '2S' %}
+                                                <span class="ms-2">2º Sargentos</span>
+                                            {% elif grupo.grouper == '3S' %}
+                                                <span class="ms-2">3º Sargentos</span>
+                                            {% elif grupo.grouper == 'CAB' %}
+                                                <span class="ms-2">Cabos</span>
+                                            {% elif grupo.grouper == 'SD' %}
+                                                <span class="ms-2">Soldados</span>
+                                            {% else %}
+                                                <span class="ms-2">{{ grupo.list.0.get_posto_graduacao_display }}s</span>
+                                            {% endif %}
+                                        </h6>
+                                    </td>
+                                </tr>
+                                
+                                <!-- Lista de Militares do Posto -->
+                                {% for militar in grupo.list %}
+                                    {% if militar.quadro != 'NVRR' %}
+                                    <tr class="linha-militar" data-nome="{{ militar.nome_completo|lower }}" data-posto="{{ militar.get_posto_graduacao_display|lower }}" data-matricula="{{ militar.matricula|lower }}" data-situacao="{{ militar.get_situacao_display|lower }}">
+                                        <td class="text-center align-middle">
+                                            <div class="form-check">
+                                                <input class="form-check-input militar-checkbox" type="checkbox" value="{{ militar.pk }}">
+                                            </div>
+                                        </td>
+                                        <td class="text-center align-middle">
+                                            {% if militar.foto %}
+                                                <img src="{{ militar.foto.url }}" alt="Foto" class="rounded-circle" style="width: 40px; height: 40px; object-fit: cover;">
+                                            {% else %}
+                                                <div class="bg-light border rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                                    <i class="fas fa-user text-muted"></i>
+                                                </div>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">{{ militar.get_quadro_display }}</span>
+                                        </td>
+                                        <td>
+                                            <div>
+                                                <strong>{{ militar.nome_completo }}</strong>
+                                                {% if militar.nome_guerra %}
+                                                    <br><small class="text-muted">{{ militar.nome_guerra }}</small>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            {% if militar.posto_graduacao == 'CB' %}
+                                                <span class="badge bg-danger">{{ militar.get_posto_graduacao_display }}</span>
+                                            {% elif militar.posto_graduacao == 'TC' %}
+                                                <span class="badge bg-warning text-dark">{{ militar.get_posto_graduacao_display }}</span>
+                                            {% elif militar.posto_graduacao == 'MJ' %}
+                                                <span class="badge bg-info">{{ militar.get_posto_graduacao_display }}</span>
+                                            {% elif militar.posto_graduacao == 'CP' %}
+                                                <span class="badge bg-success">{{ militar.get_posto_graduacao_display }}</span>
+                                            {% elif militar.posto_graduacao == '1T' %}
+                                                <span class="badge bg-primary">{{ militar.get_posto_graduacao_display }}</span>
+                                            {% elif militar.posto_graduacao == '2T' %}
+                                                <span class="badge bg-secondary">{{ militar.get_posto_graduacao_display }}</span>
+                                            {% else %}
+                                                <span class="badge bg-dark">{{ militar.get_posto_graduacao_display }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if militar.numeracao_antiguidade %}
+                                                <span class="badge bg-warning text-dark fw-bold">{{ militar.numeracao_antiguidade }}º</span>
+                                            {% else %}
+                                                <span class="text-muted fst-italic">—</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if militar.data_promocao_atual %}
+                                                <small class="text-muted">{{ militar.data_promocao_atual|date:"d/m/Y" }}</small>
+                                            {% else %}
+                                                <span class="text-muted fst-italic">—</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if militar.situacao == 'AT' %}
+                                                <span class="badge bg-success">{{ militar.get_situacao_display }}</span>
+                                            {% elif militar.situacao == 'IN' %}
+                                                <span class="badge bg-warning">{{ militar.get_situacao_display }}</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ militar.get_situacao_display }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ militar.idade }} anos</td>
+                                        <td>{{ militar.tempo_servico }} anos</td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <a href="{% url 'militares:militar_detail' militar.pk %}" 
+                                                   class="btn btn-outline-primary" title="Visualizar">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                {% if not menu_permissions.is_consultor %}
+                                                <a href="{% url 'militares:militar_edit' militar.pk %}" 
+                                                   class="btn btn-outline-warning" title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <a href="{% url 'militares:militar_delete' militar.pk %}" 
+                                                   class="btn btn-outline-danger" title="Excluir">
+                                                    <i class="fas fa-trash"></i>
+                                                </a>
+                                                <a href="{% url 'militares:promocao_create' %}?militar={{ militar.pk }}" 
+                                                   class="btn btn-outline-success" title="Promover Militar">
+                                                    <i class="fas fa-arrow-up"></i>
+                                                </a>
+                                                <a href="{% url 'militares:militar_transferir_inativo' militar.pk %}" 
+                                                   class="btn btn-outline-warning" title="Transferir para Inativo">
+                                                    <i class="fas fa-user-times"></i>
+                                                </a>
+                                                {% if militar.fichaconceitooficiais %}
+                                                    <a href="{% url 'militares:ficha_conceito_edit' militar.fichaconceitooficiais.pk %}" 
+                                                       class="btn btn-outline-info" title="Editar Ficha de Conceito">
+                                                        <i class="fas fa-clipboard-list"></i>
+                                                    </a>
+                                                {% else %}
+                                                    <a href="{% url 'militares:ficha_conceito_create' %}" 
+                                                       class="btn btn-outline-success" title="Criar Ficha de Conceito">
+                                                        <i class="fas fa-plus"></i>
+                                                    </a>
+                                                {% endif %}
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                {% endfor %}
+                            {% endif %}
+                        {% endfor %}
+                        
+                        <!-- Linha para mensagem de nenhum resultado -->
+                        <tr id="noResultsRow" style="display:none;">
+                                                            <td colspan="10" class="text-center text-muted py-5">
+                                <i class="fas fa-users fa-2x mb-2"></i><br>
+                                <span>Nenhum militar encontrado</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Paginação -->
+            {% if page_obj.paginator.num_pages > 1 %}
+            <div class="pagination-container">
+                <div class="pagination-info">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Mostrando {{ page_obj.start_index }} a {{ page_obj.end_index }} de {{ total_militares }} militares
+                </div>
+                
+                <nav aria-label="Navegação de páginas">
+                    <ul class="pagination">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1&itens_por_pagina={{ itens_por_pagina }}{% if query %}&q={{ query }}{% endif %}{% if posto_filtro %}&posto={{ posto_filtro }}{% endif %}{% if situacao_filtro %}&situacao={{ situacao_filtro }}{% endif %}{% if quadro_filtro %}&quadro={{ quadro_filtro }}{% endif %}" title="Primeira página">
+                                    <i class="fas fa-angle-double-left"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&itens_por_pagina={{ itens_por_pagina }}{% if query %}&q={{ query }}{% endif %}{% if posto_filtro %}&posto={{ posto_filtro }}{% endif %}{% if situacao_filtro %}&situacao={{ situacao_filtro }}{% endif %}{% if quadro_filtro %}&quadro={{ quadro_filtro }}{% endif %}" title="Página anterior">
+                                    <i class="fas fa-angle-left"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                        
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if num == page_obj.number %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ num }}</span>
+                                </li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}&itens_por_pagina={{ itens_por_pagina }}{% if query %}&q={{ query }}{% endif %}{% if posto_filtro %}&posto={{ posto_filtro }}{% endif %}{% if situacao_filtro %}&situacao={{ situacao_filtro }}{% endif %}{% if quadro_filtro %}&quadro={{ quadro_filtro }}{% endif %}">{{ num }}</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}&itens_por_pagina={{ itens_por_pagina }}{% if query %}&q={{ query }}{% endif %}{% if posto_filtro %}&posto={{ posto_filtro }}{% endif %}{% if situacao_filtro %}&situacao={{ situacao_filtro }}{% endif %}{% if quadro_filtro %}&quadro={{ quadro_filtro }}{% endif %}" title="Próxima página">
+                                    <i class="fas fa-angle-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&itens_por_pagina={{ itens_por_pagina }}{% if query %}&q={{ query }}{% endif %}{% if posto_filtro %}&posto={{ posto_filtro }}{% endif %}{% if situacao_filtro %}&situacao={{ situacao_filtro }}{% endif %}{% if quadro_filtro %}&quadro={{ quadro_filtro }}{% endif %}" title="Última página">
+                                    <i class="fas fa-angle-double-right"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+
+        {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">Nenhum militar encontrado</h5>
+                <p class="text-muted">
+                    Comece cadastrando o primeiro militar.
+                </p>
+                <a href="{% url 'militares:militar_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Cadastrar Militar
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const pesquisaInput = document.getElementById('pesquisaMilitares');
+    const searchClear = document.getElementById('searchClear');
+    const autocompleteContainer = document.getElementById('autocompleteContainer');
+    const filterPosto = document.getElementById('filterPosto');
+    const filterSituacao = document.getElementById('filterSituacao');
+    const linhas = document.querySelectorAll('.linha-militar');
+    
+    // Sincronizar filtros com parâmetros da URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlPosto = urlParams.get('posto');
+    const urlSituacao = urlParams.get('situacao');
+    
+    if (urlPosto && filterPosto) {
+        filterPosto.value = urlPosto;
+    }
+    if (urlSituacao && filterSituacao) {
+        filterSituacao.value = urlSituacao;
+    }
+    
+    let searchTimeout;
+    let selectedIndex = -1;
+    
+    // Função para mostrar o autocomplete
+    function showAutocomplete(results) {
+        autocompleteContainer.innerHTML = '';
+        
+        if (!pesquisaInput.value.trim()) {
+            autocompleteContainer.style.display = 'none';
+            return;
+        }
+        
+        if (results.length === 0) {
+            autocompleteContainer.style.display = 'block';
+            const noResultsItem = document.createElement('div');
+            noResultsItem.classList.add('autocomplete-item');
+            noResultsItem.style.textAlign = 'center';
+            noResultsItem.style.color = '#6c757d';
+            noResultsItem.style.fontStyle = 'italic';
+            noResultsItem.innerHTML = '<i class="fas fa-search me-2"></i>Nenhum militar encontrado';
+            autocompleteContainer.appendChild(noResultsItem);
+            return;
+        }
+        
+        // Limitar a 8 resultados para melhor UX
+        const limitedResults = results.slice(0, 8);
+        
+        autocompleteContainer.style.display = 'block';
+        
+        limitedResults.forEach((result, index) => {
+            const autocompleteItem = document.createElement('div');
+            autocompleteItem.classList.add('autocomplete-item');
+            autocompleteItem.setAttribute('data-index', index);
+            
+            // Avatar
+            const avatar = document.createElement('div');
+            avatar.classList.add('autocomplete-avatar');
+            avatar.textContent = result.nome.charAt(0).toUpperCase();
+            autocompleteItem.appendChild(avatar);
+            
+            // Informações
+            const info = document.createElement('div');
+            info.classList.add('autocomplete-info');
+            
+            const name = document.createElement('div');
+            name.classList.add('autocomplete-name');
+            name.textContent = result.nome;
+            info.appendChild(name);
+            
+            const details = document.createElement('div');
+            details.classList.add('autocomplete-details');
+            details.textContent = `${result.posto} • ${result.matricula}`;
+            info.appendChild(details);
+            
+            autocompleteItem.appendChild(info);
+            autocompleteContainer.appendChild(autocompleteItem);
+            
+            // Adicionar evento de clique
+            autocompleteItem.addEventListener('click', function() {
+                // Aplicar busca via GET request
+                const params = new URLSearchParams();
+                params.append('q', result.nome);
+                if (filterPosto.value) {
+                    params.append('posto', filterPosto.value);
+                }
+                if (filterSituacao.value) {
+                    params.append('situacao', filterSituacao.value);
+                }
+                
+                const url = window.location.pathname + '?' + params.toString();
+                window.location.href = url;
+            });
+        });
+    }
+    
+    // Função para buscar militares via AJAX
+    async function buscarMilitaresAJAX(termo) {
+        try {
+            const url = `{% url 'militares:militar_search_ajax' %}?q=${encodeURIComponent(termo)}`;
+            const response = await fetch(url);
+            const data = await response.json();
+            return data.results || [];
+        } catch (error) {
+            console.error('Erro ao buscar militares:', error);
+            return [];
+        }
+    }
+    
+    // Função para selecionar um militar
+    function selectMilitar(linha) {
+        const nomeElement = linha.querySelector('td:nth-child(3) strong');
+        const nome = nomeElement ? nomeElement.textContent : '';
+        
+        pesquisaInput.value = nome;
+        hideAutocomplete();
+        
+        // Destacar a linha selecionada
+        linhas.forEach(l => l.classList.remove('highlight'));
+        linha.classList.add('highlight');
+        
+        // Scroll para a linha
+        linha.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        // Remover destaque após 3 segundos
+        setTimeout(() => {
+            linha.classList.remove('highlight');
+        }, 3000);
+    }
+    
+    // Função para esconder o autocomplete
+    function hideAutocomplete() {
+        autocompleteContainer.style.display = 'none';
+        selectedIndex = -1;
+    }
+    
+
+    
+    // Atualizar contador de resultados
+    function updateResultCount(count) {
+        const header = document.querySelector('.card-header h6');
+        if (header) {
+            const termo = pesquisaInput.value.trim();
+            if (termo) {
+            header.innerHTML = `<i class="fas fa-list me-2"></i>Militares Encontrados (${count})`;
+            } else {
+                header.innerHTML = `<i class="fas fa-list me-2"></i>Lista Completa de Militares (${count})`;
+            }
+        }
+    }
+    
+    // Mostrar/ocultar botão limpar baseado na URL
+    function updateClearButton() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const hasQuery = urlParams.get('q');
+        searchClear.style.display = hasQuery ? 'block' : 'none';
+    }
+    
+    // Inicializar botão limpar
+    updateClearButton();
+    
+    // Event listeners
+    pesquisaInput.addEventListener('input', function() {
+        const termo = this.value.trim();
+        
+        // Limpar timeout anterior
+        clearTimeout(searchTimeout);
+        
+        // Mostrar dica se o usuário digitou apenas 1 caractere
+        if (termo.length === 1) {
+            const hintItem = document.createElement('div');
+            hintItem.classList.add('autocomplete-item');
+            hintItem.style.textAlign = 'center';
+            hintItem.style.color = '#6c757d';
+            hintItem.style.fontSize = '12px';
+            hintItem.innerHTML = '<i class="fas fa-info-circle me-2"></i>Continue digitando para buscar...';
+            autocompleteContainer.innerHTML = '';
+            autocompleteContainer.appendChild(hintItem);
+            autocompleteContainer.style.display = 'block';
+        } else if (termo.length === 0) {
+            hideAutocomplete();
+        } else if (termo.length >= 2) {
+            // Buscar via AJAX após 300ms de delay
+            searchTimeout = setTimeout(async function() {
+                const results = await buscarMilitaresAJAX(termo);
+                showAutocomplete(results);
+            }, 300);
+        }
+    });
+    
+    // Navegação com teclado no autocomplete
+    pesquisaInput.addEventListener('keydown', function(e) {
+        const autocompleteItems = autocompleteContainer.querySelectorAll('.autocomplete-item');
+        
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            selectedIndex = Math.min(selectedIndex + 1, autocompleteItems.length - 1);
+            updateSelectedItem(autocompleteItems);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            selectedIndex = Math.max(selectedIndex - 1, -1);
+            updateSelectedItem(autocompleteItems);
+        } else if (e.key === 'Enter' && selectedIndex >= 0) {
+            e.preventDefault();
+            if (autocompleteItems[selectedIndex]) {
+                autocompleteItems[selectedIndex].click();
+            }
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            // Aplicar busca via GET request
+            const params = new URLSearchParams();
+            if (pesquisaInput.value.trim()) {
+                params.append('q', pesquisaInput.value.trim());
+            }
+            if (filterPosto.value) {
+                params.append('posto', filterPosto.value);
+            }
+            if (filterSituacao.value) {
+                params.append('situacao', filterSituacao.value);
+            }
+            
+            const url = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+            window.location.href = url;
+        } else if (e.key === 'Escape') {
+            // Limpar URL e recarregar página
+            window.location.href = window.location.pathname;
+        }
+    });
+    
+    function updateSelectedItem(items) {
+        items.forEach((item, index) => {
+            if (index === selectedIndex) {
+                item.classList.add('selected');
+            } else {
+                item.classList.remove('selected');
+            }
+        });
+    }
+    
+    // Quando o usuário clica fora, esconde o autocomplete
+    document.addEventListener('click', function(event) {
+        if (!pesquisaInput.contains(event.target) && !autocompleteContainer.contains(event.target)) {
+            hideAutocomplete();
+        }
+    });
+    
+    // Botão limpar
+    searchClear.addEventListener('click', function() {
+        // Aplicar filtros via GET request (sem a busca)
+        const params = new URLSearchParams();
+        if (filterPosto.value) {
+            params.append('posto', filterPosto.value);
+        }
+        if (filterSituacao.value) {
+            params.append('situacao', filterSituacao.value);
+        }
+        
+        const url = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+        window.location.href = url;
+    });
+    
+    filterPosto.addEventListener('change', () => {
+        // Aplicar filtros via GET request
+        const params = new URLSearchParams();
+        if (pesquisaInput.value.trim()) {
+            params.append('q', pesquisaInput.value.trim());
+        }
+        if (filterPosto.value) {
+            params.append('posto', filterPosto.value);
+        }
+        if (filterSituacao.value) {
+            params.append('situacao', filterSituacao.value);
+        }
+        
+        const url = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+        window.location.href = url;
+    });
+    
+    filterSituacao.addEventListener('change', () => {
+        // Aplicar filtros via GET request
+        const params = new URLSearchParams();
+        if (pesquisaInput.value.trim()) {
+            params.append('q', pesquisaInput.value.trim());
+        }
+        if (filterPosto.value) {
+            params.append('posto', filterPosto.value);
+        }
+        if (filterSituacao.value) {
+            params.append('situacao', filterSituacao.value);
+        }
+        
+        const url = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+        window.location.href = url;
+    });
+    
+    // Botão limpar filtros
+    const limparFiltros = document.getElementById('limparFiltros');
+    if (limparFiltros) {
+        limparFiltros.addEventListener('click', function() {
+            // Limpar URL e recarregar página
+            window.location.href = window.location.pathname;
+        });
+    }
+    
+
+    
+    // Animações de entrada
+    linhas.forEach((linha, index) => {
+        linha.style.animationDelay = `${index * 0.05}s`;
+        linha.classList.add('fade-in');
+    });
+});
+</script>
+{% endblock %}
+
+ 

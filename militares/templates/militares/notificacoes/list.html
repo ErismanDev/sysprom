@@ -1,0 +1,285 @@
+{% extends 'base.html' %}
+
+{% block title %}Notificações - SysProm - CBMEPI{% endblock %}
+
+{% block extra_css %}
+<style>
+    .notification-card {
+        transition: all 0.3s ease;
+        border-left: 4px solid #dee2e6;
+    }
+    
+    .notification-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .notification-card.unread {
+        background-color: #f8f9fa;
+        border-left-color: #007bff;
+    }
+    
+    .notification-card.urgent {
+        border-left-color: #dc3545;
+        background-color: #fff5f5;
+    }
+    
+    .notification-card.high {
+        border-left-color: #fd7e14;
+        background-color: #fff8f0;
+    }
+    
+    .notification-card.medium {
+        border-left-color: #ffc107;
+        background-color: #fffdf0;
+    }
+    
+    .notification-card.low {
+        border-left-color: #28a745;
+        background-color: #f0fff0;
+    }
+    
+    .priority-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .priority-urgent {
+        background-color: #dc3545;
+        color: white;
+    }
+    
+    .priority-high {
+        background-color: #fd7e14;
+        color: white;
+    }
+    
+    .priority-medium {
+        background-color: #ffc107;
+        color: #212529;
+    }
+    
+    .priority-low {
+        background-color: #28a745;
+        color: white;
+    }
+    
+    .type-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        background-color: #6c757d;
+        color: white;
+    }
+    
+    .notification-actions {
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .notification-card:hover .notification-actions {
+        opacity: 1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-bell me-2"></i>
+                        Notificações
+                    </h2>
+                    <p class="text-muted mb-0">Gerencie suas notificações do sistema</p>
+                </div>
+                <div>
+                    <a href="{% url 'militares:notificacao_marcar_todas_lidas' %}" class="btn btn-outline-success btn-sm">
+                        <i class="fas fa-check-double me-1"></i>
+                        Marcar Todas como Lidas
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-4">
+                            <label for="tipo" class="form-label">Tipo de Notificação</label>
+                            <select name="tipo" id="tipo" class="form-select">
+                                <option value="">Todos os tipos</option>
+                                {% for value, label in tipos %}
+                                <option value="{{ value }}" {% if filtros.tipo == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="lida" class="form-label">Status</label>
+                            <select name="lida" id="lida" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="false" {% if filtros.lida == 'false' %}selected{% endif %}>Não lidas</option>
+                                <option value="true" {% if filtros.lida == 'true' %}selected{% endif %}>Lidas</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary me-2">
+                                <i class="fas fa-search me-1"></i>
+                                Filtrar
+                            </button>
+                            <a href="{% url 'militares:notificacoes_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>
+                                Limpar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Lista de Notificações -->
+            {% if notificacoes %}
+                <div class="row">
+                    {% for notificacao in notificacoes %}
+                    <div class="col-12 mb-3">
+                        <div class="card notification-card {% if not notificacao.lida %}unread{% endif %} {{ notificacao.prioridade|lower }}">
+                            <div class="card-body">
+                                <div class="row align-items-center">
+                                    <div class="col-md-8">
+                                        <div class="d-flex align-items-start">
+                                            <div class="me-3">
+                                                {% if notificacao.tipo == 'SESSAO_HOJE' %}
+                                                    <i class="fas fa-calendar-day text-danger fa-lg"></i>
+                                                {% elif notificacao.tipo == 'VOTACAO_PENDENTE' %}
+                                                    <i class="fas fa-vote-yea text-warning fa-lg"></i>
+                                                {% elif notificacao.tipo == 'SESSAO_PENDENTE' %}
+                                                    <i class="fas fa-clock text-info fa-lg"></i>
+                                                {% elif notificacao.tipo == 'DELIBERACAO_PENDENTE' %}
+                                                    <i class="fas fa-gavel text-primary fa-lg"></i>
+                                                {% elif notificacao.tipo == 'SESSAO_AGENDADA' %}
+                                                    <i class="fas fa-calendar-plus text-success fa-lg"></i>
+                                                {% else %}
+                                                    <i class="fas fa-bell text-secondary fa-lg"></i>
+                                                {% endif %}
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <div class="d-flex align-items-center mb-2">
+                                                    <h6 class="mb-0 me-2 {% if not notificacao.lida %}fw-bold{% endif %}">
+                                                        {{ notificacao.titulo }}
+                                                    </h6>
+                                                    <span class="priority-badge priority-{{ notificacao.prioridade|lower }}">
+                                                        {{ notificacao.get_prioridade_display }}
+                                                    </span>
+                                                    <span class="type-badge ms-2">
+                                                        {{ notificacao.get_tipo_display }}
+                                                    </span>
+                                                </div>
+                                                <p class="mb-2 text-muted">{{ notificacao.mensagem }}</p>
+                                                <small class="text-muted">
+                                                    <i class="fas fa-clock me-1"></i>
+                                                    {{ notificacao.data_criacao|date:"d/m/Y H:i" }}
+                                                    {% if notificacao.data_leitura %}
+                                                        <span class="ms-3">
+                                                            <i class="fas fa-check me-1"></i>
+                                                            Lida em {{ notificacao.data_leitura|date:"d/m/Y H:i" }}
+                                                        </span>
+                                                    {% endif %}
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="notification-actions d-flex justify-content-end">
+                                            {% if notificacao.sessao %}
+                                                <a href="{% url 'militares:sessao_comissao_detail' notificacao.sessao.pk %}" class="btn btn-outline-primary btn-sm me-2">
+                                                    <i class="fas fa-eye me-1"></i>
+                                                    Ver Sessão
+                                                </a>
+                                            {% endif %}
+                                            {% if notificacao.deliberacao %}
+                                                <a href="{% url 'militares:voto_deliberacao_create' notificacao.deliberacao.pk %}" class="btn btn-outline-warning btn-sm me-2">
+                                                    <i class="fas fa-vote-yea me-1"></i>
+                                                    Votar
+                                                </a>
+                                            {% endif %}
+                                            {% if not notificacao.lida %}
+                                                <a href="{% url 'militares:notificacao_marcar_lida' notificacao.pk %}" class="btn btn-outline-success btn-sm me-2">
+                                                    <i class="fas fa-check me-1"></i>
+                                                    Marcar Lida
+                                                </a>
+                                            {% endif %}
+                                            <a href="{% url 'militares:notificacao_delete' notificacao.pk %}" class="btn btn-outline-danger btn-sm" 
+                                               onclick="return confirm('Tem certeza que deseja excluir esta notificação?')">
+                                                <i class="fas fa-trash me-1"></i>
+                                                Excluir
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Paginação -->
+                {% if notificacoes.has_other_pages %}
+                <nav aria-label="Paginação das notificações">
+                    <ul class="pagination justify-content-center">
+                        {% if notificacoes.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1{% if filtros.tipo %}&tipo={{ filtros.tipo }}{% endif %}{% if filtros.lida %}&lida={{ filtros.lida }}{% endif %}">
+                                    <i class="fas fa-angle-double-left"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ notificacoes.previous_page_number }}{% if filtros.tipo %}&tipo={{ filtros.tipo }}{% endif %}{% if filtros.lida %}&lida={{ filtros.lida }}{% endif %}">
+                                    <i class="fas fa-angle-left"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                        
+                        {% for num in notificacoes.paginator.page_range %}
+                            {% if notificacoes.number == num %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ num }}</span>
+                                </li>
+                            {% elif num > notificacoes.number|add:'-3' and num < notificacoes.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}{% if filtros.tipo %}&tipo={{ filtros.tipo }}{% endif %}{% if filtros.lida %}&lida={{ filtros.lida }}{% endif %}">{{ num }}</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if notificacoes.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ notificacoes.next_page_number }}{% if filtros.tipo %}&tipo={{ filtros.tipo }}{% endif %}{% if filtros.lida %}&lida={{ filtros.lida }}{% endif %}">
+                                    <i class="fas fa-angle-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ notificacoes.paginator.num_pages }}{% if filtros.tipo %}&tipo={{ filtros.tipo }}{% endif %}{% if filtros.lida %}&lida={{ filtros.lida }}{% endif %}">
+                                    <i class="fas fa-angle-double-right"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-bell-slash fa-3x text-muted mb-3"></i>
+                    <h4 class="text-muted">Nenhuma notificação encontrada</h4>
+                    <p class="text-muted">Você não possui notificações com os filtros aplicados.</p>
+                    <a href="{% url 'militares:notificacoes_list' %}" class="btn btn-primary">
+                        <i class="fas fa-refresh me-1"></i>
+                        Ver Todas
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %} 

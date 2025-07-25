@@ -1,0 +1,780 @@
+{% extends 'base.html' %}
+
+{% block title %}Editor de Ata - Sessão {{ sessao.numero }} - SysProm - CBMEPI{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        background: #f8f9fa;
+        margin: 0;
+        padding: 0;
+        height: 100vh;
+        overflow: hidden;
+    }
+    
+    .editor-fullscreen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 9999;
+        background: white;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .editor-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 15px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .editor-header h3 {
+        margin: 0;
+        font-size: 1.2rem;
+        font-weight: 600;
+    }
+    
+    .editor-info {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    
+    .editor-content {
+        flex: 1;
+        padding: 20px;
+        overflow-y: auto;
+        background: white;
+    }
+    
+    .ck-editor__editable {
+        min-height: calc(100vh - 200px) !important;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-size: 14px;
+        line-height: 1.6;
+    }
+    
+    .ck.ck-editor__main > .ck-editor__editable {
+        background-color: #fafafa;
+        border: 1px solid #e9ecef;
+        border-radius: 4px;
+    }
+    
+    .ck.ck-toolbar {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 4px 4px 0 0;
+    }
+    
+    .toolbar-actions {
+        display: flex;
+        gap: 10px;
+    }
+    
+    .toolbar-actions .btn {
+        font-size: 0.85rem;
+        padding: 6px 12px;
+    }
+    
+    .status-indicator {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    
+    .status-draft {
+        background: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+    }
+    
+    .status-saved {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+    
+    .editor-toolbar {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .toolbar-section {
+        margin-bottom: 15px;
+    }
+    
+    .toolbar-section:last-child {
+        margin-bottom: 0;
+    }
+    
+    .toolbar-section h6 {
+        color: #495057;
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-bottom: 8px;
+        border-bottom: 1px solid #dee2e6;
+        padding-bottom: 5px;
+    }
+    
+    .toolbar-buttons {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    
+    .toolbar-buttons .btn {
+        font-size: 0.8rem;
+        padding: 5px 10px;
+        border-radius: 4px;
+    }
+    
+    .btn-template {
+        background: #e3f2fd;
+        border-color: #2196f3;
+        color: #1976d2;
+    }
+    
+    .btn-template:hover {
+        background: #bbdefb;
+        border-color: #1976d2;
+        color: #0d47a1;
+    }
+    
+    .btn-format {
+        background: #f3e5f5;
+        border-color: #9c27b0;
+        color: #7b1fa2;
+    }
+    
+    .btn-format:hover {
+        background: #e1bee7;
+        border-color: #7b1fa2;
+        color: #4a148c;
+    }
+    
+    .btn-action {
+        background: #e8f5e8;
+        border-color: #4caf50;
+        color: #388e3c;
+    }
+    
+    .btn-action:hover {
+        background: #c8e6c9;
+        border-color: #388e3c;
+        color: #2e7d32;
+    }
+    
+    .btn-utility {
+        background: #fff3e0;
+        border-color: #ff9800;
+        color: #f57c00;
+    }
+    
+    .btn-utility:hover {
+        background: #ffe0b2;
+        border-color: #f57c00;
+        color: #ef6c00;
+    }
+    
+    .form-actions {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        margin-top: 20px;
+        border: 1px solid #e9ecef;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .form-actions .btn {
+        margin-right: 10px;
+        min-width: 120px;
+    }
+    
+    .stats-panel {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        padding: 10px 15px;
+        margin-bottom: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.85rem;
+    }
+    
+    .stats-group {
+        display: flex;
+        gap: 20px;
+    }
+    
+    .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    
+    .stat-item i {
+        font-size: 0.9rem;
+    }
+    
+    .auto-save-indicator {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #4caf50;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 4px;
+        z-index: 1000;
+        display: none;
+        animation: fadeInOut 2s ease-in-out;
+    }
+    
+    @keyframes fadeInOut {
+        0% { opacity: 0; transform: translateY(-20px); }
+        20% { opacity: 1; transform: translateY(0); }
+        80% { opacity: 1; transform: translateY(0); }
+        100% { opacity: 0; transform: translateY(-20px); }
+    }
+    
+    .close-button {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 10000;
+        background: #dc3545;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+        cursor: pointer;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    
+    .close-button:hover {
+        background: #c82333;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="editor-fullscreen">
+    <!-- Botão de Fechar -->
+    <button type="button" class="close-button" onclick="fecharEditor()" title="Fechar Editor">
+        <i class="fas fa-times"></i>
+    </button>
+    
+    <!-- Cabeçalho do Editor -->
+    <div class="editor-header">
+        <div>
+            <h3><i class="fas fa-file-alt me-2"></i>Editor de Ata - Sessão {{ sessao.numero }}</h3>
+            <div class="editor-info">
+                {% if ata_salva %}
+                    <span class="status-indicator status-saved">
+                        <i class="fas fa-check-circle me-1"></i>
+                        Versão {{ ata_salva.versao }} - Editado por {{ ata_salva.editado_por.get_full_name|default:ata_salva.editado_por.username }}
+                    </span>
+                {% else %}
+                    <span class="status-indicator status-draft">
+                        <i class="fas fa-edit me-1"></i>
+                        Nova Ata
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="toolbar-actions">
+            <button type="button" class="btn btn-sm btn-outline-light" onclick="toggleFullscreen()" title="Tela Cheia">
+                <i class="fas fa-expand"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-light" onclick="previewAta()" title="Visualizar">
+                <i class="fas fa-eye"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-light" onclick="salvarAta()" title="Salvar">
+                <i class="fas fa-save"></i>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Conteúdo do Editor -->
+    <div class="editor-content">
+        <form method="post" enctype="multipart/form-data" id="ataForm">
+            {% csrf_token %}
+            {{ form.media }}
+            
+            <!-- Painel de Estatísticas -->
+            <div class="stats-panel">
+                <div class="stats-group">
+                    <div class="stat-item">
+                        <i class="fas fa-font"></i>
+                        <span id="wordCountText">0 palavras</span>
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-text-width"></i>
+                        <span id="charCount">0 caracteres</span>
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-clock"></i>
+                        <span id="timeSpent">Tempo: 00:00</span>
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-save"></i>
+                        <span id="lastSave">Último save: Nunca</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Barra de Ferramentas Completa -->
+            <div class="editor-toolbar">
+                <!-- Seção: Templates -->
+                <div class="toolbar-section">
+                    <h6><i class="fas fa-copy me-1"></i>Templates e Seções</h6>
+                    <div class="toolbar-buttons">
+                        <button type="button" class="btn btn-template" onclick="insertTemplate('header')">
+                            <i class="fas fa-heading me-1"></i>Cabeçalho
+                        </button>
+                        <button type="button" class="btn btn-template" onclick="insertTemplate('presenca')">
+                            <i class="fas fa-users me-1"></i>Lista de Presença
+                        </button>
+                        <button type="button" class="btn btn-template" onclick="insertTemplate('deliberacao')">
+                            <i class="fas fa-gavel me-1"></i>Deliberação
+                        </button>
+                        <button type="button" class="btn btn-template" onclick="insertTemplate('assinatura')">
+                            <i class="fas fa-signature me-1"></i>Área de Assinatura
+                        </button>
+                        <button type="button" class="btn btn-template" onclick="insertTemplate('pauta')">
+                            <i class="fas fa-list me-1"></i>Pauta
+                        </button>
+                        <button type="button" class="btn btn-template" onclick="insertTemplate('encerramento')">
+                            <i class="fas fa-door-closed me-1"></i>Encerramento
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Seção: Formatação -->
+                <div class="toolbar-section">
+                    <h6><i class="fas fa-paint-brush me-1"></i>Formatação</h6>
+                    <div class="toolbar-buttons">
+                        <button type="button" class="btn btn-format" onclick="formatText('bold')">
+                            <i class="fas fa-bold me-1"></i>Negrito
+                        </button>
+                        <button type="button" class="btn btn-format" onclick="formatText('italic')">
+                            <i class="fas fa-italic me-1"></i>Itálico
+                        </button>
+                        <button type="button" class="btn btn-format" onclick="formatText('underline')">
+                            <i class="fas fa-underline me-1"></i>Sublinhado
+                        </button>
+                        <button type="button" class="btn btn-format" onclick="insertTable()">
+                            <i class="fas fa-table me-1"></i>Tabela
+                        </button>
+                        <button type="button" class="btn btn-format" onclick="insertList('bulleted')">
+                            <i class="fas fa-list-ul me-1"></i>Lista
+                        </button>
+                        <button type="button" class="btn btn-format" onclick="insertList('numbered')">
+                            <i class="fas fa-list-ol me-1"></i>Lista Numerada
+                        </button>
+                        <button type="button" class="btn btn-format" onclick="insertQuote()">
+                            <i class="fas fa-quote-right me-1"></i>Citação
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Seção: Ações -->
+                <div class="toolbar-section">
+                    <h6><i class="fas fa-tools me-1"></i>Ações</h6>
+                    <div class="toolbar-buttons">
+                        <button type="button" class="btn btn-action" onclick="printAta()">
+                            <i class="fas fa-print me-1"></i>Imprimir
+                        </button>
+                        <button type="button" class="btn btn-action" onclick="exportAta()">
+                            <i class="fas fa-download me-1"></i>Exportar
+                        </button>
+                        <button type="button" class="btn btn-action" onclick="undoAction()">
+                            <i class="fas fa-undo me-1"></i>Desfazer
+                        </button>
+                        <button type="button" class="btn btn-action" onclick="redoAction()">
+                            <i class="fas fa-redo me-1"></i>Refazer
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Seção: Utilitários -->
+                <div class="toolbar-section">
+                    <h6><i class="fas fa-cog me-1"></i>Utilitários</h6>
+                    <div class="toolbar-buttons">
+                        <button type="button" class="btn btn-utility" onclick="findReplace()">
+                            <i class="fas fa-search me-1"></i>Buscar/Substituir
+                        </button>
+                        <button type="button" class="btn btn-utility" onclick="spellCheck()">
+                            <i class="fas fa-spell-check me-1"></i>Correção Ortográfica
+                        </button>
+                        <button type="button" class="btn btn-utility" onclick="clearEditor()">
+                            <i class="fas fa-trash me-1"></i>Limpar
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Editor CKEditor -->
+            <div class="form-group">
+                {{ form.conteudo }}
+            </div>
+            
+            <!-- Ações do Formulário -->
+            <div class="form-actions">
+                <div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i>
+                        Salvar Ata
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="fecharEditor()">
+                        <i class="fas fa-times me-1"></i>
+                        Fechar
+                    </button>
+                </div>
+                <div>
+                    <a href="{% url 'militares:modelo_ata_aplicar' sessao.pk %}" class="btn btn-outline-primary">
+                        <i class="fas fa-magic me-1"></i>
+                        Aplicar Modelo
+                    </a>
+                    {% if ata_salva and ata_salva.conteudo %}
+                    <a href="{% url 'militares:modelo_ata_salvar_atual' sessao.pk %}" class="btn btn-outline-success">
+                        <i class="fas fa-save me-1"></i>
+                        Salvar como Modelo
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Indicador de Auto-save -->
+<div class="auto-save-indicator" id="autoSaveIndicator">
+    <i class="fas fa-check me-2"></i>
+    <span id="autoSaveMessage">Ata salva automaticamente!</span>
+</div>
+
+<script>
+let startTime = new Date();
+let autoSaveInterval;
+
+// Função para fechar o editor
+function fecharEditor() {
+    if (confirm('Tem certeza que deseja fechar o editor? As alterações não salvas serão perdidas.')) {
+        window.close();
+        // Se não conseguir fechar (não é popup), redirecionar
+        window.location.href = "{% url 'militares:sessao_comissao_detail' sessao.pk %}";
+    }
+}
+
+// Função para salvar ata
+function salvarAta() {
+    document.getElementById('ataForm').submit();
+}
+
+// Função para alternar tela cheia
+function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+    } else {
+        document.exitFullscreen();
+    }
+}
+
+// Função para visualizar ata
+function previewAta() {
+    if (window.editors && Object.keys(window.editors).length > 0) {
+        const editor = Object.values(window.editors)[0];
+        const content = editor.getData();
+        
+        const previewWindow = window.open('', '_blank');
+        previewWindow.document.write(`
+            <html>
+                <head>
+                    <title>Visualização da Ata - Sessão {{ sessao.numero }}</title>
+                    <style>
+                        body { 
+                            font-family: Arial, sans-serif; 
+                            line-height: 1.6; 
+                            margin: 20px; 
+                            max-width: 800px;
+                            margin: 0 auto;
+                            padding: 20px;
+                        }
+                        h1, h2, h3 { color: #333; }
+                        table { border-collapse: collapse; width: 100%; }
+                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                        th { background-color: #f2f2f2; }
+                        @media print { body { margin: 20px; } }
+                    </style>
+                </head>
+                <body>
+                    ${content}
+                </body>
+            </html>
+        `);
+        previewWindow.document.close();
+    }
+}
+
+// Inserir templates
+function insertTemplate(type) {
+    if (window.editors && Object.keys(window.editors).length > 0) {
+        const editor = Object.values(window.editors)[0];
+        let template = '';
+        
+        switch(type) {
+            case 'header':
+                template = '<h1 style="text-align: center; color: #2c3e50; margin-bottom: 20px;"><strong>ATA DA SESSÃO Nº {{ sessao.numero }}</strong></h1><p style="text-align: center; color: #7f8c8d; margin-bottom: 30px;"><strong>Data:</strong> {{ sessao.data_sessao|date:"d/m/Y" }} | <strong>Horário:</strong> {{ sessao.hora_inicio|time:"H:i" }} | <strong>Local:</strong> {{ sessao.local }}</p>';
+                break;
+            case 'presenca':
+                template = '<h2 style="color: #34495e; margin-top: 30px; margin-bottom: 15px;"><i class="fas fa-users"></i> LISTA DE PRESENÇA</h2><table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;"><thead><tr style="background-color: #ecf0f1;"><th style="border: 1px solid #bdc3c7; padding: 10px; text-align: center;">Nº</th><th style="border: 1px solid #bdc3c7; padding: 10px;">Nome</th><th style="border: 1px solid #bdc3c7; padding: 10px;">Cargo</th><th style="border: 1px solid #bdc3c7; padding: 10px; text-align: center;">Assinatura</th></tr></thead><tbody><tr><td style="border: 1px solid #bdc3c7; padding: 10px; text-align: center;">1</td><td style="border: 1px solid #bdc3c7; padding: 10px;"></td><td style="border: 1px solid #bdc3c7; padding: 10px;"></td><td style="border: 1px solid #bdc3c7; padding: 10px; text-align: center;"></td></tr></tbody></table>';
+                break;
+            case 'deliberacao':
+                template = '<h2 style="color: #34495e; margin-top: 30px; margin-bottom: 15px;"><i class="fas fa-gavel"></i> DELIBERAÇÕES</h2><div style="background-color: #f8f9fa; padding: 15px; border-left: 4px solid #3498db; margin-bottom: 20px;"><h3 style="color: #2980b9; margin-bottom: 10px;">Deliberação 1</h3><p style="margin-bottom: 10px;"><strong>Assunto:</strong> [Inserir assunto da deliberação]</p><p style="margin-bottom: 10px;"><strong>Votação:</strong> [Inserir resultado da votação]</p><p><strong>Decisão:</strong> [Inserir decisão tomada]</p></div>';
+                break;
+            case 'assinatura':
+                template = '<h2 style="color: #34495e; margin-top: 30px; margin-bottom: 15px;"><i class="fas fa-signature"></i> ASSINATURAS</h2><div style="display: flex; justify-content: space-between; margin-top: 30px;"><div style="text-align: center; width: 30%;"><div style="border-bottom: 1px solid #bdc3c7; height: 60px; margin-bottom: 10px;"></div><p style="font-weight: bold; margin-bottom: 5px;">Presidente</p><p style="font-size: 0.9em; color: #7f8c8d;">Nome e Posto/Graduação</p></div><div style="text-align: center; width: 30%;"><div style="border-bottom: 1px solid #bdc3c7; height: 60px; margin-bottom: 10px;"></div><p style="font-weight: bold; margin-bottom: 5px;">Secretário</p><p style="font-size: 0.9em; color: #7f8c8d;">Nome e Posto/Graduação</p></div><div style="text-align: center; width: 30%;"><div style="border-bottom: 1px solid #bdc3c7; height: 60px; margin-bottom: 10px;"></div><p style="font-weight: bold; margin-bottom: 5px;">Membro</p><p style="font-size: 0.9em; color: #7f8c8d;">Nome e Posto/Graduação</p></div></div>';
+                break;
+            case 'pauta':
+                template = '<h2 style="color: #34495e; margin-top: 30px; margin-bottom: 15px;"><i class="fas fa-list"></i> PAUTA DA SESSÃO</h2><div style="background-color: #f8f9fa; padding: 15px; border-left: 4px solid #f39c12; margin-bottom: 20px;"><h3 style="color: #e67e22; margin-bottom: 10px;">Itens da Pauta</h3><ol style="margin-bottom: 0;"><li style="margin-bottom: 8px;">[Item 1 da pauta]</li><li style="margin-bottom: 8px;">[Item 2 da pauta]</li><li style="margin-bottom: 8px;">[Item 3 da pauta]</li></ol></div>';
+                break;
+            case 'encerramento':
+                template = '<h2 style="color: #34495e; margin-top: 30px; margin-bottom: 15px;"><i class="fas fa-door-closed"></i> ENCERRAMENTO</h2><div style="background-color: #f8f9fa; padding: 15px; border-left: 4px solid #e74c3c; margin-bottom: 20px;"><p style="margin-bottom: 10px;"><strong>Hora de Encerramento:</strong> [Inserir hora]</p><p style="margin-bottom: 10px;"><strong>Justificativa:</strong> [Inserir justificativa se necessário]</p><p><strong>Próxima Sessão:</strong> [Data e horário da próxima sessão]</p></div>';
+                break;
+        }
+        
+        if (template) {
+            editor.model.change(writer => {
+                const insertPosition = editor.model.document.selection.getFirstPosition();
+                const viewFragment = editor.data.processor.toView(template);
+                const modelFragment = editor.data.toModel(viewFragment);
+                editor.model.insertContent(modelFragment, insertPosition);
+            });
+        }
+    }
+}
+
+// Funções de formatação
+function formatText(format) {
+    if (window.editors && Object.keys(window.editors).length > 0) {
+        const editor = Object.values(window.editors)[0];
+        editor.execute(format);
+    }
+}
+
+function insertTable() {
+    if (window.editors && Object.keys(window.editors).length > 0) {
+        const editor = Object.values(window.editors)[0];
+        editor.execute('insertTable', { rows: 3, columns: 3 });
+    }
+}
+
+function insertList(type) {
+    if (window.editors && Object.keys(window.editors).length > 0) {
+        const editor = Object.values(window.editors)[0];
+        if (type === 'bulleted') {
+            editor.execute('bulletedList');
+        } else {
+            editor.execute('numberedList');
+        }
+    }
+}
+
+function insertQuote() {
+    if (window.editors && Object.keys(window.editors).length > 0) {
+        const editor = Object.values(window.editors)[0];
+        editor.execute('blockQuote');
+    }
+}
+
+// Funções de ação
+function printAta() {
+    if (window.editors && Object.keys(window.editors).length > 0) {
+        const editor = Object.values(window.editors)[0];
+        const content = editor.getData();
+        
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>Ata da Sessão {{ sessao.numero }}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 20px; }
+                        h1, h2, h3 { color: #333; }
+                        table { border-collapse: collapse; width: 100%; }
+                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                        th { background-color: #f2f2f2; }
+                        @media print { body { margin: 20px; } }
+                    </style>
+                </head>
+                <body>
+                    ${content}
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+    }
+}
+
+// Funções utilitárias
+function undoAction() {
+    if (window.editors && Object.keys(window.editors).length > 0) {
+        const editor = Object.values(window.editors)[0];
+        editor.execute('undo');
+    }
+}
+
+function redoAction() {
+    if (window.editors && Object.keys(window.editors).length > 0) {
+        const editor = Object.values(window.editors)[0];
+        editor.execute('redo');
+    }
+}
+
+function findReplace() {
+    alert('Funcionalidade de busca e substituição será implementada em breve.');
+}
+
+function spellCheck() {
+    alert('Funcionalidade de correção ortográfica será implementada em breve.');
+}
+
+// Limpar editor
+function clearEditor() {
+    if (confirm('Tem certeza que deseja limpar todo o conteúdo do editor?')) {
+        if (window.editors && Object.keys(window.editors).length > 0) {
+            const editor = Object.values(window.editors)[0];
+            editor.setData('');
+        }
+    }
+}
+
+// Exportar ata
+function exportAta() {
+    if (window.editors && Object.keys(window.editors).length > 0) {
+        const editor = Object.values(window.editors)[0];
+        const content = editor.getData();
+        
+        const blob = new Blob([content], { type: 'text/html' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ata_sessao_${sessao.numero}_${new Date().toISOString().split('T')[0]}.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    }
+}
+
+// Auto-save
+function startAutoSave() {
+    autoSaveInterval = setInterval(() => {
+        if (window.editors && Object.keys(window.editors).length > 0) {
+            const editor = Object.values(window.editors)[0];
+            const content = editor.getData();
+            
+            // Enviar via AJAX
+            fetch("{% url 'militares:sessao_editar_ata_popup' sessao.pk %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: new URLSearchParams({
+                    'conteudo': content
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAutoSaveIndicator('Ata salva automaticamente!');
+                    document.getElementById('lastSave').textContent = `Último save: ${new Date().toLocaleTimeString()}`;
+                }
+            })
+            .catch(error => {
+                console.error('Erro no auto-save:', error);
+            });
+        }
+    }, 30000); // Salvar a cada 30 segundos
+}
+
+function showAutoSaveIndicator(message) {
+    const indicator = document.getElementById('autoSaveIndicator');
+    const messageSpan = document.getElementById('autoSaveMessage');
+    messageSpan.textContent = message;
+    indicator.style.display = 'block';
+    
+    setTimeout(() => {
+        indicator.style.display = 'none';
+    }, 2000);
+}
+
+// Atualizar contador de palavras e estatísticas
+function updateStats() {
+    if (window.editors && Object.keys(window.editors).length > 0) {
+        const editor = Object.values(window.editors)[0];
+        const text = editor.getData().replace(/<[^>]*>/g, '').trim();
+        const wordCount = text.split(/\s+/).filter(word => word.length > 0).length;
+        const charCount = text.length;
+        
+        document.getElementById('wordCountText').textContent = `${wordCount} palavras`;
+        document.getElementById('charCount').textContent = `${charCount} caracteres`;
+        
+        // Atualizar tempo gasto
+        const now = new Date();
+        const timeDiff = Math.floor((now - startTime) / 1000 / 60); // minutos
+        const hours = Math.floor(timeDiff / 60);
+        const minutes = timeDiff % 60;
+        document.getElementById('timeSpent').textContent = `Tempo: ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    }
+}
+
+// Inicializar quando o editor estiver pronto
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(() => {
+        if (window.editors && Object.keys(window.editors).length > 0) {
+            const editor = Object.values(window.editors)[0];
+            
+            // Atualizar estatísticas quando o conteúdo mudar
+            editor.model.document.on('change:data', updateStats);
+            
+            // Inicializar estatísticas
+            updateStats();
+            
+            // Iniciar auto-save
+            startAutoSave();
+            
+            // Atualizar estatísticas a cada 30 segundos
+            setInterval(updateStats, 30000);
+        }
+    }, 1000);
+});
+
+// Prevenir fechamento acidental
+window.addEventListener('beforeunload', function(e) {
+    e.preventDefault();
+    e.returnValue = '';
+});
+</script>
+{% endblock %} 

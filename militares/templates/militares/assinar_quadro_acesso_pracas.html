@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Assinar Quadro de Acesso - Praças{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <div class="text-center">
+                        <h2 class="mb-2 text-uppercase text-primary">
+                            <i class="fas fa-signature"></i> Assinar Quadro de Acesso de Praças
+                        </h2>
+                        <h5 class="mb-0 text-secondary">{{ quadro.titulo|default:"-" }}</h5>
+                        <p class="text-muted mb-0">
+                            <strong>Tipo:</strong> {{ quadro.get_tipo_display|default:"-" }} |
+                            <strong>Status:</strong> {{ quadro.get_status_display|default:"-" }} |
+                            <strong>Promoção:</strong> {{ quadro.data_promocao|date:"d/m/Y"|default:"-" }}
+                        </p>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Informações do quadro -->
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-info-circle"></i> Informações do Quadro</h6>
+                        <p class="mb-1"><strong>Criado em:</strong> {{ quadro.data_criacao|date:"d/m/Y H:i" }}</p>
+                        {% if quadro.data_atualizacao %}
+                            <p class="mb-1"><strong>Atualizado em:</strong> {{ quadro.data_atualizacao|date:"d/m/Y H:i" }}</p>
+                        {% endif %}
+                        <p class="mb-0"><strong>Observações:</strong> {{ quadro.observacoes|default:"Nenhuma observação." }}</p>
+                    </div>
+
+                    <!-- Assinaturas existentes -->
+                    {% if quadro.assinaturas.exists %}
+                        <div class="alert alert-warning">
+                            <h6><i class="fas fa-exclamation-triangle"></i> Assinaturas Existentes</h6>
+                            <ul class="mb-0">
+                                {% for assinatura in quadro.assinaturas.all %}
+                                    <li>
+                                        <strong>{{ assinatura.assinado_por.get_full_name|default:assinatura.assinado_por.username }}</strong>
+                                        - {{ assinatura.get_tipo_assinatura_display }}
+                                        ({{ assinatura.data_assinatura|date:"d/m/Y H:i" }})
+                                        {% if assinatura.observacoes %}
+                                            <br><small class="text-muted">{{ assinatura.observacoes }}</small>
+                                        {% endif %}
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endif %}
+
+                    <!-- Formulário de assinatura -->
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="tipo_assinatura" class="form-label">
+                                <i class="fas fa-certificate"></i> Tipo de Assinatura
+                            </label>
+                            <select name="tipo_assinatura" id="tipo_assinatura" class="form-select" required>
+                                <option value="APROVACAO">Aprovação</option>
+                                <option value="HOMOLOGACAO">Homologação</option>
+                                <option value="PUBLICACAO">Publicação</option>
+                            </select>
+                            <div class="form-text">
+                                Selecione o tipo de assinatura que você está realizando.
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="observacoes" class="form-label">
+                                <i class="fas fa-comment"></i> Observações (Opcional)
+                            </label>
+                            <textarea name="observacoes" id="observacoes" class="form-control" rows="3" 
+                                      placeholder="Adicione observações sobre a assinatura, se necessário..."></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="membro_id" class="form-label"><strong>Membro da Comissão *</strong></label>
+                            <select class="form-select" id="membro_id" name="membro_id" required>
+                                <option value="">Selecione o membro...</option>
+                                {% for membro in membros_comissao %}
+                                    <option value="{{ membro.id }}">
+                                        {{ membro.militar.get_posto_graduacao_display }} {{ membro.militar.nome_completo }} - {{ membro.cargo.nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Selecione o membro da comissão que irá assinar.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="senha" class="form-label"><strong>Senha *</strong></label>
+                            <input type="password" class="form-control" id="senha" name="senha" placeholder="Digite sua senha para confirmar a assinatura" required>
+                            <div class="form-text">Digite sua senha para confirmar a assinatura eletrônica.</div>
+                        </div>
+
+                        <!-- Aviso de segurança -->
+                        <div class="alert alert-warning">
+                            <h6><i class="fas fa-shield-alt"></i> Aviso de Segurança</h6>
+                            <p class="mb-1">
+                                <strong>Atenção:</strong> Ao assinar este documento, você está confirmando que:
+                            </p>
+                            <ul class="mb-0">
+                                <li>Leu e analisou todo o conteúdo do quadro de acesso</li>
+                                <li>Concorda com as informações apresentadas</li>
+                                <li>Assume a responsabilidade pela assinatura eletrônica</li>
+                                <li>A assinatura será registrada com data e hora</li>
+                            </ul>
+                        </div>
+
+                        <!-- Botões -->
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-signature me-1"></i> Confirmar Assinatura
+                            </button>
+                            <a href="{% url 'militares:quadro_acesso_pracas_detail' quadro.pk %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-1"></i> Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

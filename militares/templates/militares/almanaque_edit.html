@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .status-badge {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+    }
+    .form-section {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .form-section h6 {
+        color: #495057;
+        border-bottom: 2px solid #dee2e6;
+        padding-bottom: 10px;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">
+                <i class="fas fa-edit text-primary me-2"></i>
+                Editar Almanaque
+            </h2>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'militares:almanaque_list' %}">
+                            <i class="fas fa-list me-1"></i>Almanaques
+                        </a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'militares:almanaque_detail' pk=almanaque.pk %}">
+                            {{ almanaque.numero }}
+                        </a>
+                    </li>
+                    <li class="breadcrumb-item active">Editar</li>
+                </ol>
+            </nav>
+        </div>
+        <div>
+            <a href="{% url 'militares:almanaque_detail' pk=almanaque.pk %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Voltar
+            </a>
+        </div>
+    </div>
+
+    <!-- Informações do Almanaque -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>Informações do Almanaque
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <strong>Número:</strong><br>
+                            <span class="badge bg-dark">{{ almanaque.numero }}</span>
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Tipo:</strong><br>
+                            <span class="badge bg-info">{{ almanaque.get_tipo_display }}</span>
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Status Atual:</strong><br>
+                            <span class="badge bg-{{ almanaque.get_status_color }}">{{ almanaque.get_status_display }}</span>
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Criado por:</strong><br>
+                            <small>{{ almanaque.criado_por.get_full_name|default:"Sistema" }}</small>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-4">
+                            <strong>Data de Criação:</strong><br>
+                            <small>{{ almanaque.data_geracao|date:"d/m/Y H:i" }}</small>
+                        </div>
+                        <div class="col-md-4">
+                            <strong>Última Atualização:</strong><br>
+                            <small>{{ almanaque.data_atualizacao|date:"d/m/Y H:i" }}</small>
+                        </div>
+                        <div class="col-md-4">
+                            <strong>Total de Assinaturas:</strong><br>
+                            <span class="badge bg-success">{{ almanaque.get_total_assinaturas }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulário de Edição -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="fas fa-edit me-2"></i>Editar Dados do Almanaque
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <!-- Seção: Dados Básicos -->
+                        <div class="form-section">
+                            <h6><i class="fas fa-file-alt me-2"></i>Dados Básicos</h6>
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <div class="mb-3">
+                                        <label for="titulo" class="form-label">
+                                            <strong>Título do Almanaque</strong>
+                                        </label>
+                                        <input type="text" 
+                                               class="form-control" 
+                                               id="titulo" 
+                                               name="titulo" 
+                                               value="{{ almanaque.titulo }}"
+                                               required>
+                                        <div class="form-text">
+                                            Título descritivo do almanaque
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="status" class="form-label">
+                                            <strong>Status</strong>
+                                        </label>
+                                        <select class="form-select" id="status" name="status" required>
+                                            {% for value, label in almanaque.STATUS_CHOICES %}
+                                                <option value="{{ value }}" 
+                                                        {% if almanaque.status == value %}selected{% endif %}>
+                                                    {{ label }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="form-text">
+                                            Status atual do almanaque
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Seção: Observações -->
+                        <div class="form-section">
+                            <h6><i class="fas fa-sticky-note me-2"></i>Observações</h6>
+                            <div class="mb-3">
+                                <label for="observacoes" class="form-label">
+                                    <strong>Observações</strong>
+                                </label>
+                                <textarea class="form-control" 
+                                          id="observacoes" 
+                                          name="observacoes" 
+                                          rows="4"
+                                          placeholder="Digite observações sobre o almanaque...">{{ almanaque.observacoes|default:"" }}</textarea>
+                                <div class="form-text">
+                                    Observações adicionais sobre o almanaque
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Botões de Ação -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'militares:almanaque_detail' pk=almanaque.pk %}" 
+                               class="btn btn-secondary">
+                                <i class="fas fa-times me-1"></i>Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>Salvar Alterações
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Validação do formulário
+    document.querySelector('form').addEventListener('submit', function(e) {
+        const titulo = document.getElementById('titulo').value.trim();
+        if (!titulo) {
+            e.preventDefault();
+            alert('Por favor, preencha o título do almanaque.');
+            document.getElementById('titulo').focus();
+            return false;
+        }
+    });
+
+    // Confirmação antes de sair sem salvar
+    let formChanged = false;
+    document.querySelectorAll('input, textarea, select').forEach(function(element) {
+        element.addEventListener('change', function() {
+            formChanged = true;
+        });
+    });
+
+    window.addEventListener('beforeunload', function(e) {
+        if (formChanged) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+</script>
+{% endblock %} 

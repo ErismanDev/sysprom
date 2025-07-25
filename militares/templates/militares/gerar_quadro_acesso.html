@@ -1,0 +1,373 @@
+{% extends 'base.html' %}
+
+{% block title %}Gerar Quadro de Acesso{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-plus-circle me-2"></i>Gerar Quadro de Acesso Único
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <!-- Categoria (Praças ou Oficiais) -->
+                            <div class="col-md-4 mb-3">
+                                <label for="categoria" class="form-label">
+                                    <strong>Categoria *</strong>
+                                </label>
+                                <select name="categoria" id="categoria" class="form-select" required>
+                                    <option value="">Selecione a categoria</option>
+                                    {% for value, label in categorias %}
+                                        <option value="{{ value }}" {% if value == categoria_selecionada %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text" id="datas-oficiais-texto">
+                                    <strong>Data automática calculada:</strong> {{ proxima_data_automatica|date:"d/m/Y" }}<br>
+                                    <strong>Datas oficiais:</strong> 18 de julho e 23 de dezembro<br>
+                                    <strong>Você pode alterar esta data se necessário</strong>
+                                </div>
+                            </div>
+                            
+                            <!-- Tipo de Acesso -->
+                            <div class="col-md-4 mb-3">
+                                <label for="tipo" class="form-label">
+                                    <strong>Tipo de Acesso *</strong>
+                                </label>
+                                <select name="tipo" id="tipo" class="form-select" required>
+                                    <option value="">Selecione o tipo</option>
+                                    {% for value, label in tipos %}
+                                        <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">
+                                    <strong>Antiguidade:</strong> Ordenação por data de promoção (mais antiga primeiro)<br>
+                                    <strong>Merecimento:</strong> Ordenação por pontuação da ficha de conceito
+                                </div>
+                            </div>
+                            
+                            <!-- Data da Promoção -->
+                            <div class="col-md-4 mb-3">
+                                <label for="data_promocao" class="form-label">
+                                    <strong>Data de Previsão de Promoções</strong>
+                                </label>
+                                <input type="date" name="data_promocao" id="data_promocao" 
+                                       class="form-control" value="{{ proxima_data_automatica|date:'Y-m-d' }}">
+                                <div class="form-text" id="datas-oficiais-texto">
+                                    <strong>Data automática calculada:</strong> {{ proxima_data_automatica|date:"d/m/Y" }}<br>
+                                    <strong>Datas oficiais:</strong> 18 de julho e 23 de dezembro<br>
+                                    <strong>Você pode alterar esta data se necessário</strong>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Informações sobre Datas Automáticas -->
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="alert alert-success">
+                                    <h6><i class="fas fa-calendar-alt me-2"></i>Datas Automáticas de Promoção</h6>
+                                    <p class="mb-0">
+                                        <strong>O sistema calcula automaticamente a próxima data de promoção:</strong>
+                                    </p>
+                                    <ul class="mb-0 mt-2">
+                                        <li><strong>Antes de 18 de julho:</strong> Próxima promoção em 18 de julho</li>
+                                        <li><strong>Entre 18 de julho e 23 de dezembro:</strong> Próxima promoção em 23 de dezembro</li>
+                                        <li><strong>Após 23 de dezembro:</strong> Próxima promoção em 18 de julho do próximo ano</li>
+                                        <li><strong>Data atual calculada:</strong> {{ proxima_data_automatica|date:"d/m/Y" }} (já preenchida no campo acima)</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Informações sobre Geração Automática -->
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="alert alert-info">
+                                    <h6><i class="fas fa-magic me-2"></i>Geração de Quadro Único</h6>
+                                    <p class="mb-0">
+                                        <strong>O sistema irá gerar um único quadro que inclui:</strong>
+                                    </p>
+                                    <ul class="mb-0 mt-2">
+                                        {% if request.POST.categoria == 'PRACAS' or categoria_selecionada == 'PRACAS' %}
+                                            <li><strong>Todos os quadros:</strong> Praças</li>
+                                            <li><strong>Todos os postos:</strong> Soldado até Subtenente</li>
+                                            <li><strong>Militares aptos:</strong> Que atendam aos requisitos de cada graduação</li>
+                                            <li><strong>Ordenação automática:</strong> Por antiguidade ou merecimento conforme selecionado</li>
+                                            <li><strong>Quadro consolidado:</strong> Um único quadro com todos os militares aptos ordenados</li>
+                                        {% else %}
+                                            <li><strong>Todos os quadros:</strong> Combatente, Saúde, Engenheiro e Complementar</li>
+                                            <li><strong>Todos os postos:</strong> 2º Tenente até Coronel</li>
+                                            <li><strong>Militares aptos:</strong> Que atendam aos requisitos de cada posto</li>
+                                            <li><strong>Ordenação automática:</strong> Por antiguidade ou merecimento conforme selecionado</li>
+                                            <li><strong>Quadro consolidado:</strong> Um único quadro com todos os militares aptos ordenados</li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Informações sobre os tipos -->
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="alert alert-info" id="info-tipo">
+                                    <h6><i class="fas fa-info-circle me-2"></i>Informações sobre os Tipos de Acesso</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <strong>Acesso por Antiguidade:</strong>
+                                            <ul class="mb-0">
+                                                <li>Ordenação por data de promoção atual</li>
+                                                <li>Militar mais antigo no posto fica em 1º lugar</li>
+                                                <li>Não considera pontuação da ficha de conceito</li>
+                                                <li>Usado para promoções automáticas</li>
+                                                <li>Hierarquia: Combatente → Saúde → Engenheiro → Complementar</li>
+                                            </ul>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <strong>Acesso por Merecimento:</strong>
+                                            <ul class="mb-0">
+                                                <li>Ordenação por pontuação da ficha de conceito</li>
+                                                <li>Maior pontuação fica em 1º lugar</li>
+                                                <li>Em caso de empate, considera antiguidade</li>
+                                                <li>Usado para promoções por mérito</li>
+                                                <li>Exige ficha de conceito para todos os militares</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Validações e Requisitos -->
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <div class="alert alert-warning">
+                                    <h6><i class="fas fa-exclamation-triangle me-2"></i>Requisitos para Inclusão nos Quadros</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <strong>Requisitos Obrigatórios:</strong>
+                                            <ul class="mb-0">
+                                                <li><strong>Antiguidade:</strong> Ficha de conceito não obrigatória</li>
+                                                <li><strong>Merecimento:</strong> Ficha de conceito obrigatória</li>
+                                                <li>Interstício mínimo completado até a data da promoção</li>
+                                                <li>Inspeção de saúde em dia</li>
+                                                <li>Cursos inerentes ao posto subsequente</li>
+                                                <li>Situação ativa no serviço</li>
+                                            </ul>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <strong>Critérios de Ordenação:</strong>
+                                            <ul class="mb-0">
+                                                <li><strong>Antiguidade:</strong> Data de promoção atual (mais antiga primeiro)</li>
+                                                <li><strong>Merecimento:</strong> Pontuação da ficha de conceito (maior pontuação primeiro)</li>
+                                                <li>Em caso de empate no merecimento, considera antiguidade</li>
+                                                <li><strong>Numeração:</strong> Cada militar possui numeração de antiguidade</li>
+                                                <li><strong>Hierarquia:</strong> Combatente → Saúde → Engenheiro → Complementar</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Informações sobre Numeração de Antiguidade -->
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <div class="alert alert-info">
+                                    <h6><i class="fas fa-sort-numeric-up me-2"></i>Numeração de Antiguidade</h6>
+                                    <p class="mb-0">
+                                        <strong>Como funciona:</strong> Cada militar possui uma numeração de antiguidade dentro do seu posto e quadro específico. 
+                                        A numeração é calculada automaticamente baseada na data de promoção atual, onde o militar mais antigo no posto fica em 1º lugar.
+                                        Esta numeração é importante para desempates e para identificar a posição hierárquica dentro de cada posto.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Botões -->
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="d-flex gap-2">
+                                    <button type="submit" class="btn btn-primary" id="btn-gerar-quadro">
+                                        <i class="fas fa-magic me-2"></i>Gerar Quadro Único
+                                    </button>
+                                    <a href="{% url 'militares:quadro_acesso_list' %}" class="btn btn-secondary">
+                                        <i class="fas fa-times me-2"></i>Cancelar
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Quadros Existentes -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-history me-2"></i>Quadros Recentes
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if quadros_recentes %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Tipo</th>
+                                        <th>Data</th>
+                                        <th>Status</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for quadro in quadros_recentes %}
+                                    <tr>
+                                        <td>
+                                            {% if quadro.tipo == 'ANTIGUIDADE' %}
+                                                <span class="badge bg-primary">{{ quadro.get_tipo_display }}</span>
+                                            {% else %}
+                                                <span class="badge bg-success">{{ quadro.get_tipo_display }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ quadro.data_promocao|date:"d/m/Y" }}</td>
+                                        <td>
+                                            {% if quadro.status == 'ELABORADO' %}
+                                                <span class="badge bg-success">Elaborado</span>
+                                            {% elif quadro.status == 'HOMOLOGADO' %}
+                                                <span class="badge bg-primary">Homologado</span>
+                                            {% elif quadro.status == 'NAO_ELABORADO' %}
+                                                <span class="badge bg-danger">Não Elaborado</span>
+                                            {% else %}
+                                                <span class="badge bg-warning">Em Elaboração</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if quadro.categoria == 'PRACAS' %}
+                                                <a href="{% url 'militares:quadro_acesso_pracas_detail' quadro.pk %}" 
+                                                   class="btn btn-sm btn-outline-primary" title="Ver detalhes">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                            {% else %}
+                                                <a href="{% url 'militares:quadro_acesso_detail' quadro.pk %}" 
+                                                   class="btn btn-sm btn-outline-primary" title="Ver detalhes">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="text-center mt-3">
+                            <a href="{% url 'militares:quadro_acesso_list' %}" class="btn btn-sm btn-outline-primary">
+                                Ver Todos os Quadros
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Nenhum quadro de acesso encontrado</h5>
+                            <p class="text-muted">Gere quadros de acesso para começar.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
+<script>
+$(document).ready(function() {
+    // Exemplo: aplicar máscara em um campo de CPF, se existir
+    if ($('#campo_cpf').length) {
+        $('#campo_cpf').mask('000.000.000-00');
+    }
+    
+    // Campo de data já vem preenchido com a data automática
+    // O usuário pode alterar se necessário
+    
+    // Validar formulário
+    $('form').on('submit', function(e) {
+        var tipo = $('#tipo').val();
+        var categoria = $('#categoria').val();
+        
+        if (!tipo) {
+            e.preventDefault();
+            alert('Por favor, selecione o tipo de acesso.');
+            return false;
+        }
+        
+        if (!categoria) {
+            e.preventDefault();
+            alert('Por favor, selecione a categoria (Oficiais ou Praças).');
+            return false;
+        }
+        
+        // Se não foi selecionada uma data, usar a automática
+        return true;
+    });
+});
+</script>
+{% endblock %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const categoriaSelect = document.getElementById('categoria');
+    const dataPromocaoInput = document.getElementById('data_promocao');
+    const datasOficiaisTexto = document.getElementById('datas-oficiais-texto');
+    
+    function atualizarDataAutomatica() {
+        const categoria = categoriaSelect.value;
+        const hoje = new Date();
+        let ano = hoje.getFullYear();
+        let dataAutomatica, datasOficiais;
+        if (categoria === 'PRACAS') {
+            datasOficiais = '18 de julho e 25 de dezembro';
+            let dataJulho = new Date(ano, 6, 18);
+            let dataDez = new Date(ano, 11, 25);
+            if (hoje < dataJulho) {
+                dataAutomatica = dataJulho;
+            } else if (hoje <= dataDez) {
+                dataAutomatica = dataDez;
+            } else {
+                dataAutomatica = new Date(ano + 1, 6, 18);
+            }
+        } else if (categoria === 'OFICIAIS') {
+            datasOficiais = '18 de julho e 23 de dezembro';
+            let dataJulho = new Date(ano, 6, 18);
+            let dataDez = new Date(ano, 11, 23);
+            if (hoje < dataJulho) {
+                dataAutomatica = dataJulho;
+            } else if (hoje <= dataDez) {
+                dataAutomatica = dataDez;
+            } else {
+                dataAutomatica = new Date(ano + 1, 6, 18);
+            }
+        } else {
+            datasOficiais = '18 de julho e 23 de dezembro';
+            dataAutomatica = new Date(ano, 6, 18);
+        }
+        let mes = (dataAutomatica.getMonth() + 1).toString().padStart(2, '0');
+        let dia = dataAutomatica.getDate().toString().padStart(2, '0');
+        let dataStr = dataAutomatica.getFullYear() + '-' + mes + '-' + dia;
+        dataPromocaoInput.value = dataStr;
+        datasOficiaisTexto.innerHTML = `<strong>Data automática calculada:</strong> ${dia}/${mes}/${dataAutomatica.getFullYear()}<br><strong>Datas oficiais:</strong> ${datasOficiais}<br><strong>Você pode alterar esta data se necessário</strong>`;
+    }
+    categoriaSelect.addEventListener('change', atualizarDataAutomatica);
+    // Forçar atualização ao carregar a página
+    atualizarDataAutomatica();
+});
+</script>
+
+
+{% endblock %} 

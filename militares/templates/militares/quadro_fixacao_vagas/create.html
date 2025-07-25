@@ -1,0 +1,328 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load militares_extras %}
+
+{% block title %}Novo Quadro de Fixação de Vagas{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title mb-0">
+                        <i class="fas fa-plus-circle me-2"></i>
+                        Novo Quadro de Fixação de Vagas
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-info-circle me-2"></i>Informações sobre Quadros de Fixação de Vagas</h6>
+                        <p class="mb-0">
+                            Os quadros de fixação de vagas são utilizados para definir a ordem de promoção dos oficiais 
+                            conforme a Lei 5.461/2005, alterada pela Lei 7.772/2022. O sistema automaticamente incluirá 
+                            todos os quadros (Combatente, Saúde, Engenheiro e Complementar) e todos os postos elegíveis.
+                        </p>
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <!-- Tipo de Quadro -->
+                            <div class="col-md-6 mb-3">
+                                <label for="tipo" class="form-label">
+                                    <strong>Tipo de Quadro *</strong>
+                                </label>
+                                <select name="tipo" id="tipo" class="form-select" required>
+                                    <option value="">Selecione o tipo</option>
+                                    {% for value, label in tipos %}
+                                        <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">
+                                    <strong>Oficiais:</strong> Para oficiais (2º Tenente a Coronel)<br>
+                                    <strong>Praças:</strong> Para praças (Soldado a Subtenente)
+                                </div>
+                            </div>
+                            
+                            <!-- Data da Promoção -->
+                            <div class="col-md-6 mb-3">
+                                <label for="data_promocao" class="form-label">
+                                    <strong>Data da Promoção</strong>
+                                </label>
+                                <input type="date" name="data_promocao" id="data_promocao" 
+                                       class="form-control" value="{{ proxima_data_automatica|date:'Y-m-d' }}">
+                                <div class="form-text">
+                                    Data prevista para as promoções. Se não informada, será usada a data automática: 
+                                    <strong>{{ proxima_data_automatica|date:"d/m/Y" }}</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <!-- Título do Quadro -->
+                            <div class="col-md-12 mb-3">
+                                <label for="titulo" class="form-label">
+                                    <strong>Título do Quadro *</strong>
+                                </label>
+                                <input type="text" name="titulo" id="titulo" class="form-control" required
+                                       placeholder="Ex: Quadro de Fixação de Vagas - Promoção 2025">
+                                <div class="form-text">
+                                    Título descritivo para identificar o quadro de fixação de vagas
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Observações -->
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                <label for="observacoes" class="form-label">
+                                    <strong>Observações</strong>
+                                </label>
+                                <textarea name="observacoes" id="observacoes" class="form-control" rows="3"
+                                          placeholder="Observações gerais sobre o quadro (opcional)"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Preview das Vagas Disponíveis -->
+                        <div id="preview-vagas" style="display: none;">
+                            <div class="card mb-3">
+                                <div class="card-header">
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-eye me-1"></i>
+                                        Preview das Vagas Disponíveis
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="preview-oficiais" style="display: none;">
+                                        <h6 class="text-primary mb-3">Oficiais</h6>
+                                        {% for cod, quadro in quadros %}
+                                            {% if cod == 'COMB' or cod == 'SAUDE' or cod == 'ENG' or cod == 'COMP' %}
+                                                {% if vagas_por_quadro_oficiais|get_item:cod %}
+                                                    <div class="mb-3">
+                                                        <h6 class="text-secondary">{{ quadro }}</h6>
+                                                        <div class="table-responsive">
+                                                            <table class="table table-sm table-bordered">
+                                                                <thead class="table-light">
+                                                                    <tr>
+                                                                        <th>{% if cod == 'COMB' or cod == 'SAUDE' or cod == 'ENG' or cod == 'COMP' %}Posto{% else %}Graduação{% endif %}</th>
+                                                                        <th>PREVISTO</th>
+                                                                        <th>EXISTENTE</th>
+                                                                        <th>CLARO</th>
+                                                                        <th>VAGAS FIXADAS</th>
+                                                                        <th>OBSERVAÇÕES</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {% for previsao in vagas_por_quadro_oficiais|get_item:cod %}
+                                                                    <tr>
+                                                                        <td><strong>{{ previsao.get_posto_display }}</strong></td>
+                                                                        <td><strong>{{ previsao.efetivo_previsto }}</strong></td>
+                                                                        <td><strong>{{ previsao.efetivo_atual }}</strong></td>
+                                                                        <td>
+                                                                            {% if previsao.vagas_disponiveis > 0 %}
+                                                                                <span class="badge bg-success">{{ previsao.vagas_disponiveis }}</span>
+                                                                            {% else %}
+                                                                                <span class="badge bg-danger">0</span>
+                                                                            {% endif %}
+                                                                        </td>
+                                                                        <td>
+                                                                            <span class="badge bg-info">{{ previsao.vagas_disponiveis }}</span>
+                                                                        </td>
+                                                                        <td>
+                                                                            <input type="text" name="observacoes_{{ previsao.id }}" class="form-control form-control-sm" placeholder="Observações (opcional)">
+                                                                        </td>
+                                                                    </tr>
+                                                                    {% endfor %}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+                                                {% endif %}
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                    
+                                    <div id="preview-pracas" style="display: none;">
+                                        <h6 class="text-primary mb-3">Praças</h6>
+                                        {% if vagas_por_quadro_pracas|get_item:'PRACAS' %}
+                                            <div class="table-responsive">
+                                                <table class="table table-sm table-bordered">
+                                                                                                            <thead class="table-light">
+                                                            <tr>
+                                                                <th>Graduação</th>
+                                                                <th>PREVISTO</th>
+                                                                <th>EXISTENTE</th>
+                                                                <th>CLARO</th>
+                                                                <th>VAGAS FIXADAS</th>
+                                                                <th>OBSERVAÇÕES</th>
+                                                            </tr>
+                                                        </thead>
+                                                    <tbody>
+                                                        {% for previsao in vagas_por_quadro_pracas|get_item:'PRACAS' %}
+                                                        <tr>
+                                                            <td><strong>{{ previsao.get_posto_display }}</strong></td>
+                                                            <td><strong>{{ previsao.efetivo_previsto }}</strong></td>
+                                                            <td><strong>{{ previsao.efetivo_atual }}</strong></td>
+                                                            <td>
+                                                                {% if previsao.vagas_disponiveis > 0 %}
+                                                                    <span class="badge bg-success">{{ previsao.vagas_disponiveis }}</span>
+                                                                {% else %}
+                                                                    <span class="badge bg-danger">0</span>
+                                                                {% endif %}
+                                                            </td>
+                                                            <td>
+                                                                <span class="badge bg-info">{{ previsao.vagas_disponiveis }}</span>
+                                                            </td>
+                                                            <td>
+                                                                <input type="text" name="observacoes_{{ previsao.id }}" class="form-control form-control-sm" placeholder="Observações (opcional)">
+                                                            </td>
+                                                        </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        {% else %}
+                                            <div class="alert alert-warning">
+                                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                                Nenhuma previsão de vaga encontrada para praças.
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Informações sobre o Quadro de Fixação de Vagas -->
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Sobre Quadros de Fixação de Vagas:
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <p class="mb-2">
+                                    <strong>Quadros de Fixação de Vagas</strong> são utilizados para definir quantas vagas serão fixadas 
+                                    para cada posto e quadro, baseado nas previsões de vagas configuradas no sistema.
+                                </p>
+                                <p class="mb-0">
+                                    Após criar o quadro, você poderá editar as vagas fixadas para cada posto e quadro conforme necessário.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Botões -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'militares:quadro_fixacao_vagas_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-1"></i>
+                                Voltar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>
+                                Criar Quadro de Fixação de Vagas
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tipoSelect = document.getElementById('tipo');
+    const tituloInput = document.getElementById('titulo');
+    const dataPromocao = document.getElementById('data_promocao');
+    const previewVagas = document.getElementById('preview-vagas');
+    const previewOficiais = document.getElementById('preview-oficiais');
+    const previewPracas = document.getElementById('preview-pracas');
+    
+    // Função para gerar título automático baseado no tipo
+    function gerarTituloAutomatico() {
+        const tipo = tipoSelect.value;
+        const data = dataPromocao.value;
+        
+        if (tipo) {
+            let titulo = 'Quadro de Fixação de Vagas';
+            
+            if (tipo === 'OFICIAIS') {
+                titulo += ' - Oficiais';
+            } else if (tipo === 'PRACAS') {
+                titulo += ' - Praças';
+            }
+            
+            if (data) {
+                const dataObj = new Date(data);
+                const ano = dataObj.getFullYear();
+                titulo += ` - Promoção ${ano}`;
+            }
+            
+            tituloInput.value = titulo;
+        }
+    }
+    
+    // Função para mostrar preview baseado no tipo selecionado
+    function mostrarPreview() {
+        const tipo = tipoSelect.value;
+        
+        if (tipo === 'OFICIAIS') {
+            previewVagas.style.display = 'block';
+            previewOficiais.style.display = 'block';
+            previewPracas.style.display = 'none';
+        } else if (tipo === 'PRACAS') {
+            previewVagas.style.display = 'block';
+            previewOficiais.style.display = 'none';
+            previewPracas.style.display = 'block';
+        } else {
+            previewVagas.style.display = 'none';
+            previewOficiais.style.display = 'none';
+            previewPracas.style.display = 'none';
+        }
+    }
+    
+    // Event listeners para atualizar título automaticamente
+    tipoSelect.addEventListener('change', function() {
+        gerarTituloAutomatico();
+        mostrarPreview();
+    });
+    dataPromocao.addEventListener('change', gerarTituloAutomatico);
+    
+    // Validação da data de promoção
+    const hoje = new Date().toISOString().split('T')[0];
+    
+    dataPromocao.addEventListener('change', function() {
+        if (this.value < hoje) {
+            alert('A data da promoção não pode ser anterior à data atual.');
+            this.value = hoje;
+        }
+    });
+    
+    // Confirmação antes de criar
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        const titulo = document.getElementById('titulo').value;
+        const tipo = document.getElementById('tipo').value;
+        
+        if (!titulo.trim()) {
+            e.preventDefault();
+            alert('Por favor, informe o título do quadro.');
+            return false;
+        }
+        
+        if (!tipo) {
+            e.preventDefault();
+            alert('Por favor, selecione o tipo de quadro.');
+            return false;
+        }
+        
+        if (!confirm('Tem certeza que deseja criar este quadro de fixação de vagas?')) {
+            e.preventDefault();
+            return false;
+        }
+    });
+});
+</script>
+{% endblock %} 

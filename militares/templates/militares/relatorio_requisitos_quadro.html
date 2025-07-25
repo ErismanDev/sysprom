@@ -1,0 +1,349 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Relatório de Requisitos - Quadro Completo{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">
+                        <i class="fas fa-clipboard-check"></i> 
+                        Relatório de Requisitos - Quadro Completo
+                    </h4>
+                    <p class="card-subtitle text-muted">
+                        Data da Promoção: {{ quadro.data_promocao|date:"d/m/Y" }} | 
+                        Tipo: {{ quadro.get_tipo_display }}
+                    </p>
+                </div>
+                <div class="card-body">
+                    <!-- Resumo -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="info-box bg-info">
+                                <div class="info-box-content">
+                                    <span class="info-box-text">Total de Candidatos</span>
+                                    <span class="info-box-number">{{ total_candidatos }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="info-box bg-success">
+                                <div class="info-box-content">
+                                    <span class="info-box-text">Militares Aptos</span>
+                                    <span class="info-box-number">{{ total_aptos }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="info-box bg-danger">
+                                <div class="info-box-content">
+                                    <span class="info-box-text">Militares Inaptos</span>
+                                    <span class="info-box-number">{{ total_inaptos }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="info-box bg-warning">
+                                <div class="info-box-content">
+                                    <span class="info-box-text">Taxa de Aprovação</span>
+                                    <span class="info-box-number">
+                                        {% if total_candidatos > 0 %}
+                                            {% widthratio total_aptos total_candidatos 100 %}%
+                                        {% else %}
+                                            0%
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filtros -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-outline-primary" onclick="filtrarPorStatus('todos')">
+                                    Todos ({{ total_candidatos }})
+                                </button>
+                                <button type="button" class="btn btn-outline-success" onclick="filtrarPorStatus('aptos')">
+                                    Aptos ({{ total_aptos }})
+                                </button>
+                                <button type="button" class="btn btn-outline-danger" onclick="filtrarPorStatus('inaptos')">
+                                    Inaptos ({{ total_inaptos }})
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tabela de Requisitos -->
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover" id="tabelaRequisitos">
+                            <thead class="thead-dark">
+                                <tr>
+                                    <th>Status</th>
+                                    <th>Nome</th>
+                                    <th>CPF</th>
+                                    <th>Tempo no Posto</th>
+                                    <th>Ficha de Conceito</th>
+                                    <th>Interstício</th>
+                                    <th>Inspeção de Saúde</th>
+                                    <th>Cursos Inerentes</th>
+                                    <th>Detalhes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in relatorio %}
+                                <tr class="linha-requisito {% if item.apto_geral %}linha-apto{% else %}linha-inapto{% endif %}">
+                                    <td>
+                                        {% if item.apto_geral %}
+                                            <span class="badge badge-success">
+                                                <i class="fas fa-check"></i> Apto
+                                            </span>
+                                        {% else %}
+                                            <span class="badge badge-danger">
+                                                <i class="fas fa-times"></i> Inapto
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <strong>{{ item.militar.nome_completo }}</strong>
+                                        {% if item.militar.nome_guerra %}
+                                            <br><small class="text-muted">{{ item.militar.nome_guerra }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ item.militar.cpf|slice:":3" }}.***.***-{{ item.militar.cpf|slice:"-2:" }}</td>
+                                    <td>{{ item.tempo_no_posto }}</td>
+                                    <td>
+                                        {% if item.tem_ficha %}
+                                            <span class="text-success"><i class="fas fa-check"></i></span>
+                                        {% else %}
+                                            <span class="text-danger"><i class="fas fa-times"></i></span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if item.apto_intersticio %}
+                                            <span class="text-success"><i class="fas fa-check"></i></span>
+                                        {% else %}
+                                            <span class="text-danger" title="{{ item.motivo_intersticio }}">
+                                                <i class="fas fa-times"></i>
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if item.apto_saude %}
+                                            <span class="text-success"><i class="fas fa-check"></i></span>
+                                        {% else %}
+                                            <span class="text-danger" title="{{ item.motivo_saude }}">
+                                                <i class="fas fa-times"></i>
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if item.apto_cursos %}
+                                            <span class="text-success"><i class="fas fa-check"></i></span>
+                                        {% else %}
+                                            <span class="text-danger" title="{{ item.motivo_cursos }}">
+                                                <i class="fas fa-times"></i>
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-sm btn-outline-info" 
+                                                onclick="mostrarDetalhes({{ forloop.counter0 }})">
+                                            <i class="fas fa-eye"></i> Detalhes
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Ações -->
+                    <div class="mt-4">
+                        {% if quadro.categoria == 'PRACAS' %}
+                            <a href="{% url 'militares:quadro_acesso_pracas_detail' quadro.pk %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Voltar ao Quadro
+                            </a>
+                        {% else %}
+                            <a href="{% url 'militares:quadro_acesso_detail' quadro.pk %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Voltar ao Quadro
+                            </a>
+                        {% endif %}
+                        
+                        {% if total_aptos > 0 %}
+                        <a href="{% url 'militares:gerar_quadro_acesso' %}" class="btn btn-primary">
+                            <i class="fas fa-magic"></i> Gerar Quadro com {{ total_aptos }} Aptos
+                        </a>
+                        {% endif %}
+                        
+                        <button type="button" class="btn btn-info" onclick="exportarRelatorio()">
+                            <i class="fas fa-download"></i> Exportar Relatório
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Detalhes -->
+<div class="modal fade" id="modalDetalhes" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalhes dos Requisitos</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="modalDetalhesBody">
+                <!-- Conteúdo será preenchido via JavaScript -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function filtrarPorStatus(status) {
+    const linhas = document.querySelectorAll('.linha-requisito');
+    
+    linhas.forEach(linha => {
+        if (status === 'todos') {
+            linha.style.display = '';
+        } else if (status === 'aptos') {
+            linha.style.display = linha.classList.contains('linha-apto') ? '' : 'none';
+        } else if (status === 'inaptos') {
+            linha.style.display = linha.classList.contains('linha-inapto') ? '' : 'none';
+        }
+    });
+}
+
+function mostrarDetalhes(index) {
+    // Buscar os dados da linha da tabela
+    const linha = document.querySelectorAll('.linha-requisito')[index];
+    const nome = linha.querySelector('td:nth-child(2) strong').textContent;
+    const cpf = linha.querySelector('td:nth-child(3)').textContent;
+    const tempoPosto = linha.querySelector('td:nth-child(4)').textContent;
+    
+    // Verificar status dos requisitos
+    const ficha = linha.querySelector('td:nth-child(5) .text-success') !== null;
+    const intersticio = linha.querySelector('td:nth-child(6) .text-success') !== null;
+    const saude = linha.querySelector('td:nth-child(7) .text-success') !== null;
+    const cursos = linha.querySelector('td:nth-child(8) .text-success') !== null;
+    
+    // Buscar motivos de inaptidão dos tooltips
+    const motivoIntersticio = linha.querySelector('td:nth-child(6) .text-danger')?.title || '';
+    const motivoSaude = linha.querySelector('td:nth-child(7) .text-danger')?.title || '';
+    const motivoCursos = linha.querySelector('td:nth-child(8) .text-danger')?.title || '';
+    
+    const modalBody = document.getElementById('modalDetalhesBody');
+    
+    let html = `
+        <div class="row">
+            <div class="col-12">
+                <h6><strong>${nome}</strong></h6>
+                <p class="text-muted">CPF: ${cpf}</p>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <h6>Requisitos Verificados:</h6>
+                <ul class="list-group">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Ficha de Conceito
+                        ${ficha ? '<span class="badge badge-success">✓</span>' : '<span class="badge badge-danger">✗</span>'}
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Interstício Mínimo
+                        ${intersticio ? '<span class="badge badge-success">✓</span>' : '<span class="badge badge-danger">✗</span>'}
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Inspeção de Saúde
+                        ${saude ? '<span class="badge badge-success">✓</span>' : '<span class="badge badge-danger">✗</span>'}
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Cursos Inerentes
+                        ${cursos ? '<span class="badge badge-success">✓</span>' : '<span class="badge badge-danger">✗</span>'}
+                    </li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <h6>Informações Adicionais:</h6>
+                <ul class="list-group">
+                    <li class="list-group-item">
+                        <strong>Tempo no Posto:</strong> ${tempoPosto}
+                    </li>
+                </ul>
+            </div>
+        </div>
+    `;
+    
+    // Adicionar motivos de inaptidão se houver
+    const motivos = [];
+    if (!intersticio && motivoIntersticio) motivos.push(motivoIntersticio);
+    if (!saude && motivoSaude) motivos.push(motivoSaude);
+    if (!cursos && motivoCursos) motivos.push(motivoCursos);
+    
+    if (motivos.length > 0) {
+        html += `
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="alert alert-warning">
+                        <h6><i class="fas fa-exclamation-triangle"></i> Motivos de Inaptidão:</h6>
+                        <ul>
+                            ${motivos.map(motivo => `<li>${motivo}</li>`).join('')}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    modalBody.innerHTML = html;
+    $('#modalDetalhes').modal('show');
+}
+
+function exportarRelatorio() {
+    // Implementar exportação para Excel ou PDF
+    alert('Funcionalidade de exportação será implementada em breve.');
+}
+</script>
+
+<style>
+.info-box {
+    padding: 15px;
+    border-radius: 5px;
+    color: white;
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.info-box-text {
+    display: block;
+    font-size: 14px;
+    margin-bottom: 5px;
+}
+
+.info-box-number {
+    display: block;
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.linha-apto {
+    background-color: rgba(40, 167, 69, 0.1);
+}
+
+.linha-inapto {
+    background-color: rgba(220, 53, 69, 0.1);
+}
+</style>
+{% endblock %} 

@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+
+{% block title %}Modelos de Ata - SysProm - CBMEPI{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-center">
+  <div style="width: 100%; max-width: 1200px;">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">
+            <i class="fas fa-file-alt me-2"></i>
+            Modelos de Ata
+        </h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <a href="{% url 'militares:modelo_ata_create' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>
+                Novo Modelo
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Filtros</h5>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label for="tipo_comissao" class="form-label">Tipo de Comissão</label>
+                    <select name="tipo_comissao" id="tipo_comissao" class="form-select">
+                        <option value="">Todos</option>
+                        {% for value, label in tipos_comissao %}
+                        <option value="{{ value }}" {% if filtros.tipo_comissao == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="tipo_sessao" class="form-label">Tipo de Sessão</label>
+                    <select name="tipo_sessao" id="tipo_sessao" class="form-select">
+                        <option value="">Todos</option>
+                        {% for value, label in tipos_sessao %}
+                        <option value="{{ value }}" {% if filtros.tipo_sessao == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="ativo" class="form-label">Status</label>
+                    <select name="ativo" id="ativo" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="true" {% if filtros.ativo == 'true' %}selected{% endif %}>Ativo</option>
+                        <option value="false" {% if filtros.ativo == 'false' %}selected{% endif %}>Inativo</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="padrao" class="form-label">Padrão</label>
+                    <select name="padrao" id="padrao" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="true" {% if filtros.padrao == 'true' %}selected{% endif %}>Sim</option>
+                        <option value="false" {% if filtros.padrao == 'false' %}selected{% endif %}>Não</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">
+                        <i class="fas fa-search me-1"></i>Filtrar
+                    </button>
+                    <a href="{% url 'militares:modelo_ata_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-times me-1"></i>Limpar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Lista de Modelos -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-list me-2"></i>
+                Modelos Encontrados ({{ modelos.count }})
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if modelos %}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>Tipo de Comissão</th>
+                            <th>Tipo de Sessão</th>
+                            <th>Status</th>
+                            <th>Padrão</th>
+                            <th>Criado por</th>
+                            <th>Data de Criação</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for modelo in modelos %}
+                        <tr>
+                            <td>
+                                <strong>{{ modelo.nome }}</strong>
+                                {% if modelo.descricao %}
+                                <br><small class="text-muted">{{ modelo.descricao|truncatechars:50 }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-info">{{ modelo.get_tipo_comissao_display }}</span>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ modelo.get_tipo_sessao_display }}</span>
+                            </td>
+                            <td>
+                                {% if modelo.ativo %}
+                                <span class="badge bg-success">Ativo</span>
+                                {% else %}
+                                <span class="badge bg-danger">Inativo</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if modelo.padrao %}
+                                <span class="badge bg-warning">Padrão</span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ modelo.criado_por.get_full_name|default:modelo.criado_por.username }}</td>
+                            <td>{{ modelo.data_criacao|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'militares:modelo_ata_detail' modelo.pk %}" class="btn btn-sm btn-outline-primary" title="Visualizar">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{% url 'militares:modelo_ata_update' modelo.pk %}" class="btn btn-sm btn-outline-warning" title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-sm btn-outline-success" title="Aplicar Modelo" 
+                                            onclick="aplicarModelo({{ modelo.pk }}, '{{ modelo.nome }}')">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-info" title="Duplicar Modelo" 
+                                            onclick="duplicarModelo({{ modelo.pk }}, '{{ modelo.nome }}')">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                    <a href="{% url 'militares:modelo_ata_delete' modelo.pk %}" class="btn btn-sm btn-outline-danger" title="Excluir">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+                <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">Nenhum modelo encontrado</h5>
+                <p class="text-muted">Crie seu primeiro modelo de ata para começar.</p>
+                <a href="{% url 'militares:modelo_ata_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i>
+                    Criar Primeiro Modelo
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Função para aplicar modelo
+function aplicarModelo(modeloId, modeloNome) {
+    if (confirm(`Deseja aplicar o modelo "${modeloNome}"?`)) {
+        // Aqui você pode implementar a lógica para aplicar o modelo
+        // Por exemplo, redirecionar para uma página onde o modelo será aplicado
+        window.location.href = `{% url 'militares:modelo_ata_aplicar' 0 %}`.replace('0', modeloId);
+    }
+}
+
+// Função para duplicar modelo
+function duplicarModelo(modeloId, modeloNome) {
+    if (confirm(`Deseja duplicar o modelo "${modeloNome}"?`)) {
+        // Aqui você pode implementar a lógica para duplicar o modelo
+        // Por exemplo, fazer uma requisição AJAX para duplicar
+        fetch(`{% url 'militares:modelo_ata_duplicar' 0 %}`.replace('0', modeloId), {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Modelo duplicado com sucesso!');
+                location.reload();
+            } else {
+                alert('Erro ao duplicar modelo: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao duplicar modelo. Tente novamente.');
+        });
+    }
+}
+</script>
+{% endblock %} 

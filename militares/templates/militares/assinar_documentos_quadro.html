@@ -1,0 +1,250 @@
+{% extends 'base.html' %}
+
+{% block title %}Assinar Documentos - {{ quadro.get_titulo_completo }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-file-signature me-2"></i>Assinar Documentos
+                        </h5>
+                        <div>
+                            <a href="{% url 'militares:quadro_acesso_list' %}" class="btn btn-secondary me-2">
+                                <i class="fas fa-arrow-left me-2"></i>Voltar
+                            </a>
+                            {% if quadro.categoria == 'PRACAS' %}
+                                <a href="{% url 'militares:quadro_acesso_pracas_detail' quadro.pk %}" class="btn btn-primary">
+                                    <i class="fas fa-eye me-2"></i>Ver Quadro
+                                </a>
+                            {% else %}
+                                <a href="{% url 'militares:quadro_acesso_detail' quadro.pk %}" class="btn btn-primary">
+                                    <i class="fas fa-eye me-2"></i>Ver Quadro
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Informações do Quadro -->
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-clipboard-list"></i> Quadro de Acesso</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Tipo:</strong> {{ quadro.get_tipo_display }}</p>
+                                <p><strong>Status:</strong> 
+                                    <span class="badge bg-{% if quadro.status == 'ELABORADO' %}success{% elif quadro.status == 'HOMOLOGADO' %}primary{% elif quadro.status == 'NAO_ELABORADO' %}danger{% else %}warning{% endif %}">
+                                        {{ quadro.get_status_display }}
+                                    </span>
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Previsão de Promoção:</strong> {{ quadro.data_promocao|date:"d/m/Y" }}</p>
+                                <p><strong>Total de Militares:</strong> {{ militares_quadro.count }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PDF do Quadro e Botão de Assinatura -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0"><i class="fas fa-file-pdf me-2"></i>Visualizar PDF do Quadro</h6>
+                                        <div>
+                                            <button type="button" class="btn btn-success" onclick="abrirAssinatura()">
+                                                <i class="fas fa-file-signature me-2"></i>Assinar Quadro
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body p-0">
+                                    <iframe src="{{ pdf_url }}" width="100%" height="600" frameborder="0"></iframe>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Estatísticas -->
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="card bg-warning text-white">
+                                <div class="card-body text-center">
+                                    <h4>{{ total_documentos_pendentes }}</h4>
+                                    <small>Documentos Pendentes</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h4>{{ documentos_com_info|length }}</h4>
+                                    <small>Documentos Pendentes</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-info text-white">
+                                <div class="card-body text-center">
+                                    <h4>{{ militares_quadro.count }}</h4>
+                                    <small>Total de Militares no Quadro</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lista de Documentos Pendentes -->
+                    {% if documentos_com_info %}
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Posição</th>
+                                        <th>Militar</th>
+                                        <th>Documento</th>
+                                        <th>Tipo</th>
+                                        <th>Upload</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in documentos_com_info %}
+                                    <tr>
+                                        <td>
+                                            <span class="badge bg-primary">{{ item.posicao }}º</span>
+                                        </td>
+                                        <td>
+                                            <strong>{{ item.militar.get_posto_graduacao_display }}</strong><br>
+                                            <span class="text-muted">{{ item.militar.nome_completo }}</span><br>
+                                            <small class="text-muted">{{ item.militar.matricula }}</small>
+                                        </td>
+                                        <td>
+                                            <strong>{{ item.documento.titulo }}</strong>
+                                            {% if item.documento.observacoes %}
+                                                <br><small class="text-muted">{{ item.documento.observacoes|truncatechars:50 }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">{{ item.documento.get_tipo_display }}</span>
+                                        </td>
+                                        <td>{{ item.documento.data_upload|date:"d/m/Y H:i" }}</td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <a href="{{ item.documento.arquivo.url }}" class="btn btn-outline-primary" title="Visualizar">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                <a href="{% url 'militares:conferir_documento' item.documento.pk %}" class="btn btn-warning" title="Conferir">
+                                                    <i class="fas fa-check"></i>
+                                                </a>
+                                                <a href="{% url 'militares:assinar_documento' item.documento.pk %}" class="btn btn-success" title="Assinar">
+                                                    <i class="fas fa-file-signature"></i>
+                                                </a>
+                                                <a href="{% url 'militares:militar_detail' item.militar.pk %}" class="btn btn-outline-info" title="Ver Militar">
+                                                    <i class="fas fa-user"></i>
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                            <h5 class="text-success">Nenhum documento pendente!</h5>
+                            <p class="text-muted">Todos os documentos dos militares deste quadro já foram conferidos.</p>
+                        </div>
+                    {% endif %}
+
+                    <!-- Militares sem Documentos Pendentes -->
+                    {% if militares_sem_documentos %}
+                        <div class="mt-4">
+                            <h6><i class="fas fa-users"></i> Militares sem Documentos Pendentes</h6>
+                            <div class="row">
+                                {% for item in militares_sem_documentos %}
+                                    <div class="col-md-4 mb-2">
+                                        <div class="card border-success">
+                                            <div class="card-body py-2">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <div>
+                                                        <strong>{{ item.militar.get_posto_graduacao_display }} {{ item.militar.nome_completo }}</strong>
+                                                        <br><small class="text-muted">{{ item.militar.matricula }}</small>
+                                                    </div>
+                                                    <span class="badge bg-success">{{ item.posicao }}º</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Assinatura -->
+<div class="modal fade" id="modalAssinatura" tabindex="-1" aria-labelledby="modalAssinaturaLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalAssinaturaLabel">
+                    <i class="fas fa-file-signature me-2"></i>Assinar Quadro de Acesso
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'militares:assinar_quadro_acesso' quadro.pk %}" id="formAssinatura">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Quadro:</strong> {{ quadro.get_titulo_completo }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="tipo_assinatura" class="form-label">Tipo de Assinatura:</label>
+                        <select class="form-control" id="tipo_assinatura" name="tipo_assinatura">
+                            <option value="APROVACAO">Aprovação</option>
+                            <option value="HOMOLOGACAO">Homologação</option>
+                            <option value="PUBLICACAO">Publicação</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-signature me-1"></i>Confirmar Assinatura
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modalAssinatura = new bootstrap.Modal(document.getElementById('modalAssinatura'));
+    const tipoAssinaturaSelect = document.getElementById('tipo_assinatura');
+    const formAssinatura = document.getElementById('formAssinatura');
+    // Exibir modal ao clicar no botão de assinatura (caso exista)
+    const btnAssinar = document.querySelector('.btn-success'); // Seleciona o botão de assinatura
+    if (btnAssinar) {
+        btnAssinar.addEventListener('click', function() {
+            modalAssinatura.show();
+        });
+    }
+    // Validação do formulário
+    formAssinatura.addEventListener('submit', function(e) {
+        // Remover validação de senha
+    });
+});
+</script>
+{% endblock %}
+{% endblock %} 

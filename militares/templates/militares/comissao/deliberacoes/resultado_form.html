@@ -1,0 +1,244 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - SysProm - CBMEPI{% endblock %}
+
+{% block extra_css %}
+<style>
+    .card {
+        border: none;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+    
+    .card-header {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        border: none;
+    }
+    
+    .status-badge {
+        font-size: 0.875rem;
+        padding: 0.5rem 1rem;
+    }
+    
+    .alert {
+        border: none;
+        border-radius: 0.5rem;
+    }
+    
+    .form-control:focus {
+        border-color: #28a745;
+        box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+    }
+    
+    .btn-success {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border: none;
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+    }
+    
+    .btn-success:hover {
+        background: linear-gradient(135deg, #218838 0%, #1ea085 100%);
+        transform: translateY(-1px);
+    }
+    
+    @media (max-width: 768px) {
+        .card-header {
+            padding: 1rem;
+        }
+        
+        .btn {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card">
+                <div class="card-header py-3">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-check-circle fa-2x me-3"></i>
+                        <div>
+                            <h4 class="mb-0">{{ title }}</h4>
+                            <small class="opacity-75">
+                                Registrando resultado após votação concluída
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body p-4">
+                    <!-- Informações da Deliberação -->
+                    <div class="alert alert-success border-start border-4 border-success mb-4">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h6 class="mb-1">
+                                    <i class="fas fa-gavel me-2"></i>Deliberação {{ deliberacao.numero }}
+                                </h6>
+                                <p class="mb-0">
+                                    <strong>{{ deliberacao.assunto }}</strong><br>
+                                    <small class="text-muted">
+                                        {{ deliberacao.get_tipo_display }} - Sessão {{ sessao.numero }}
+                                    </small>
+                                </p>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <span class="badge bg-success status-badge">
+                                    <i class="fas fa-check-circle me-1"></i>
+                                    Votação Concluída
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Status da Votação -->
+                    <div class="alert alert-info mb-4">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-chart-pie me-2"></i>
+                            <div class="flex-grow-1">
+                                <strong>Status da Votação:</strong>
+                                <span class="badge bg-success ms-2">
+                                    <i class="fas fa-check-circle me-1"></i>
+                                    Concluída
+                                </span>
+                                <small class="d-block text-muted mt-1">
+                                    {{ total_votos }}/{{ total_presentes }} membros votaram. 
+                                    O resultado pode ser registrado.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Resumo da Votação -->
+                    <div class="card mb-4 border-0 shadow-sm">
+                        <div class="card-header bg-light border-0">
+                            <h6 class="mb-0 text-success">
+                                <i class="fas fa-chart-bar me-2"></i>Resumo da Votação
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row text-center">
+                                <div class="col-md-4">
+                                    <div class="border-end">
+                                        <h4 class="text-success mb-1">{{ deliberacao.votos_favor }}</h4>
+                                        <small class="text-muted">Favoráveis</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="border-end">
+                                        <h4 class="text-danger mb-1">{{ deliberacao.votos_contra }}</h4>
+                                        <small class="text-muted">Contrários</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div>
+                                        <h4 class="text-warning mb-1">{{ deliberacao.votos_abstencao }}</h4>
+                                        <small class="text-muted">Abstenções</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <hr>
+                            <div class="text-center">
+                                <strong>Resultado Final:</strong>
+                                {% if deliberacao.aprovada %}
+                                    <span class="badge bg-success ms-2">
+                                        <i class="fas fa-thumbs-up me-1"></i>
+                                        APROVADA
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-danger ms-2">
+                                        <i class="fas fa-thumbs-down me-1"></i>
+                                        REPROVADA
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Formulário do Resultado -->
+                    <form method="post" novalidate class="needs-validation">
+                        {% csrf_token %}
+                        
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-light border-0">
+                                <h6 class="mb-0 text-success">
+                                    <i class="fas fa-edit me-2"></i>Registrar Resultado
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label for="{{ form.resultado.id_for_label }}" class="form-label fw-bold">
+                                        {{ form.resultado.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.resultado }}
+                                    {% if form.resultado.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.resultado.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Registre aqui a decisão ou resultado final da deliberação após a votação.
+                                        Este resultado será registrado oficialmente na ata da sessão.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Botões de Ação -->
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                            <a href="{% url 'militares:deliberacao_comissao_detail' deliberacao.pk %}" class="btn btn-secondary me-md-2">
+                                <i class="fas fa-times me-1"></i>
+                                Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="fas fa-save me-1"></i>
+                                Registrar Resultado
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Adicionar classes Bootstrap aos campos
+    document.addEventListener('DOMContentLoaded', function() {
+        const inputs = document.querySelectorAll('input, select, textarea');
+        inputs.forEach(function(input) {
+            input.classList.add('form-control');
+        });
+        
+        // Adicionar classe específica para textarea
+        const textareas = document.querySelectorAll('textarea');
+        textareas.forEach(function(textarea) {
+            textarea.classList.add('form-control');
+        });
+        
+        // Validação do formulário
+        const form = document.querySelector('.needs-validation');
+        form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+        });
+        
+        // Focar no campo de resultado
+        const resultadoField = document.querySelector('textarea[name="resultado"]');
+        if (resultadoField) {
+            resultadoField.focus();
+        }
+    });
+</script>
+{% endblock %} 

@@ -1,0 +1,252 @@
+{% extends 'base.html' %}
+
+{% block title %}Registrar Presenças - Sessão {{ sessao.numero }} - SysProm - CBMEPI{% endblock %}
+
+{% block extra_css %}
+<style>
+    .bg-gradient-info {
+        background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+    }
+    
+    .card.shadow-lg {
+        box-shadow: 0 1rem 3rem rgba(0,0,0,.175) !important;
+    }
+    
+    .form-check-input:checked {
+        background-color: #17a2b8;
+        border-color: #17a2b8;
+    }
+    
+    .form-check-input:focus {
+        border-color: #17a2b8;
+        box-shadow: 0 0 0 0.2rem rgba(23, 162, 184, 0.25);
+    }
+    
+    .form-control:focus {
+        border-color: #17a2b8;
+        box-shadow: 0 0 0 0.2rem rgba(23, 162, 184, 0.25);
+    }
+    
+    .invalid-feedback {
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 0.5rem;
+    }
+    
+    .btn-info {
+        background-color: #17a2b8;
+        border-color: #17a2b8;
+    }
+    
+    .btn-info:hover {
+        background-color: #138496;
+        border-color: #117a8b;
+    }
+    
+    .member-card {
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+    }
+    
+    .member-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0.5rem 1rem rgba(0,0,0,.15);
+    }
+    
+    .member-card.present {
+        border-color: #28a745;
+        background-color: #f8fff9;
+    }
+    
+    .member-card.absent {
+        border-color: #dc3545;
+        background-color: #fff8f8;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-lg">
+                <div class="card-header bg-gradient-info text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">
+                            <i class="fas fa-clipboard-check me-2"></i>
+                            Registrar Presenças - Sessão {{ sessao.numero }}
+                        </h4>
+                        <a href="{% url 'militares:sessao_comissao_detail' sessao.pk %}" class="btn btn-light btn-sm">
+                            <i class="fas fa-arrow-left me-1"></i>
+                            Voltar
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h6 class="text-muted mb-2">Informações da Sessão</h6>
+                            <p class="mb-1"><strong>Comissão:</strong> {{ sessao.comissao.nome }}</p>
+                            <p class="mb-1"><strong>Data:</strong> {{ sessao.data|date:"d/m/Y" }}</p>
+                            <p class="mb-1"><strong>Horário:</strong> {{ sessao.hora_inicio|time:"H:i" }} - {{ sessao.hora_fim|time:"H:i" }}</p>
+                            <p class="mb-0"><strong>Local:</strong> {{ sessao.local }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted mb-2">Status</h6>
+                            <p class="mb-1"><strong>Total de Membros:</strong> {{ membros.count }}</p>
+                            <p class="mb-1"><strong>Presentes:</strong> <span id="presentes-count">{{ sessao.presentes.count }}</span></p>
+                            <p class="mb-0"><strong>Ausentes:</strong> <span id="ausentes-count">{{ membros.count|add:"-"|add:sessao.presentes.count }}</span></p>
+                        </div>
+                    </div>
+
+                    <form method="post" id="presenca-form">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            {% for membro in membros %}
+                            <div class="col-md-6 col-lg-4 mb-3">
+                                <div class="card member-card" id="member-{{ membro.pk }}">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center mb-3">
+                                            <div class="flex-shrink-0">
+                                                <div class="avatar-placeholder bg-info text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                                    <i class="fas fa-user"></i>
+                                                </div>
+                                            </div>
+                                            <div class="flex-grow-1 ms-3">
+                                                <h6 class="mb-1">{{ membro.militar.nome_completo }}</h6>
+                                                <small class="text-muted">{{ membro.get_tipo_display }} - {{ membro.cargo.nome }}</small>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" 
+                                                   id="presenca_{{ membro.pk }}" 
+                                                   name="presenca_{{ membro.pk }}" 
+                                                   value="1"
+                                                   {% if membro.pk in presencas_existentes %}checked{% endif %}
+                                                   onchange="updateMemberStatus({{ membro.pk }}, this.checked)">
+                                            <label class="form-check-label" for="presenca_{{ membro.pk }}">
+                                                <i class="fas fa-check-circle text-success me-1"></i>
+                                                Presente
+                                            </label>
+                                        </div>
+                                        
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" 
+                                                   id="ausente_{{ membro.pk }}" 
+                                                   name="ausente_{{ membro.pk }}" 
+                                                   value="1"
+                                                   {% if membro.pk not in presencas_existentes %}checked{% endif %}
+                                                   onchange="updateMemberStatus({{ membro.pk }}, !this.checked)">
+                                            <label class="form-check-label" for="ausente_{{ membro.pk }}">
+                                                <i class="fas fa-times-circle text-danger me-1"></i>
+                                                Ausente
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="d-flex justify-content-between">
+                                    <a href="{% url 'militares:sessao_comissao_detail' sessao.pk %}" class="btn btn-secondary">
+                                        <i class="fas fa-times me-1"></i>
+                                        Cancelar
+                                    </a>
+                                    <button type="submit" class="btn btn-info">
+                                        <i class="fas fa-save me-1"></i>
+                                        Salvar Presenças
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function updateMemberStatus(memberId, isPresent) {
+    const memberCard = document.getElementById(`member-${memberId}`);
+    const presenteCheckbox = document.getElementById(`presenca_${memberId}`);
+    const ausenteCheckbox = document.getElementById(`ausente_${memberId}`);
+    
+    // Atualizar checkboxes
+    presenteCheckbox.checked = isPresent;
+    ausenteCheckbox.checked = !isPresent;
+    
+    // Garantir que apenas um checkbox esteja marcado
+    if (isPresent) {
+        ausenteCheckbox.checked = false;
+    } else {
+        presenteCheckbox.checked = false;
+    }
+    
+    // Atualizar estilo do card
+    memberCard.classList.remove('present', 'absent');
+    if (isPresent) {
+        memberCard.classList.add('present');
+    } else {
+        memberCard.classList.add('absent');
+    }
+    
+    // Atualizar contadores
+    updateCounters();
+    
+    // Debug: imprimir no console
+    console.log(`Membro ${memberId}: ${isPresent ? 'Presente' : 'Ausente'}`);
+}
+
+function updateCounters() {
+    const presentes = document.querySelectorAll('input[id^="presenca_"]:checked').length;
+    const total = document.querySelectorAll('input[id^="presenca_"]').length;
+    const ausentes = total - presentes;
+    
+    document.getElementById('presentes-count').textContent = presentes;
+    document.getElementById('ausentes-count').textContent = ausentes;
+}
+
+// Inicializar contadores e status dos membros
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar status dos membros baseado nos checkboxes
+    document.querySelectorAll('input[id^="presenca_"]').forEach(function(checkbox) {
+        const memberId = checkbox.id.replace('presenca_', '');
+        const isPresent = checkbox.checked;
+        updateMemberStatus(memberId, isPresent);
+    });
+    
+    updateCounters();
+    
+    // Adicionar validação ao formulário
+    document.getElementById('presenca-form').addEventListener('submit', function(e) {
+        const presentes = document.querySelectorAll('input[id^="presenca_"]:checked').length;
+        if (presentes === 0) {
+            e.preventDefault();
+            alert('Pelo menos um membro deve estar presente na sessão.');
+            return false;
+        }
+        
+        // Debug: imprimir dados do formulário
+        console.log('Enviando formulário...');
+        const formData = new FormData(this);
+        for (let [key, value] of formData.entries()) {
+            console.log(`${key}: ${value}`);
+        }
+    });
+});
+</script>
+{% endblock %} 

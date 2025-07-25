@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+
+{% block title %}Assinar Quadro de Acesso - {{ quadro.get_titulo_completo }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-file-signature me-2"></i>Assinar Quadro de Acesso
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Informações do Quadro -->
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-clipboard-list"></i> Quadro de Acesso</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Tipo:</strong> {{ quadro.get_tipo_display }}</p>
+                                <p><strong>Status:</strong> 
+                                    <span class="badge bg-{% if quadro.status == 'ELABORADO' %}success{% elif quadro.status == 'HOMOLOGADO' %}primary{% elif quadro.status == 'NAO_ELABORADO' %}danger{% else %}warning{% endif %}">
+                                        {{ quadro.get_status_display }}
+                                    </span>
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Data da Promoção:</strong> {{ quadro.data_promocao|date:"d/m/Y" }}</p>
+                                <p><strong>Total de Militares:</strong> {{ quadro.total_militares }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Assinaturas Existentes -->
+                    {% if quadro.assinaturas.exists %}
+                    <div class="mb-3">
+                        <h6><i class="fas fa-signature"></i> Assinaturas Existentes</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Tipo</th>
+                                        <th>Assinado por</th>
+                                        <th>Data/Hora</th>
+                                        <th>Observações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for assinatura in quadro.assinaturas.all %}
+                                    <tr>
+                                        <td>
+                                            <span class="badge bg-info">{{ assinatura.get_tipo_assinatura_display }}</span>
+                                        </td>
+                                        <td>
+                                            <strong>{{ assinatura.assinado_por.get_full_name|default:assinatura.assinado_por.username }}</strong>
+                                        </td>
+                                        <td>{{ assinatura.data_assinatura|date:"d/m/Y H:i" }}</td>
+                                        <td>
+                                            {% if assinatura.observacoes %}
+                                                <small class="text-muted">{{ assinatura.observacoes|truncatechars:50 }}</small>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Formulário de Assinatura -->
+                    <form method="post" id="formAssinarQuadroAcesso">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="tipo_assinatura" class="form-label">
+                                <strong>Tipo de Assinatura *</strong>
+                            </label>
+                            <select class="form-select" id="tipo_assinatura" name="tipo_assinatura" required>
+                                <option value="ELABORACAO">Elaboração</option>
+                                <option value="REVISAO">Revisão</option>
+                                <option value="APROVACAO" selected>Aprovação</option>
+                                <option value="HOMOLOGACAO">Homologação</option>
+                                <option value="OUTROS">Outros</option>
+                            </select>
+                            <div class="form-text">
+                                Selecione o tipo de assinatura que você está realizando.
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="observacoes" class="form-label">
+                                <strong>Observações da Assinatura</strong>
+                            </label>
+                            <textarea class="form-control" id="observacoes" name="observacoes" 
+                                      rows="3" placeholder="Observações adicionais sobre a assinatura (opcional)"></textarea>
+                            <div class="form-text">
+                                Informações complementares sobre a assinatura ou justificativa.
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="membro_id" class="form-label"><strong>Membro da Comissão *</strong></label>
+                            <select class="form-select" id="membro_id" name="membro_id" required>
+                                <option value="">Selecione o membro...</option>
+                                {% for membro in membros_comissao %}
+                                    <option value="{{ membro.id }}">
+                                        {{ membro.militar.get_posto_graduacao_display }} {{ membro.militar.nome_completo }} - {{ membro.cargo.nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Selecione o membro da comissão que irá assinar.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="senha" class="form-label"><strong>Senha *</strong></label>
+                            <input type="password" class="form-control" id="senha" name="senha" placeholder="Digite sua senha para confirmar a assinatura" required>
+                            <div class="form-text">Digite sua senha para confirmar a assinatura eletrônica.</div>
+                        </div>
+
+                        <!-- Aviso de Assinatura -->
+                        <div class="alert alert-primary">
+                            <h6><i class="fas fa-exclamation-triangle"></i> Importante!</h6>
+                            <p class="mb-0">
+                                Ao assinar este quadro de acesso, você confirma que:
+                            </p>
+                            <ul class="mb-0 mt-2">
+                                <li>O quadro foi analisado e está correto</li>
+                                <li>Você assume a responsabilidade pela assinatura</li>
+                                <li>A assinatura será registrada com seu nome e data/hora</li>
+                                <li>Esta ação não pode ser desfeita facilmente</li>
+                                <li>Você pode assinar múltiplas vezes com tipos diferentes</li>
+                            </ul>
+                        </div>
+
+                        <!-- Botões de Ação -->
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            {% if quadro.categoria == 'PRACAS' %}
+                                <a href="{% url 'militares:quadro_acesso_pracas_detail' quadro.pk %}" class="btn btn-secondary">
+                                    <i class="fas fa-times"></i> Cancelar
+                                </a>
+                            {% else %}
+                                <a href="{% url 'militares:quadro_acesso_detail' quadro.pk %}" class="btn btn-secondary">
+                                    <i class="fas fa-times"></i> Cancelar
+                                </a>
+                            {% endif %}
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-file-signature"></i> Confirmar Assinatura
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const formAssinarQuadroAcesso = document.getElementById('formAssinarQuadroAcesso');
+    if (formAssinarQuadroAcesso) {
+        formAssinarQuadroAcesso.addEventListener('submit', function(e) {
+            // Remover validação de senha
+        });
+    }
+});
+</script>
+{% endblock %} 

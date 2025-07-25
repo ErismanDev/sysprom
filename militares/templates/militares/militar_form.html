@@ -1,0 +1,1317 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - SysProm - CBMEPI{% endblock %}
+
+{% block extra_css %}
+<style>
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    }
+    
+    .card.shadow-lg {
+        box-shadow: 0 1rem 3rem rgba(0,0,0,.175) !important;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    
+    .form-check.border-primary {
+        transition: all 0.3s ease;
+    }
+    
+    .form-check.border-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .alert-info.border-start {
+        border-left-width: 4px !important;
+    }
+    
+    .btn-lg {
+        padding: 0.75rem 1.5rem;
+        font-size: 1.1rem;
+    }
+    
+    .invalid-feedback {
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+    
+    .form-label.fw-bold {
+        color: #495057;
+        margin-bottom: 0.5rem;
+    }
+    
+    .card-header.bg-light {
+        background-color: #f8f9fa !important;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .text-danger {
+        color: #dc3545 !important;
+    }
+    
+    .badge.fs-6 {
+        font-size: 0.875rem !important;
+    }
+    
+    /* Animações suaves */
+    .fadeIn, .fadeOut {
+        transition: opacity 0.3s ease-in-out;
+    }
+    
+    /* Responsividade melhorada */
+    @media (max-width: 768px) {
+        .col-lg-10 {
+            margin: 0 10px;
+        }
+        
+        .btn-lg {
+            padding: 0.5rem 1rem;
+            font-size: 1rem;
+        }
+        
+        .card-body {
+            padding: 1rem !important;
+        }
+    }
+    
+    /* Melhorar visual dos campos de data */
+    input[type="date"] {
+        position: relative;
+        cursor: pointer;
+    }
+    
+    input[type="date"]::-webkit-calendar-picker-indicator {
+        cursor: pointer;
+        opacity: 0.7;
+        transition: opacity 0.2s ease;
+    }
+    
+    input[type="date"]::-webkit-calendar-picker-indicator:hover {
+        opacity: 1;
+    }
+    
+    /* Melhorar aparência dos campos de data */
+    input[type="date"] {
+        background-color: #fff;
+        border: 1px solid #ced4da;
+        border-radius: 0.375rem;
+        padding: 0.375rem 0.75rem;
+        font-size: 1rem;
+        line-height: 1.5;
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+    
+    input[type="date"]:focus {
+        border-color: #007bff;
+        outline: 0;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    
+    input[type="date"]:hover {
+        border-color: #007bff;
+    }
+    
+    /* Estilo para campos obrigatórios */
+    .form-label .text-danger {
+        font-weight: bold;
+    }
+    
+    /* Melhorar visual dos checkboxes */
+    .form-check-input:checked {
+        background-color: #007bff;
+        border-color: #007bff;
+    }
+    
+    .form-check-input:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- DEBUG: Mostrar valores reais vindos do banco -->
+    <!-- <p style="color: red; font-weight: bold;">DEBUG: quadro do banco = {{ form.instance.quadro }} | posto = {{ form.instance.posto_graduacao }}</p> -->
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-gradient-primary text-white py-3">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-user-edit fa-2x me-3"></i>
+                        <div>
+                            <h4 class="mb-0">{{ title }}</h4>
+                            <small class="opacity-75">
+                                {% if action == 'update' %}
+                                    Editando dados do militar
+                                {% else %}
+                                    Cadastrando novo militar
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-body p-4">
+                    <form method="post" enctype="multipart/form-data" novalidate class="needs-validation">
+                        {% csrf_token %}
+                        <div class="row mb-4">
+                            <div class="col-md-3 text-center">
+                                {% if militar and militar.foto %}
+                                    <img src="{{ militar.foto.url }}" alt="Foto Atual do Militar" class="img-thumbnail mb-2" style="max-width: 150px; max-height: 150px;">
+                                    <div class="form-text mb-2">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Foto atual do militar
+                                    </div>
+                                {% elif form.foto.value %}
+                                    <img src="{{ form.foto.value.url }}" alt="Nova Foto Selecionada" class="img-thumbnail mb-2" style="max-width: 150px; max-height: 150px;">
+                                    <div class="form-text mb-2">
+                                        <i class="fas fa-upload me-1"></i>
+                                        Nova foto selecionada
+                                    </div>
+                                {% else %}
+                                    <div class="bg-light border rounded d-flex align-items-center justify-content-center mb-2" style="width: 150px; height: 150px;">
+                                        <i class="fas fa-user fa-4x text-muted"></i>
+                                    </div>
+                                    <div class="form-text mb-2">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Nenhuma foto cadastrada
+                                    </div>
+                                {% endif %}
+                                <label for="{{ form.foto.id_for_label }}" class="form-label fw-bold mt-2">Foto do Militar</label>
+                                {{ form.foto }}
+                                <div class="mt-2">
+                                    <button type="button" id="limpar-foto" class="btn btn-sm btn-outline-secondary" style="display: none;">
+                                        <i class="fas fa-times me-1"></i>Limpar Seleção
+                                    </button>
+                                </div>
+                                {% if form.foto.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.foto.errors.0 }}</div>
+                                {% endif %}
+                                <div class="form-text">Formatos aceitos: JPG, PNG. Tamanho máximo: 2MB.</div>
+                            </div>
+                        </div>
+                        
+                        <script>
+                        document.addEventListener('DOMContentLoaded', function() {
+                            const fotoInput = document.getElementById('{{ form.foto.id_for_label }}');
+                            const previewContainer = document.querySelector('.col-md-3.text-center');
+                            const limparBtn = document.getElementById('limpar-foto');
+                            
+                            fotoInput.addEventListener('change', function(e) {
+                                const file = e.target.files[0];
+                                if (file) {
+                                    // Validar tipo de arquivo
+                                    if (!file.type.startsWith('image/')) {
+                                        alert('Por favor, selecione apenas arquivos de imagem (JPG, PNG, etc.)');
+                                        this.value = '';
+                                        return;
+                                    }
+                                    
+                                    // Validar tamanho (2MB)
+                                    if (file.size > 2 * 1024 * 1024) {
+                                        alert('A imagem deve ter no máximo 2MB');
+                                        this.value = '';
+                                        return;
+                                    }
+                                    
+                                    const reader = new FileReader();
+                                    reader.onload = function(e) {
+                                        // Limpar container de preview
+                                        const existingElements = previewContainer.querySelectorAll('img, .bg-light.border.rounded, .form-text');
+                                        existingElements.forEach(el => el.remove());
+                                        
+                                        // Criar nova imagem para preview
+                                        const img = document.createElement('img');
+                                        img.src = e.target.result;
+                                        img.alt = 'Preview da Nova Foto';
+                                        img.className = 'img-thumbnail mb-2';
+                                        img.style.maxWidth = '150px';
+                                        img.style.maxHeight = '150px';
+                                        img.style.border = '3px solid #28a745';
+                                        
+                                        // Adicionar nova imagem no início
+                                        previewContainer.insertBefore(img, previewContainer.firstChild);
+                                        
+                                        // Adicionar texto indicando que é preview
+                                        const previewText = document.createElement('div');
+                                        previewText.className = 'form-text mb-2';
+                                        previewText.innerHTML = '<i class="fas fa-eye me-1 text-success"></i><strong>Preview da nova foto</strong>';
+                                        previewText.style.color = '#28a745';
+                                        previewText.style.fontWeight = 'bold';
+                                        previewContainer.insertBefore(previewText, img.nextSibling);
+                                        
+                                        // Adicionar informações do arquivo
+                                        const fileInfo = document.createElement('div');
+                                        fileInfo.className = 'form-text mb-2';
+                                        fileInfo.innerHTML = `<i class="fas fa-file-image me-1"></i>${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+                                        previewContainer.insertBefore(fileInfo, previewText.nextSibling);
+                                        
+                                        // Mostrar botão limpar
+                                        limparBtn.style.display = 'inline-block';
+                                    };
+                                    reader.readAsDataURL(file);
+                                } else {
+                                    // Se nenhum arquivo foi selecionado, restaurar estado original
+                                    location.reload();
+                                }
+                            });
+                            
+                            // Evento para limpar seleção
+                            limparBtn.addEventListener('click', function() {
+                                fotoInput.value = '';
+                                limparBtn.style.display = 'none';
+                                location.reload();
+                            });
+                        });
+                        </script>
+                            </div>
+                        </div>
+                        <!-- Grupo: Informações Básicas -->
+                        <div class="card mb-4 border-0 shadow-sm">
+                            <div class="card-header bg-light border-0">
+                                <h6 class="mb-0 text-primary">
+                                    <i class="fas fa-id-card me-2"></i>1. Informações Básicas
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-3" id="campo-antiguidade-box">
+                                        <label for="{{ form.numeracao_antiguidade.id_for_label }}" class="form-label fw-bold">
+                                            {{ form.numeracao_antiguidade.label }}
+                                        </label>
+                                        <div class="input-group">
+                                            {{ form.numeracao_antiguidade }}
+                                            <button type="button" class="btn btn-outline-success" id="btn-aplicar-promocao" title="Aplicar promoção automaticamente" style="display: none;">
+                                                <i class="fas fa-arrow-up"></i>
+                                            </button>
+                                        </div>
+                                        {% if form.numeracao_antiguidade.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.numeracao_antiguidade.errors.0 }}</div>
+                                        {% endif %}
+                                        <div class="form-text">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Numeração de antiguidade dentro do posto/quadro (ex: 1, 2, 3...)
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="{{ form.matricula.id_for_label }}" class="form-label fw-bold">
+                                            {{ form.matricula.label }} <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.matricula }}
+                                        {% if form.matricula.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.matricula.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="{{ form.nome_completo.id_for_label }}" class="form-label fw-bold">
+                                            {{ form.nome_completo.label }} <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.nome_completo }}
+                                        {% if form.nome_completo.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.nome_completo.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="{{ form.nome_guerra.id_for_label }}" class="form-label fw-bold">
+                                            {{ form.nome_guerra.label }} <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.nome_guerra }}
+                                        {% if form.nome_guerra.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.nome_guerra.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="row g-3 mt-2">
+                                    <div class="col-md-4">
+                                        <label for="{{ form.cpf.id_for_label }}" class="form-label fw-bold">
+                                            {{ form.cpf.label }} <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.cpf }}
+                                        {% if form.cpf.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.cpf.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="{{ form.rg.id_for_label }}" class="form-label fw-bold">
+                                            {{ form.rg.label }} <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.rg }}
+                                        {% if form.rg.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.rg.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="{{ form.orgao_expedidor.id_for_label }}" class="form-label fw-bold">
+                                            {{ form.orgao_expedidor.label }} <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.orgao_expedidor }}
+                                        {% if form.orgao_expedidor.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.orgao_expedidor.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="row g-3 mt-2">
+                                    <div class="col-md-4">
+                                        <label for="{{ form.data_nascimento.id_for_label }}" class="form-label fw-bold">
+                                            {{ form.data_nascimento.label }} <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.data_nascimento }}
+                                        {% if form.data_nascimento.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.data_nascimento.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="{{ form.sexo.id_for_label }}" class="form-label fw-bold">
+                                            {{ form.sexo.label }} <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.sexo }}
+                                        {% if form.sexo.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.sexo.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Grupo: Informações Militares -->
+                        <div class="card mb-4 border-0 shadow-sm">
+                            <div class="card-header bg-light border-0">
+                                <h6 class="mb-0 text-info">
+                                    <i class="fas fa-medal me-2"></i>2. Informações Militares
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-12">
+                                        <label for="{{ form.quadro.id_for_label }}" class="form-label fw-bold">
+                                            {{ form.quadro.label }} <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.quadro }}
+                                        {% if form.quadro.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.quadro.errors %}
+                                                    {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-12">
+                                        <label for="{{ form.posto_graduacao.id_for_label }}" class="form-label fw-bold">
+                                            Postos e Graduações <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.posto_graduacao }}
+                                        {% if form.posto_graduacao.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.posto_graduacao.errors %}
+                                                    {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="row g-3 mt-2">
+                                    <div class="col-md-6">
+                                        <label for="{{ form.data_ingresso.id_for_label }}" class="form-label fw-bold">
+                                            {{ form.data_ingresso.label }} <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.data_ingresso }}
+                                        {% if form.data_ingresso.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.data_ingresso.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="{{ form.data_promocao_atual.id_for_label }}" class="form-label fw-bold">
+                                            {{ form.data_promocao_atual.label }} <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.data_promocao_atual }}
+                                        {% if form.data_promocao_atual.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.data_promocao_atual.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <!-- Requisitos dinâmicos -->
+                                <div class="row g-3 mt-2">
+                                    <div class="col-12">
+                                        <div id="requisitos-cursos-alert" class="alert alert-info d-none fadeIn" style="min-height: 48px;">
+                                            <i class="fas fa-clipboard-check me-2"></i>
+                                            <span id="requisitos-cursos-text"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Campo hidden para próxima promoção -->
+                                <input type="hidden" id="proximas_promocoes_data" value="{{ proximas_promocoes|safe }}">
+                                
+                                <div class="row g-3 mt-2">
+                                    <div class="col-md-6">
+                                        <label for="{{ form.situacao.id_for_label }}" class="form-label fw-bold">
+                                            {{ form.situacao.label }} <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.situacao }}
+                                        {% if form.situacao.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.situacao.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <!-- Espaço reservado para futuros campos -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Grupo: Informações de Contato -->
+                        <div class="card mb-4 border-0 shadow-sm">
+                            <div class="card-header bg-light border-0">
+                                <h6 class="mb-0 text-secondary">
+                                    <i class="fas fa-phone me-2"></i>3. Informações de Contato
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label for="{{ form.email.id_for_label }}" class="form-label fw-bold">
+                                            {{ form.email.label }} <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.email }}
+                                        {% if form.email.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.email.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="{{ form.telefone.id_for_label }}" class="form-label fw-bold">
+                                            {{ form.telefone.label }} <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.telefone }}
+                                        {% if form.telefone.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.telefone.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="{{ form.celular.id_for_label }}" class="form-label fw-bold">
+                                            {{ form.celular.label }} <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.celular }}
+                                        {% if form.celular.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.celular.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Grupo: Requisitos para Promoção e Inspeção de Saúde -->
+                        <div class="card mb-4 border-0 shadow-sm" id="requisitos-promocao">
+                            <div class="card-header bg-light border-0">
+                                <h6 class="mb-0 text-warning">
+                                    <i class="fas fa-user-shield me-2"></i>4. Requisitos para Promoção e Inspeção de Saúde
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3 mb-3" id="cursos-requisitos">
+                                    <!-- Campo CFO (Formação) para todos os quadros exceto Complementar -->
+                                    <div class="col-md-6" id="curso-formacao-div" style="display: none;">
+                                        <div class="form-check p-3 border rounded bg-light border-primary">
+                                            {{ form.curso_formacao_oficial }}
+                                            <label class="form-check-label ms-2 fw-bold" for="{{ form.curso_formacao_oficial.id_for_label }}">
+                                                <i class="fas fa-graduation-cap text-primary me-2"></i>
+                                                Possui Curso de Formação de Oficial Bombeiro Militar (CFO)
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Campo CAO (Aperfeiçoamento) para Oficiais -->
+                                    <div class="col-md-6" id="curso-aperfeicoamento-div" style="display: none;">
+                                        <div class="form-check p-3 border rounded bg-light border-success">
+                                            {{ form.curso_aperfeicoamento_oficial }}
+                                            <label class="form-check-label ms-2 fw-bold" for="{{ form.curso_aperfeicoamento_oficial.id_for_label }}">
+                                                <i class="fas fa-certificate text-success me-2"></i>
+                                                Possui Curso de Aperfeiçoamento de Oficial Bombeiro Militar (CAO)
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Campo CSBM para Tenente-Coronel e Coronel -->
+                                    <div class="col-md-6" id="curso-csbm-div" style="display: none;">
+                                        <div class="form-check p-3 border rounded bg-light border-success">
+                                            {{ form.curso_csbm }}
+                                            <label class="form-check-label ms-2 fw-bold" for="{{ form.curso_csbm.id_for_label }}">
+                                                <i class="fas fa-medal text-success me-2"></i>
+                                                Possui Curso Superior de Bombeiro Militar (CSBM)
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Campo CADOF para Alunos de Adaptação do Quadro Engenheiro -->
+                                    <div class="col-md-6" id="curso-adaptacao-div" style="display: none;">
+                                        <div class="form-check p-3 border rounded bg-light border-warning">
+                                            {{ form.curso_adaptacao_oficial }}
+                                            <label class="form-check-label ms-2 fw-bold" for="{{ form.curso_adaptacao_oficial.id_for_label }}">
+                                                <i class="fas fa-cogs text-warning me-2"></i>
+                                                Possui Curso de Adaptação de Oficiais (CADOF)
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Campo CHO para Subtenentes do Quadro Complementar -->
+                                    <div class="col-md-6" id="curso-cho-div" style="display: none;">
+                                        <div class="form-check p-3 border rounded bg-light border-warning">
+                                            {{ form.curso_cho }}
+                                            <label class="form-check-label ms-2 fw-bold" for="{{ form.curso_cho.id_for_label }}">
+                                                <i class="fas fa-star text-warning me-2"></i>
+                                                Possui Curso de Habilitação de Oficiais (CHO)
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Campo Nota do CHO -->
+                                    <div class="col-md-6" id="nota-cho-div" style="display: none;">
+                                        <label for="{{ form.nota_cho.id_for_label }}" class="form-label fw-bold">
+                                            <i class="fas fa-star text-warning me-2"></i>
+                                            Nota do CHO
+                                        </label>
+                                        {{ form.nota_cho }}
+                                        {% if form.nota_cho.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.nota_cho.errors.0 }}</div>
+                                        {% endif %}
+                                        <div class="form-text">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Nota obtida no Curso de Habilitação de Oficiais (CHO)
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Campo Curso Superior para Capitães -->
+                                    <div class="col-md-6" id="curso-superior-div" style="display: none;">
+                                        <div class="form-check p-3 border rounded bg-light border-info">
+                                            {{ form.curso_superior }}
+                                            <label class="form-check-label ms-2 fw-bold" for="{{ form.curso_superior.id_for_label }}">
+                                                <i class="fas fa-university text-info me-2"></i>
+                                                Possui Curso Superior
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Campo Pós-Graduação para Major e Tenente-Coronel -->
+                                    <div class="col-md-6" id="pos-graduacao-div" style="display: none;">
+                                        <div class="form-check p-3 border rounded bg-light border-purple">
+                                            {{ form.pos_graduacao }}
+                                            <label class="form-check-label ms-2 fw-bold" for="{{ form.pos_graduacao.id_for_label }}">
+                                                <i class="fas fa-graduation-cap text-purple me-2"></i>
+                                                Possui Pós-Graduação
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Campos para cursos de praças -->
+                                    <div class="col-md-6" id="curso-cfsd-div" style="display: none;">
+                                        <div class="form-check p-3 border rounded bg-light border-primary">
+                                            {{ form.curso_cfsd }}
+                                            <label class="form-check-label ms-2 fw-bold" for="{{ form.curso_cfsd.id_for_label }}">
+                                                <i class="fas fa-user-graduate text-primary me-2"></i>
+                                                Possui Curso de Formação de Soldados (CFSD)
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6" id="curso-formacao-pracas-div" style="display: none;">
+                                        <div class="form-check p-3 border rounded bg-light border-primary">
+                                            {{ form.curso_formacao_pracas }}
+                                            <label class="form-check-label ms-2 fw-bold" for="{{ form.curso_formacao_pracas.id_for_label }}">
+                                                <i class="fas fa-users text-primary me-2"></i>
+                                                Possui Curso de Formação de Praças
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6" id="curso-chc-div" style="display: none;">
+                                        <div class="form-check p-3 border rounded bg-light border-success">
+                                            {{ form.curso_chc }}
+                                            <label class="form-check-label ms-2 fw-bold" for="{{ form.curso_chc.id_for_label }}">
+                                                <i class="fas fa-shield-alt text-success me-2"></i>
+                                                Possui Curso de Habilitação de Cabos (CHC) ou equivalente
+                                            </label>
+                                        </div>
+                                        <div class="mt-2" id="nota-chc-div" style="display: none;">
+                                            <label for="{{ form.nota_chc.id_for_label }}" class="form-label fw-bold">
+                                                <i class="fas fa-shield-alt text-success me-2"></i>Nota do CHC
+                                            </label>
+                                            {{ form.nota_chc }}
+                                            {% if form.nota_chc.errors %}
+                                                <div class="invalid-feedback d-block">{{ form.nota_chc.errors.0 }}</div>
+                                            {% endif %}
+                                            <div class="form-text">
+                                                <i class="fas fa-info-circle me-1"></i>
+                                                Nota obtida no Curso de Habilitação de Cabos (CHC)
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6" id="curso-chsgt-div" style="display: none;">
+                                        <div class="form-check p-3 border rounded bg-light border-warning">
+                                            {{ form.curso_chsgt }}
+                                            <label class="form-check-label ms-2 fw-bold" for="{{ form.curso_chsgt.id_for_label }}">
+                                                <i class="fas fa-star text-warning me-2"></i>
+                                                Possui Curso de Habilitação de Sargentos (CHSGT) ou equivalente
+                                            </label>
+                                        </div>
+                                        <div class="mt-2" id="nota-chsgt-div" style="display: none;">
+                                            <label for="{{ form.nota_chsgt.id_for_label }}" class="form-label fw-bold">
+                                                <i class="fas fa-star text-warning me-2"></i>Nota do CHSGT
+                                            </label>
+                                            {{ form.nota_chsgt }}
+                                            {% if form.nota_chsgt.errors %}
+                                                <div class="invalid-feedback d-block">{{ form.nota_chsgt.errors.0 }}</div>
+                                            {% endif %}
+                                            <div class="form-text">
+                                                <i class="fas fa-info-circle me-1"></i>
+                                                Nota obtida no Curso de Habilitação de Sargentos (CHSGT)
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6" id="curso-cas-div" style="display: none;">
+                                        <div class="form-check p-3 border rounded bg-light border-info">
+                                            {{ form.curso_cas }}
+                                            <label class="form-check-label ms-2 fw-bold" for="{{ form.curso_cas.id_for_label }}">
+                                                <i class="fas fa-award text-info me-2"></i>
+                                                Possui Curso de Aperfeiçoamento de Sargentos (CAS)
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <div class="form-check p-3 border rounded bg-light">
+                                            {{ form.apto_inspecao_saude }}
+                                            <label class="form-check-label ms-2 fw-bold" for="{{ form.apto_inspecao_saude.id_for_label }}">
+                                                <i class="fas fa-heartbeat text-danger me-2"></i>
+                                                Apto em Inspeção de Saúde
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="{{ form.data_inspecao_saude.id_for_label }}" class="form-label fw-bold">
+                                            Data da Inspeção de Saúde
+                                        </label>
+                                        {{ form.data_inspecao_saude }}
+                                        {% if form.data_inspecao_saude.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.data_inspecao_saude.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="{{ form.data_validade_inspecao_saude.id_for_label }}" class="form-label fw-bold">
+                                            Validade da Inspeção de Saúde
+                                        </label>
+                                        {{ form.data_validade_inspecao_saude }}
+                                        {% if form.data_validade_inspecao_saude.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.data_validade_inspecao_saude.errors.0 }}</div>
+                                        {% endif %}
+                                        {% if form.data_validade_inspecao_saude.value and form.data_validade_inspecao_saude.value < today %}
+                                            <div class="alert alert-danger mt-2 p-2">
+                                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                                <strong>Atenção:</strong> Validade da inspeção vencida! Renove para permitir promoção.
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Grupo: Observações -->
+                        <div class="card mb-4 border-0 shadow-sm">
+                            <div class="card-header bg-light border-0">
+                                <h6 class="mb-0 text-dark">
+                                    <i class="fas fa-sticky-note me-2"></i>5. Observações
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-12">
+                                        <label for="{{ form.observacoes.id_for_label }}" class="form-label fw-bold">
+                                            Observações Adicionais
+                                        </label>
+                                        {{ form.observacoes }}
+                                        {% if form.observacoes.errors %}
+                                            <div class="text-danger">{{ form.observacoes.errors }}</div>
+                                        {% endif %}
+                                        <div class="form-text">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Informações adicionais sobre o oficial.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Botões de Ação -->
+                        <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                            <a href="{% url 'militares:militar_list' %}" class="btn btn-outline-secondary btn-lg">
+                                <i class="fas fa-arrow-left me-2"></i>Voltar
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-lg px-4">
+                                <i class="fas fa-save me-2"></i>
+                                {% if action == 'update' %}Atualizar{% else %}Cadastrar{% endif %} Militar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
+<script>
+    $(document).ready(function() {
+        // Aplicar máscaras
+        $('.cpf-mask').mask('000.000.000-00');
+        $('.phone-mask').mask('(00) 00000-0000');
+        
+        // Melhorar campos de data
+        $('input[type="date"]').each(function() {
+            // Permitir digitação manual
+            $(this).attr('placeholder', 'dd/mm/aaaa');
+            
+            // Adicionar tooltip informativo
+            $(this).attr('title', 'Clique para abrir o calendário ou digite a data no formato dd/mm/aaaa');
+            
+            // Melhorar acessibilidade
+            $(this).attr('aria-label', 'Selecione uma data ou digite no formato dd/mm/aaaa');
+        });
+        
+        // Função para exibir requisitos dinâmicos e campos condicionais
+        function mostrarRequisitosCursos() {
+            const quadro = $('#id_quadro').val();
+            const posto = $('#id_posto_graduacao').val();
+            let requisitos = [];
+            
+
+            
+            // Ocultar todos os campos condicionais primeiro
+            $('#curso-cho-div, #curso-superior-div, #pos-graduacao-div, #curso-csbm-div, #curso-formacao-div, #curso-aperfeicoamento-div, #curso-adaptacao-div, #curso-cfsd-div, #curso-formacao-pracas-div, #curso-chc-div, #curso-chsgt-div, #curso-cas-div').hide();
+            
+            // Regras para Quadro Complementar
+            if (quadro === 'COMP') {
+                // Mostrar todos os cursos do quadro complementar disponíveis para seleção
+                $('#curso-cho-div').show();
+                $('#curso-superior-div').show();
+                $('#pos-graduacao-div').show();
+                
+                // Mensagens específicas por posto
+                if (['ST', '2T', '1T'].includes(posto)) {
+                    requisitos.push('Para promoção: CHO obrigatório');
+                } else if (posto === 'CP') {
+                    requisitos.push('Para promoção a Major: CHO + Curso Superior obrigatórios');
+                } else if (posto === 'MJ') {
+                    requisitos.push('Para promoção a Tenente-Coronel: CHO + Curso Superior + Pós-Graduação obrigatórios');
+                } else if (posto === 'TC') {
+                    requisitos.push('Para promoção a Coronel: CHO + Curso Superior + Pós-Graduação + CSBM obrigatórios');
+                }
+            }
+            // Regras para Quadro Engenheiro
+            else if (quadro === 'ENG') {
+                if (posto === 'AA') {
+                    $('#curso-adaptacao-div').show();
+                    requisitos.push('Curso de Adaptação de Oficiais (CADOF) obrigatório');
+                } else {
+                    $('#curso-formacao-div').show();
+                    requisitos.push('Curso de Formação de Oficial Bombeiro Militar (CFO) obrigatório');
+                }
+                if (['CP', 'MJ', 'TC'].includes(posto)) {
+                    $('#curso-aperfeicoamento-div').show();
+                    requisitos.push('Curso de Aperfeiçoamento de Oficial Bombeiro Militar (CAO) obrigatório');
+                }
+                if (['TC'].includes(posto)) {
+                    $('#curso-csbm-div').show();
+                    requisitos.push('Curso Superior de Bombeiro Militar (CSBM) obrigatório');
+                }
+            }
+            // Regras para Quadro Saúde
+            else if (quadro === 'SAUDE') {
+                if (posto === 'AA') {
+                    $('#curso-adaptacao-div').show();
+                    requisitos.push('Curso de Adaptação de Oficiais (CADOF) obrigatório');
+                } else {
+                    $('#curso-formacao-div').show();
+                    requisitos.push('Curso de Formação de Oficial Bombeiro Militar (CFO) obrigatório');
+                }
+                if (['CP', 'MJ', 'TC'].includes(posto)) {
+                    $('#curso-aperfeicoamento-div').show();
+                    requisitos.push('Curso de Aperfeiçoamento de Oficial Bombeiro Militar (CAO) obrigatório');
+                }
+                if (['TC'].includes(posto)) {
+                    $('#curso-csbm-div').show();
+                    requisitos.push('Curso Superior de Bombeiro Militar (CSBM) obrigatório');
+                }
+            }
+            // Regras para Quadro Praças
+            else if (quadro === 'PRACAS') {
+                // Mostrar todos os cursos de praças disponíveis para seleção
+                $('#curso-cfsd-div').show();
+                $('#curso-formacao-pracas-div').show();
+                $('#curso-chc-div').show();
+                $('#curso-chsgt-div').show();
+                $('#curso-cas-div').show();
+                
+                // Mensagens específicas por posto
+                if (posto === 'SD') {
+                    requisitos.push('Para promoção a Cabo: CFSD OU CHC (selecione pelo menos um)');
+                } else if (posto === 'CAB') {
+                    requisitos.push('Para promoção a 3º Sargento: CFSD + CHC obrigatórios. Para quadros de acesso: CHSGT com nota para ordenação.');
+                } else if (posto === '3S') {
+                    requisitos.push('Para promoção a 2º Sargento: CFSD + CHC + CHSGT obrigatórios');
+                } else if (posto === '2S') {
+                    requisitos.push('Para promoção a 1º Sargento: CFSD + CHC + CHSGT + CAS obrigatórios');
+                } else if (posto === '1S') {
+                    requisitos.push('Para promoção a Subtenente: CFSD + CHC + CHSGT + CAS obrigatórios');
+                } else if (posto === 'ST') {
+                    $('#curso-cho-div').show();
+                    requisitos.push('Para promoção a 2º Tenente: CHO obrigatório');
+                } else {
+                    // Para qualquer posto de praças, mostrar todos os cursos disponíveis
+                    requisitos.push('Selecione os cursos que o militar possui');
+                }
+            }
+            // Regras para outros quadros (Combatente)
+            else {
+                // Mostrar todos os cursos de oficiais disponíveis para seleção
+                $('#curso-formacao-div').show();
+                $('#curso-aperfeicoamento-div').show();
+                $('#curso-csbm-div').show();
+                
+                // Mensagens específicas por posto
+                if (['AS', '2T', '1T'].includes(posto)) {
+                    requisitos.push('Para promoção: CFO obrigatório');
+                } else if (posto === 'CP') {
+                    requisitos.push('Para promoção a Major: CFO + CAO obrigatórios');
+                } else if (['MJ', 'TC'].includes(posto)) {
+                    requisitos.push('Para promoção: CFO + CAO obrigatórios');
+                } else if (posto === 'CB') {
+                    requisitos.push('Para promoção: CFO + CAO + CSBM obrigatórios');
+                }
+            }
+            
+            if (requisitos.length > 0) {
+                $('#requisitos-cursos-text').html(requisitos.join('<br>'));
+                $('#requisitos-cursos-alert').removeClass('d-none').addClass('fadeIn');
+            } else {
+                $('#requisitos-cursos-alert').addClass('d-none').removeClass('fadeIn');
+            }
+        }
+        // Executar no carregamento
+        mostrarRequisitosCursos();
+        // Executar quando mudar quadro ou posto
+        $('#id_quadro, #id_posto_graduacao').change(function() {
+            mostrarRequisitosCursos();
+        });
+        
+        // Inicializar estado dos campos condicionais baseado nos valores atuais
+        setTimeout(function() {
+            mostrarRequisitosCursos();
+        }, 100);
+        
+
+        
+        // Validação de datas
+        $('#id_data_promocao_atual').change(function() {
+            const dataPromocao = new Date($(this).val());
+            const dataIngresso = new Date($('#id_data_ingresso').val());
+            
+            if (dataPromocao < dataIngresso) {
+                $(this).addClass('is-invalid');
+                if (!$(this).next('.invalid-feedback').length) {
+                    $(this).after('<div class="invalid-feedback">A data da promoção não pode ser anterior à data de ingresso.</div>');
+                }
+            } else {
+                $(this).removeClass('is-invalid');
+                $(this).next('.invalid-feedback').remove();
+            }
+        });
+        
+        // Melhorar UX dos checkboxes
+        $('.form-check-input').change(function() {
+            const card = $(this).closest('.form-check');
+            if ($(this).is(':checked')) {
+                card.addClass('border-primary bg-primary bg-opacity-10');
+            } else {
+                card.removeClass('border-primary bg-primary bg-opacity-10');
+            }
+        });
+        
+        // Aplicar estado inicial dos checkboxes
+        $('.form-check-input:checked').each(function() {
+            $(this).closest('.form-check').addClass('border-primary bg-primary bg-opacity-10');
+        });
+        
+        // Controle da visibilidade do campo nota_cho baseado no checkbox curso_cho
+        function toggleNotaCho() {
+            const cursoCho = $('#id_curso_cho');
+            const notaChoDiv = $('#nota-cho-div');
+            
+            if (cursoCho.is(':checked')) {
+                notaChoDiv.show();
+            } else {
+                notaChoDiv.hide();
+                // Limpar o valor quando ocultar
+                $('#id_nota_cho').val('');
+            }
+        }
+        
+        // Executar na carga da página
+        toggleNotaCho();
+        
+        // Executar quando o checkbox mudar
+        $('#id_curso_cho').on('change', function() {
+            toggleNotaCho();
+        });
+        
+        // Validação da numeração de antiguidade
+        $('#id_numeracao_antiguidade').on('input', function() {
+            const valor = $(this).val();
+            const quadro = $('#id_quadro').val();
+            const posto = $('#id_posto_graduacao').val();
+            const situacao = $('#id_situacao').val();
+            
+            // Limpar validações anteriores
+            $(this).removeClass('is-valid is-invalid');
+            $(this).next('.invalid-feedback').remove();
+            
+            // Validar apenas se o militar está ativo
+            if (situacao === 'AT' && valor) {
+                // Validar se é um número inteiro positivo
+                if (!/^\d+$/.test(valor) || parseInt(valor) <= 0) {
+                    $(this).addClass('is-invalid');
+                    $(this).after('<div class="invalid-feedback">A numeração deve ser um número inteiro positivo (ex: 1, 2, 3...)</div>');
+                    return;
+                }
+                
+                // Validar se não é muito alta (sugestão: máximo 1000)
+                if (parseInt(valor) > 1000) {
+                    $(this).addClass('is-invalid');
+                    $(this).after('<div class="invalid-feedback">A numeração não pode ser maior que 1000</div>');
+                    return;
+                }
+                
+                // Se passou pelas validações, marcar como válido
+                $(this).addClass('is-valid');
+            }
+        });
+        
+        // Validar numeração quando mudar situação
+        $('#id_situacao').change(function() {
+            $('#id_numeracao_antiguidade').trigger('input');
+        });
+        
+        // Buscar próxima numeração disponível quando mudar posto ou quadro
+        function buscarProximaNumeracao() {
+            const quadro = $('#id_quadro').val();
+            const posto = $('#id_posto_graduacao').val();
+            const situacao = $('#id_situacao').val();
+            
+            // Só buscar se o militar estiver ativo e ambos os campos estiverem preenchidos
+            if (situacao === 'AT' && quadro && posto) {
+                $.ajax({
+                    url: '{% url "militares:proxima_numeracao_disponivel" %}',
+                    method: 'GET',
+                    data: {
+                        'posto': posto,
+                        'quadro': quadro
+                    },
+                    success: function(response) {
+                        if (response.proxima_numeracao) {
+                            // Sugerir a próxima numeração disponível
+                            const campoNumeracao = $('#id_numeracao_antiguidade');
+                            if (!campoNumeracao.val()) {  // Só sugerir se o campo estiver vazio
+                                campoNumeracao.val(response.proxima_numeracao);
+                                campoNumeracao.addClass('is-valid');
+                                
+                                // Mostrar mensagem de sugestão com informações detalhadas
+                                let mensagemTexto = `Sugestão: Próxima numeração disponível (${response.proxima_numeracao}) para ${posto}/${quadro}`;
+                                
+                                if (response.numeracoes_existentes && response.numeracoes_existentes.length > 0) {
+                                    const numeracoes = response.numeracoes_existentes.join(', ');
+                                    mensagemTexto += `<br><small class="text-muted">Numerações existentes: ${numeracoes}</small>`;
+                                }
+                                
+                                const mensagem = $(`<div class="form-text text-success">
+                                    <i class="fas fa-lightbulb me-1"></i>
+                                    ${mensagemTexto}
+                                </div>`);
+                                campoNumeracao.parent().find('.form-text').remove();
+                                campoNumeracao.parent().append(mensagem);
+                            }
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.log('Erro ao buscar próxima numeração:', error);
+                    }
+                });
+            }
+        }
+        
+        // Chamar função quando mudar posto ou quadro
+        $('#id_quadro, #id_posto_graduacao').change(function() {
+            buscarProximaNumeracao();
+        });
+        
+        
+        // Variáveis para detectar mudanças
+        let postoOriginal = $('#id_posto_graduacao').val();
+        let quadroOriginal = $('#id_quadro').val();
+        
+        // Função para verificar se houve mudança de posto/quadro
+        function verificarMudancaPostoQuadro() {
+            const postoAtual = $('#id_posto_graduacao').val();
+            const quadroAtual = $('#id_quadro').val();
+            const situacao = $('#id_situacao').val();
+            
+            // Mostrar botão de promoção se houve mudança e militar está ativo
+            if ((postoAtual !== postoOriginal || quadroAtual !== quadroOriginal) && 
+                situacao === 'AT' && postoAtual && quadroAtual) {
+                $('#btn-aplicar-promocao').show();
+            } else {
+                $('#btn-aplicar-promocao').hide();
+            }
+        }
+        
+        // Botão para aplicar promoção
+        $('#btn-aplicar-promocao').click(function() {
+            const militarId = '{{ militar.pk }}' || null;
+            const novoPosto = $('#id_posto_graduacao').val();
+            const novoQuadro = $('#id_quadro').val();
+            
+            if (!militarId) {
+                alert('Erro: ID do militar não encontrado.');
+                return;
+            }
+            
+            if (confirm('Deseja aplicar a promoção automaticamente?\n\nO militar se tornará o último (maior número) da nova graduação ' + novoPosto + '/' + novoQuadro + '.')) {
+                $.ajax({
+                    url: '{% url "militares:aplicar_promocao" %}',
+                    method: 'POST',
+                    data: {
+                        'militar_id': militarId,
+                        'novo_posto': novoPosto,
+                        'novo_quadro': novoQuadro,
+                        'csrfmiddlewaretoken': $('[name=csrfmiddlewaretoken]').val()
+                    },
+                    success: function(response) {
+                        if (response.sucesso) {
+                            alert('Promoção aplicada com sucesso!\n\n' + response.mensagem);
+                            // Atualizar a numeração no campo
+                            $('#id_numeracao_antiguidade').val(response.nova_numeracao);
+                            // Esconder o botão
+                            $('#btn-aplicar-promocao').hide();
+                            // Atualizar valores originais
+                            postoOriginal = novoPosto;
+                            quadroOriginal = novoQuadro;
+                        } else {
+                            alert('Erro ao aplicar promoção: ' + (response.erro || 'Erro desconhecido'));
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        alert('Erro ao aplicar promoção: ' + error);
+                    }
+                });
+            }
+        });
+        
+        // Verificar mudanças quando os campos mudarem
+        $('#id_posto_graduacao, #id_quadro, #id_situacao').change(function() {
+            verificarMudancaPostoQuadro();
+        });
+        
+        // Verificar no carregamento da página
+        $(document).ready(function() {
+            verificarMudancaPostoQuadro();
+            
+            // Controle do campo de nota do CHSGT
+            function toggleNotaChsgt() {
+                const cursoChsgt = $('#id_curso_chsgt').is(':checked');
+                const notaDiv = $('#nota-chsgt-div');
+                const cursoDiv = $('#curso-chsgt-div');
+                
+                console.log('=== DEBUG CHSGT ===');
+                console.log('CHSGT checkbox:', cursoChsgt);
+                console.log('Campo nota existe:', notaDiv.length > 0);
+                console.log('Div curso CHSGT existe:', cursoDiv.length > 0);
+                console.log('Div curso CHSGT visível:', cursoDiv.is(':visible'));
+                console.log('Div nota CHSGT visível:', notaDiv.is(':visible'));
+                
+                if (cursoChsgt) {
+                    notaDiv.show();
+                    console.log('✅ Mostrando campo de nota');
+                } else {
+                    notaDiv.hide();
+                    $('#id_nota_chsgt').val(''); // Limpar o campo quando desmarcar
+                    console.log('❌ Ocultando campo de nota');
+                }
+            }
+            // Controle do campo de nota do CHC
+            function toggleNotaChc() {
+                const cursoChc = $('#id_curso_chc').is(':checked');
+                const notaDiv = $('#nota-chc-div');
+                if (cursoChc) {
+                    notaDiv.show();
+                } else {
+                    notaDiv.hide();
+                    $('#id_nota_chc').val('');
+                }
+            }
+            // Executar no carregamento
+            setTimeout(function() {
+                toggleNotaChsgt();
+                toggleNotaChc();
+            }, 500);
+            // Executar quando o checkbox mudar
+            $('#id_curso_chsgt').change(function() {
+                toggleNotaChsgt();
+            });
+            $('#id_curso_chc').change(function() {
+                toggleNotaChc();
+            });
+            // Executar também quando mudar quadro ou posto
+            $('#id_quadro, #id_posto_graduacao').change(function() {
+                setTimeout(function() {
+                    toggleNotaChsgt();
+                    toggleNotaChc();
+                }, 200);
+            });
+        });
+
+        // --- FORÇAR VALORES DO BANCO NOS SELECTS DE QUADRO E POSTO ---
+        // Isso garante que, após uma promoção, os selects mostrem o valor correto mesmo se o filtro ocultar opções
+        var quadroBanco = '{{ form.instance.quadro }}';
+        var postoBanco = '{{ form.instance.posto_graduacao }}';
+        if (quadroBanco) {
+            $('#id_quadro').val(quadroBanco);
+        }
+        if (postoBanco) {
+            $('#id_posto_graduacao').val(postoBanco);
+        }
+        // Após forçar os valores, reexecuta o filtro para garantir que as opções corretas estejam visíveis
+        if (typeof filtrarPostosPorQuadro === 'function') {
+            filtrarPostosPorQuadro();
+        }
+    });
+</script>
+
+<script>
+// Limites de postos por quadro
+const limitesPostos = {
+    'COMP': ['ST', '2T', '1T', 'CP', 'MJ', 'TC', 'CB'],
+    'COMB': ['2T', '1T', 'AS', 'CP', 'MJ', 'TC', 'CB'],
+    'ENG':  ['AA', '2T', '1T', 'CP', 'MJ', 'TC', 'CB'],
+    'SAUDE': ['AA', '2T', '1T', 'CP', 'MJ', 'TC', 'CB'],
+    'NVRR': ['2T', '1T', 'CP', 'MJ', 'TC', 'CB'],
+    'PRACAS': ['ST', '1S', '2S', '3S', 'CAB', 'SD'],
+};
+
+// Mapeamento de código para nome do posto (opcional, para exibir nomes)
+const nomesPostos = {
+    'CB': 'Coronel',
+    'TC': 'Tenente-Coronel',
+    'MJ': 'Major',
+    'CP': 'Capitão',
+    '1T': '1º Tenente',
+    '2T': '2º Tenente',
+    'AS': 'Aspirante a Oficial',
+    'AA': 'Aluno de Adaptação',
+    'ST': 'Subtenente',
+    '1S': '1º Sargento',
+    '2S': '2º Sargento',
+    '3S': '3º Sargento',
+    'CAB': 'Cabo',
+    'SD': 'Soldado',
+};
+
+function filtrarPostosPorQuadro() {
+    const quadro = document.getElementById('id_quadro').value;
+    const selectPosto = document.getElementById('id_posto_graduacao');
+    const postosPermitidos = limitesPostos[quadro] || [];
+    
+    // Percorre todas as opções e mostra/esconde conforme permitido
+    for (let i = 0; i < selectPosto.options.length; i++) {
+        const opt = selectPosto.options[i];
+        if (opt.value === '') {
+            // Manter a opção vazia sempre visível
+            opt.style.display = '';
+        } else if (postosPermitidos.includes(opt.value)) {
+            opt.style.display = '';
+        } else {
+            opt.style.display = 'none';
+        }
+    }
+    
+    // Se o valor atual não for permitido, limpa
+    if (selectPosto.value && !postosPermitidos.includes(selectPosto.value)) {
+        selectPosto.value = '';
+    }
+    
+    // Debug: mostrar no console quais postos estão sendo filtrados
+    console.log('Quadro selecionado:', quadro);
+    console.log('Postos permitidos:', postosPermitidos);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const quadroSelect = document.getElementById('id_quadro');
+    if (quadroSelect) {
+        quadroSelect.addEventListener('change', filtrarPostosPorQuadro);
+        filtrarPostosPorQuadro(); // Executa ao carregar
+    }
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    function toggleCampoAntiguidade() {
+        var selectPosto = document.getElementById('id_posto_graduacao');
+        var selectQuadro = document.getElementById('id_quadro');
+        var campoAntiguidade = document.getElementById('campo-antiguidade-box');
+        
+        // Verifica se o posto ou o quadro é NVRR
+        var isNVRR = false;
+        
+        if (selectPosto && selectPosto.value === 'NVRR') {
+            isNVRR = true;
+        }
+        
+        if (selectQuadro && selectQuadro.value === 'NVRR') {
+            isNVRR = true;
+        }
+        
+        if (campoAntiguidade) {
+            if (isNVRR) {
+                campoAntiguidade.style.display = 'none';
+            } else {
+                campoAntiguidade.style.display = '';
+            }
+        }
+    }
+    
+    var selectPosto = document.getElementById('id_posto_graduacao');
+    var selectQuadro = document.getElementById('id_quadro');
+    
+    if (selectPosto) {
+        selectPosto.addEventListener('change', toggleCampoAntiguidade);
+    }
+    if (selectQuadro) {
+        selectQuadro.addEventListener('change', toggleCampoAntiguidade);
+    }
+    
+    toggleCampoAntiguidade(); // Executa ao carregar a página
+});
+</script>
+{% endblock %} 

@@ -1,0 +1,436 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ comissao.nome }} - SysProm - CBMEPI{% endblock %}
+
+{% block extra_css %}
+<style>
+    .comissao-header {
+        background: linear-gradient(135deg, #2c5aa0 0%, #1e3a6b 100%);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+    }
+    
+    .comissao-stats {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .stat-item {
+        text-align: center;
+        padding: 0.5rem;
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 0.25rem;
+    }
+    
+    .stat-label {
+        font-size: 0.875rem;
+        opacity: 0.9;
+    }
+    
+    .function-card {
+        border: none;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        height: 100%;
+    }
+    
+    .function-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .function-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .quick-actions {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .action-btn {
+        border-radius: 6px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+    
+    .action-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .info-panel {
+        background: #e3f2fd;
+        border: 1px solid #2c5aa0;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .recent-item {
+        border-left: 3px solid #2c5aa0;
+        padding-left: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .recent-item:hover {
+        background: #f8f9fa;
+        border-radius: 4px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header da Comissão -->
+<div class="comissao-header">
+    <div class="container-fluid">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="mb-2">
+                    <i class="fas fa-gavel me-3"></i>
+                    {{ comissao.nome }}
+                </h1>
+                <p class="mb-0 opacity-75">
+                    <i class="fas fa-tag me-2"></i>
+                    {{ comissao.get_tipo_display }} | 
+                    <i class="fas fa-calendar me-2"></i>
+                    Criada em {{ comissao.data_criacao|date:"d/m/Y" }}
+                </p>
+            </div>
+            <div class="col-md-4">
+                <div class="comissao-stats">
+                    <div class="row">
+                        <div class="col-4 stat-item">
+                            <div class="stat-number">{{ comissao.total_membros }}</div>
+                            <div class="stat-label">Membros</div>
+                        </div>
+                        <div class="col-4 stat-item">
+                            <div class="stat-number">{{ comissao.sessoes.count }}</div>
+                            <div class="stat-label">Sessões</div>
+                        </div>
+                        <div class="col-4 stat-item">
+                            <div class="stat-number">{{ quadros_acesso.count }}</div>
+                            <div class="stat-label">Quadros</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <!-- Status e Informações -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="info-panel">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center mb-2">
+                            {% if comissao.status == 'ATIVA' %}
+                                <span class="badge bg-success status-badge me-2">{{ comissao.get_status_display }}</span>
+                            {% elif comissao.status == 'INATIVA' %}
+                                <span class="badge bg-secondary status-badge me-2">{{ comissao.get_status_display }}</span>
+                            {% else %}
+                                <span class="badge bg-warning status-badge me-2">{{ comissao.get_status_display }}</span>
+                            {% endif %}
+                            <span class="text-muted">{{ comissao.get_tipo_display }}</span>
+                        </div>
+                        {% if comissao.presidente %}
+                            <div class="small">
+                                <strong>Presidente:</strong> {{ comissao.presidente.militar.get_posto_graduacao_display }} {{ comissao.presidente.militar.nome_completo }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 text-md-end">
+                        <div class="btn-group" role="group">
+                            <a href="{% url 'militares:comissao_update' comissao.pk %}" class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-edit me-1"></i>Editar
+                            </a>
+                            <a href="{% url 'militares:comissao_pdf' comissao.pk %}" class="btn btn-outline-info btn-sm" target="_blank">
+                                <i class="fas fa-file-pdf me-1"></i>PDF
+                            </a>
+                            {% if user.is_superuser or user.is_staff and not comissao.sessoes.exists %}
+                                <a href="{% url 'militares:comissao_delete' comissao.pk %}" class="btn btn-outline-danger btn-sm">
+                                    <i class="fas fa-trash me-1"></i>Excluir
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Funções Principais da Comissão -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h4 class="mb-3">
+                <i class="fas fa-cogs me-2"></i>
+                Funções da Comissão
+            </h4>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <!-- Gestão de Membros -->
+        <div class="col-md-6 col-lg-3">
+            <div class="card function-card">
+                <div class="card-body text-center">
+                    <div class="function-icon bg-primary text-white mx-auto">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <h5 class="card-title">Gestão de Membros</h5>
+                    <p class="card-text small text-muted">Adicionar, remover e gerenciar membros da comissão</p>
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'militares:membro_comissao_add' comissao.pk %}" class="btn btn-primary action-btn">
+                            <i class="fas fa-user-plus me-1"></i>Adicionar Membro
+                        </a>
+                        <a href="{% url 'militares:membro_comissao_list' comissao.pk %}" class="btn btn-outline-primary action-btn">
+                            <i class="fas fa-list me-1"></i>Ver Membros
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sessões -->
+        <div class="col-md-6 col-lg-3">
+            <div class="card function-card">
+                <div class="card-body text-center">
+                    <div class="function-icon bg-success text-white mx-auto">
+                        <i class="fas fa-calendar-alt"></i>
+                    </div>
+                    <h5 class="card-title">Sessões</h5>
+                    <p class="card-text small text-muted">Criar e gerenciar sessões da comissão</p>
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'militares:sessao_comissao_create' %}?comissao={{ comissao.pk }}" class="btn btn-success action-btn">
+                            <i class="fas fa-calendar-plus me-1"></i>Nova Sessão
+                        </a>
+                        <a href="{% url 'militares:sessao_comissao_list' %}?comissao={{ comissao.pk }}" class="btn btn-outline-success action-btn">
+                            <i class="fas fa-list me-1"></i>Ver Sessões
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quadros de Acesso -->
+        <div class="col-md-6 col-lg-3">
+            <div class="card function-card">
+                <div class="card-body text-center">
+                    <div class="function-icon bg-info text-white mx-auto">
+                        <i class="fas fa-list-ol"></i>
+                    </div>
+                    <h5 class="card-title">Quadros de Acesso</h5>
+                    <p class="card-text small text-muted">Gerenciar quadros de antiguidade e merecimento</p>
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'militares:gerar_quadro_acesso' %}?comissao={{ comissao.pk }}" class="btn btn-info action-btn">
+                            <i class="fas fa-plus me-1"></i>Novo Quadro
+                        </a>
+                        <a href="{% url 'militares:quadro_acesso_list' %}?comissao={{ comissao.pk }}" class="btn btn-outline-info action-btn">
+                            <i class="fas fa-list me-1"></i>Ver Quadros
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fixação de Vagas -->
+        <div class="col-md-6 col-lg-3">
+            <div class="card function-card">
+                <div class="card-body text-center">
+                    <div class="function-icon bg-warning text-white mx-auto">
+                        <i class="fas fa-clipboard-list"></i>
+                    </div>
+                    <h5 class="card-title">Fixação de Vagas</h5>
+                    <p class="card-text small text-muted">Visualizar fixação de vagas e cargos</p>
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'militares:quadro_fixacao_vagas_list' %}?comissao={{ comissao.pk }}" class="btn btn-warning action-btn">
+                            <i class="fas fa-eye me-1"></i>Ver Fixações
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ações Rápidas -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="quick-actions">
+                <h5 class="mb-3">
+                    <i class="fas fa-bolt me-2"></i>
+                    Ações Rápidas
+                </h5>
+                <div class="row g-2">
+                    <div class="col-md-3 col-6">
+                        <a href="{% url 'militares:sessao_comissao_create' %}?comissao={{ comissao.pk }}" class="btn btn-outline-primary w-100">
+                            <i class="fas fa-calendar-plus me-1"></i>Nova Sessão
+                        </a>
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <a href="{% url 'militares:membro_comissao_add' comissao.pk %}" class="btn btn-outline-success w-100">
+                            <i class="fas fa-user-plus me-1"></i>Adicionar Membro
+                        </a>
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <a href="{% url 'militares:gerar_quadro_acesso' %}?comissao={{ comissao.pk }}" class="btn btn-outline-info w-100">
+                            <i class="fas fa-list-ol me-1"></i>Novo Quadro
+                        </a>
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <a href="{% url 'militares:comissao_pdf' comissao.pk %}" class="btn btn-outline-secondary w-100" target="_blank">
+                            <i class="fas fa-file-pdf me-1"></i>Gerar PDF
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Atividade Recente -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-clock me-2"></i>
+                        Sessões Recentes
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if comissao.sessoes.all %}
+                        {% for sessao in comissao.sessoes.all|slice:":5" %}
+                            <div class="recent-item">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <strong>Sessão {{ sessao.numero }}</strong>
+                                        <br>
+                                        <small class="text-muted">
+                                            {{ sessao.data_sessao|date:"d/m/Y" }} às {{ sessao.hora_inicio|time:"H:i" }}
+                                        </small>
+                                    </div>
+                                    <div>
+                                        {% if sessao.status == 'REALIZADA' %}
+                                            <span class="badge bg-success">Realizada</span>
+                                        {% elif sessao.status == 'AGENDADA' %}
+                                            <span class="badge bg-info">Agendada</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">{{ sessao.get_status_display }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                        {% if comissao.sessoes.count > 5 %}
+                            <div class="text-center mt-3">
+                                <a href="{% url 'militares:sessao_comissao_list' %}?comissao={{ comissao.pk }}" class="btn btn-outline-primary btn-sm">
+                                    Ver Todas ({{ comissao.sessoes.count }})
+                                </a>
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <p class="text-muted text-center py-3">
+                            <i class="fas fa-calendar-times fa-2x mb-2"></i><br>
+                            Nenhuma sessão registrada
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-users me-2"></i>
+                        Membros Ativos
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if comissao.membros.all %}
+                        {% for membro in comissao.membros.all|slice:":5" %}
+                            <div class="recent-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>{{ membro.militar.get_posto_graduacao_display }} {{ membro.militar.nome_completo }}</strong>
+                                        <br>
+                                        <small class="text-muted">{{ membro.get_funcao_display }}</small>
+                                    </div>
+                                    <div>
+                                        {% if membro.funcao == 'PRESIDENTE' %}
+                                            <span class="badge bg-primary">Presidente</span>
+                                        {% elif membro.funcao == 'SECRETARIO' %}
+                                            <span class="badge bg-info">Secretário</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Membro</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                        {% if comissao.membros.count > 5 %}
+                            <div class="text-center mt-3">
+                                <a href="{% url 'militares:membro_comissao_list' comissao.pk %}" class="btn btn-outline-primary btn-sm">
+                                    Ver Todos ({{ comissao.membros.count }})
+                                </a>
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <p class="text-muted text-center py-3">
+                            <i class="fas fa-user-times fa-2x mb-2"></i><br>
+                            Nenhum membro registrado
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navegação -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between">
+                <a href="{% url 'militares:comissao_list' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>
+                    Voltar à Lista
+                </a>
+                <div class="btn-group">
+                    <a href="{% url 'militares:comissao_update' comissao.pk %}" class="btn btn-primary">
+                        <i class="fas fa-edit me-1"></i>
+                        Editar Comissão
+                    </a>
+                    <a href="{% url 'militares:comissao_pdf' comissao.pk %}" class="btn btn-info" target="_blank">
+                        <i class="fas fa-file-pdf me-1"></i>
+                        Gerar PDF
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

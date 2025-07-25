@@ -1,0 +1,378 @@
+{% extends 'base.html' %}
+{% load l10n %}
+{% load militares_extras %}
+
+{% block title %}Ficha de Conceito - {{ militar.nome_completo }} - SysProm - CBMEPI{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <!-- Card com dados do militar -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user-shield me-2"></i>Dados do Militar
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="row mb-2">
+                                <div class="col-4"><strong>Nome:</strong></div>
+                                <div class="col-8">{{ militar.nome_completo }}</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-4"><strong>Nome de Guerra:</strong></div>
+                                <div class="col-8">{{ militar.nome_guerra }}</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-4"><strong>Posto/Graduação:</strong></div>
+                                <div class="col-8">{{ militar.get_posto_graduacao_display }}</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-4"><strong>Matrícula:</strong></div>
+                                <div class="col-8">{{ militar.matricula }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="row mb-2">
+                                <div class="col-4"><strong>Quadro:</strong></div>
+                                <div class="col-8">{{ militar.get_quadro_display }}</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-4"><strong>Data de Ingresso:</strong></div>
+                                <div class="col-8">{{ militar.data_ingresso|date:"d/m/Y" }}</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-4"><strong>Promoção Atual:</strong></div>
+                                <div class="col-8">{{ militar.data_promocao_atual|date:"d/m/Y" }}</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-4"><strong>Situação:</strong></div>
+                                <div class="col-8">
+                                    <span class="badge {% if militar.situacao == 'ATIVO' %}bg-success{% elif militar.situacao == 'INATIVO' %}bg-warning{% else %}bg-secondary{% endif %}">
+                                        {{ militar.get_situacao_display }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card com informações da ficha e total de pontos -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h4 class="mb-0">
+                                <i class="fas fa-clipboard-list me-2"></i>
+                                Ficha de Conceito
+                            </h4>
+                            <small class="text-light">
+                                <strong>Data de Registro:</strong> {{ ficha.data_registro|date:"d/m/Y H:i" }}
+                            </small>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <div class="card bg-light text-dark">
+                                <div class="card-body text-center">
+                                    <h2 class="mb-0 text-success">{{ ficha.pontos|floatformat:2 }}</h2>
+                                    <small>Total de Pontos</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resumo dos pontos por categoria -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-chart-bar me-2"></i>
+                                Resumo dos Pontos por Categoria
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                {% for categoria, dados in pontos_detalhados.items %}
+                                <div class="col-md-6 col-lg-4 mb-3">
+                                    <div class="card h-100 {% if dados.pontos >= 0 %}border-success{% else %}border-danger{% endif %}">
+                                        <div class="card-body text-center">
+                                            <h6 class="card-title">{{ dados.descricao }}</h6>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span class="badge bg-secondary">{{ dados.valor }} itens</span>
+                                                <span class="badge {% if dados.pontos >= 0 %}bg-success{% else %}bg-danger{% endif %} fs-6">
+                                                    {{ dados.pontos|floatformat:2 }} pts
+                                                </span>
+                                            </div>
+                                            {% if dados.limite %}
+                                                <small class="text-muted">Limite: {{ dados.limite }} pts</small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detalhamento completo dos pontos -->
+            <div class="row">
+                <!-- Pontos Positivos -->
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-plus-circle me-2"></i>
+                                Pontos Positivos
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Item</th>
+                                        <th>Quantidade</th>
+                                        <th>Pontos</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Tempo no Posto</td>
+                                        <td>{{ ficha.tempo_posto }} anos</td>
+                                        <td>{{ pontos_detalhados.tempo_posto.pontos|floatformat:2 }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Especialização (militar)</td>
+                                        <td>{{ ficha.cursos_especializacao }}</td>
+                                        <td>{{ ficha.cursos_especializacao|multiply:2.5|floatformat:2 }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>CSBM</td>
+                                        <td>{{ ficha.cursos_csbm }}</td>
+                                        <td>{{ ficha.cursos_csbm|multiply:4.0|floatformat:2 }}</td>
+                                    </tr>
+
+
+                                    <tr>
+                                        <td>CFSD</td>
+                                        <td>{{ ficha.cursos_cfsd }}</td>
+                                        <td>{{ ficha.cursos_cfsd|multiply:0.5|floatformat:2 }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>CHC</td>
+                                        <td>{{ ficha.cursos_chc }}</td>
+                                        <td>{{ ficha.cursos_chc|multiply:0.75|floatformat:2 }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>CHSGT</td>
+                                        <td>{{ ficha.cursos_chsgt }}</td>
+                                        <td>{{ ficha.cursos_chsgt|multiply:1.0|floatformat:2 }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>CAS</td>
+                                        <td>{{ ficha.cursos_cas }}</td>
+                                        <td>{{ ficha.cursos_cas|multiply:1.25|floatformat:2 }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>CHO</td>
+                                        <td>{{ ficha.cursos_cho }}</td>
+                                        <td>{{ ficha.cursos_cho|multiply:1.5|floatformat:2 }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>CFO</td>
+                                        <td>{{ ficha.cursos_cfo }}</td>
+                                        <td>{{ ficha.cursos_cfo|multiply:1.75|floatformat:2 }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>CÃO</td>
+                                        <td>{{ ficha.cursos_cao }}</td>
+                                        <td>{{ ficha.cursos_cao|multiply:3.0|floatformat:2 }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>CSBM (Instrutor)</td>
+                                        <td>{{ ficha.cursos_instrutor_csbm }}</td>
+                                        <td>{{ ficha.cursos_instrutor_csbm|multiply:2.5|floatformat:2 }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Superior (civil)</td>
+                                        <td>{{ ficha.cursos_civis_superior }}</td>
+                                        <td>{{ ficha.cursos_civis_superior|multiply:1.5|floatformat:2 }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Especialização (civil)</td>
+                                        <td>{{ ficha.cursos_civis_especializacao }}</td>
+                                        <td>{{ ficha.cursos_civis_especializacao|multiply:2.0|floatformat:2 }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Mestrado (civil)</td>
+                                        <td>{{ ficha.cursos_civis_mestrado }}</td>
+                                        <td>{{ ficha.cursos_civis_mestrado|multiply:3.0|floatformat:2 }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Doutorado (civil)</td>
+                                        <td>{{ ficha.cursos_civis_doutorado }}</td>
+                                        <td>{{ ficha.cursos_civis_doutorado|multiply:4.0|floatformat:2 }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Medalha Federal</td>
+                                        <td>{{ ficha.medalha_federal }}</td>
+                                        <td>{{ ficha.medalha_federal|multiply:0.5|floatformat:2 }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Medalha Estadual</td>
+                                        <td>{{ ficha.medalha_estadual }}</td>
+                                        <td>{{ ficha.medalha_estadual|multiply:0.3|floatformat:2 }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Medalha CBMEPI</td>
+                                        <td>{{ ficha.medalha_cbmepi }}</td>
+                                        <td>{{ ficha.medalha_cbmepi|multiply:0.2|floatformat:2 }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Elogio Individual</td>
+                                        <td>{{ ficha.elogio_individual }}</td>
+                                        <td>{{ ficha.elogio_individual|multiply:0.15|floatformat:2 }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Elogio Coletivo</td>
+                                        <td>{{ ficha.elogio_coletivo }}</td>
+                                        <td>{{ ficha.elogio_coletivo|multiply:0.10|floatformat:2 }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pontos Negativos -->
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-danger text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-minus-circle me-2"></i>
+                                Pontos Negativos
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Item</th>
+                                        <th>Quantidade</th>
+                                        <th>Pontos</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Repreensão</td>
+                                        <td>{{ ficha.punicao_repreensao }}</td>
+                                        <td class="text-danger">-{{ ficha.punicao_repreensao|multiply:0.5|floatformat:2 }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Detenção</td>
+                                        <td>{{ ficha.punicao_detencao }}</td>
+                                        <td class="text-danger">-{{ ficha.punicao_detencao|multiply:1.0|floatformat:2 }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Prisão</td>
+                                        <td>{{ ficha.punicao_prisao }}</td>
+                                        <td class="text-danger">-{{ ficha.punicao_prisao|multiply:2.0|floatformat:2 }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Falta de Aproveitamento</td>
+                                        <td>{{ ficha.falta_aproveitamento }}</td>
+                                        <td class="text-danger">-{{ ficha.falta_aproveitamento|multiply:5.0|floatformat:2 }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Observações -->
+            {% if ficha.observacoes %}
+            <div class="row mt-4">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-sticky-note me-2"></i>
+                                Observações
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-0">{{ ficha.observacoes }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Botões de ação -->
+            <div class="row mt-4">
+                <div class="col-md-12">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <a href="{% url 'militares:ficha_conceito_edit' ficha.pk %}" class="btn btn-primary">
+                                <i class="fas fa-edit me-2"></i>Editar Ficha
+                            </a>
+                            <a href="{% url 'militares:militar_detail' militar.pk %}" class="btn btn-secondary">
+                                <i class="fas fa-user me-2"></i>Ver Militar
+                            </a>
+                        </div>
+                        <div>
+                            <a href="{% url 'militares:ficha_conceito_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-list me-2"></i>Voltar à Lista
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Template filter para multiplicação -->
+{% load l10n %}
+{% localize off %}
+<script>
+// Adicionar classe CSS para destacar o total de pontos
+document.addEventListener('DOMContentLoaded', function() {
+    // Destacar o total de pontos com animação
+    const totalElement = document.querySelector('.card.bg-success h2');
+    if (totalElement) {
+        totalElement.style.animation = 'pulse 2s infinite';
+    }
+});
+
+// Adicionar CSS para animação
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+    
+    .card.bg-success {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+    
+    .card.bg-success:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endlocalize %}
+{% endblock %} 

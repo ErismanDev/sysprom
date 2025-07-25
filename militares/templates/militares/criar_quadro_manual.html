@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Criar Quadro Manual{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4><i class="fas fa-edit"></i> Criar Quadro Manual</h4>
+                    <p class="text-muted">Crie um quadro manual com militares aptos carregados automaticamente</p>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="form-quadro-manual">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="data_promocao">Data da Promoção *</label>
+                                    <input type="date" class="form-control" id="data_promocao" name="data_promocao" 
+                                           value="{{ proxima_data_automatica|date:'Y-m-d' }}" required>
+                                    <small class="form-text text-muted">
+                                        Data prevista para a promoção
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="categoria">Categoria *</label>
+                                    <select class="form-control" id="categoria" name="categoria" required>
+                                        <option value="OFICIAIS">Oficiais</option>
+                                        <option value="PRACAS">Praças</option>
+                                    </select>
+                                    <small class="form-text text-muted">
+                                        Define se o quadro será para oficiais ou praças
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="criterio_ordenacao">Critério de Ordenação *</label>
+                                    <select class="form-control" id="criterio_ordenacao" name="criterio_ordenacao" required>
+                                        <option value="ANTIGUIDADE">Por Antiguidade</option>
+                                        <option value="MERECIMENTO">Por Merecimento</option>
+                                    </select>
+                                    <small class="form-text text-muted">
+                                        Define como os militares serão ordenados
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="observacoes">Observações</label>
+                            <textarea class="form-control" id="observacoes" name="observacoes" rows="3" 
+                                      placeholder="Descreva o motivo da criação do quadro manual (ex: mandado judicial, promoção extraordinária, etc.)"></textarea>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-info-circle"></i> Informações</h6>
+                            <ul class="mb-0">
+                                <li>Os militares aptos serão carregados automaticamente no quadro</li>
+                                <li>Após criar o quadro, você poderá adicionar ou remover militares manualmente</li>
+                                <li>O quadro será criado com status "Em Elaboração"</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary" id="btn-criar">
+                                <i class="fas fa-save"></i> Criar Quadro Manual
+                            </button>
+                            <a href="{% url 'militares:quadro_acesso_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Voltar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const dataPromocao = document.getElementById('data_promocao');
+        const form = document.getElementById('form-quadro-manual');
+        const btnCriar = document.getElementById('btn-criar');
+        
+        // Auto-preenchimento da data atual se não houver sugestão
+        if (!dataPromocao.value) {
+            const hoje = new Date();
+            const dataFormatada = hoje.toISOString().split('T')[0];
+            dataPromocao.value = dataFormatada;
+        }
+        
+        // Mostrar alerta quando o formulário for submetido
+        form.addEventListener('submit', function(e) {
+            const criterio = document.getElementById('criterio_ordenacao').value;
+            const categoria = document.getElementById('categoria').value;
+            const criterioNome = criterio === 'ANTIGUIDADE' ? 'Por Antiguidade' : 'Por Merecimento';
+            const categoriaNome = categoria === 'OFICIAIS' ? 'Oficiais' : 'Praças';
+            
+            if (confirm(`⚠️ ATENÇÃO: Criar quadro manual para ${categoriaNome} ${criterioNome}?\n\nOs militares aptos serão carregados automaticamente no quadro.`)) {
+                btnCriar.disabled = true;
+                btnCriar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Criando...';
+                return true;
+            } else {
+                e.preventDefault();
+                return false;
+            }
+        });
+    });
+</script>
+{% endblock %} 

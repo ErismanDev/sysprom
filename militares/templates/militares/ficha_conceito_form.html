@@ -1,0 +1,860 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    {% if ficha %}Editar Ficha de Conceito{% else %}Nova Ficha de Conceito{% endif %}{% if militar %} - {{ militar.nome_completo }}{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-10 mx-auto">
+            <!-- Removido o card de total de pontos do topo -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-clipboard-list"></i>
+                        {% if ficha %}Editar Ficha de Conceito{% else %}Nova Ficha de Conceito{% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Card com dados do militar -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card border-primary">
+                                <div class="card-header bg-primary text-white">
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-user-shield me-2"></i>Dados do Militar
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="row mb-2">
+                                                <div class="col-4"><strong>Nome:</strong></div>
+                                                <div class="col-8">{{ militar.nome_completo }}</div>
+                                            </div>
+                                            <div class="row mb-2">
+                                                <div class="col-4"><strong>Nome de Guerra:</strong></div>
+                                                <div class="col-8">{{ militar.nome_guerra }}</div>
+                                            </div>
+                                            <div class="row mb-2">
+                                                <div class="col-4"><strong>Posto/Graduação:</strong></div>
+                                                <div class="col-8">{{ militar.get_posto_graduacao_display }}</div>
+                                            </div>
+                                            <div class="row mb-2">
+                                                <div class="col-4"><strong>Matrícula:</strong></div>
+                                                <div class="col-8">{{ militar.matricula }}</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="row mb-2">
+                                                <div class="col-4"><strong>Quadro:</strong></div>
+                                                <div class="col-8">{{ militar.get_quadro_display }}</div>
+                                            </div>
+                                            <div class="row mb-2">
+                                                <div class="col-4"><strong>Data de Ingresso:</strong></div>
+                                                <div class="col-8">{{ militar.data_ingresso|date:"d/m/Y" }}</div>
+                                            </div>
+                                            <div class="row mb-2">
+                                                <div class="col-4"><strong>Promoção Atual:</strong></div>
+                                                <div class="col-8">{{ militar.data_promocao_atual|date:"d/m/Y" }}</div>
+                                            </div>
+                                            <div class="row mb-2">
+                                                <div class="col-4"><strong>Situação:</strong></div>
+                                                <div class="col-8">
+                                                    <span class="badge {% if militar.situacao == 'ATIVO' %}bg-success{% elif militar.situacao == 'INATIVO' %}bg-warning{% else %}bg-secondary{% endif %}">
+                                                        {{ militar.get_situacao_display }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card com total de pontos -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="card shadow border-primary">
+                                <div class="card-body text-center py-3">
+                                    <div class="row align-items-center">
+                                        <div class="col-md-8">
+                                            <h5 class="text-primary mb-0">
+                                                <i class="fas fa-calculator me-2"></i>Total de Pontos da Ficha de Conceito
+                                            </h5>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="display-4 text-primary fw-bold" id="pontos-total-topo">0.00</div>
+                                            <small class="text-muted">pontos</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <!-- Campo hidden para tempo_posto -->
+                        {{ form.tempo_posto }}
+                        
+                        <!-- Cada grupo do formulário será um card -->
+                        <!-- Exemplo: -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Pontos Positivos</h6>
+                            </div>
+                            <div class="card-body">
+                                <!-- Subgrupos e campos aqui, cada um em row/col -->
+                                <!-- GRUPO 1: Tempo de Serviço no Posto Atual -->
+                                <div class="border rounded p-3 mb-4">
+                                    <h6 class="text-primary mb-3">
+                                        <i class="fas fa-clock me-2"></i>1. Tempo de Serviço no Posto Atual
+                                        <span class="badge bg-info ms-2">Máximo: 5 pontos</span>
+                                    </h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <label for="{{ form.tempo_posto_calculado.id_for_label }}" class="form-label">
+                                                <strong>Tempo no Posto atual (anos)</strong>
+                                            </label>
+                                            {{ form.tempo_posto_calculado }}
+                                            <div class="form-text">1,00 ponto por ano (calculado automaticamente)</div>
+                                        </div>
+                                    </div>
+                                    <!-- Dentro de cada grupo, tornar a tarjeta sticky -->
+                                    <div class="row mt-2">
+                                        <div class="col-12">
+                                            <div class="alert alert-info py-2 mb-0 tarja-total-grupo" style="display: block !important; min-height: 38px; opacity: 1 !important; visibility: visible !important;">
+                                                <strong>Total do grupo:</strong> <span id="total-tempo-posto" class="fw-bold">0.00</span> pontos
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Fim do grupo Tempo de Serviço no Posto Atual -->
+
+                                <script>
+                                document.addEventListener('DOMContentLoaded', function() {
+                                    var campoAnos = document.getElementById('id_tempo_posto_calculado');
+                                    var spanTotal = document.getElementById('total-tempo-posto');
+
+                                    function calcularPontos() {
+                                        let pontos = 0;
+                                        if (campoAnos && campoAnos.value) {
+                                            pontos = Math.min(5, Math.max(0, parseFloat(campoAnos.value) || 0));
+                                        }
+                                        if (spanTotal) {
+                                            spanTotal.textContent = pontos.toFixed(2);
+                                        }
+                                    }
+
+                                    // Força a leitura do valor inicial ao abrir a ficha
+                                    if (campoAnos) {
+                                        campoAnos.addEventListener('input', calcularPontos);
+                                        calcularPontos();
+                                    }
+                                });
+                                </script>
+
+                                <!-- GRUPO 2: Conclusão de Cursos Militares -->
+                                <div class="border rounded p-3 mb-4">
+                                    <h6 class="text-primary mb-3">
+                                        <i class="fas fa-graduation-cap me-2"></i>2. Conclusão de Cursos Militares
+                                        <span class="badge bg-info ms-2">Máximo: 5 pontos</span>
+                                    </h6>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <label for="{{ form.cursos_especializacao.id_for_label }}" class="form-label">
+                                                <strong>Especialização</strong>
+                                            </label>
+                                            {{ form.cursos_especializacao }}
+                                            <div class="form-text">2,50 pontos</div>
+                                        </div>
+                                        {% if form.cursos_csbm %}
+                                        <div class="col-md-4">
+                                            <label for="{{ form.cursos_csbm.id_for_label }}" class="form-label">
+                                                <strong>CSBM</strong>
+                                            </label>
+                                            {{ form.cursos_csbm }}
+                                            <div class="form-text">4,00 pontos</div>
+                                        </div>
+                                        {% endif %}
+
+                                    </div>
+
+                                    <div class="row mt-2">
+                                        <div class="col-12">
+                                            <div class="alert alert-info py-2 mb-0 tarja-total-grupo" style="display: block !important;">
+                                                <strong>Total do grupo:</strong> <span id="total-cursos-militares" class="fw-bold">0.00</span> pontos
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- GRUPO 3: Instrutor em Cursos Militares -->
+                                <div class="border rounded p-3 mb-4">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="text-primary mb-0">
+                                            <i class="fas fa-chalkboard-teacher me-2"></i>3. Instrutor em Cursos Militares
+                                            <span class="badge bg-info ms-2">Máximo: 10 pontos</span>
+                                        </h6>
+                                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="marcarCursosInerentes()">
+                                            <i class="fas fa-check-double me-1"></i>Marcar Cursos do Quadro
+                                        </button>
+                                    </div>
+                                    {% if form.cursos_cfsd %}
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <label for="{{ form.cursos_cfsd.id_for_label }}" class="form-label">
+                                                <strong>CFSD</strong>
+                                            </label>
+                                            {{ form.cursos_cfsd }}
+                                            <div class="form-text">0,50 pontos</div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="{{ form.cursos_chc.id_for_label }}" class="form-label">
+                                                <strong>CHC</strong>
+                                            </label>
+                                            {{ form.cursos_chc }}
+                                            <div class="form-text">0,75 pontos</div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="{{ form.cursos_chsgt.id_for_label }}" class="form-label">
+                                                <strong>CHSGT</strong>
+                                            </label>
+                                            {{ form.cursos_chsgt }}
+                                            <div class="form-text">1,00 pontos</div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="{{ form.cursos_cas.id_for_label }}" class="form-label">
+                                                <strong>CAS</strong>
+                                            </label>
+                                            {{ form.cursos_cas }}
+                                            <div class="form-text">1,25 pontos</div>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    {% if form.cursos_cho %}
+                                    <div class="row mt-2">
+                                        <div class="col-md-3">
+                                            <label for="{{ form.cursos_cho.id_for_label }}" class="form-label">
+                                                <strong>CHO</strong>
+                                            </label>
+                                            {{ form.cursos_cho }}
+                                            <div class="form-text">1,50 pontos</div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="{{ form.cursos_cfo.id_for_label }}" class="form-label">
+                                                <strong>CFO</strong>
+                                            </label>
+                                            {{ form.cursos_cfo }}
+                                            <div class="form-text">1,75 pontos</div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="{{ form.cursos_cao.id_for_label }}" class="form-label">
+                                                <strong>CAO</strong>
+                                            </label>
+                                            {{ form.cursos_cao }}
+                                            <div class="form-text">3,00 pontos</div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="{{ form.cursos_instrutor_csbm.id_for_label }}" class="form-label">
+                                                <strong>CSBM</strong>
+                                            </label>
+                                            {{ form.cursos_instrutor_csbm }}
+                                            <div class="form-text">2,50 pontos</div>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+
+                                    <div class="row mt-2">
+                                        <div class="col-12">
+                                            <div class="alert alert-info py-2 mb-0 tarja-total-grupo" style="display: block !important;">
+                                                <strong>Total do grupo:</strong> <span id="total-instrutor" class="fw-bold">0.00</span> pontos
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- GRUPO 4: Conclusão em Cursos Civis -->
+                                <div class="border rounded p-3 mb-4">
+                                    <h6 class="text-primary mb-3">
+                                        <i class="fas fa-university me-2"></i>4. Conclusão em Cursos Civis
+                                        <span class="badge bg-success ms-2">Sem limite</span>
+                                    </h6>
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <label for="{{ form.cursos_civis_superior.id_for_label }}" class="form-label">
+                                                <strong>Superior</strong>
+                                            </label>
+                                            {{ form.cursos_civis_superior }}
+                                            <div class="form-text">1,50 pontos</div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="{{ form.cursos_civis_especializacao.id_for_label }}" class="form-label">
+                                                <strong>Especialização</strong>
+                                            </label>
+                                            {{ form.cursos_civis_especializacao }}
+                                            <div class="form-text">2,00 pontos</div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="{{ form.cursos_civis_mestrado.id_for_label }}" class="form-label">
+                                                <strong>Mestrado</strong>
+                                            </label>
+                                            {{ form.cursos_civis_mestrado }}
+                                            <div class="form-text">3,00 pontos</div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="{{ form.cursos_civis_doutorado.id_for_label }}" class="form-label">
+                                                <strong>Doutorado</strong>
+                                            </label>
+                                            {{ form.cursos_civis_doutorado }}
+                                            <div class="form-text">4,00 pontos</div>
+                                        </div>
+                                    </div>
+                                    <div class="row mt-2">
+                                        <div class="col-12">
+                                            <div class="alert alert-success py-2 mb-0 tarja-total-grupo" style="display: block !important;">
+                                                <strong>Total do grupo:</strong> <span id="total-cursos-civis" class="fw-bold">0.00</span> pontos
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- GRUPO 5: Medalhas e Condecorações -->
+                                <div class="border rounded p-3 mb-4">
+                                    <h6 class="text-primary mb-3">
+                                        <i class="fas fa-medal me-2"></i>5. Medalhas e Condecorações
+                                        <span class="badge bg-info ms-2">Máximo: 1,0 ponto</span>
+                                    </h6>
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <label for="{{ form.medalha_federal.id_for_label }}" class="form-label">
+                                                <strong>Governo Federal</strong>
+                                            </label>
+                                            {{ form.medalha_federal }}
+                                            <div class="form-text">0,50 pontos</div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="{{ form.medalha_estadual.id_for_label }}" class="form-label">
+                                                <strong>Governo Estadual</strong>
+                                            </label>
+                                            {{ form.medalha_estadual }}
+                                            <div class="form-text">0,30 pontos</div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="{{ form.medalha_cbmepi.id_for_label }}" class="form-label">
+                                                <strong>CBMEPI</strong>
+                                            </label>
+                                            {{ form.medalha_cbmepi }}
+                                            <div class="form-text">0,20 pontos</div>
+                                        </div>
+                                    </div>
+                                    <div class="row mt-2">
+                                        <div class="col-12">
+                                            <div class="alert alert-info py-2 mb-0 tarja-total-grupo" style="display: block !important;">
+                                                <strong>Total do grupo:</strong> <span id="total-medalhas" class="fw-bold">0.00</span> pontos
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- GRUPO 6: Elogios -->
+                                <div class="border rounded p-3 mb-4">
+                                    <h6 class="text-primary mb-3">
+                                        <i class="fas fa-star me-2"></i>6. Elogios
+                                        <span class="badge bg-info ms-2">Máximo: 0,25 ponto</span>
+                                    </h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <label for="{{ form.elogio_individual.id_for_label }}" class="form-label">
+                                                <strong>Individual</strong>
+                                            </label>
+                                            {{ form.elogio_individual }}
+                                            <div class="form-text">0,15 pontos</div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="{{ form.elogio_coletivo.id_for_label }}" class="form-label">
+                                                <strong>Coletivo</strong>
+                                            </label>
+                                            {{ form.elogio_coletivo }}
+                                            <div class="form-text">0,10 pontos</div>
+                                        </div>
+                                    </div>
+                                    <div class="row mt-2">
+                                        <div class="col-12">
+                                            <div class="alert alert-info py-2 mb-0 tarja-total-grupo" style="display: block !important;">
+                                                <strong>Total do grupo:</strong> <span id="total-elogios" class="fw-bold">0.00</span> pontos
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+
+                            </div>
+                        </div>
+
+                        <!-- Pontos Negativos -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-danger text-white">
+                                <h6 class="mb-0"><i class="fas fa-minus-circle me-2"></i>Pontos Negativos</h6>
+                            </div>
+                            <div class="card-body">
+                                
+                                <!-- GRUPO 7: Punições -->
+                                <div class="border rounded p-3 mb-4">
+                                    <h6 class="text-danger mb-3">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>7. Punições
+                                        <span class="badge bg-danger ms-2">Sem limite</span>
+                                    </h6>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <label for="{{ form.punicao_repreensao.id_for_label }}" class="form-label">
+                                                <strong>Repreensão</strong>
+                                            </label>
+                                            {{ form.punicao_repreensao }}
+                                            <div class="form-text">-0,50 ponto</div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label for="{{ form.punicao_detencao.id_for_label }}" class="form-label">
+                                                <strong>Detenção</strong>
+                                            </label>
+                                            {{ form.punicao_detencao }}
+                                            <div class="form-text">-1,00 ponto</div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label for="{{ form.punicao_prisao.id_for_label }}" class="form-label">
+                                                <strong>Prisão</strong>
+                                            </label>
+                                            {{ form.punicao_prisao }}
+                                            <div class="form-text">-2,00 pontos</div>
+                                        </div>
+                                    </div>
+                                    <div class="row mt-2">
+                                        <div class="col-12">
+                                            <div class="alert alert-danger py-2 mb-0 tarja-total-grupo" style="display: block !important;">
+                                                <strong>Total do grupo:</strong> <span id="total-punicoes" class="fw-bold">0.00</span> pontos
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- GRUPO 8: Falta de Aproveitamento -->
+                                <div class="border rounded p-3 mb-4">
+                                    <h6 class="text-danger mb-3">
+                                        <i class="fas fa-times-circle me-2"></i>8. Falta de Aproveitamento em Cursos Militares
+                                        <span class="badge bg-danger ms-2">Sem limite</span>
+                                    </h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <label for="{{ form.falta_aproveitamento.id_for_label }}" class="form-label">
+                                                <strong>Quantidade</strong>
+                                            </label>
+                                            {{ form.falta_aproveitamento }}
+                                            <div class="form-text">-5,00 pontos por ocorrência</div>
+                                        </div>
+                                    </div>
+                                    <div class="row mt-2">
+                                        <div class="col-12">
+                                            <div class="alert alert-danger py-2 mb-0 tarja-total-grupo" style="display: block !important;">
+                                                <strong>Total do grupo:</strong> <span id="total-falta-aproveitamento" class="fw-bold">0.00</span> pontos
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Observações -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-secondary text-white">
+                                <h6 class="mb-0"><i class="fas fa-sticky-note me-2"></i>Observações</h6>
+                            </div>
+                            <div class="card-body">
+                                <label for="{{ form.observacoes.id_for_label }}" class="form-label">
+                                    <strong>Observações Adicionais</strong>
+                                </label>
+                                {{ form.observacoes }}
+                                {% if form.observacoes.errors %}
+                                    <div class="text-danger">{{ form.observacoes.errors }}</div>
+                                {% endif %}
+                                <div class="form-text">Informações adicionais sobre a ficha de conceito.</div>
+                            </div>
+                        </div>
+
+                        <!-- Cálculo Automático -->
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-calculator me-2"></i>Cálculo Automático de Pontos</h6>
+                            <p class="mb-0">Os pontos são calculados automaticamente conforme a Lei 5.461/2005. O sistema aplicará os limites máximos de cada categoria e atualizará os totais em tempo real.</p>
+                        </div>
+
+                        <!-- Resumo dos Pontos -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-dark text-white">
+                                <h6 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Resumo Final dos Pontos</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <div class="text-center p-3 border rounded">
+                                            <h4 class="text-primary mb-1" id="pontos-positivos">0.00</h4>
+                                            <small class="text-muted">Pontos Positivos</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="text-center p-3 border rounded">
+                                            <h4 class="text-danger mb-1" id="pontos-negativos">0.00</h4>
+                                            <small class="text-muted">Pontos Negativos</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="text-center p-3 border rounded">
+                                            <h4 class="text-success mb-1" id="pontos-total">0.00</h4>
+                                            <small class="text-muted">Total Final</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {% if show_password_field %}
+{# Bloco de senha removido, pois a confirmação será feita apenas via modal #}
+{% endif %}
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'militares:ficha_conceito_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Voltar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> {% if ficha %}Atualizar{% else %}Salvar{% endif %} Ficha
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação de Senha -->
+<!-- REMOVIDO: Não pedir mais senha para criar/editar ficha de conceito -->
+
+<script>
+console.log('Script carregado - verificando se está funcionando...');
+
+// Configuração dos valores por campo (alinhado com o backend)
+const valores = {
+    // Tempo de Serviço no Posto Atual
+    'tempo_posto_calculado': { valor: 1.0, descricao: 'Tempo no Posto' },
+    
+    // Conclusão de Cursos Militares
+    'cursos_especializacao': { valor: 2.5, descricao: 'Especialização' },
+    'cursos_csbm': { valor: 4.0, descricao: 'CSBM' },
+    
+    // Instrutor em Cursos Militares
+    'cursos_cfsd': { valor: 0.5, descricao: 'CFSD' },
+    'cursos_chc': { valor: 0.75, descricao: 'CHC ou adaptação a Cb' },
+    'cursos_chsgt': { valor: 1.0, descricao: 'CHSGT ou adaptação a Sgt' },
+    'cursos_cas': { valor: 1.25, descricao: 'CÃS' },
+    'cursos_cho': { valor: 1.5, descricao: 'CHO' },
+    'cursos_cfo': { valor: 1.75, descricao: 'CFO' },
+    'cursos_cao': { valor: 3.0, descricao: 'CÃO' },
+    'cursos_instrutor_csbm': { valor: 2.5, descricao: 'CSBM (Instrutor)' },
+    
+    // Conclusão em Cursos Civis
+    'cursos_civis_superior': { valor: 1.5, descricao: 'Superior' },
+    'cursos_civis_especializacao': { valor: 2.0, descricao: 'Especialização' },
+    'cursos_civis_mestrado': { valor: 3.0, descricao: 'Mestrado' },
+    'cursos_civis_doutorado': { valor: 4.0, descricao: 'Doutorado' },
+    
+    // Medalhas e Condecorações
+    'medalha_federal': { valor: 0.5, descricao: 'Governo Federal (reconhecido pelo CBMEPI)' },
+    'medalha_estadual': { valor: 0.3, descricao: 'Governo Estadual (reconhecido pelo CBMEPI)' },
+    'medalha_cbmepi': { valor: 0.2, descricao: 'CBMEPI' },
+    
+    // Elogios
+    'elogio_individual': { valor: 0.15, descricao: 'Individual' },
+    'elogio_coletivo': { valor: 0.10, descricao: 'Coletivo' },
+    
+    // Pontos Negativos
+    'punicao_repreensao': { valor: -0.5, descricao: 'Repreensão' },
+    'punicao_detencao': { valor: -1.0, descricao: 'Detenção' },
+    'punicao_prisao': { valor: -2.0, descricao: 'Prisão' },
+    'falta_aproveitamento': { valor: -5.0, descricao: 'Falta de Aproveitamento em Cursos Militares' }
+};
+
+// Configuração dos grupos e limites (alinhado com o backend)
+const grupos = {
+    'tempo-posto': {
+        campos: ['tempo_posto_calculado'],
+        limite: 5.0,
+        descricao: 'Tempo de Serviço no Posto Atual',
+        elementoTotal: 'total-tempo-posto'
+    },
+    'cursos-militares': {
+        campos: ['cursos_especializacao', 'cursos_csbm'],
+        limite: 5.0,
+        descricao: 'Conclusão de Cursos Militares',
+        elementoTotal: 'total-cursos-militares'
+    },
+    'instrutor': {
+        campos: ['cursos_cfsd', 'cursos_chc', 'cursos_chsgt', 'cursos_cas', 'cursos_cho', 'cursos_cfo', 'cursos_cao', 'cursos_instrutor_csbm'],
+        limite: 10.0,
+        descricao: 'Instrutor em Cursos Militares',
+        elementoTotal: 'total-instrutor'
+    },
+    'cursos-civis': {
+        campos: ['cursos_civis_superior', 'cursos_civis_especializacao', 'cursos_civis_mestrado', 'cursos_civis_doutorado'],
+        limite: null,
+        descricao: 'Conclusão em Cursos Civis',
+        elementoTotal: 'total-cursos-civis'
+    },
+    'medalhas': {
+        campos: ['medalha_federal', 'medalha_estadual', 'medalha_cbmepi'],
+        limite: 1.0,
+        descricao: 'Medalhas e Condecorações',
+        elementoTotal: 'total-medalhas'
+    },
+    'elogios': {
+        campos: ['elogio_individual', 'elogio_coletivo'],
+        limite: 0.25,
+        descricao: 'Elogios',
+        elementoTotal: 'total-elogios'
+    },
+    'punicoes': {
+        campos: ['punicao_repreensao', 'punicao_detencao', 'punicao_prisao'],
+        limite: null,
+        descricao: 'Punições',
+        elementoTotal: 'total-punicoes'
+    },
+    'falta-aproveitamento': {
+        campos: ['falta_aproveitamento'],
+        limite: null,
+        descricao: 'Falta de Aproveitamento em Cursos Militares',
+        elementoTotal: 'total-falta-aproveitamento'
+    },
+
+};
+
+// Função para calcular total de um grupo
+function calcularTotalGrupo(grupoId) {
+    const grupo = grupos[grupoId];
+    let total = 0;
+    
+    grupo.campos.forEach(campo => {
+        const input = document.getElementById(`id_${campo}`);
+        if (input) {
+            const quantidade = parseInt(input.value) || 0;
+            const valor = valores[campo].valor;
+            total += quantidade * valor;
+        }
+    });
+    
+    // Aplicar limite se existir
+    if (grupo.limite !== null) {
+        total = Math.min(total, grupo.limite);
+    }
+    
+    return total;
+}
+
+// Função para atualizar display de um grupo
+function atualizarDisplayGrupo(grupoId) {
+    const grupo = grupos[grupoId];
+    const total = calcularTotalGrupo(grupoId);
+    const elementoTotal = document.getElementById(grupo.elementoTotal);
+    
+    if (elementoTotal) {
+        elementoTotal.textContent = total.toFixed(2);
+        
+        // Mudar cor baseado no limite
+        if (grupo.limite !== null) {
+            if (total >= grupo.limite) {
+                elementoTotal.className = 'text-success fw-bold';
+                elementoTotal.title = `Limite máximo atingido: ${grupo.limite} pontos`;
+            } else if (total >= grupo.limite * 0.8) {
+                elementoTotal.className = 'text-warning fw-bold';
+                elementoTotal.title = `Próximo ao limite: ${grupo.limite} pontos`;
+            } else {
+                elementoTotal.className = 'text-primary fw-bold';
+                elementoTotal.title = `Limite máximo: ${grupo.limite} pontos`;
+            }
+        } else {
+            // Grupos sem limite (cursos civis, punições, falta de aproveitamento)
+            if (total < 0) {
+                elementoTotal.className = 'text-danger fw-bold';
+                elementoTotal.title = 'Pontos negativos (sem limite)';
+            } else {
+                elementoTotal.className = 'text-primary fw-bold';
+                elementoTotal.title = 'Pontos do grupo';
+            }
+        }
+    }
+}
+
+// Função para calcular pontos totais
+function calcularPontos() {
+    let pontosPositivos = 0;
+    let pontosNegativos = 0;
+    
+    // Calcular totais de cada grupo
+    Object.keys(grupos).forEach(grupoId => {
+        const grupo = grupos[grupoId];
+        const total = calcularTotalGrupo(grupoId);
+        
+        if (total >= 0) {
+            pontosPositivos += total;
+        } else {
+            pontosNegativos += Math.abs(total);
+        }
+        
+        // Atualizar display do grupo
+        atualizarDisplayGrupo(grupoId);
+    });
+    
+    const total = pontosPositivos - pontosNegativos;
+    
+    // Atualizar display geral
+    document.getElementById('pontos-positivos').textContent = pontosPositivos.toFixed(2);
+    document.getElementById('pontos-negativos').textContent = pontosNegativos.toFixed(2);
+    document.getElementById('pontos-total').textContent = total.toFixed(2);
+    
+    // Atualizar o topo
+    var topo = document.getElementById('pontos-total-topo');
+    if (topo) { topo.textContent = total.toFixed(2); }
+    
+    // Mudar cor do total baseado no valor
+    const totalElement = document.getElementById('pontos-total');
+    if (total >= 20) {
+        totalElement.className = 'text-success';
+    } else if (total >= 15) {
+        totalElement.className = 'text-warning';
+    } else {
+        totalElement.className = 'text-danger';
+    }
+}
+
+// Função para adicionar tooltips aos campos
+function adicionarTooltips() {
+    Object.keys(valores).forEach(campo => {
+        const input = document.getElementById(`id_${campo}`);
+        if (input) {
+            const config = valores[campo];
+            let tooltipText = `${config.descricao}: ${config.valor} pontos por item`;
+            
+            // Encontrar grupo do campo
+            let grupoInfo = '';
+            Object.keys(grupos).forEach(grupoId => {
+                if (grupos[grupoId].campos.includes(campo)) {
+                    const grupo = grupos[grupoId];
+                    if (grupo.limite !== null) {
+                        grupoInfo = ` (Grupo: ${grupo.descricao}, limite: ${grupo.limite} pontos)`;
+                    } else {
+                        grupoInfo = ` (Grupo: ${grupo.descricao})`;
+                    }
+                }
+            });
+            
+            input.title = tooltipText + grupoInfo;
+            input.addEventListener('input', calcularPontos);
+        }
+    });
+}
+
+// Função para marcar cursos inerentes ao quadro
+function marcarCursosInerentes() {
+    {% if militar %}
+    const militarPk = '{{ militar.pk }}';
+    const quadro = '{{ militar.quadro }}';
+    {% else %}
+    alert('Nenhum militar selecionado. Selecione um militar primeiro.');
+    return;
+    {% endif %}
+    
+    // Mostrar loading
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Marcando...';
+    btn.disabled = true;
+    
+    fetch(`/militares/${militarPk}/marcar-cursos-inerentes/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Atualizar os campos no formulário
+            Object.keys(data.cursos_marcados).forEach(campo => {
+                const input = document.getElementById(`id_${campo}`);
+                if (input) {
+                    input.value = data.cursos_marcados[campo];
+                }
+            });
+            
+            // Recalcular pontos
+            calcularPontos();
+            
+            // Mostrar mensagem de sucesso
+            alert(data.message);
+        } else {
+            alert('Erro ao marcar cursos: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro ao marcar cursos inerentes. Tente novamente.');
+    })
+    .finally(() => {
+        // Restaurar botão
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    });
+}
+
+// Inicialização quando o DOM estiver carregado
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM carregado - iniciando scripts...');
+    adicionarTooltips();
+    calcularPontos();
+    
+    
+});
+
+// Força as tarjetas de total do grupo a ficarem sempre visíveis
+setInterval(function() {
+    document.querySelectorAll('.tarja-total-grupo').forEach(function(el) {
+        el.style.display = 'block';
+        el.style.visibility = 'visible';
+        el.style.opacity = '1';
+    });
+    
+    // Garantir que o card principal de pontos permaneça visível
+    const cardPontos = document.querySelector('.card.shadow.border-primary');
+    if (cardPontos) {
+        cardPontos.style.display = 'block';
+        cardPontos.style.visibility = 'visible';
+        cardPontos.style.opacity = '1';
+    }
+    
+    // Garantir que o elemento de pontos no topo permaneça visível
+    const pontosTopo = document.getElementById('pontos-total-topo');
+    if (pontosTopo) {
+        pontosTopo.style.display = 'block';
+        pontosTopo.style.visibility = 'visible';
+        pontosTopo.style.opacity = '1';
+    }
+}, 1000);
+
+</script>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- REMOVIDO: Não interceptar submit para pedir senha -->
+{% endblock %} 

@@ -1,0 +1,597 @@
+{% extends 'base.html' %}
+
+{% block title %}Encerrar Sessão - SysProm - CBMEPI{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-stop-circle me-2"></i>
+        Encerrar Sessão {{ sessao.numero }}
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'militares:sessao_comissao_detail' sessao.pk %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i>
+            Voltar à Sessão
+        </a>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Confirmar Encerramento da Sessão
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if messages %}
+                <div class="messages">
+                    {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                
+                <div class="alert alert-warning">
+                    <h6><i class="fas fa-info-circle me-2"></i>Atenção!</h6>
+                    <p class="mb-0">
+                        Você está prestes a encerrar a <strong>Sessão {{ sessao.numero }}</strong> da 
+                        <strong>{{ sessao.comissao.nome }}</strong>. Esta ação não pode ser desfeita.
+                    </p>
+                </div>
+                
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-calendar me-2"></i>Informações da Sessão</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Número:</strong> {{ sessao.numero }}</li>
+                            <li><strong>Tipo:</strong> {{ sessao.get_tipo_display }}</li>
+                            <li><strong>Data:</strong> {{ sessao.data_sessao|date:"d/m/Y" }}</li>
+                            <li><strong>Status Atual:</strong> 
+                                <span class="badge bg-warning">{{ sessao.get_status_display }}</span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-users me-2"></i>Estatísticas</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Membros Presentes:</strong> {{ sessao.total_presentes }}</li>
+                            <li><strong>Deliberações:</strong> {{ sessao.deliberacoes.count }}</li>
+                            <li><strong>Documentos:</strong> {{ sessao.documentos.count }}</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                {% if membros_sem_voto %}
+                <div class="alert alert-warning">
+                    <h6><i class="fas fa-exclamation-triangle me-2"></i>Atenção: Membros Presentes sem Votar</h6>
+                    <p class="mb-0">
+                        Os seguintes membros estão presentes mas não votaram em todas as deliberações. 
+                        <strong>Nota: O presidente não é obrigado a votar.</strong>
+                        Por favor, informe o motivo para cada um dos demais membros:
+                    </p>
+                </div>
+                
+                <div class="mb-4">
+                    <h6><i class="fas fa-user-clock me-2"></i>Justificativas para Membros sem Voto</h6>
+                    {% for membro_info in membros_sem_voto %}
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <strong>{{ membro_info.membro.militar.nome_completo }}</strong><br>
+                                    <small class="text-muted">{{ membro_info.membro.cargo.nome }}</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <span class="badge bg-info">
+                                        {{ membro_info.votos_realizados }}/{{ membro_info.total_deliberacoes }} votos
+                                    </span>
+                                    {% if membro_info.deliberacoes_nao_votadas > 0 %}
+                                    <span class="badge bg-warning ms-1">
+                                        {{ membro_info.deliberacoes_nao_votadas }} pendente(s)
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4">
+                                    <input type="text" 
+                                           class="form-control form-control-sm" 
+                                           name="justificativa_{{ membro_info.membro.id }}"
+                                           placeholder="Motivo (opcional)"
+                                           maxlength="200">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="alert alert-success">
+                    <h6><i class="fas fa-check-circle me-2"></i>Todos os Membros Votaram!</h6>
+                    <p class="mb-0">
+                        <strong>Parabéns!</strong> Todos os membros presentes (exceto o presidente) votaram em todas as deliberações.
+                        {% if membro_usuario.cargo != 'SECRETARIO' %}
+                        Como membro da comissão, você pode encerrar a sessão agora.
+                        {% endif %}
+                    </p>
+                </div>
+                {% endif %}
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="id_password" class="form-label">
+                            <i class="fas fa-lock me-2"></i>
+                            Digite sua senha para confirmar o encerramento:
+                        </label>
+                        <input type="password" 
+                               class="form-control" 
+                               id="id_password" 
+                               name="password" 
+                               required 
+                               placeholder="Sua senha">
+                        <div class="form-text">
+                            <i class="fas fa-shield-alt me-1"></i>
+                            Sua senha é necessária para confirmar esta ação importante.
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% url 'militares:sessao_comissao_detail' sessao.pk %}" 
+                           class="btn btn-secondary me-md-2">
+                            <i class="fas fa-times me-1"></i>
+                            Cancelar
+                        </a>
+                        <button type="button" class="btn btn-info me-md-2" data-bs-toggle="modal" data-bs-target="#modalSelecionarDocumentos">
+                            <i class="fas fa-file-pdf me-1"></i>
+                            Selecionar Documentos para PDF
+                        </button>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-stop-circle me-1"></i>
+                            Encerrar Sessão
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-lightbulb me-2"></i>
+                    O que acontece ao encerrar a sessão?
+                </h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    <li><i class="fas fa-check text-success me-2"></i>O status da sessão será alterado para "Concluída"</li>
+                    <li><i class="fas fa-check text-success me-2"></i>O horário de término será registrado automaticamente</li>
+                    <li><i class="fas fa-check text-success me-2"></i>Não será mais possível adicionar novas deliberações</li>
+                    <li><i class="fas fa-check text-success me-2"></i>Os votos já registrados serão mantidos</li>
+                    <li><i class="fas fa-info-circle text-info me-2"></i>O presidente não é obrigado a votar nas deliberações</li>
+                    {% if todos_votaram %}
+                    <li><i class="fas fa-users text-success me-2"></i>Qualquer membro pode encerrar quando todos votaram</li>
+                    {% else %}
+                    <li><i class="fas fa-user-shield text-warning me-2"></i>Apenas o secretário pode encerrar quando nem todos votaram</li>
+                    {% endif %}
+                    <li><i class="fas fa-exclamation-triangle text-warning me-2"></i>Esta ação não pode ser desfeita</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Seleção de Documentos -->
+<div class="modal fade" id="modalSelecionarDocumentos" tabindex="-1" aria-labelledby="modalSelecionarDocumentosLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalSelecionarDocumentosLabel">
+                    <i class="fas fa-file-pdf me-2"></i>
+                    Selecionar Documentos para PDF Completo da Sessão
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Selecione quais documentos da sessão devem ser incluídos no PDF completo. 
+                    O PDF incluirá automaticamente as informações da sessão, lista de presença e ata final.
+                </div>
+                
+                <form id="formDocumentos">
+                    {% csrf_token %}
+                    
+                    <!-- Documento de Origem -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h6 class="mb-0">
+                                <i class="fas fa-file-alt me-2"></i>
+                                Documento de Origem da Sessão
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {% if documento_origem %}
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="incluir_documento_origem" name="incluir_documento_origem" checked>
+                                <label class="form-check-label" for="incluir_documento_origem">
+                                    <strong>{{ documento_origem.titulo|default:"Documento de Origem" }}</strong>
+                                    <br>
+                                    <small class="text-muted">
+                                        <i class="fas fa-calendar me-1"></i>
+                                        {{ documento_origem.data_upload|date:"d/m/Y" }}
+                                        {% if documento_origem.descricao %}
+                                        - {{ documento_origem.descricao }}
+                                        {% endif %}
+                                    </small>
+                                </label>
+                            </div>
+                            {% else %}
+                            <p class="text-muted mb-0">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Nenhum documento de origem registrado para esta sessão.
+                            </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Deliberações -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h6 class="mb-0">
+                                <i class="fas fa-gavel me-2"></i>
+                                Deliberações da Sessão
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {% if sessao.deliberacoes.all %}
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="incluir_todas_deliberacoes" name="incluir_todas_deliberacoes" checked>
+                                <label class="form-check-label" for="incluir_todas_deliberacoes">
+                                    <strong>Incluir todas as deliberações ({{ sessao.deliberacoes.count }})</strong>
+                                </label>
+                            </div>
+                            <div class="ms-4">
+                                {% for deliberacao in sessao.deliberacoes.all %}
+                                <div class="form-check">
+                                    <input class="form-check-input deliberacao-checkbox" type="checkbox" 
+                                           id="deliberacao_{{ deliberacao.id }}" 
+                                           name="deliberacoes_selecionadas" 
+                                           value="{{ deliberacao.id }}" 
+                                           checked>
+                                    <label class="form-check-label" for="deliberacao_{{ deliberacao.id }}">
+                                        <strong>Deliberação {{ deliberacao.numero }}</strong>: {{ deliberacao.assunto }}
+                                        <br>
+                                        <small class="text-muted">
+                                            <i class="fas fa-vote-yea me-1"></i>
+                                            {{ deliberacao.votos.count }} votos registrados
+                                        </small>
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <p class="text-muted mb-0">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Nenhuma deliberação registrada nesta sessão.
+                            </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Votos -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h6 class="mb-0">
+                                <i class="fas fa-vote-yea me-2"></i>
+                                Votos dos Membros
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {% if votos_sessao %}
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="incluir_todos_votos" name="incluir_todos_votos" checked>
+                                <label class="form-check-label" for="incluir_todos_votos">
+                                    <strong>Incluir todos os votos ({{ votos_sessao|length }})</strong>
+                                </label>
+                            </div>
+                            <div class="ms-4">
+                                {% for voto in votos_sessao %}
+                                <div class="form-check">
+                                    <input class="form-check-input voto-checkbox" type="checkbox" 
+                                           id="voto_{{ voto.id }}" 
+                                           name="votos_selecionados" 
+                                           value="{{ voto.id }}" 
+                                           checked>
+                                    <label class="form-check-label" for="voto_{{ voto.id }}">
+                                        <strong>{{ voto.membro.militar.nome_completo }}</strong> 
+                                        ({{ voto.membro.cargo.nome }}) - 
+                                        <span class="badge {% if voto.voto == 'FAVOR' %}bg-success{% elif voto.voto == 'CONTRA' %}bg-danger{% else %}bg-secondary{% endif %}">
+                                            {{ voto.get_voto_display }}
+                                        </span>
+                                        <br>
+                                        <small class="text-muted">
+                                            <i class="fas fa-gavel me-1"></i>
+                                            Deliberação {{ voto.deliberacao.numero }}: {{ voto.deliberacao.assunto }}
+                                        </small>
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <p class="text-muted mb-0">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Nenhum voto registrado nesta sessão.
+                            </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Documentos Adicionais -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h6 class="mb-0">
+                                <i class="fas fa-file-upload me-2"></i>
+                                Documentos Adicionais da Sessão
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {% if sessao.documentos.all %}
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="incluir_todos_documentos" name="incluir_todos_documentos" checked>
+                                <label class="form-check-label" for="incluir_todos_documentos">
+                                    <strong>Incluir todos os documentos ({{ sessao.documentos.count }})</strong>
+                                </label>
+                            </div>
+                            <div class="ms-4">
+                                {% for documento in sessao.documentos.all %}
+                                <div class="form-check">
+                                    <input class="form-check-input documento-checkbox" type="checkbox" 
+                                           id="documento_{{ documento.id }}" 
+                                           name="documentos_selecionados" 
+                                           value="{{ documento.id }}" 
+                                           checked>
+                                    <label class="form-check-label" for="documento_{{ documento.id }}">
+                                        <strong>{{ documento.titulo|default:"Documento" }}</strong>
+                                        <br>
+                                        <small class="text-muted">
+                                            <i class="fas fa-calendar me-1"></i>
+                                            {{ documento.data_upload|date:"d/m/Y" }}
+                                            {% if documento.descricao %}
+                                            - {{ documento.descricao }}
+                                            {% endif %}
+                                        </small>
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <p class="text-muted mb-0">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Nenhum documento adicional registrado nesta sessão.
+                            </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>
+                    Cancelar
+                </button>
+                            <button type="button" class="btn btn-success" onclick="gerarPDFCompleto()">
+                <i class="fas fa-file-pdf me-1"></i>
+                Gerar PDF Completo
+            </button>
+            <button type="button" class="btn btn-info ms-2" onclick="testarPDF()">
+                <i class="fas fa-download me-1"></i>
+                Testar PDF
+            </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação -->
+<div class="modal fade" id="modalConfirmacao" tabindex="-1" aria-labelledby="modalConfirmacaoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalConfirmacaoLabel">
+                    <i class="fas fa-check-circle me-2"></i>
+                    PDF Gerado com Sucesso!
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle me-2"></i>
+                    O PDF completo da sessão foi gerado com sucesso! 
+                    O documento foi aberto em uma nova guia para visualização.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">
+                    <i class="fas fa-check me-1"></i>
+                    OK
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Controle para "incluir todos" de deliberações
+    const incluirTodasDeliberacoes = document.getElementById('incluir_todas_deliberacoes');
+    const deliberacaoCheckboxes = document.querySelectorAll('.deliberacao-checkbox');
+    
+    if (incluirTodasDeliberacoes) {
+        incluirTodasDeliberacoes.addEventListener('change', function() {
+            deliberacaoCheckboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+        });
+    }
+    
+    // Controle para "incluir todos" de votos
+    const incluirTodosVotos = document.getElementById('incluir_todos_votos');
+    const votoCheckboxes = document.querySelectorAll('.voto-checkbox');
+    
+    if (incluirTodosVotos) {
+        incluirTodosVotos.addEventListener('change', function() {
+            votoCheckboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+        });
+    }
+    
+    // Controle para "incluir todos" de documentos
+    const incluirTodosDocumentos = document.getElementById('incluir_todos_documentos');
+    const documentoCheckboxes = document.querySelectorAll('.documento-checkbox');
+    
+    if (incluirTodosDocumentos) {
+        incluirTodosDocumentos.addEventListener('change', function() {
+            documentoCheckboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+        });
+    }
+});
+
+function gerarPDFCompleto() {
+    const form = document.getElementById('formDocumentos');
+    const formData = new FormData(form);
+    
+    // Adicionar a sessão ID
+    formData.append('sessao_id', '{{ sessao.pk }}');
+    
+    // Fechar modal de seleção
+    const modalSelecao = bootstrap.Modal.getInstance(document.getElementById('modalSelecionarDocumentos'));
+    modalSelecao.hide();
+    
+    // Mostrar loading
+    const loadingModal = new bootstrap.Modal(document.getElementById('modalLoading'));
+    loadingModal.show();
+    
+    // Fazer fetch do PDF e abrir em nova guia
+    fetch('{% url "militares:sessao_gerar_pdf_completo" sessao.pk %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => {
+        if (response.ok) {
+            // Verificar se é um PDF
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/pdf')) {
+                console.log('PDF recebido, abrindo em nova guia...');
+                
+                // Criar blob do PDF
+                return response.blob().then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const newWindow = window.open(url, '_blank');
+                    
+                    if (newWindow) {
+                        console.log('PDF aberto em nova guia');
+                    } else {
+                        console.log('Popup bloqueado, fazendo download');
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = 'documentacao_completa_sessao.pdf';
+                        link.style.display = 'none';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        window.URL.revokeObjectURL(url);
+                    }
+                    
+                    // Fechar loading e mostrar confirmação
+                    loadingModal.hide();
+                    const modalConfirmacao = new bootstrap.Modal(document.getElementById('modalConfirmacao'));
+                    modalConfirmacao.show();
+                });
+            } else {
+                // Se não for PDF, tentar como JSON
+                return response.json().then(data => {
+                    console.log('Resposta JSON recebida:', data);
+                    if (data.success) {
+                        console.log('Tentando abrir PDF:', data.pdf_url);
+                        const newWindow = window.open(data.pdf_url, '_blank');
+                        
+                        if (newWindow) {
+                            console.log('PDF aberto em nova guia:', data.pdf_url);
+                        } else {
+                            console.log('Popup bloqueado, tentando download direto');
+                            const link = document.createElement('a');
+                            link.href = data.pdf_url;
+                            link.download = data.filename;
+                            link.style.display = 'none';
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            console.log('Download iniciado');
+                        }
+                    } else {
+                        throw new Error('Erro ao gerar PDF');
+                    }
+                    
+                    // Fechar loading e mostrar confirmação
+                    loadingModal.hide();
+                    const modalConfirmacao = new bootstrap.Modal(document.getElementById('modalConfirmacao'));
+                    modalConfirmacao.show();
+                });
+            }
+        }
+        throw new Error('Erro ao gerar PDF');
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        loadingModal.hide();
+        alert('Erro ao gerar PDF. Tente novamente.');
+    });
+}
+
+function testarPDF() {
+    // Testar com a view de teste
+    const pdfUrl = '{% url "militares:testar_pdf" %}';
+    console.log('Testando PDF via view:', pdfUrl);
+    
+    const newWindow = window.open(pdfUrl, '_blank');
+    if (newWindow) {
+        console.log('PDF de teste aberto com sucesso');
+    } else {
+        console.log('Popup bloqueado, tentando download');
+        const link = document.createElement('a');
+        link.href = pdfUrl;
+        link.download = 'teste_pdf.pdf';
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+}
+</script>
+
+<!-- Modal de Loading -->
+<div class="modal fade" id="modalLoading" tabindex="-1" aria-labelledby="modalLoadingLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-body text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 mb-0">Gerando PDF completo da sessão...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %} 

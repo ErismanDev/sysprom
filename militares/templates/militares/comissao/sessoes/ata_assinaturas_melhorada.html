@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+
+{% block title %}Assinar Ata da Sessão {{ sessao.numero }} - {{ comissao.nome }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-file-signature me-2"></i>Assinar Ata da Sessão
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Informações da Ata -->
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-file-alt"></i> Ata da Sessão</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Sessão:</strong> {{ sessao.numero }}</p>
+                                <p><strong>Status:</strong> 
+                                    <span class="badge bg-{% if ata.status == 'ASSINADA' %}success{% elif ata.status == 'PARA_ASSINATURA' %}warning{% elif ata.status == 'FINALIZADA' %}primary{% else %}secondary{% endif %}">
+                                        {{ ata.get_status_display }}
+                                    </span>
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Data da Sessão:</strong> {{ sessao.data_sessao|date:"d/m/Y" }}</p>
+                                <p><strong>Total de Membros Presentes:</strong> {{ membros_presentes.count }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Assinaturas Existentes -->
+                    {% if assinaturas.exists %}
+                    <div class="mb-3">
+                        <h6><i class="fas fa-signature"></i> Assinaturas Existentes</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Membro</th>
+                                        <th>Cargo</th>
+                                        <th>Assinado por</th>
+                                        <th>Data/Hora</th>
+                                        <th>Observações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for assinatura in assinaturas %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ assinatura.membro.militar.get_posto_graduacao_display }} {{ assinatura.membro.militar.nome_completo }}</strong>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">{{ assinatura.membro.cargo.nome }}</span>
+                                        </td>
+                                        <td>
+                                            <strong>{{ assinatura.assinado_por.get_full_name|default:assinatura.assinado_por.username }}</strong>
+                                        </td>
+                                        <td>{{ assinatura.data_assinatura|date:"d/m/Y H:i" }}</td>
+                                        <td>
+                                            {% if assinatura.observacoes %}
+                                                <small class="text-muted">{{ assinatura.observacoes|truncatechars:50 }}</small>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Formulário de Assinatura -->
+                    <form method="post" id="formAssinarAta">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="membro_id" class="form-label">
+                                <strong>Membro da Comissão *</strong>
+                            </label>
+                            <select class="form-select" id="membro_id" name="membro_id" required>
+                                <option value="">Selecione o membro...</option>
+                                {% for presenca in membros_presentes %}
+                                    {% if not presenca.membro.id in assinaturas|dictsort:"membro"|dictsortreversed:"data_assinatura"|first %}
+                                    <option value="{{ presenca.membro.id }}">
+                                        {{ presenca.membro.militar.get_posto_graduacao_display }} {{ presenca.membro.militar.nome_completo }} - {{ presenca.membro.cargo.nome }}
+                                    </option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Selecione o membro da comissão que irá assinar a ata.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="observacoes" class="form-label">
+                                <strong>Observações da Assinatura</strong>
+                            </label>
+                            <textarea class="form-control" id="observacoes" name="observacoes" 
+                                      rows="3" placeholder="Observações adicionais sobre a assinatura (opcional)"></textarea>
+                            <div class="form-text">
+                                Informações complementares sobre a assinatura ou justificativa.
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="senha" class="form-label"><strong>Senha *</strong></label>
+                            <input type="password" class="form-control" id="senha" name="senha" placeholder="Digite sua senha para confirmar a assinatura" required>
+                            <div class="form-text">Digite sua senha para confirmar a assinatura eletrônica.</div>
+                        </div>
+
+                        <!-- Aviso de Assinatura -->
+                        <div class="alert alert-primary">
+                            <h6><i class="fas fa-exclamation-triangle"></i> Importante!</h6>
+                            <p class="mb-0">
+                                Ao assinar esta ata, você confirma que:
+                            </p>
+                            <ul class="mb-0 mt-2">
+                                <li>A ata foi analisada e está correta</li>
+                                <li>Você assume a responsabilidade pela assinatura</li>
+                                <li>A assinatura será registrada com seu nome e data/hora</li>
+                                <li>Esta ação não pode ser desfeita facilmente</li>
+                                <li>Apenas membros presentes na sessão podem assinar</li>
+                            </ul>
+                        </div>
+
+                        <!-- Progresso das Assinaturas -->
+                        {% with total_presentes=membros_presentes.count total_assinadas=assinaturas.count %}
+                        <div class="mb-3">
+                            <h6><strong>Progresso das Assinaturas:</strong></h6>
+                            <div class="progress mb-2" style="height: 25px;">
+                                <div class="progress-bar bg-success" role="progressbar" 
+                                     style="width: {% widthratio total_assinadas total_presentes 100 %}%">
+                                    {{ total_assinadas }}/{{ total_presentes }} assinaturas
+                                </div>
+                            </div>
+                            <small class="text-muted">
+                                {% if total_assinadas == total_presentes %}
+                                    <i class="fas fa-check-circle text-success"></i> Todas as assinaturas foram coletadas!
+                                {% else %}
+                                    <i class="fas fa-clock text-warning"></i> Faltam {{ total_presentes|add:"-"|add:total_assinadas }} assinatura(s)
+                                {% endif %}
+                            </small>
+                        </div>
+                        {% endwith %}
+
+                        <!-- Botões de Ação -->
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'militares:sessao_comissao_detail' sessao.pk %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-file-signature"></i> Confirmar Assinatura
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const formAssinarAta = document.getElementById('formAssinarAta');
+    if (formAssinarAta) {
+        formAssinarAta.addEventListener('submit', function(e) {
+            // Remover validação de senha se necessário
+            // e.preventDefault();
+        });
+    }
+});
+</script>
+{% endblock %} 

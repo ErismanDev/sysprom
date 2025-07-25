@@ -1,0 +1,295 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar Quadro de Acesso{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">
+                        <i class="fas fa-edit me-2"></i>
+                        Editar Quadro de Acesso
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Informações do Quadro -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h5>Informações Atuais</h5>
+                            <table class="table table-sm">
+                                <tr>
+                                    <td><strong>Quadro:</strong></td>
+                                    <td>{{ quadro.get_quadro_display }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Tipo:</strong></td>
+                                    <td>{{ quadro.get_tipo_display }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Posto:</strong></td>
+                                    <td>{{ quadro.get_posto_display }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Data da Promoção:</strong></td>
+                                    <td>{{ quadro.data_promocao|date:"d/m/Y" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Status:</strong></td>
+                                    <td>
+                                        {% if quadro.status == 'ELABORADO' %}
+                                            <span class="badge bg-success">Elaborado</span>
+                                        {% elif quadro.status == 'HOMOLOGADO' %}
+                                            <span class="badge bg-primary">Homologado</span>
+                                        {% elif quadro.status == 'NAO_ELABORADO' %}
+                                            <span class="badge bg-danger">Não Elaborado</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">Em Elaboração</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Estatísticas</h5>
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="card bg-success text-white">
+                                        <div class="card-body text-center">
+                                            <h4>{{ quadro.itemquadroacesso_set.count }}</h4>
+                                            <small>Militares Aptos</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="card bg-info text-white">
+                                        <div class="card-body text-center">
+                                            <h4>{{ quadro.data_criacao|date:"d/m/Y" }}</h4>
+                                            <small>Data de Criação</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Formulário de Edição -->
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <!-- Data da Promoção -->
+                            <div class="col-md-6 mb-3">
+                                <label for="data_promocao" class="form-label">
+                                    <strong>Data da Promoção *</strong>
+                                </label>
+                                <input type="date" name="data_promocao" id="data_promocao" 
+                                       class="form-control" value="{{ quadro.data_promocao|date:'Y-m-d' }}" required>
+                                <div class="form-text">
+                                    Data prevista para a promoção
+                                </div>
+                            </div>
+                            
+                            <!-- Status -->
+                            <div class="col-md-6 mb-3">
+                                <label for="status" class="form-label">
+                                    <strong>Status</strong>
+                                </label>
+                                <select name="status" id="status" class="form-select">
+                                    <option value="EM_ELABORACAO" {% if quadro.status == 'EM_ELABORACAO' %}selected{% endif %}>
+                                        Em Elaboração
+                                    </option>
+                                    <option value="ELABORADO" {% if quadro.status == 'ELABORADO' %}selected{% endif %}>
+                                        Elaborado
+                                    </option>
+                                    <option value="NAO_ELABORADO" {% if quadro.status == 'NAO_ELABORADO' %}selected{% endif %}>
+                                        Não Elaborado
+                                    </option>
+                                    <option value="HOMOLOGADO" {% if quadro.status == 'HOMOLOGADO' %}selected{% endif %}>
+                                        Homologado
+                                    </option>
+                                </select>
+                                <div class="form-text">
+                                    Status atual do quadro
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Motivo da Não Elaboração -->
+                        <div class="row">
+                            <div class="col-12 mb-3">
+                                <label for="motivo_nao_elaboracao" class="form-label">
+                                    <strong>Motivo da Não Elaboração</strong>
+                                </label>
+                                <select name="motivo_nao_elaboracao" id="motivo_nao_elaboracao" class="form-select">
+                                    <option value="">Selecione um motivo (se aplicável)</option>
+                                    <option value="SEM_VAGA" {% if quadro.motivo_nao_elaboracao == 'SEM_VAGA' %}selected{% endif %}>
+                                        Inexistência de vaga
+                                    </option>
+                                    <option value="SEM_REQUISITOS" {% if quadro.motivo_nao_elaboracao == 'SEM_REQUISITOS' %}selected{% endif %}>
+                                        Não há militar que satisfaça os requisitos essenciais
+                                    </option>
+                                    <option value="SEM_EFETIVO" {% if quadro.motivo_nao_elaboracao == 'SEM_EFETIVO' %}selected{% endif %}>
+                                        Sem efetivo suficiente
+                                    </option>
+                                    <option value="OUTROS" {% if quadro.motivo_nao_elaboracao == 'OUTROS' %}selected{% endif %}>
+                                        Outros motivos
+                                    </option>
+                                </select>
+                                <div class="form-text">
+                                    Motivo pelo qual o quadro não foi elaborado (se aplicável)
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Observações -->
+                        <div class="row">
+                            <div class="col-12 mb-3">
+                                <label for="observacoes" class="form-label">
+                                    <strong>Observações</strong>
+                                </label>
+                                <textarea name="observacoes" id="observacoes" class="form-control" rows="4" 
+                                          placeholder="Observações sobre o quadro de acesso...">{{ quadro.observacoes|default:'' }}</textarea>
+                                <div class="form-text">
+                                    Observações adicionais sobre o quadro
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Ações Especiais -->
+                        {% if quadro.status == 'ELABORADO' %}
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <div class="alert alert-warning">
+                                    <h6><i class="fas fa-exclamation-triangle me-2"></i>Ações Especiais</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <button type="submit" name="action" value="regenerar" class="btn btn-warning btn-sm">
+                                                <i class="fas fa-sync-alt me-2"></i>Regenerar Quadro
+                                            </button>
+                                            <small class="form-text text-muted">
+                                                Regenera o quadro com os dados mais recentes dos militares
+                                            </small>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <button type="submit" name="action" value="homologar" class="btn btn-success btn-sm">
+                                                <i class="fas fa-check-circle me-2"></i>Homologar Quadro
+                                            </button>
+                                            <small class="form-text text-muted">
+                                                Marca o quadro como homologado oficialmente
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if quadro.status == 'HOMOLOGADO' %}
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <div class="alert alert-info">
+                                    <h6><i class="fas fa-info-circle me-2"></i>Quadro Homologado</h6>
+                                    <button type="submit" name="action" value="deshomologar" class="btn btn-warning btn-sm">
+                                        <i class="fas fa-undo me-2"></i>Deshomologar Quadro
+                                    </button>
+                                    <small class="form-text text-muted">
+                                        Remove a homologação do quadro
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if quadro.status == 'NAO_ELABORADO' %}
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <div class="alert alert-danger">
+                                    <h6><i class="fas fa-times-circle me-2"></i>Quadro Não Elaborado</h6>
+                                    <button type="submit" name="action" value="elaborar" class="btn btn-success btn-sm">
+                                        <i class="fas fa-cogs me-2"></i>Elaborar Quadro
+                                    </button>
+                                    <small class="form-text text-muted">
+                                        Tenta elaborar o quadro novamente
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Botões -->
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="d-flex gap-2">
+                                    <button type="submit" name="action" value="salvar" class="btn btn-primary">
+                                        <i class="fas fa-save me-2"></i>Salvar Alterações
+                                    </button>
+                                    {% if quadro.categoria == 'PRACAS' %}
+                                        <a href="{% url 'militares:quadro_acesso_pracas_detail' quadro.pk %}" class="btn btn-secondary">
+                                            <i class="fas fa-times me-2"></i>Cancelar
+                                        </a>
+                                    {% else %}
+                                        <a href="{% url 'militares:quadro_acesso_detail' quadro.pk %}" class="btn btn-secondary">
+                                            <i class="fas fa-times me-2"></i>Cancelar
+                                        </a>
+                                    {% endif %}
+                                    <a href="{% url 'militares:quadro_acesso_list' %}" class="btn btn-outline-secondary">
+                                        <i class="fas fa-list me-2"></i>Lista de Quadros
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript para validações -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Validação da data de promoção
+    const dataPromocao = document.getElementById('data_promocao');
+    const hoje = new Date().toISOString().split('T')[0];
+    
+    dataPromocao.addEventListener('change', function() {
+        if (this.value < hoje) {
+            alert('A data da promoção não pode ser anterior à data atual.');
+            this.value = hoje;
+        }
+    });
+    
+    // Confirmação para ações especiais
+    const actionButtons = document.querySelectorAll('button[name="action"]');
+    actionButtons.forEach(button => {
+        if (button.value !== 'salvar') {
+            button.addEventListener('click', function(e) {
+                const action = this.value;
+                let message = '';
+                
+                switch(action) {
+                    case 'regenerar':
+                        message = 'Tem certeza que deseja regenerar este quadro?';
+                        break;
+                    case 'homologar':
+                        message = 'Tem certeza que deseja homologar este quadro?';
+                        break;
+                    case 'deshomologar':
+                        message = 'Tem certeza que deseja deshomologar este quadro?';
+                        break;
+                    case 'elaborar':
+                        message = 'Tem certeza que deseja elaborar este quadro?';
+                        break;
+                }
+                
+                if (!confirm(message)) {
+                    e.preventDefault();
+                }
+            });
+        }
+    });
+});
+</script>
+{% endblock %} 

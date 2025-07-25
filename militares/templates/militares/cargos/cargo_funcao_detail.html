@@ -1,0 +1,435 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Detalhes do Cargo/Função{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Filtros discretos */
+    .filters-discreet {
+        margin-top: 15px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        opacity: 0.7;
+        transition: opacity 0.3s ease;
+    }
+    
+    .filters-discreet:hover {
+        opacity: 1;
+    }
+    
+    .filter-select-discreet {
+        padding: 6px 12px;
+        border: 1px solid #e9ecef;
+        border-radius: 15px;
+        font-size: 12px;
+        background: white;
+        color: #495057;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .filter-select-discreet:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+    }
+    
+    /* Responsivo */
+    @media (max-width: 768px) {
+        .filters-discreet {
+            flex-direction: column;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h4 class="mb-0"><i class="fas fa-users-cog"></i> {{ cargo.nome }}</h4>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-4">Nome</dt>
+                        <dd class="col-sm-8">{{ cargo.nome }}</dd>
+                        <dt class="col-sm-4">Descrição</dt>
+                        <dd class="col-sm-8">{{ cargo.descricao|default:'-' }}</dd>
+                        <dt class="col-sm-4">Ativo</dt>
+                        <dd class="col-sm-8">{% if cargo.ativo %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-danger">Não</span>{% endif %}</dd>
+                        <dt class="col-sm-4">Ordem</dt>
+                        <dd class="col-sm-8">{{ cargo.ordem }}</dd>
+                    </dl>
+                    <div class="d-flex justify-content-end">
+                        <a href="{% url 'militares:cargo_funcao_update' cargo.id %}" class="btn btn-primary me-2">
+                            <i class="fas fa-edit"></i> Editar
+                        </a>
+                        
+                        <a href="{% url 'militares:cargo_funcao_delete' cargo.id %}" class="btn btn-danger me-2">
+                            <i class="fas fa-trash"></i> Excluir
+                        </a>
+
+                        <a href="{% url 'militares:cargo_funcao_list' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Voltar
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Coluna de Estatísticas -->
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fas fa-chart-pie"></i> Estatísticas</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="border-end">
+                                <h4 class="text-primary">{{ permissoes_count }}</h4>
+                                <small class="text-muted">Permissões</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <h4 class="text-success">{{ usuarios_count }}</h4>
+                            <small class="text-muted">Usuários</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Seção de Permissões -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-shield-alt"></i> Permissões do Sistema</h5>
+                </div>
+                <div class="card-body">
+                    {% if permissoes_por_modulo %}
+                        <div class="row">
+                            {% for modulo, permissoes in permissoes_por_modulo.items %}
+                            <div class="col-md-6 mb-4">
+                                <div class="card border-primary">
+                                    <div class="card-header bg-light">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-{{ modulo|lower|slice:":1" }}"></i> 
+                                            {{ modulo|title }}
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            {% for permissao in permissoes %}
+                                            <div class="col-md-6 mb-2">
+                                                <span class="badge bg-success">{{ permissao.acesso }}</span>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Atenção:</strong> Este cargo/função não possui permissões definidas.
+                        </div>
+                    {% endif %}
+                    
+                    <div class="text-center mt-3">
+                        <a href="{% url 'militares:cargo_funcao_update' cargo.id %}" class="btn btn-primary">
+                            <i class="fas fa-edit"></i> Editar Permissões
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Seção de Usuários com esta Função -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-users"></i> Usuários com esta Função</h5>
+                    <div>
+                        <a href="{% url 'militares:adicionar_usuario_cargo' cargo.id %}" class="btn btn-success btn-sm">
+                            <i class="fas fa-plus"></i> Adicionar Usuário
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Filtros Discretos -->
+                    <div class="search-discreet mb-3">
+                        <div class="row justify-content-center">
+                            <div class="col-lg-8">
+                                <!-- Filtros Discretos -->
+                                <form id="filtrosForm" method="get" class="filters-discreet">
+                                    <select name="status" id="filterStatus" class="filter-select-discreet">
+                                        <option value="">Todos os Status</option>
+                                        <option value="ATIVO" {% if status_filtro == 'ATIVO' %}selected{% endif %}>Ativo</option>
+                                        <option value="INATIVO" {% if status_filtro == 'INATIVO' %}selected{% endif %}>Inativo</option>
+                                        <option value="SUSPENSO" {% if status_filtro == 'SUSPENSO' %}selected{% endif %}>Suspenso</option>
+                                    </select>
+                                    <select name="tipo" id="filterTipo" class="filter-select-discreet">
+                                        <option value="">Todos os Tipos</option>
+                                        <option value="EFETIVO" {% if tipo_filtro == 'EFETIVO' %}selected{% endif %}>Efetivo</option>
+                                        <option value="COMISSAO" {% if tipo_filtro == 'COMISSAO' %}selected{% endif %}>Comissão</option>
+                                        <option value="TEMPORARIO" {% if tipo_filtro == 'TEMPORARIO' %}selected{% endif %}>Temporário</option>
+                                    </select>
+                                    <button type="button" id="limparFiltros" class="btn btn-outline-secondary btn-sm" title="Limpar todos os filtros">
+                                        <i class="fas fa-times"></i> Limpar
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if usuarios_com_funcao %}
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Usuário</th>
+                                        <th>Status</th>
+                                        <th>Data Início</th>
+                                        <th>Data Fim</th>
+                                        <th>Tipo</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for usuario_funcao in usuarios_com_funcao %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ usuario_funcao.usuario.get_full_name }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ usuario_funcao.usuario.username }}</small>
+                                        </td>
+                                        <td>
+                                            {% if usuario_funcao.status == 'ATIVO' %}
+                                                <span class="badge bg-success">Ativo</span>
+                                            {% elif usuario_funcao.status == 'INATIVO' %}
+                                                <span class="badge bg-danger">Inativo</span>
+                                            {% else %}
+                                                <span class="badge bg-warning">Suspenso</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ usuario_funcao.data_inicio|date:"d/m/Y" }}</td>
+                                        <td>{{ usuario_funcao.data_fim|date:"d/m/Y"|default:"-" }}</td>
+                                        <td>{{ usuario_funcao.get_tipo_funcao_display }}</td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <a href="{% url 'militares:usuario_detail' usuario_funcao.usuario.id %}" 
+                                                   class="btn btn-sm btn-info" title="Ver usuário">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                <a href="{% url 'militares:usuario_funcao_edit' usuario_funcao.usuario.id usuario_funcao.id %}" 
+                                                   class="btn btn-sm btn-primary" title="Editar função">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <button type="button" 
+                                                        class="btn btn-sm btn-danger" 
+                                                        title="Remover função"
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#deleteModal{{ usuario_funcao.id }}">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                            
+                                            <!-- Modal de Confirmação de Delete -->
+                                            <div class="modal fade" id="deleteModal{{ usuario_funcao.id }}" tabindex="-1" aria-labelledby="deleteModalLabel{{ usuario_funcao.id }}" aria-hidden="true">
+                                                <div class="modal-dialog">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title" id="deleteModalLabel{{ usuario_funcao.id }}">
+                                                                <i class="fas fa-exclamation-triangle text-warning"></i>
+                                                                Confirmar Remoção
+                                                            </h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        </div>
+                                                        <div class="modal-body">
+                                                            <p>Tem certeza que deseja remover a função <strong>"{{ cargo.nome }}"</strong> do usuário <strong>"{{ usuario_funcao.usuario.get_full_name }}"</strong>?</p>
+                                                            <p class="text-muted small">
+                                                                <strong>Usuário:</strong> {{ usuario_funcao.usuario.username }}<br>
+                                                                <strong>Status:</strong> {{ usuario_funcao.get_status_display }}<br>
+                                                                <strong>Data Início:</strong> {{ usuario_funcao.data_inicio|date:"d/m/Y" }}
+                                                            </p>
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                                                <i class="fas fa-times"></i> Cancelar
+                                                            </button>
+                                                            <form method="post" action="{% url 'militares:usuario_funcao_delete' usuario_funcao.usuario.id usuario_funcao.id %}" style="display: inline;">
+                                                                {% csrf_token %}
+                                                                <button type="submit" class="btn btn-danger">
+                                                                    <i class="fas fa-trash"></i> Confirmar Remoção
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Script para abrir modal -->
+                                            <script>
+                                            document.addEventListener('DOMContentLoaded', function() {
+                                                var deleteBtn = document.querySelector('[data-bs-target="#deleteModal{{ usuario_funcao.id }}"]');
+                                                if (deleteBtn) {
+                                                    deleteBtn.addEventListener('click', function(e) {
+                                                        e.preventDefault();
+                                                        var modal = new bootstrap.Modal(document.getElementById('deleteModal{{ usuario_funcao.id }}'));
+                                                        modal.show();
+                                                    });
+                                                }
+                                            });
+                                            </script>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Estatísticas dos Usuários -->
+                        <div class="row mt-3">
+                            <div class="col-md-12">
+                                <div class="alert alert-info">
+                                    <div class="row text-center">
+                                        <div class="col-md-3">
+                                            <strong>{{ usuarios_ativos_count }}</strong><br>
+                                            <small>Ativos</small>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <strong>{{ usuarios_inativos_count }}</strong><br>
+                                            <small>Inativos</small>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <strong>{{ usuarios_suspensos_count }}</strong><br>
+                                            <small>Suspensos</small>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <strong>{{ usuarios_com_funcao.count }}</strong><br>
+                                            <small>Total</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            Nenhum usuário possui esta função atualmente.
+                            <br>
+                            <a href="{% url 'militares:adicionar_usuario_cargo' cargo.id %}" class="btn btn-success btn-sm mt-2">
+                                <i class="fas fa-plus"></i> Adicionar Primeiro Usuário
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Função para aplicar filtros
+    function aplicarFiltros() {
+        var status = $('#filterStatus').val();
+        var tipo = $('#filterTipo').val();
+        
+        var params = new URLSearchParams(window.location.search);
+        
+        if (status) params.set('status', status);
+        else params.delete('status');
+        
+        if (tipo) params.set('tipo', tipo);
+        else params.delete('tipo');
+        
+        window.location.search = params.toString();
+    }
+    
+    // Aplicar filtros ao mudar os selects
+    $('#filterStatus, #filterTipo').on('change', function() {
+        aplicarFiltros();
+    });
+    
+    // Limpar todos os filtros
+    $('#limparFiltros').on('click', function() {
+        $('#filterStatus').val('');
+        $('#filterTipo').val('');
+        aplicarFiltros();
+    });
+    
+    // Garantir que o botão delete funcione
+    $('.btn-danger[href*="excluir"]').on('click', function(e) {
+        console.log('Botão delete clicado via jQuery');
+        var cargoNome = '{{ cargo.nome }}';
+        if (!confirm('Tem certeza que deseja excluir o cargo/função "' + cargoNome + '"? Esta ação não pode ser desfeita.')) {
+            e.preventDefault();
+            return false;
+        }
+    });
+    
+    // Adicionar confirmação ao botão delete do cargo
+    $('a[href*="cargo_funcao_delete"]').on('click', function(e) {
+        var cargoNome = '{{ cargo.nome }}';
+        if (!confirm('Tem certeza que deseja excluir o cargo/função "' + cargoNome + '"? Esta ação não pode ser desfeita.')) {
+            e.preventDefault();
+            return false;
+        }
+    });
+    
+    // Garantir que os modais funcionem
+    $('[data-bs-toggle="modal"]').on('click', function(e) {
+        e.preventDefault();
+        var target = $(this).data('bs-target');
+        console.log('Abrindo modal:', target);
+        
+        // Usar Bootstrap 5 Modal
+        var modalElement = document.querySelector(target);
+        if (modalElement) {
+            var modal = new bootstrap.Modal(modalElement);
+            modal.show();
+        } else {
+            console.error('Modal não encontrado:', target);
+        }
+    });
+    
+    // Debug: verificar se os modais existem
+    $('.modal').each(function() {
+        console.log('Modal encontrado:', this.id);
+    });
+    
+    // Teste manual do modal
+    $('.btn-danger[data-bs-toggle="modal"]').on('click', function(e) {
+        console.log('Botão delete clicado');
+        var target = $(this).data('bs-target');
+        console.log('Target do botão:', target);
+        
+        // Forçar abertura do modal
+        setTimeout(function() {
+            var modalElement = document.querySelector(target);
+            if (modalElement) {
+                var modal = new bootstrap.Modal(modalElement);
+                modal.show();
+            }
+        }, 100);
+    });
+});
+</script>
+{% endblock %} 

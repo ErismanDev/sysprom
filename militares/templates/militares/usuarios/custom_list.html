@@ -1,0 +1,772 @@
+{% extends 'base.html' %}
+{% block title %}Gerenciar Usuários{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Busca Discreta */
+    .search-discreet {
+        position: relative;
+        margin: 20px 0;
+        transition: all 0.3s ease;
+    }
+    
+    .search-input-discreet {
+        width: 100%;
+        max-width: 600px;
+        padding: 12px 45px 12px 45px;
+        border: 2px solid #e9ecef;
+        border-radius: 25px;
+        font-size: 14px;
+        background: white;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    
+    .search-input-discreet:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        transform: translateY(-1px);
+    }
+    
+    .search-icon-discreet {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+        font-size: 16px;
+        z-index: 2;
+        transition: color 0.3s ease;
+    }
+    
+    .search-input-discreet:focus + .search-icon-discreet {
+        color: #667eea;
+    }
+    
+    .search-clear-discreet {
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: #6c757d;
+        cursor: pointer;
+        font-size: 14px;
+        display: none;
+        transition: color 0.3s ease;
+    }
+    
+    .search-clear-discreet:hover {
+        color: #dc3545;
+    }
+    
+    /* Autocomplete */
+    .autocomplete-container {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        max-width: 600px;
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        z-index: 1000;
+        max-height: 300px;
+        overflow-y: auto;
+        display: none;
+    }
+    
+    .autocomplete-item {
+        padding: 12px 15px;
+        cursor: pointer;
+        border-bottom: 1px solid #f8f9fa;
+        transition: background-color 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .autocomplete-item:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .autocomplete-item.selected {
+        background-color: #667eea;
+        color: white;
+    }
+    
+    .autocomplete-item:last-child {
+        border-bottom: none;
+    }
+    
+    .autocomplete-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        object-fit: cover;
+        background: #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        color: #6c757d;
+        font-weight: 600;
+    }
+    
+    .autocomplete-info {
+        flex: 1;
+    }
+    
+    .autocomplete-name {
+        font-weight: 500;
+        font-size: 14px;
+        margin-bottom: 2px;
+    }
+    
+    .autocomplete-details {
+        font-size: 12px;
+        color: #6c757d;
+    }
+    
+    .autocomplete-status {
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: #e9ecef;
+        color: #495057;
+    }
+    
+    /* Filtros discretos */
+    .filters-discreet {
+        margin-top: 15px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        opacity: 0.7;
+        transition: opacity 0.3s ease;
+    }
+    
+    .filters-discreet:hover {
+        opacity: 1;
+    }
+    
+    .filter-select-discreet {
+        padding: 6px 12px;
+        border: 1px solid #e9ecef;
+        border-radius: 15px;
+        font-size: 12px;
+        background: white;
+        color: #495057;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .filter-select-discreet:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+    }
+    
+    /* Animações */
+    .fade-in {
+        animation: fadeIn 0.3s ease-in;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .highlight {
+        background-color: #fff3cd !important;
+        transition: background-color 0.3s ease;
+    }
+    
+    /* Responsivo */
+    @media (max-width: 768px) {
+        .search-input-discreet {
+            max-width: 100%;
+            font-size: 16px; /* Evita zoom no iOS */
+        }
+        
+        .autocomplete-container {
+            max-width: 100%;
+        }
+        
+        .filters-discreet {
+            flex-direction: column;
+        }
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header com estatísticas -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body bg-gradient-primary text-white rounded-3">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h2 class="mb-1"><i class="fas fa-users-cog me-3"></i>Gerenciar Usuários</h2>
+                            <p class="mb-0 opacity-75">Sistema de gestão de usuários e permissões</p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <a href="{% url 'militares:usuario_create' %}" class="btn btn-light btn-lg rounded-pill shadow-sm">
+                                <i class="fas fa-user-plus me-2"></i> Novo Usuário
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estatísticas -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm bg-gradient-primary text-white">
+                        <div class="card-body text-center">
+                            <h3 class="mb-1">{{ total_usuarios }}</h3>
+                            <p class="mb-0 opacity-75">Total de Usuários</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm bg-gradient-success text-white">
+                        <div class="card-body text-center">
+                            <h3 class="mb-1">{{ usuarios_ativos }}</h3>
+                            <p class="mb-0 opacity-75">Usuários Ativos</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm bg-gradient-warning text-white">
+                        <div class="card-body text-center">
+                            <h3 class="mb-1">{{ usuarios_inativos }}</h3>
+                            <p class="mb-0 opacity-75">Usuários Inativos</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm bg-gradient-info text-white">
+                        <div class="card-body text-center">
+                            <h3 class="mb-1">{{ resultados_count }}</h3>
+                            <p class="mb-0 opacity-75">Resultados</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Busca Discreta -->
+    <div class="search-discreet mb-4">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="position-relative">
+                        <input type="text" 
+                               id="pesquisaUsuarios" 
+                               class="search-input-discreet" 
+                               placeholder="🔍 Digite o nome, username ou e-mail..."
+                               value="{{ query }}"
+                               autocomplete="off">
+                        <i class="fas fa-search search-icon-discreet"></i>
+                        <button class="search-clear-discreet" id="searchClear" title="Limpar busca" style="display: none;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                        
+                        <!-- Autocomplete -->
+                        <div class="autocomplete-container" id="autocompleteContainer">
+                            <!-- Itens do autocomplete serão inseridos aqui -->
+                        </div>
+                    </div>
+                    
+                    <!-- Filtros Discretos -->
+                    <form id="filtrosForm" method="get" class="filters-discreet">
+                        <select name="status" id="filterStatus" class="filter-select-discreet" onchange="this.form.submit()">
+                            <option value="">Todos os Status</option>
+                            <option value="ativo" {% if status == 'ativo' %}selected{% endif %}>Ativo</option>
+                            <option value="inativo" {% if status == 'inativo' %}selected{% endif %}>Inativo</option>
+                        </select>
+                        <select name="grupo" id="filterGrupo" class="filter-select-discreet" onchange="this.form.submit()">
+                            <option value="">Todos os Grupos</option>
+                            {% for grupo in grupos_disponiveis %}
+                                <option value="{{ grupo.name }}" {% if grupo.name == grupo %}selected{% endif %}>
+                                    {{ grupo.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <select name="ordenacao" id="filterOrdenacao" class="filter-select-discreet" onchange="this.form.submit()">
+                            <option value="nome" {% if ordenacao == 'nome' %}selected{% endif %}>Ordenar por Nome</option>
+                            <option value="username" {% if ordenacao == 'username' %}selected{% endif %}>Ordenar por Username</option>
+                            <option value="email" {% if ordenacao == 'email' %}selected{% endif %}>Ordenar por E-mail</option>
+                            <option value="data_criacao" {% if ordenacao == 'data_criacao' %}selected{% endif %}>Ordenar por Data</option>
+                            <option value="status" {% if ordenacao == 'status' %}selected{% endif %}>Ordenar por Status</option>
+                        </select>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de Usuários em Cards -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold">
+                <i class="fas fa-list me-2"></i>
+                Lista Completa de Usuários ({{ resultados_count }})
+            </h6>
+            <small class="text-muted">
+                <i class="fas fa-info-circle me-1"></i>
+                Mostrando todos os usuários cadastrados
+            </small>
+        </div>
+        <div class="card-body">
+            <div class="row" id="containerUsuarios">
+        {% for info in usuarios_info %}
+        <div class="col-lg-6 col-xl-4 mb-4 usuario-card" 
+             data-status="{% if info.usuario.is_active %}ativo{% else %}inativo{% endif %}"
+             data-nome="{{ info.usuario.get_full_name|lower }}"
+             data-cpf="{{ info.usuario.username|lower }}"
+             data-email="{{ info.usuario.email|lower|default:'' }}">
+            <div class="card h-100 border-0 shadow-sm hover-shadow">
+                <!-- Header do Card -->
+                <div class="card-header bg-transparent border-0 pb-0">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <h5 class="card-title mb-1 text-primary fw-bold">
+                                {{ info.usuario.get_full_name }}
+                            </h5>
+                            <p class="text-muted mb-0 small">
+                                <i class="fas fa-id-card me-1"></i>{{ info.usuario.username }}
+                            </p>
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary rounded-circle" type="button" 
+                                    data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="{% url 'militares:usuario_detail' info.usuario.pk %}">
+                                    <i class="fas fa-eye me-2"></i>Visualizar
+                                </a></li>
+                                <li><a class="dropdown-item" href="{% url 'militares:usuario_update' info.usuario.pk %}">
+                                    <i class="fas fa-edit me-2"></i>Editar
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="{% url 'militares:usuario_delete' info.usuario.pk %}">
+                                    <i class="fas fa-trash me-2"></i>Excluir
+                                </a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Corpo do Card -->
+                <div class="card-body pt-2">
+                    <!-- Status -->
+                    <div class="mb-3">
+                        {% if info.usuario.is_active %}
+                            <span class="badge bg-success bg-gradient rounded-pill">
+                                <i class="fas fa-check-circle me-1"></i>Ativo
+                            </span>
+                        {% else %}
+                            <span class="badge bg-danger bg-gradient rounded-pill">
+                                <i class="fas fa-ban me-1"></i>Inativo
+                            </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Informações de Contato -->
+                    {% if info.usuario.email %}
+                    <div class="mb-3">
+                        <p class="mb-1 small text-muted">
+                            <i class="fas fa-envelope me-2"></i>E-mail
+                        </p>
+                        <p class="mb-0 text-break">{{ info.usuario.email }}</p>
+                    </div>
+                    {% endif %}
+
+                    <!-- Militar Vinculado -->
+                    {% if info.militar %}
+                    <div class="mb-3">
+                        <p class="mb-1 small text-muted">
+                            <i class="fas fa-user-shield me-2"></i>Militar Vinculado
+                        </p>
+                        <span class="badge bg-info text-dark">
+                            {{ info.militar.get_posto_graduacao_display }} {{ info.militar.nome_completo }}
+                        </span>
+                    </div>
+                    {% endif %}
+
+                    <!-- Funções/Cargos -->
+                    <div class="mb-3">
+                        <p class="mb-2 small text-muted">
+                            <i class="fas fa-user-tag me-2"></i>Funções e Cargos
+                        </p>
+                        <div class="d-flex flex-wrap gap-1">
+                            {% if info.funcoes_usuario %}
+                                {% for funcao in info.funcoes_usuario %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-star me-1"></i>{{ funcao.cargo_funcao.nome }}
+                                    </span>
+                                {% endfor %}
+                            {% endif %}
+                            
+                            {% if info.funcoes_militar %}
+                                {% for funcao in info.funcoes_militar %}
+                                    <span class="badge bg-info">{{ funcao }}</span>
+                                {% endfor %}
+                            {% endif %}
+                            
+                            {% if not info.funcoes_usuario and not info.funcoes_militar %}
+                                <span class="text-muted small">Nenhuma função atribuída</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer do Card -->
+                <div class="card-footer bg-transparent border-0 pt-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="btn-group btn-group-sm" role="group">
+                            <a href="{% url 'militares:usuario_detail' info.usuario.pk %}" 
+                               class="btn btn-outline-primary" title="Visualizar">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{% url 'militares:usuario_update' info.usuario.pk %}" 
+                               class="btn btn-outline-secondary" title="Editar">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <a href="{% url 'militares:usuario_delete' info.usuario.pk %}" 
+                               class="btn btn-outline-danger" title="Excluir">
+                                <i class="fas fa-trash"></i>
+                            </a>
+                        </div>
+                        <small class="text-muted">
+                            <i class="fas fa-clock me-1"></i>
+                            {% if info.usuario.date_joined %}
+                                Criado em {{ info.usuario.date_joined|date:"d/m/Y" }}
+                            {% endif %}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                    <h4 class="text-muted">Nenhum usuário encontrado</h4>
+                    <p class="text-muted">Não há usuários cadastrados no sistema.</p>
+                    <a href="/admin/auth/user/add/" class="btn btn-primary">
+                        <i class="fas fa-user-plus me-2"></i>Criar Primeiro Usuário
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast de feedback visual -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+    <div id="toastFeedback" class="toast align-items-center text-bg-primary border-0" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body">
+                <span id="toastMsg">Ação realizada com sucesso!</span>
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Variáveis globais
+let searchTimeout;
+let selectedIndex = -1;
+
+// Elementos DOM
+const pesquisaInput = document.getElementById('pesquisaUsuarios');
+const searchClear = document.getElementById('searchClear');
+const autocompleteContainer = document.getElementById('autocompleteContainer');
+const filterStatus = document.getElementById('filterStatus');
+const filterGrupo = document.getElementById('filterGrupo');
+const filterOrdenacao = document.getElementById('filterOrdenacao');
+const usuarioCards = document.querySelectorAll('.usuario-card');
+
+// Função para mostrar autocomplete
+function showAutocomplete(results) {
+    autocompleteContainer.innerHTML = '';
+    
+    if (results.length === 0) {
+        autocompleteContainer.style.display = 'none';
+        return;
+    }
+    
+    results.slice(0, 8).forEach(function(card) {
+        const nome = card.getAttribute('data-nome') || '';
+        const username = card.getAttribute('data-cpf') || '';
+        const email = card.getAttribute('data-email') || '';
+        const status = card.getAttribute('data-status') || '';
+        
+        const autocompleteItem = document.createElement('div');
+        autocompleteItem.classList.add('autocomplete-item');
+        
+        // Avatar
+        const avatar = document.createElement('div');
+        avatar.classList.add('autocomplete-avatar');
+        avatar.textContent = nome.charAt(0).toUpperCase();
+        autocompleteItem.appendChild(avatar);
+        
+        // Informações
+        const info = document.createElement('div');
+        info.classList.add('autocomplete-info');
+        
+        const name = document.createElement('div');
+        name.classList.add('autocomplete-name');
+        name.textContent = nome;
+        info.appendChild(name);
+        
+        const details = document.createElement('div');
+        details.classList.add('autocomplete-details');
+        details.textContent = `${username} • ${email}`;
+        info.appendChild(details);
+        
+        autocompleteItem.appendChild(info);
+        
+        // Status
+        if (status) {
+            const statusBadge = document.createElement('div');
+            statusBadge.classList.add('autocomplete-status');
+            statusBadge.textContent = status === 'ativo' ? 'Ativo' : 'Inativo';
+            autocompleteItem.appendChild(statusBadge);
+        }
+        
+        autocompleteContainer.appendChild(autocompleteItem);
+        
+        // Adicionar evento de clique
+        autocompleteItem.addEventListener('click', function() {
+            selectUsuario(card);
+        });
+    });
+    
+    autocompleteContainer.style.display = 'block';
+}
+
+// Função para selecionar um usuário
+function selectUsuario(card) {
+    const nomeElement = card.querySelector('.card-title');
+    const nome = nomeElement ? nomeElement.textContent : '';
+    
+    pesquisaInput.value = nome;
+    hideAutocomplete();
+    
+    // Destacar o card selecionado
+    usuarioCards.forEach(c => c.classList.remove('highlight'));
+    card.classList.add('highlight');
+    
+    // Scroll para o card
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    
+    // Remover destaque após 3 segundos
+    setTimeout(() => {
+        card.classList.remove('highlight');
+    }, 3000);
+}
+
+// Função para esconder o autocomplete
+function hideAutocomplete() {
+    autocompleteContainer.style.display = 'none';
+    selectedIndex = -1;
+}
+
+// Função para filtrar e mostrar resultados
+function performSearch() {
+    const termo = pesquisaInput.value.toLowerCase().trim();
+    const statusFiltro = filterStatus.value.toLowerCase();
+    const grupoFiltro = filterGrupo.value.toLowerCase();
+    
+    // Mostrar/ocultar botão limpar
+    searchClear.style.display = termo ? 'block' : 'none';
+    
+    let resultadosEncontrados = 0;
+    let autocompleteResults = [];
+    
+    usuarioCards.forEach(function(card) {
+        const nome = card.getAttribute('data-nome');
+        const username = card.getAttribute('data-cpf');
+        const email = card.getAttribute('data-email');
+        const statusCard = card.getAttribute('data-status');
+        
+        // Verificar filtros
+        const matchStatus = !statusFiltro || statusCard.includes(statusFiltro);
+        const matchGrupo = !grupoFiltro || card.querySelector('.badge')?.textContent.includes(grupoFiltro);
+        const matchTermo = !termo || nome.includes(termo) || username.includes(termo) || email.includes(termo);
+        
+        if (matchStatus && matchGrupo && matchTermo) {
+            card.style.display = '';
+            card.classList.add('fade-in');
+            resultadosEncontrados++;
+            
+            // Adicionar ao autocomplete se houver termo de busca
+            if (termo && nome.includes(termo)) {
+                autocompleteResults.push(card);
+            }
+            
+            // Destacar termo pesquisado
+            if (termo) {
+                card.style.backgroundColor = '#fff3cd';
+            } else {
+                card.style.backgroundColor = '';
+            }
+        } else {
+            card.style.display = 'none';
+            card.classList.remove('fade-in');
+            card.style.backgroundColor = '';
+        }
+    });
+    
+    // Mostrar autocomplete se houver termo de busca
+    if (termo) {
+        showAutocomplete(autocompleteResults);
+    } else {
+        hideAutocomplete();
+    }
+    
+    // Atualizar contador
+    updateResultCount(resultadosEncontrados);
+}
+
+// Atualizar contador de resultados
+function updateResultCount(count) {
+    const header = document.querySelector('.card-header h6');
+    if (header) {
+        const termo = pesquisaInput.value.trim();
+        if (termo) {
+            header.innerHTML = `<i class="fas fa-list me-2"></i>Usuários Encontrados (${count})`;
+        } else {
+            header.innerHTML = `<i class="fas fa-list me-2"></i>Lista Completa de Usuários (${count})`;
+        }
+    }
+}
+
+// Event listeners
+pesquisaInput.addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(performSearch, 200);
+});
+
+searchClear.addEventListener('click', function() {
+    pesquisaInput.value = '';
+    performSearch();
+    this.style.display = 'none';
+});
+
+// Navegação do autocomplete com teclado
+pesquisaInput.addEventListener('keydown', function(e) {
+    const items = autocompleteContainer.querySelectorAll('.autocomplete-item');
+    
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+        updateSelectedItem(items);
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        selectedIndex = Math.max(selectedIndex - 1, -1);
+        updateSelectedItem(items);
+    } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (selectedIndex >= 0 && items[selectedIndex]) {
+            items[selectedIndex].click();
+        }
+    } else if (e.key === 'Escape') {
+        hideAutocomplete();
+    }
+});
+
+function updateSelectedItem(items) {
+    items.forEach((item, index) => {
+        if (index === selectedIndex) {
+            item.classList.add('selected');
+        } else {
+            item.classList.remove('selected');
+        }
+    });
+}
+
+// Esconder autocomplete ao clicar fora
+document.addEventListener('click', function(e) {
+    if (!pesquisaInput.contains(e.target) && !autocompleteContainer.contains(e.target)) {
+        hideAutocomplete();
+    }
+});
+
+// Adicionar efeito hover nos cards
+document.addEventListener('DOMContentLoaded', function() {
+    const cards = document.querySelectorAll('.usuario-card .card');
+    cards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-5px)';
+            this.style.transition = 'all 0.3s ease';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+        });
+    });
+});
+
+// Toast feedback
+function showToast(msg) {
+    document.getElementById('toastMsg').innerText = msg;
+    const toast = new bootstrap.Toast(document.getElementById('toastFeedback'));
+    toast.show();
+}
+</script>
+
+<style>
+.hover-shadow:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+}
+
+.animate__fadeIn {
+    animation-duration: 0.5s;
+}
+
+.card {
+    transition: all 0.3s ease;
+}
+
+.btn-group .btn {
+    border-radius: 0.375rem !important;
+}
+
+.btn-group .btn:first-child {
+    border-top-left-radius: 0.375rem !important;
+    border-bottom-left-radius: 0.375rem !important;
+}
+
+.btn-group .btn:last-child {
+    border-top-right-radius: 0.375rem !important;
+    border-bottom-right-radius: 0.375rem !important;
+}
+</style>
+{% endblock %} 

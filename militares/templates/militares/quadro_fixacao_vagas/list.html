@@ -1,0 +1,174 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load militares_extras %}
+
+{% block title %}Quadro de Fixação de Vagas{% endblock %}
+
+{% block extra_css %}
+<style>
+.principal-row {
+    background-color: #ffffff;
+    border-left: 4px solid #007bff;
+}
+
+.aditamento-row {
+    background-color: #f8f9fa;
+    border-left: 4px solid #6c757d;
+}
+
+.badge-principal {
+    background-color: #007bff !important;
+    color: white !important;
+    font-size: 0.9em;
+    letter-spacing: 0.5px;
+    font-weight: normal;
+}
+
+.badge-aditamento {
+    background-color: #6c757d !important;
+    color: white !important;
+    font-size: 0.9em;
+    letter-spacing: 0.5px;
+    font-weight: normal;
+}
+
+.text-principal {
+    color: #007bff !important;
+    font-size: 0.8em;
+    font-weight: bold;
+}
+
+.text-aditamento {
+    color: #6c757d !important;
+    font-size: 0.8em;
+    font-weight: bold;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 100%;">
+
+
+    <!-- Botões de criação -->
+    {% if user.is_superuser or user.is_staff or user|tem_funcao_especifica:"Diretor de Gestão de Pessoas,Chefe da Seção de Promoções" %}
+    <div class="text-center mb-4">
+        <a href="{% url 'militares:quadro_fixacao_vagas_create' %}" class="btn btn-success me-2">
+            <i class="fas fa-plus"></i> Novo Quadro de Fixação de Vagas
+        </a>
+        <a href="{% url 'militares:quadro_fixacao_vagas_oficiais_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Novo Quadro para Oficiais
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Estatísticas -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div style="border: 1px solid #3498db; border-radius: 6px; padding: 15px; background: #f0f8ff; text-align: center;">
+                <h6 style="color: #3498db; margin-bottom: 5px;">Total de Quadros de Fixação de Vagas</h6>
+                <h3 style="color: #3498db; margin: 0;">{{ total_quadros }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de Quadros -->
+    {% if quadros %}
+        <div class="table-responsive" style="min-width: 1100px;">
+            <table class="table table-striped table-hover" style="min-width: 1100px;">
+                <thead style="background: #2c3e50; color: white;">
+                    <tr>
+                        <th style="min-width: 210px;">Numeração</th>
+                        <th>Título</th>
+                        <th>Tipo</th>
+                        <th>Data da Promoção</th>
+                        <th>Status</th>
+                        <th>Total Vagas Fixadas</th>
+                        <th>Data Criação</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for quadro in quadros %}
+                    <tr class="{% if ' A ' in quadro.numero %}aditamento-row{% else %}principal-row{% endif %}">
+                        <td>
+                            <span class="badge {% if ' A ' in quadro.numero %}badge-aditamento{% else %}badge-principal{% endif %}">
+                                {{ quadro.numero }}
+                            </span>
+                            <br>
+                            <small class="{% if ' A ' in quadro.numero %}text-aditamento{% else %}text-principal{% endif %}">
+                                {% if ' A ' in quadro.numero %}
+                                    <i class="fas fa-plus-circle"></i> {{ quadro.get_geracao_display }}
+                                {% else %}
+                                    <i class="fas fa-star"></i> Quadro Principal
+                                {% endif %}
+                            </small>
+                        </td>
+                        <td>
+                            {% if ' A ' in quadro.numero %}
+                                <span class="text-aditamento"><i class="fas fa-plus"></i> Aditamento</span>
+                            {% else %}
+                                <span class="text-principal"><i class="fas fa-star"></i> Quadro Principal</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge" style="background: {% if quadro.tipo == 'OFICIAIS' %}#3498db{% else %}#27ae60{% endif %}; color: white;">
+                                {{ quadro.get_tipo_display }}
+                            </span>
+                        </td>
+                        <td>{{ quadro.data_promocao|date:"d/m/Y" }}</td>
+                        <td>
+                            <span class="badge" style="background: {% if quadro.status == 'FINALIZADO' %}#27ae60{% elif quadro.status == 'APROVADO' %}#3498db{% elif quadro.status == 'EM_ELABORACAO' %}#f39c12{% else %}#888{% endif %}; color: white;">
+                                {{ quadro.get_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">{{ quadro.total_vagas_fixadas }}</span>
+                        </td>
+                        <td>{{ quadro.data_criacao|date:"d/m/Y" }}</td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <a href="{% url 'militares:quadro_fixacao_vagas_detail' quadro.pk %}" class="btn btn-sm btn-outline-primary" title="Ver detalhes">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{% url 'militares:quadro_fixacao_vagas_visualizar_html' quadro.pk %}" class="btn btn-sm btn-outline-info" title="Visualizar HTML">
+                                    <i class="fas fa-file-alt"></i>
+                                </a>
+                                {% if user.is_superuser or user.is_staff or user|tem_funcao_especifica:"Diretor de Gestão de Pessoas,Chefe da Seção de Promoções" %}
+                                    <a href="{% url 'militares:quadro_fixacao_vagas_update' quadro.pk %}" class="btn btn-sm btn-outline-warning" title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="{% url 'militares:quadro_fixacao_vagas_delete' quadro.pk %}" class="btn btn-sm btn-outline-danger" title="Excluir" onclick="return confirm('Tem certeza que deseja excluir este quadro?')">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                    {% if quadro.status != 'APROVADO' %}
+                                    <a href="{% url 'militares:quadro_fixacao_vagas_visualizar_html' quadro.pk %}" class="btn btn-sm btn-outline-success" title="Assinar eletronicamente">
+                                        <i class="fas fa-signature"></i>
+                                    </a>
+                                    {% endif %}
+                                {% endif %}
+                                <a href="{% url 'militares:quadro_fixacao_vagas_pdf' quadro.pk %}" class="btn btn-sm btn-outline-danger" title="Gerar PDF" target="_blank">
+                                    <i class="fas fa-file-pdf"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-info text-center">
+            <i class="fas fa-info-circle me-2"></i>
+            Nenhum quadro de fixação de vagas encontrado.
+            {% if user.is_superuser or user.is_staff or user|tem_funcao_especifica:"Diretor de Gestão de Pessoas,Chefe da Seção de Promoções" %}
+            <br>
+            <a href="{% url 'militares:quadro_fixacao_vagas_create' %}" class="btn btn-primary mt-2">
+                <i class="fas fa-plus me-1"></i>
+                Criar Primeiro Quadro
+            </a>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+{% endblock %} 

@@ -1,0 +1,187 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Selecionar Função - SysProm - CBMEPI{% endblock %}
+
+{% block extra_css %}
+<style>
+    .funcao-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+        cursor: pointer;
+        border: 2px solid #e9ecef;
+    }
+    
+    .funcao-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        border-color: #007bff;
+    }
+    
+    .funcao-card.selected {
+        border-color: #28a745;
+        background-color: #f8fff9;
+    }
+    
+    .funcao-icon {
+        font-size: 2rem;
+        color: #007bff;
+    }
+    
+    .funcao-title {
+        font-weight: 600;
+        color: #495057;
+    }
+    
+    .funcao-description {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .funcao-type {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border-radius: 0.25rem;
+        text-transform: uppercase;
+    }
+    
+    .funcao-type.administrativo {
+        background-color: #e3f2fd;
+        color: #1976d2;
+    }
+    
+    .funcao-type.operacional {
+        background-color: #fff3e0;
+        color: #f57c00;
+    }
+    
+    .funcao-type.comissao {
+        background-color: #f3e5f5;
+        color: #7b1fa2;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-md-10">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-user-tie me-3"></i>
+                        <div>
+                            <h4 class="mb-0">Selecionar Função</h4>
+                            <p class="mb-0">Olá, {{ usuario.get_full_name|default:usuario.username }}!</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <p class="text-muted">
+                            Você possui múltiplas funções no sistema. Por favor, selecione a função 
+                            que deseja utilizar nesta sessão.
+                        </p>
+                    </div>
+                    
+                    <form method="post" id="funcaoForm">
+                        {% csrf_token %}
+                        <div class="row">
+                            {% for funcao in funcoes %}
+                            <div class="col-md-6 col-lg-4 mb-3">
+                                <div class="card funcao-card h-100" data-funcao-id="{{ funcao.id }}">
+                                    <div class="card-body text-center">
+                                        <div class="funcao-icon mb-3">
+                                            {% if funcao.tipo_funcao == 'ADMINISTRATIVO' %}
+                                                <i class="fas fa-user-tie"></i>
+                                            {% elif funcao.tipo_funcao == 'OPERACIONAL' %}
+                                                <i class="fas fa-fire-extinguisher"></i>
+                                            {% elif funcao.tipo_funcao == 'COMISSAO' %}
+                                                <i class="fas fa-users"></i>
+                                            {% else %}
+                                                <i class="fas fa-user"></i>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <h6 class="funcao-title">{{ funcao.cargo_funcao.nome }}</h6>
+                                        
+                                        {% if funcao.cargo_funcao.descricao %}
+                                        <p class="funcao-description mb-2">
+                                            {{ funcao.cargo_funcao.descricao }}
+                                        </p>
+                                        {% endif %}
+                                        
+                                        <span class="funcao-type {{ funcao.tipo_funcao|lower }}">
+                                            {{ funcao.get_tipo_funcao_display }}
+                                        </span>
+                                        
+                                        <input type="radio" name="funcao_id" value="{{ funcao.id }}" 
+                                               class="d-none" id="funcao_{{ funcao.id }}">
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="text-center mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg" id="btnContinuar" disabled>
+                                <i class="fas fa-check me-2"></i>
+                                Continuar com a Função Selecionada
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Adicionar event listeners quando o DOM estiver carregado
+document.addEventListener('DOMContentLoaded', function() {
+    const cards = document.querySelectorAll('.funcao-card');
+    
+    cards.forEach(card => {
+        // Event listener para clique
+        card.addEventListener('click', function() {
+            const funcaoId = this.getAttribute('data-funcao-id');
+            selecionarFuncao(funcaoId, this);
+        });
+        
+        // Event listener para hover
+        card.addEventListener('mouseenter', function() {
+            if (!this.classList.contains('selected')) {
+                this.style.transform = 'translateY(-2px)';
+                this.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';
+            }
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            if (!this.classList.contains('selected')) {
+                this.style.transform = 'translateY(0)';
+                this.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+            }
+        });
+    });
+});
+
+function selecionarFuncao(funcaoId, cardElement) {
+    // Remover seleção anterior
+    document.querySelectorAll('.funcao-card').forEach(card => {
+        card.classList.remove('selected');
+    });
+    
+    // Selecionar o card clicado
+    cardElement.classList.add('selected');
+    
+    // Marcar o radio button
+    const radio = document.getElementById('funcao_' + funcaoId);
+    radio.checked = true;
+    
+    // Habilitar o botão
+    document.getElementById('btnContinuar').disabled = false;
+}
+</script>
+{% endblock %} 

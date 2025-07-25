@@ -1,0 +1,445 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Estatísticas do Sistema - SysProm{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+        border: none;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    
+    .stats-card.success {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    }
+    
+    .stats-card.warning {
+        background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+    }
+    
+    .stats-card.info {
+        background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);
+    }
+    
+    .stats-card.danger {
+        background: linear-gradient(135deg, var(--secondary-color) 0%, #e74c3c 100%);
+    }
+    
+    .stats-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stats-label {
+        font-size: 1rem;
+        opacity: 0.9;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stats-icon {
+        font-size: 3rem;
+        opacity: 0.8;
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+    }
+    
+    .chart-container {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 1.5rem;
+    }
+    
+    .progress-custom {
+        height: 25px;
+        border-radius: 12px;
+        background-color: rgba(255,255,255,0.2);
+    }
+    
+    .progress-custom .progress-bar {
+        border-radius: 12px;
+        font-weight: bold;
+    }
+    
+    .table-stats {
+        background: white;
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .table-stats th {
+        background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+        color: white;
+        border: none;
+        font-weight: 600;
+    }
+    
+    .badge-custom {
+        font-size: 0.8rem;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+    }
+    
+    .section-title {
+        color: var(--primary-color);
+        font-weight: bold;
+        margin-bottom: 1.5rem;
+        border-bottom: 3px solid var(--primary-color);
+        padding-bottom: 0.5rem;
+    }
+    
+    .info-box {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-left: 4px solid var(--primary-color);
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    }
+    
+    .info-box h6 {
+        color: var(--primary-color);
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Cabeçalho -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="fas fa-chart-bar me-2 text-primary"></i>
+                Estatísticas do Sistema
+            </h1>
+            <p class="text-muted">Visão geral dos dados e métricas do SysProm</p>
+        </div>
+        <div>
+            <button class="btn btn-primary" onclick="window.print()">
+                <i class="fas fa-print me-2"></i>Imprimir Relatório
+            </button>
+        </div>
+    </div>
+
+    <!-- Cards de Estatísticas Principais -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="stats-card">
+                <div class="position-relative">
+                    <div class="stats-number">{{ total_militares }}</div>
+                    <div class="stats-label">Total de Militares</div>
+                    <i class="fas fa-users stats-icon"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="stats-card success">
+                <div class="position-relative">
+                    <div class="stats-number">{{ militares_ativos }}</div>
+                    <div class="stats-label">Militares Ativos</div>
+                    <i class="fas fa-user-check stats-icon"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="stats-card info">
+                <div class="position-relative">
+                    <div class="stats-number">{{ total_fichas }}</div>
+                    <div class="stats-label">Fichas de Conceito</div>
+                    <i class="fas fa-clipboard-list stats-icon"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="stats-card warning">
+                <div class="position-relative">
+                    <div class="stats-number">{{ total_documentos }}</div>
+                    <div class="stats-label">Documentos</div>
+                    <i class="fas fa-file-alt stats-icon"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estatísticas Detalhadas -->
+    <div class="row">
+        <!-- Estatísticas por Quadro -->
+        <div class="col-lg-6 mb-4">
+            <div class="chart-container">
+                <h5 class="section-title">
+                    <i class="fas fa-layer-group me-2"></i>
+                    Distribuição por Quadro
+                </h5>
+                {% if estatisticas_quadro %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Quadro</th>
+                                    <th>Quantidade</th>
+                                    <th>Percentual</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in estatisticas_quadro %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ item.quadro }}</strong>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary badge-custom">{{ item.total }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="progress progress-custom">
+                                            <div class="progress-bar bg-primary" 
+                                                 style="width: {% widthratio item.total militares_ativos 100 %}%">
+                                                {% widthratio item.total militares_ativos 100 %}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-info-circle fa-2x mb-3"></i>
+                        <p>Nenhum dado disponível</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Estatísticas por Posto/Graduação -->
+        <div class="col-lg-6 mb-4">
+            <div class="chart-container">
+                <h5 class="section-title">
+                    <i class="fas fa-star me-2"></i>
+                    Distribuição por Posto/Graduação
+                </h5>
+                {% if estatisticas_posto %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Posto/Graduação</th>
+                                    <th>Quantidade</th>
+                                    <th>Percentual</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in estatisticas_posto %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ item.posto_graduacao }}</strong>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-success badge-custom">{{ item.total }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="progress progress-custom">
+                                            <div class="progress-bar bg-success" 
+                                                 style="width: {% widthratio item.total militares_ativos 100 %}%">
+                                                {% widthratio item.total militares_ativos 100 %}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-info-circle fa-2x mb-3"></i>
+                        <p>Nenhum dado disponível</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Estatísticas de Documentos -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="chart-container">
+                <h5 class="section-title">
+                    <i class="fas fa-file-alt me-2"></i>
+                    Status dos Documentos
+                </h5>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="info-box">
+                            <h6><i class="fas fa-check-circle text-success me-2"></i>Aprovados</h6>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="h4 mb-0 text-success">{{ documentos_aprovados }}</span>
+                                <span class="text-muted">
+                                    {% if total_documentos > 0 %}
+                                        {% widthratio documentos_aprovados total_documentos 100 %}%
+                                    {% else %}
+                                        0%
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="info-box">
+                            <h6><i class="fas fa-clock text-warning me-2"></i>Pendentes</h6>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="h4 mb-0 text-warning">{{ documentos_pendentes }}</span>
+                                <span class="text-muted">
+                                    {% if total_documentos > 0 %}
+                                        {% widthratio documentos_pendentes total_documentos 100 %}%
+                                    {% else %}
+                                        0%
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="info-box">
+                            <h6><i class="fas fa-times-circle text-danger me-2"></i>Rejeitados</h6>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="h4 mb-0 text-danger">{{ total_documentos|add:"-"|add:documentos_aprovados|add:"-"|add:documentos_pendentes }}</span>
+                                <span class="text-muted">
+                                    {% if total_documentos > 0 %}
+                                        {% widthratio total_documentos|add:"-"|add:documentos_aprovados|add:"-"|add:documentos_pendentes total_documentos 100 %}%
+                                    {% else %}
+                                        0%
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estatísticas dos Quadros de Acesso -->
+    {% if estatisticas_quadros_acesso %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="chart-container">
+                <h5 class="section-title">
+                    <i class="fas fa-table me-2"></i>
+                    Quadros de Acesso
+                </h5>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <div class="h2 text-primary">{{ estatisticas_quadros_acesso.total }}</div>
+                            <small class="text-muted">Total de Quadros</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <div class="h2 text-success">{{ estatisticas_quadros_acesso.elaborados }}</div>
+                            <small class="text-muted">Elaborados</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <div class="h2 text-info">{{ estatisticas_quadros_acesso.homologados }}</div>
+                            <small class="text-muted">Homologados</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <div class="h2 text-warning">{{ estatisticas_quadros_acesso.militares_aptos }}</div>
+                            <small class="text-muted">Militares Aptos</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Status dos Quadros -->
+                {% if estatisticas_quadros_acesso.status %}
+                <div class="mt-4">
+                    <h6 class="text-muted mb-3">Status dos Quadros</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <tbody>
+                                {% for status in estatisticas_quadros_acesso.status %}
+                                <tr>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ status.status }}</span>
+                                    </td>
+                                    <td>{{ status.total }} quadros</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Informações Adicionais -->
+    <div class="row">
+        <div class="col-12">
+            <div class="chart-container">
+                <h5 class="section-title">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Informações do Sistema
+                </h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="info-box">
+                            <h6><i class="fas fa-users me-2"></i>Efetivo</h6>
+                            <p class="mb-0">
+                                O sistema gerencia <strong>{{ total_militares }}</strong> militares, 
+                                sendo <strong>{{ militares_ativos }}</strong> ativos 
+                                ({% widthratio militares_ativos total_militares 100 %}% do total).
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="info-box">
+                            <h6><i class="fas fa-clipboard-check me-2"></i>Fichas de Conceito</h6>
+                            <p class="mb-0">
+                                Existem <strong>{{ total_fichas }}</strong> fichas de conceito cadastradas, 
+                                cobrindo {% widthratio total_fichas militares_ativos 100 %}% dos militares ativos.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts para gráficos interativos -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Aqui você pode adicionar gráficos interativos se necessário
+    console.log('Dashboard de estatísticas carregado');
+});
+</script>
+{% endblock %} 

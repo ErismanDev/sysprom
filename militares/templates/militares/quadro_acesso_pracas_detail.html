@@ -1,0 +1,744 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load militares_extras %}
+
+{% block title %}Quadro de Acesso - Praças - {{ quadro.get_titulo_completo }}{% endblock %}
+
+{% block content %}
+<style>
+.status-badge {
+    font-weight: bold;
+}
+.status-elaborado {
+    color: #27ae60;
+}
+.status-homologado {
+    color: #3498db;
+}
+.status-criado {
+    color: #e74c3c;
+}
+.row-even {
+    background: #fff;
+}
+.row-odd {
+    background: #f9f9f9;
+}
+</style>
+<div class="container" style="max-width: 900px;">
+
+
+    <!-- Informações do Quadro -->
+    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; background: #f8f9fa;">
+        <div class="row">
+            <div class="col-md-6">
+                <h5 style="color: #2c3e50; margin-bottom: 15px;">
+                    <i class="fas fa-users"></i> Quadro de Acesso de Praças
+                </h5>
+                <p style="margin-bottom: 5px;"><strong>Tipo:</strong> 
+                    {% if quadro.tipo == 'ANTIGUIDADE' %}
+                        Quadro de Acesso por Antiguidade
+                    {% elif quadro.tipo == 'MERECIMENTO' %}
+                        Quadro de Acesso por Merecimento
+                    {% else %}
+                        {{ quadro.get_tipo_display|default:"-" }}
+                    {% endif %}
+                </p>
+                <p style="margin-bottom: 5px;"><strong>Status:</strong> 
+                    <span class="status-badge status-{{ quadro.status|lower }}">
+                        {{ quadro.get_status_display|default:"-" }}
+                    </span>
+                </p>
+                <p style="margin-bottom: 5px;"><strong>Data da Promoção:</strong> {{ quadro.data_promocao|date:"d/m/Y"|default:"-" }}</p>
+            </div>
+            <div class="col-md-6">
+                <p style="margin-bottom: 5px;"><strong>Criado em:</strong> {{ quadro.data_criacao|date:"d/m/Y H:i"|default:"-" }}</p>
+                {% if quadro.data_atualizacao %}
+                    <p style="margin-bottom: 5px;"><strong>Atualizado em:</strong> {{ quadro.data_atualizacao|date:"d/m/Y H:i" }}</p>
+                {% endif %}
+                <p style="margin-bottom: 5px;">
+                    {% if quadro.tipo == 'ANTIGUIDADE' %}
+                        <span style="background: #3498db; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8em;">Por Antiguidade</span>
+                    {% elif quadro.tipo == 'MERECIMENTO' %}
+                        <span style="background: #27ae60; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8em;">Por Merecimento</span>
+                    {% else %}
+                        <span style="background: #f39c12; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8em;">Manual</span>
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botões de Ação no topo -->
+    <div class="mb-4 text-center" style="display: flex; gap: 8px; justify-content: center;">
+        <a href="{% url 'militares:quadro_acesso_list' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Voltar à Lista
+        </a>
+        {% if quadro.status != 'HOMOLOGADO' %}
+            <a href="{% url 'militares:quadro_acesso_pracas_edit' quadro.pk %}" class="btn btn-primary">
+                <i class="fas fa-edit"></i> Editar
+            </a>
+            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalAdicionarMilitar">
+                <i class="fas fa-plus"></i> Adicionar Militar
+            </button>
+        {% endif %}
+        <a href="{% url 'militares:visualizar_quadro_html' quadro.pk %}" class="btn btn-info" style="background: #00cfff; border-color: #00cfff; color: #222;">
+            <i class="fas fa-pen-nib"></i> Assinar o Quadro
+        </a>
+        {% if quadro.status != 'ELABORADO' and quadro.status != 'HOMOLOGADO' and total_pracas_aptas > 0 %}
+            <a href="{% url 'militares:elaborar_quadro_acesso_pracas' quadro.pk %}" class="btn btn-warning"
+               onclick="return confirm('Tem certeza que deseja finalizar este quadro? Esta ação não pode ser desfeita facilmente.')">
+                <i class="fas fa-check-circle"></i> Finalizar Quadro
+            </a>
+        {% endif %}
+        {% if quadro.status == 'ELABORADO' %}
+            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalHomologar">
+                <i class="fas fa-check-double"></i> Homologar Quadro
+            </button>
+        {% endif %}
+    </div>
+
+    <!-- Estatísticas -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div style="border: 1px solid #27ae60; border-radius: 6px; padding: 15px; background: #f0f8f0; text-align: center;">
+                <h6 style="color: #27ae60; margin-bottom: 5px;">Praças Aptas</h6>
+                <h3 style="color: #27ae60; margin: 0;">{{ total_pracas_aptas }}</h3>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div style="border: 1px solid #e74c3c; border-radius: 6px; padding: 15px; background: #fdf2f2; text-align: center;">
+                <h6 style="color: #e74c3c; margin-bottom: 5px;">Praças Inaptas</h6>
+                <h3 style="color: #e74c3c; margin: 0;">{{ total_inaptos }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <!-- Observações -->
+    {% if quadro.observacoes %}
+    <div style="border: 1px solid #3498db; border-radius: 6px; padding: 15px; margin-bottom: 20px; background: #f0f8ff;">
+        <h6 style="color: #3498db; margin-bottom: 10px;"><i class="fas fa-info-circle"></i> Observações</h6>
+        <p style="margin: 0; white-space: pre-wrap;">{{ quadro.observacoes }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Quadro de Acesso -->
+    {% if quadro.status == 'ELABORADO' %}
+        {% for codigo_quadro, dados_quadro in estrutura_quadros.items %}
+            <div style="border: 1px solid #888; border-radius: 6px; margin-bottom: 15px; background: #fafafa;">
+                <div style="padding: 15px;">
+                    <h5 class="mt-2 mb-3" style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 8px;">{{ dados_quadro.nome }}</h5>
+                    
+                    {% for transicao in dados_quadro.transicoes %}
+                        <div style="margin-bottom: 20px;">
+                            <h6 style="color: #3498db; text-align: center; margin-bottom: 15px;">
+                                <i class="fas fa-arrow-right"></i> {{ transicao.origem_nome }} → {{ transicao.destino_nome }}
+                            </h6>
+                            
+                            {% if transicao.militares %}
+                                <div style="overflow-x: auto;">
+                                    <table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd;">
+                                        <thead style="background: #2c3e50; color: white;">
+                                            <tr>
+                                                <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Posição</th>
+                                                <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Posto</th>
+                                                <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Nome</th>
+                                                <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">CPF</th>
+                                                {% if quadro.tipo == 'MERECIMENTO' %}
+                                                    <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Pontuação</th>
+                                                {% endif %}
+                                                {% if transicao.origem == 'SD' and transicao.destino == 'CAB' or transicao.origem == 'CAB' and transicao.destino == '3S' %}
+                                                    <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Nota do Curso</th>
+                                                {% endif %}
+                                                <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Tipo Inserção</th>
+                                                <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for item in transicao.militares %}
+                                                <tr class="{% cycle 'row-even' 'row-odd' %}">
+                                                    <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">
+                                                        <span style="background: #3498db; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.8em;">{{ item.posicao }}</span>
+                                                    </td>
+                                                    <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">
+                                                        <span style="background: #27ae60; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.8em;">{{ item.militar.get_posto_graduacao_display }}</span>
+                                                    </td>
+                                                    <td style="padding: 8px; text-align: left; border: 1px solid #ddd; font-weight: bold;">{{ item.militar.nome_completo }}</td>
+                                                    <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">{{ item.militar.cpf|slice:":3" }}.***.***-{{ item.militar.cpf|slice:"-2:" }}</td>
+                                                    {% if quadro.tipo == 'MERECIMENTO' %}
+                                                        <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">
+                                                            {% if item.pontuacao %}
+                                                                <span style="background: #f39c12; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.8em;">{{ item.pontuacao }}</span>
+                                                            {% else %}
+                                                                <span style="color: #999;">-</span>
+                                                            {% endif %}
+                                                        </td>
+                                                    {% endif %}
+                                                    {% if transicao.origem == 'SD' and transicao.destino == 'CAB' or transicao.origem == 'CAB' and transicao.destino == '3S' %}
+                                                        <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">
+                                                            {% if transicao.origem == 'SD' and item.militar.curso_chc and item.militar.nota_chc %}
+                                                                <span style="background: #e67e22; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.8em;" title="Nota do CHC">
+                                                                    <i class="fas fa-graduation-cap"></i> {{ item.militar.nota_chc }}
+                                                                </span>
+                                                            {% elif transicao.origem == 'CAB' and item.militar.curso_chsgt and item.militar.nota_chsgt %}
+                                                                <span style="background: #9b59b6; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.8em;" title="Nota do CHSGT">
+                                                                    <i class="fas fa-graduation-cap"></i> {{ item.militar.nota_chsgt }}
+                                                                </span>
+                                                            {% else %}
+                                                                <span style="color: #999;">-</span>
+                                                            {% endif %}
+                                                        </td>
+                                                    {% endif %}
+                                                    <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">
+                                                        {% if item.inserido_manualmente %}
+                                                            <span style="background: #e74c3c; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.8em;" title="{{ item.get_motivo_insercao_display }}{% if item.documento_referencia %} - {{ item.documento_referencia }}{% endif %}">
+                                                                <i class="fas fa-gavel"></i> {{ item.get_motivo_insercao_display }}
+                                                            </span>
+                                                        {% else %}
+                                                            <span style="background: #27ae60; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.8em;">
+                                                                <i class="fas fa-robot"></i> Automático
+                                                            </span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">
+                                                        <a href="{% url 'militares:militar_detail' item.militar.pk %}" class="btn btn-outline-primary btn-sm" style="border-radius: 6px; margin-right: 4px;" title="Visualizar">
+                                                            <i class="fas fa-eye"></i>
+                                                        </a>
+                                                        <a href="{% url 'militares:remover_militar_quadro_pracas' quadro.pk item.militar.pk %}"
+                                                           class="btn btn-outline-danger btn-sm" style="border-radius: 6px;" title="Excluir"
+                                                           onclick="return confirm('Tem certeza que deseja remover {{ item.militar.nome_completo }} do quadro?')">
+                                                            <i class="fas fa-trash"></i>
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div style="border: 1px solid #f39c12; border-radius: 6px; padding: 15px; background: #fef9e7; text-align: center;">
+                                    <i class="fas fa-exclamation-triangle" style="color: #f39c12; font-size: 1.2em;"></i>
+                                    <strong style="color: #f39c12;">Não há praças aptas para esta transição.</strong>
+                                    <br>
+                                                                            <small style="color: #666; display: block; margin-top: 8px; text-align: left;">
+                                            Deixa de ser elaborado o Quadro de Acesso por {% if quadro.tipo == 'ANTIGUIDADE' %}Antiguidade{% elif quadro.tipo == 'MERECIMENTO' %}Merecimento{% else %}Manual{% endif %} para o posto de {{ transicao.destino_nome }} em virtude de não haver praça que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.462, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.
+                                        </small>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <!-- Mostrar militares mesmo quando não elaborado -->
+        {% if estrutura_quadros %}
+            {% for codigo_quadro, dados_quadro in estrutura_quadros.items %}
+                <div style="border: 1px solid #888; border-radius: 6px; margin-bottom: 15px; background: #fafafa;">
+                    <div style="padding: 15px;">
+                        <h5 class="mt-2 mb-3" style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 8px;">
+                            {{ dados_quadro.nome }}
+                            {% if quadro.status != 'ELABORADO' %}
+                                <span style="background: #f39c12; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8em; margin-left: 10px;">
+                                    <i class="fas fa-clock"></i> Em Elaboração
+                                </span>
+                            {% endif %}
+                        </h5>
+                        
+                        {% for transicao in dados_quadro.transicoes %}
+                            <div style="margin-bottom: 20px;">
+                                <h6 style="color: #3498db; text-align: center; margin-bottom: 15px;">
+                                    <i class="fas fa-arrow-right"></i> {{ transicao.origem_nome }} → {{ transicao.destino_nome }}
+                                </h6>
+                                
+                                {% if transicao.militares %}
+                                    <div style="overflow-x: auto;">
+                                        <table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd;">
+                                            <thead style="background: #2c3e50; color: white;">
+                                                <tr>
+                                                    <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Posição</th>
+                                                    <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Posto</th>
+                                                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Nome</th>
+                                                    <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">CPF</th>
+                                                    {% if quadro.tipo == 'MERECIMENTO' or quadro.criterio_ordenacao_manual == 'MERECIMENTO' %}
+                                                        <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Pontuação</th>
+                                                    {% endif %}
+                                                    {% if transicao.origem == 'SD' and transicao.destino == 'CAB' or transicao.origem == 'CAB' and transicao.destino == '3S' %}
+                                                        <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Nota do Curso</th>
+                                                    {% endif %}
+                                                    <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Ações</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for item in transicao.militares %}
+                                                    <tr class="{% cycle 'row-even' 'row-odd' %}">
+                                                        <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">
+                                                            <span style="background: #3498db; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.8em;">{{ item.posicao }}</span>
+                                                        </td>
+                                                        <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">
+                                                            <span style="background: #27ae60; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.8em;">{{ item.militar.get_posto_graduacao_display }}</span>
+                                                        </td>
+                                                        <td style="padding: 8px; text-align: left; border: 1px solid #ddd; font-weight: bold;">{{ item.militar.nome_completo }}</td>
+                                                        <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">{{ item.militar.cpf|slice:":3" }}.***.***-{{ item.militar.cpf|slice:"-2:" }}</td>
+                                                        {% if quadro.tipo == 'MERECIMENTO' or quadro.criterio_ordenacao_manual == 'MERECIMENTO' %}
+                                                            <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">
+                                                                {% if item.pontuacao %}
+                                                                    <span style="background: #f39c12; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.8em;">{{ item.pontuacao }}</span>
+                                                                {% else %}
+                                                                    <span style="color: #999;">-</span>
+                                                                {% endif %}
+                                                            </td>
+                                                        {% endif %}
+                                                        {% if transicao.origem == 'SD' and transicao.destino == 'CAB' or transicao.origem == 'CAB' and transicao.destino == '3S' %}
+                                                            <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">
+                                                                {% if transicao.origem == 'SD' and item.militar.curso_chc and item.militar.nota_chc %}
+                                                                    <span style="background: #e67e22; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.8em;" title="Nota do CHC">
+                                                                        <i class="fas fa-graduation-cap"></i> {{ item.militar.nota_chc }}
+                                                                    </span>
+                                                                {% elif transicao.origem == 'CAB' and item.militar.curso_chsgt and item.militar.nota_chsgt %}
+                                                                    <span style="background: #9b59b6; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.8em;" title="Nota do CHSGT">
+                                                                        <i class="fas fa-graduation-cap"></i> {{ item.militar.nota_chsgt }}
+                                                                    </span>
+                                                                {% else %}
+                                                                    <span style="color: #999;">-</span>
+                                                                {% endif %}
+                                                            </td>
+                                                        {% endif %}
+                                                        <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">
+                                                            <a href="{% url 'militares:militar_detail' item.militar.pk %}" class="btn btn-outline-primary btn-sm" style="border-radius: 6px; margin-right: 4px;" title="Visualizar">
+                                                                <i class="fas fa-eye"></i>
+                                                            </a>
+                                                            <a href="{% url 'militares:remover_militar_quadro_pracas' quadro.pk item.militar.pk %}"
+                                                               class="btn btn-outline-danger btn-sm" style="border-radius: 6px;" title="Excluir"
+                                                               onclick="return confirm('Tem certeza que deseja remover {{ item.militar.nome_completo }} do quadro?')">
+                                                                <i class="fas fa-trash"></i>
+                                                            </a>
+                                                        </td>
+                                                    </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                {% else %}
+                                    <div style="border: 1px solid #f39c12; border-radius: 6px; padding: 15px; background: #fef9e7; text-align: center;">
+                                        <i class="fas fa-exclamation-triangle" style="color: #f39c12; font-size: 1.2em;"></i>
+                                        <strong style="color: #f39c12;">Não há praças aptas para esta transição.</strong>
+                                        <br>
+                                        <small style="color: #666; display: block; margin-top: 8px; text-align: left;">
+                                            Deixa de ser elaborado o Quadro de Acesso por {% if quadro.is_manual %}{% if quadro.criterio_ordenacao_manual == 'ANTIGUIDADE' %}Antiguidade{% elif quadro.criterio_ordenacao_manual == 'MERECIMENTO' %}Merecimento{% else %}Manual{% endif %}{% else %}{% if quadro.tipo == 'ANTIGUIDADE' %}Antiguidade{% else %}Merecimento{% endif %}{% endif %} para o posto de {{ transicao.destino_nome }} em virtude de não haver praça que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.462, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.
+                                        </small>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div style="border: 1px solid #3498db; border-radius: 6px; padding: 20px; background: #f0f8ff; text-align: center;">
+                <i class="fas fa-info-circle" style="color: #3498db; font-size: 2em; margin-bottom: 10px;"></i>
+                <h5 style="color: #3498db; margin-bottom: 10px;">Quadro em Elaboração</h5>
+                <p style="color: #666; margin: 0;">As praças aptas serão exibidas quando o quadro for elaborado.</p>
+            </div>
+        {% endif %}
+    {% endif %}
+
+
+
+    <!-- Praças Inaptas -->
+    {% if militares_inaptos %}
+    <div style="border: 1px solid #e74c3c; border-radius: 6px; margin-top: 20px; background: #fdf2f2;">
+        <div style="padding: 15px; border-bottom: 1px solid #e74c3c;">
+            <h5 style="color: #e74c3c; margin: 0;">
+                <i class="fas fa-times-circle"></i> Praças Inaptas ({{ total_inaptos }})
+            </h5>
+        </div>
+        <div style="padding: 15px;">
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd;">
+                    <thead style="background: #e74c3c; color: white;">
+                        <tr>
+                            <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Nome</th>
+                            <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">CPF</th>
+                            <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Posto/Graduação</th>
+                            <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Quadro</th>
+                            <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Motivo da Inaptidão</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for militar in militares_inaptos %}
+                        <tr class="{% cycle 'row-even' 'row-odd' %}">
+                            <td style="padding: 8px; text-align: left; border: 1px solid #ddd;">{{ militar.militar.nome_completo|default:"-" }}</td>
+                            <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">{{ militar.militar.cpf|slice:":3" }}.***.***-{{ militar.militar.cpf|slice:"-2:" }}</td>
+                            <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">{{ militar.militar.get_posto_graduacao_display|default:"-" }}</td>
+                            <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">{{ militar.militar.get_quadro_display|default:"-" }}</td>
+                            <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">
+                                <span style="background: #e74c3c; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.8em;">{{ militar.motivo|default:"-" }}</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal para Confirmação de Senha na Homologação -->
+<div class="modal fade" id="modalHomologar" tabindex="-1" aria-labelledby="modalHomologarLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalHomologarLabel">
+                    <i class="fas fa-check-circle me-2"></i>Confirmar Homologação
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formHomologar" method="post" action="{% url 'militares:homologar_quadro_acesso_pracas' quadro.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.path }}">
+                <div class="modal-body">
+                    <p>Para homologar o quadro <strong id="quadroTitulo"></strong>, confirme a operação no modal de senha.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check-circle me-2"></i>Homologar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Adicionar Militar -->
+<div class="modal fade" id="modalAdicionarMilitar" tabindex="-1" aria-labelledby="modalAdicionarMilitarLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title" id="modalAdicionarMilitarLabel">
+          <i class="fas fa-plus"></i> Adicionar Praça ao Quadro
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <form method="post" action="{% url 'militares:adicionar_militar_quadro_pracas' quadro.pk %}">
+        {% csrf_token %}
+        <div class="modal-body">
+          <!-- Seleção de Militar -->
+          <div class="mb-3">
+            <label for="buscaMilitar" class="form-label">Buscar Militar</label>
+            <div class="input-group">
+              <input type="text" class="form-control" id="buscaMilitar" placeholder="Digite o nome do militar..." autocomplete="off">
+              <button class="btn btn-outline-secondary" type="button" id="btnBuscarMilitar">
+                <i class="fas fa-search"></i> Buscar
+              </button>
+              <button class="btn btn-outline-primary" type="button" id="btnCarregarTodos">
+                <i class="fas fa-list"></i> Carregar Todos
+              </button>
+            </div>
+            <div class="form-text">Digite pelo menos 2 caracteres para buscar ou clique em "Carregar Todos"</div>
+          </div>
+
+          <!-- Lista de Militares Disponíveis -->
+          <div class="mb-3" id="listaMilitares" style="display: none;">
+            <label class="form-label">Militares Disponíveis</label>
+            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+              <table class="table table-sm table-hover">
+                <thead class="table-light sticky-top">
+                  <tr>
+                    <th>Selecionar</th>
+                    <th>Nome</th>
+                    <th>Tipo</th>
+                    <th>Posto/Graduação</th>
+                    <th>Matrícula</th>
+                    <th>Pontuação</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyMilitares">
+                  <!-- Dados serão carregados via AJAX -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Informações do Militar Selecionado -->
+          <div id="infoMilitarSelecionado" style="display: none;">
+            <div class="alert alert-info">
+              <h6><i class="fas fa-user"></i> Praça Selecionada</h6>
+              <div class="row">
+                <div class="col-md-6">
+                  <p><strong>Nome:</strong> <span id="nomeMilitar"></span></p>
+                  <p><strong>Posto/Graduação:</strong> <span id="postoMilitar"></span></p>
+                  <p><strong>Matrícula:</strong> <span id="matriculaMilitar"></span></p>
+                </div>
+                <div class="col-md-6">
+                  <p><strong>
+                    {% if quadro.criterio_ordenacao_manual == 'MERECIMENTO' %}
+                      Pontuação:
+                    {% elif quadro.criterio_ordenacao_manual == 'ANTIGUIDADE' %}
+                      Antiguidade:
+                    {% else %}
+                      Valor:
+                    {% endif %}
+                  </strong> <span id="pontuacaoMilitar"></span></p>
+                  <p><strong>Tempo no Posto:</strong> <span id="tempoPostoMilitar"></span></p>
+                  <p><strong>CPF:</strong> <span id="cpfMilitar"></span></p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Campos de Posição e Pontuação -->
+          <div class="row" id="camposAdicionais" style="display: none;">
+            {% if quadro.tipo == 'MERECIMENTO' %}
+              <!-- Para quadros de merecimento: sem campos manuais, usar valores da ficha -->
+              <div class="col-12">
+                <div class="alert alert-info">
+                  <i class="fas fa-info-circle me-2"></i>
+                  <strong>Quadro por Merecimento:</strong> A posição e pontuação serão automaticamente definidas com base na ficha de conceito do militar.
+                </div>
+              </div>
+            {% else %}
+              <!-- Para outros tipos: campos manuais disponíveis -->
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="posicao" class="form-label">Posição (Opcional)</label>
+                  <input type="number" class="form-control" id="posicao" name="posicao" min="1" placeholder="Deixe em branco para posição automática">
+                  <div class="form-text">Se não informada, será atribuída automaticamente</div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="pontuacao" class="form-label">
+                    {% if quadro.tipo == 'ANTIGUIDADE' %}
+                      Antiguidade Manual (Opcional)
+                    {% else %}
+                      Valor Manual (Opcional)
+                    {% endif %}
+                  </label>
+                  <input type="number" class="form-control" id="pontuacao" name="pontuacao" step="0.01" min="0" 
+                         placeholder="{% if quadro.tipo == 'ANTIGUIDADE' %}Deixe em branco para usar numeração de antiguidade{% else %}Deixe em branco para valor automático{% endif %}">
+                  <div class="form-text">
+                    {% if quadro.tipo == 'ANTIGUIDADE' %}
+                      Se não informada, será usada a numeração de antiguidade
+                    {% else %}
+                      Se não informada, será usado o valor automático
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            {% endif %}
+          </div>
+
+          <!-- Campos para Inserção Manual -->
+          <div class="row" id="camposInserçãoManual" style="display: none;">
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label for="motivo_insercao" class="form-label">Motivo da Inserção</label>
+                <select class="form-control" id="motivo_insercao" name="motivo_insercao">
+                  <option value="AUTOMATICO">Inserção Automática</option>
+                  <option value="MANDADO_JUDICIAL">Mandado Judicial</option>
+                  <option value="DECISAO_ADMINISTRATIVA">Decisão Administrativa</option>
+                  <option value="RECURSO_ADMINISTRATIVO">Recurso Administrativo</option>
+                  <option value="ACORDO_JUDICIAL">Acordo Judicial</option>
+                  <option value="SENTENCA_JUDICIAL">Sentença Judicial</option>
+                  <option value="OUTROS">Outros Motivos</option>
+                </select>
+                <div class="form-text">Selecione o motivo da inserção manual</div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label for="documento_referencia" class="form-label">Documento de Referência</label>
+                <input type="text" class="form-control" id="documento_referencia" name="documento_referencia" placeholder="Ex: Processo nº 123/2024">
+                <div class="form-text">Número ou identificação do documento</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="row" id="camposInserçãoManual2" style="display: none;">
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label for="data_documento" class="form-label">Data do Documento</label>
+                <input type="date" class="form-control" id="data_documento" name="data_documento">
+                <div class="form-text">Data do documento de referência</div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label for="observacoes_insercao" class="form-label">Observações</label>
+                <textarea class="form-control" id="observacoes_insercao" name="observacoes_insercao" rows="2" placeholder="Observações adicionais sobre a inserção"></textarea>
+                <div class="form-text">Informações complementares sobre a inserção</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Militar ID (hidden) -->
+          <input type="hidden" id="militar_id" name="militar_id" required>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-success" id="btnAdicionar" disabled>
+            <i class="fas fa-plus"></i> Adicionar ao Quadro
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const buscaMilitar = document.getElementById('buscaMilitar');
+    const btnBuscarMilitar = document.getElementById('btnBuscarMilitar');
+    const listaMilitares = document.getElementById('listaMilitares');
+    const tbodyMilitares = document.getElementById('tbodyMilitares');
+    const infoMilitarSelecionado = document.getElementById('infoMilitarSelecionado');
+    const camposAdicionais = document.getElementById('camposAdicionais');
+    const militarId = document.getElementById('militar_id');
+    const btnAdicionar = document.getElementById('btnAdicionar');
+    
+    let militaresDisponiveis = [];
+    let militarSelecionado = null;
+
+    // Função para buscar militares
+    async function buscarMilitares(termo) {
+        try {
+            const response = await fetch(`{% url 'militares:buscar_pracas_disponiveis_modal' quadro.pk %}?termo=${encodeURIComponent(termo)}`);
+            const data = await response.json();
+            militaresDisponiveis = data.militares;
+            exibirMilitares();
+        } catch (error) {
+            console.error('Erro ao buscar militares:', error);
+        }
+    }
+
+    // Função para exibir militares na tabela
+    function exibirMilitares() {
+        if (militaresDisponiveis.length === 0) {
+            tbodyMilitares.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Nenhum militar encontrado</td></tr>';
+        } else {
+            tbodyMilitares.innerHTML = militaresDisponiveis.map(militar => {
+                const tipoBadge = militar.tipo_militar === 'Praça' ? 'bg-success' : 'bg-info';
+                const statusBadge = militar.apto_inspecao ? 'bg-success' : 'bg-danger';
+                const statusText = militar.apto_inspecao ? 'Apto' : 'Inapto';
+                
+                return `
+                <tr>
+                    <td>
+                        <input type="radio" name="militar_selecionado" value="${militar.id}" 
+                               onchange="selecionarMilitar(${militar.id})">
+                    </td>
+                    <td>${militar.nome_completo}</td>
+                    <td><span class="badge ${tipoBadge}">${militar.tipo_militar}</span></td>
+                    <td><span class="badge bg-primary">${militar.posto_graduacao}</span></td>
+                    <td>${militar.matricula}</td>
+                    <td><span class="badge bg-warning">${militar.pontuacao.toFixed(2)}</span></td>
+                    <td><span class="badge ${statusBadge}">${statusText}</span></td>
+                </tr>
+                `;
+            }).join('');
+        }
+        listaMilitares.style.display = 'block';
+    }
+
+    // Função para selecionar militar
+    window.selecionarMilitar = function(id) {
+        militarSelecionado = militaresDisponiveis.find(m => m.id === id);
+        if (militarSelecionado) {
+            // Preencher informações do militar selecionado
+            document.getElementById('nomeMilitar').textContent = militarSelecionado.nome_completo;
+            document.getElementById('postoMilitar').textContent = militarSelecionado.posto_graduacao;
+            document.getElementById('matriculaMilitar').textContent = militarSelecionado.matricula;
+            document.getElementById('pontuacaoMilitar').textContent = militarSelecionado.pontuacao.toFixed(2);
+            document.getElementById('tempoPostoMilitar').textContent = `${militarSelecionado.tempo_posto} anos`;
+            document.getElementById('cpfMilitar').textContent = militarSelecionado.cpf_mascarado;
+            
+            // Preencher campo de pontuação/antiguidade com valor apropriado (apenas para quadros não-merecimento)
+            const tipoQuadro = '{{ quadro.tipo }}';
+            if (tipoQuadro !== 'MERECIMENTO') {
+                if (tipoQuadro === 'ANTIGUIDADE') {
+                    // Para antiguidade, usar numeração de antiguidade se disponível
+                    const antiguidade = militarSelecionado.numeracao_antiguidade || militarSelecionado.pontuacao;
+                    document.getElementById('pontuacao').value = antiguidade;
+                } else {
+                    document.getElementById('pontuacao').value = militarSelecionado.pontuacao.toFixed(2);
+                }
+            }
+            
+            // Mostrar informações e campos adicionais
+            infoMilitarSelecionado.style.display = 'block';
+            camposAdicionais.style.display = 'block';
+            
+            // Mostrar campos de inserção manual
+            document.getElementById('camposInserçãoManual').style.display = 'block';
+            document.getElementById('camposInserçãoManual2').style.display = 'block';
+            
+            // Verificar se é praça para este quadro de praças
+            if (militarSelecionado.tipo_militar !== 'Praça') {
+                alert('ATENÇÃO: Este militar é um oficial. Este quadro é para praças. Deseja continuar mesmo assim?');
+            }
+            
+            // Verificar se está apto em inspeção de saúde
+            if (!militarSelecionado.apto_inspecao) {
+                alert('ATENÇÃO: Este militar não está apto em inspeção de saúde. Você pode adicioná-lo mesmo assim por motivos especiais.');
+            }
+            
+            // Habilitar botão de adicionar
+            militarId.value = militarSelecionado.id;
+            btnAdicionar.disabled = false;
+        }
+    };
+
+    // Event listener para busca
+    btnBuscarMilitar.addEventListener('click', function() {
+        const termo = buscaMilitar.value.trim();
+        if (termo.length >= 2) {
+            buscarMilitares(termo);
+        } else {
+            alert('Digite pelo menos 2 caracteres para buscar');
+        }
+    });
+
+    // Event listener para carregar todos os militares
+    document.getElementById('btnCarregarTodos').addEventListener('click', function() {
+        buscarMilitares('');
+    });
+
+    // Event listener para tecla Enter na busca
+    buscaMilitar.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            btnBuscarMilitar.click();
+        }
+    });
+
+    // Limpar seleção quando modal for fechado
+    document.getElementById('modalAdicionarMilitar').addEventListener('hidden.bs.modal', function() {
+        militarSelecionado = null;
+        militarId.value = '';
+        btnAdicionar.disabled = true;
+        infoMilitarSelecionado.style.display = 'none';
+        camposAdicionais.style.display = 'none';
+        listaMilitares.style.display = 'none';
+        buscaMilitar.value = '';
+        tbodyMilitares.innerHTML = '';
+    });
+
+    // Carregar militares disponíveis quando modal for aberto
+    document.getElementById('modalAdicionarMilitar').addEventListener('show.bs.modal', function() {
+        buscarMilitares('');
+    });
+
+    // Configurar modal de homologação
+    const modalHomologar = document.getElementById('modalHomologar');
+    modalHomologar.addEventListener('show.bs.modal', function (event) {
+        const quadroTitulo = '{{ quadro.get_titulo_completo }}';
+        document.getElementById('quadroTitulo').textContent = quadroTitulo;
+    });
+});
+</script>
+
+{% endblock %} 

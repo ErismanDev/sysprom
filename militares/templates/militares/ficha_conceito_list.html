@@ -1,0 +1,321 @@
+{% extends 'base.html' %}
+{% load l10n %}
+
+{% block title %}Fichas de Conceito - Oficiais - SysProm - CBMEPI{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+
+<!-- Header com título e ações -->
+<div class="container-fluid">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-4 border-bottom">
+        <div>
+            <h1 class="h2 mb-0">
+                <i class="fas fa-clipboard-list me-2 text-primary"></i>
+                Fichas de Conceito - Oficiais
+            </h1>
+            <p class="text-muted mb-0">Gestão de fichas de conceito dos oficiais do CBMEPI</p>
+        </div>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            {% if oficiais_sem_ficha|length > 0 %}
+                <form method="post" action="{% url 'militares:gerar_fichas_conceito_todos' %}" class="d-inline me-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="is_oficiais" value="true">
+                    <button type="submit" class="btn btn-success btn-lg" onclick="return confirm('Deseja gerar fichas de conceito para {{ oficiais_sem_ficha|length }} oficiais que ainda não possuem? As fichas serão criadas apenas com o tempo de serviço no posto. Esta ação não alterará fichas existentes.')">
+                        <i class="fas fa-magic me-2"></i>
+                        Gerar Fichas ({{ oficiais_sem_ficha|length }})
+                    </button>
+                </form>
+            {% else %}
+                <button class="btn btn-secondary btn-lg me-2" disabled>
+                    <i class="fas fa-check me-2"></i>
+                    Todas as Fichas Existem
+                </button>
+            {% endif %}
+            <a href="{% url 'militares:ficha_conceito_create' %}" class="btn btn-primary btn-lg">
+                <i class="fas fa-plus me-2"></i>
+                Nova Ficha
+            </a>
+        </div>
+    </div>
+
+    <!-- Pesquisa -->
+    <div class="row mb-4">
+        <div class="col-md-6 offset-md-3">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0">
+                    <i class="fas fa-search text-muted"></i>
+                </span>
+                <input type="text" id="pesquisaFichas" class="form-control border-start-0" placeholder="Pesquisar militar por nome ou posto..." style="border-radius: 0 20px 20px 0;">
+            </div>
+        </div>
+    </div>
+
+    <!-- Cards de Estatísticas -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="d-inline-flex align-items-center justify-content-center bg-primary bg-opacity-10 rounded-circle mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-users text-primary fs-4"></i>
+                    </div>
+                    <h3 class="card-title text-primary mb-1">{{ total_oficiais_ativos }}</h3>
+                    <p class="card-text text-muted mb-0">Oficiais Ativos</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="d-inline-flex align-items-center justify-content-center bg-success bg-opacity-10 rounded-circle mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-clipboard-check text-success fs-4"></i>
+                    </div>
+                    <h3 class="card-title text-success mb-1">{{ total_fichas_oficiais }}</h3>
+                    <p class="card-text text-muted mb-0">Fichas Registradas</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="d-inline-flex align-items-center justify-content-center bg-warning bg-opacity-10 rounded-circle mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-exclamation-triangle text-warning fs-4"></i>
+                    </div>
+                    <h3 class="card-title text-warning mb-1">{{ oficiais_sem_ficha|length }}</h3>
+                    <p class="card-text text-muted mb-0">Sem Ficha</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="d-inline-flex align-items-center justify-content-center bg-info bg-opacity-10 rounded-circle mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-percentage text-info fs-4"></i>
+                    </div>
+                    <h3 class="card-title text-info mb-1">
+                        {% if total_oficiais_ativos > 0 %}
+                            {{ total_fichas_oficiais|floatformat:0 }}/{{ total_oficiais_ativos|floatformat:0 }}
+                        {% else %}
+                            0/0
+                        {% endif %}
+                    </h3>
+                    <p class="card-text text-muted mb-0">Cobertura</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela Principal -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0 py-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2 text-primary"></i>
+                    Lista de Fichas de Conceito
+                </h5>
+                <span class="badge bg-primary fs-6">{{ fichas|length }} registros</span>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            {% if fichas %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="tabelaFichas">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="border-0" style="width: 30%;">Militar</th>
+                                <th class="border-0 text-center" style="width: 15%;">Posto/Graduação</th>
+                                <th class="border-0 text-center" style="width: 15%;">Total de Pontos</th>
+                                <th class="border-0 text-center" style="width: 15%;">Data de Registro</th>
+                                <th class="border-0 text-center" style="width: 25%;">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in fichas %}
+                                {% if item.pk %}
+                                    <!-- Militar com ficha -->
+                                    <tr class="linha-ficha align-middle" data-nome="{{ item.militar.nome_completo|lower }}" data-posto="{{ item.militar.get_posto_graduacao_display|lower }}">
+                                        <td class="border-0">
+                                            <div class="d-flex align-items-center">
+                                                <div class="avatar-sm bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                                    <i class="fas fa-user text-primary"></i>
+                                                </div>
+                                                <div>
+                                                    <h6 class="mb-0 fw-bold">{{ item.militar.nome_completo }}</h6>
+                                                    <small class="text-muted">{{ item.militar.matricula }}</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="border-0 text-center">
+                                            <span class="badge bg-primary fs-6">{{ item.militar.get_posto_graduacao_display }}</span>
+                                        </td>
+                                        <td class="border-0 text-center">
+                                            <span class="badge bg-success fs-6">{% localize off %}{{ item.calcular_pontos|floatformat:2 }}{% endlocalize %}</span>
+                                        </td>
+                                        <td class="border-0 text-center">
+                                            <small class="text-muted">{{ item.data_registro|date:"d/m/Y H:i" }}</small>
+                                        </td>
+                                        <td class="border-0 text-center">
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <a href="{% url 'militares:ficha_conceito_detail' item.pk %}" class="btn btn-outline-info" title="Visualizar Detalhes">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                {% if not menu_permissions.is_consultor %}
+                                                <a href="{% url 'militares:ficha_conceito_edit' item.pk %}" class="btn btn-outline-primary" title="Editar Ficha">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <button type="button" class="btn btn-outline-danger" title="Excluir Ficha" 
+                                                        onclick="confirmarExclusao('{{ item.pk }}', '{{ item.militar.nome_completo }}')">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% else %}
+                                    <!-- Militar sem ficha -->
+                                    <tr class="linha-ficha-sem-ficha align-middle" data-nome="{{ item.nome_completo|lower }}" data-posto="{{ item.get_posto_graduacao_display|lower }}" style="background-color: #fff8e1;">
+                                        <td class="border-0">
+                                            <div class="d-flex align-items-center">
+                                                <div class="avatar-sm bg-warning bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                                    <i class="fas fa-exclamation-triangle text-warning"></i>
+                                                </div>
+                                                <div>
+                                                    <h6 class="mb-0 fw-bold">{{ item.nome_completo }}</h6>
+                                                    <small class="text-muted">{{ item.matricula }}</small>
+                                                    <span class="badge bg-warning ms-2">Sem Ficha</span>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="border-0 text-center">
+                                            <span class="badge bg-primary fs-6">{{ item.get_posto_graduacao_display }}</span>
+                                        </td>
+                                        <td class="border-0 text-center">
+                                            <span class="text-muted">--</span>
+                                        </td>
+                                        <td class="border-0 text-center">
+                                            <span class="text-muted">--</span>
+                                        </td>
+                                        <td class="border-0 text-center">
+                                            {% if not menu_permissions.is_consultor %}
+                                            <a href="{% url 'militares:ficha_conceito_create' %}?militar={{ item.pk }}" class="btn btn-success btn-sm" title="Criar Ficha">
+                                                <i class="fas fa-plus me-1"></i>
+                                                Criar Ficha
+                                            </a>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-clipboard-list text-muted" style="font-size: 3rem;"></i>
+                    <h5 class="text-muted mt-3">Nenhuma ficha de conceito registrada</h5>
+                    <p class="text-muted">Comece criando a primeira ficha de conceito.</p>
+                    {% if not menu_permissions.is_consultor %}
+                    <a href="{% url 'militares:ficha_conceito_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>
+                        Criar Primeira Ficha
+                    </a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const pesquisaInput = document.getElementById('pesquisaFichas');
+    const linhas = document.querySelectorAll('.linha-ficha, .linha-ficha-sem-ficha');
+    
+    pesquisaInput.addEventListener('input', function() {
+        const termo = this.value.toLowerCase().trim();
+        
+        linhas.forEach(function(linha) {
+            const nome = linha.getAttribute('data-nome');
+            const posto = linha.getAttribute('data-posto');
+            
+            if (nome.includes(termo) || posto.includes(termo)) {
+                linha.style.display = '';
+                // Restaurar cor original para militares sem ficha
+                if (linha.classList.contains('linha-ficha-sem-ficha')) {
+                    linha.style.backgroundColor = '#fff8e1';
+                } else {
+                    linha.style.backgroundColor = '';
+                }
+            } else {
+                linha.style.display = 'none';
+            }
+        });
+        
+        // Destacar o termo pesquisado
+        if (termo) {
+            linhas.forEach(function(linha) {
+                const nome = linha.getAttribute('data-nome');
+                const posto = linha.getAttribute('data-posto');
+                
+                if (nome.includes(termo) || posto.includes(termo)) {
+                    if (!linha.classList.contains('linha-ficha-sem-ficha')) {
+                        linha.style.backgroundColor = '#e3f2fd';
+                    }
+                }
+            });
+        }
+    });
+    
+    // Limpar pesquisa ao pressionar ESC
+    pesquisaInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            this.value = '';
+            this.dispatchEvent(new Event('input'));
+        }
+    });
+});
+
+function confirmarExclusao(fichaId, nomeMilitar) {
+    if (confirm(`Tem certeza que deseja excluir a ficha de conceito do militar ${nomeMilitar}?\n\nEsta ação não pode ser desfeita.`)) {
+        // Criar um formulário temporário para enviar a requisição POST
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/militares/ficha-conceito/${fichaId}/excluir/`;
+        
+        // Adicionar CSRF token
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
+
+<style>
+.card {
+    transition: transform 0.2s ease-in-out;
+}
+.card:hover {
+    transform: translateY(-2px);
+}
+.table tbody tr {
+    transition: background-color 0.2s ease-in-out;
+}
+.btn-group .btn {
+    border-radius: 6px !important;
+    margin: 0 1px;
+}
+.avatar-sm {
+    transition: transform 0.2s ease-in-out;
+}
+.avatar-sm:hover {
+    transform: scale(1.1);
+}
+</style>
+
+{% endblock %} 

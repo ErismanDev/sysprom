@@ -1,0 +1,209 @@
+{% extends 'base.html' %}
+
+{% block title %}Upload de Documento - {{ militar.nome_completo }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-upload"></i> Upload de Documento
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Informações do Militar e Ficha -->
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-user"></i> Militar</h6>
+                        <p class="mb-1">{{ militar.get_posto_graduacao_display }} {{ militar.nome_completo }}</p>
+                        <small class="text-muted">Matrícula: {{ militar.matricula }}</small>
+                        
+                        <hr class="my-2">
+                        
+                        <h6><i class="fas fa-clipboard-list"></i> Ficha de Conceito</h6>
+                        <p class="mb-1">{{ ficha.militar.get_posto_graduacao_display }} - {{ ficha.militar.nome_completo }}</p>
+                        <small class="text-muted">{{ ficha.pontos }} pontos calculados</small>
+                    </div>
+
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.tipo.id_for_label }}" class="form-label">
+                                        <strong>Tipo de Documento *</strong>
+                                    </label>
+                                    {{ form.tipo }}
+                                    {% if form.tipo.errors %}
+                                        <div class="text-danger">{{ form.tipo.errors }}</div>
+                                    {% endif %}
+                                    <div class="form-text">
+                                        Selecione o tipo mais apropriado para o documento.
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.titulo.id_for_label }}" class="form-label">
+                                        <strong>Título do Documento *</strong>
+                                    </label>
+                                    {{ form.titulo }}
+                                    {% if form.titulo.errors %}
+                                        <div class="text-danger">{{ form.titulo.errors }}</div>
+                                    {% endif %}
+                                    <div class="form-text">
+                                        Ex: "Diploma de Engenharia Civil - UFMG"
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.arquivo.id_for_label }}" class="form-label">
+                                <strong>Arquivo *</strong>
+                            </label>
+                            <div class="input-group">
+                                {{ form.arquivo }}
+                                <button class="btn btn-outline-secondary" type="button" onclick="clearFile()">
+                                    <i class="fas fa-times"></i> Limpar
+                                </button>
+                            </div>
+                            {% if form.arquivo.errors %}
+                                <div class="text-danger">{{ form.arquivo.errors }}</div>
+                            {% endif %}
+                            <div class="form-text">
+                                <i class="fas fa-info-circle"></i>
+                                Formatos aceitos: PDF, JPG, PNG, DOC, DOCX (máximo 10MB).
+                            </div>
+                            <div id="fileInfo" class="mt-2"></div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.observacoes.id_for_label }}" class="form-label">
+                                <strong>Observações</strong>
+                            </label>
+                            {{ form.observacoes }}
+                            {% if form.observacoes.errors %}
+                                <div class="text-danger">{{ form.observacoes.errors }}</div>
+                            {% endif %}
+                            <div class="form-text">
+                                Informações adicionais sobre o documento ou justificativa.
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'militares:militar_detail' militar.pk %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-upload"></i> Enviar Documento
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Documentos Existentes -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-folder"></i> Documentos Existentes desta Ficha
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if documentos %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Tipo</th>
+                                        <th>Título</th>
+                                        <th>Status</th>
+                                        <th>Upload</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for doc in documentos %}
+                                    <tr>
+                                        <td>
+                                            <span class="badge bg-info">{{ doc.get_tipo_display }}</span>
+                                        </td>
+                                        <td>{{ doc.titulo }}</td>
+                                        <td>
+                                            <span class="badge bg-{% if doc.status == 'APROVADO' %}success{% elif doc.status == 'REJEITADO' %}danger{% elif doc.status == 'ARQUIVADO' %}secondary{% else %}warning{% endif %}">
+                                                {{ doc.get_status_display }}
+                                            </span>
+                                        </td>
+                                        <td>{{ doc.data_upload|date:"d/m/Y H:i" }}</td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <a href="{{ doc.arquivo.url }}" class="btn btn-outline-primary" title="Download">
+                                                    <i class="fas fa-download"></i>
+                                                </a>
+                                                {% if doc.status == 'PENDENTE' %}
+                                                    <a href="{% url 'militares:conferir_documento' doc.pk %}" class="btn btn-warning" title="Conferir">
+                                                        <i class="fas fa-check"></i>
+                                                    </a>
+                                                {% endif %}
+                                                <a href="{% url 'militares:documento_delete' doc.pk %}" class="btn btn-outline-danger" title="Excluir" onclick="return confirm('Tem certeza que deseja excluir este documento?')">
+                                                    <i class="fas fa-trash"></i>
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-file fa-3x mb-3"></i>
+                            <p>Nenhum documento anexado a esta ficha ainda.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Mostrar informações do arquivo selecionado
+function showFileInfo() {
+    const input = document.getElementById('{{ form.arquivo.id_for_label }}');
+    const fileInfo = document.getElementById('fileInfo');
+    
+    if (input.files.length > 0) {
+        const file = input.files[0];
+        const size = (file.size / 1024 / 1024).toFixed(2);
+        
+        fileInfo.innerHTML = `
+            <div class="alert alert-info">
+                <div class="d-flex w-100 justify-content-between">
+                    <h6 class="mb-1">${file.name}</h6>
+                    <small>${size} MB</small>
+                </div>
+                <small class="text-muted">${file.type || 'Tipo não identificado'}</small>
+            </div>
+        `;
+    } else {
+        fileInfo.innerHTML = '';
+    }
+}
+
+// Limpar arquivo
+function clearFile() {
+    document.getElementById('{{ form.arquivo.id_for_label }}').value = '';
+    document.getElementById('fileInfo').innerHTML = '';
+}
+
+// Event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    const arquivoField = document.getElementById('{{ form.arquivo.id_for_label }}');
+    arquivoField.addEventListener('change', showFileInfo);
+});
+</script>
+{% endblock %} 

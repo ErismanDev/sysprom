@@ -1,0 +1,240 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load militares_extras %}
+{% block title %}Calendário de Promoção - {{ calendario.get_titulo_completo }}{% endblock %}
+{% block content %}
+<div class="container" style="max-width: 900px;">
+
+    <h4 class="text-center"><u>CALENDÁRIO DE PROMOÇÃO - {{ calendario.get_tipo_display|upper }}</u></h4>
+    
+    <!-- Debug: Verificar se os dados estão chegando -->
+    <!-- Calendário: {{ calendario.numero }} - {{ calendario.ano }}/{{ calendario.semestre }} -->
+    <!-- Itens: {{ itens|length }} itens encontrados -->
+    <!-- Assinaturas: {{ assinaturas|length }} assinaturas encontradas -->
+    
+    <!-- Informações do Calendário -->
+    <div style="border: 1px solid #888; border-radius: 6px; margin-bottom: 15px; background: #fafafa;">
+        <div style="padding: 15px;">
+            <h5 class="mt-2 mb-3" style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 8px;">
+                Calendário Nº {{ calendario.numero }} - {{ calendario.ano }}/{{ calendario.semestre }}º Semestre
+            </h5>
+            
+            <div style="margin-bottom: 20px;">
+                <p style="color: #34495e; font-weight: 600; margin-bottom: 10px;">
+                    <strong>Status:</strong> 
+                    {% if calendario.status == 'RASCUNHO' %}
+                        <span class="badge bg-secondary">Rascunho</span>
+                    {% elif calendario.status == 'EM_ELABORACAO' %}
+                        <span class="badge bg-warning text-dark">Em Elaboração</span>
+                    {% elif calendario.status == 'APROVADO' %}
+                        <span class="badge bg-success">Aprovado</span>
+                    {% elif calendario.status == 'HOMOLOGADO' %}
+                        <span class="badge bg-primary">Homologado</span>
+                    {% endif %}
+                </p>
+                
+                {% if calendario.data_aprovacao %}
+                    <p style="color: #34495e; margin-bottom: 5px;">
+                        <strong>Aprovado em:</strong> {{ calendario.data_aprovacao|date:"d/m/Y" }} 
+                        por {{ calendario.aprovado_por.get_full_name|default:calendario.aprovado_por.username }}
+                    </p>
+                {% endif %}
+                
+                {% if calendario.data_homologacao %}
+                    <p style="color: #34495e; margin-bottom: 5px;">
+                        <strong>Homologado em:</strong> {{ calendario.data_homologacao|date:"d/m/Y" }} 
+                        por {{ calendario.homologado_por.get_full_name|default:calendario.homologado_por.username }}
+                    </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Itens do Calendário -->
+    {% if itens %}
+        <div style="border: 1px solid #888; border-radius: 6px; margin-bottom: 15px; background: #fafafa;">
+            <div style="padding: 15px;">
+                <h5 class="mt-2 mb-3" style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 8px;">Cronograma de Atividades</h5>
+                
+                <div style="background: #fff; border-radius: 4px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <table class="table table-bordered table-sm mb-0">
+                        <thead style="background: #ecf0f1;">
+                            <tr>
+                                <th style="border-color: #bdc3c7;">ORD</th>
+                                <th style="border-color: #bdc3c7;">ATIVIDADE</th>
+                                <th style="border-color: #bdc3c7;">DATA</th>
+                                <th style="border-color: #bdc3c7;">OBSERVAÇÕES</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in itens %}
+                            <tr>
+                                <td style="border-color: #ecf0f1;">{{ item.ordem }}</td>
+                                <td style="border-color: #ecf0f1;">{{ item.get_tipo_atividade_display }}</td>
+                                <td style="border-color: #ecf0f1;">{{ item.data_inicio|date:"d/m/Y" }} a {{ item.data_fim|date:"d/m/Y" }}</td>
+                                <td style="border-color: #ecf0f1;">{{ item.observacoes|default:"-" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div style="border: 1px solid #888; border-radius: 6px; margin-bottom: 15px; background: #fafafa;">
+            <div style="padding: 15px;">
+                <p class="text-muted" style="padding: 10px; background: #fff; border-radius: 4px; margin: 0;">Nenhum item cadastrado no calendário.</p>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Cidade, UF e Data -->
+    <div class="mt-5" style="text-align: center; margin: 30px 0;">
+        <p style="font-size: 14px; color: #666; margin-bottom: 5px;">
+            Teresina - PI, {{ calendario.data_criacao|date:"d" }} de 
+            {% if calendario.data_criacao.month == 1 %}janeiro
+            {% elif calendario.data_criacao.month == 2 %}fevereiro
+            {% elif calendario.data_criacao.month == 3 %}março
+            {% elif calendario.data_criacao.month == 4 %}abril
+            {% elif calendario.data_criacao.month == 5 %}maio
+            {% elif calendario.data_criacao.month == 6 %}junho
+            {% elif calendario.data_criacao.month == 7 %}julho
+            {% elif calendario.data_criacao.month == 8 %}agosto
+            {% elif calendario.data_criacao.month == 9 %}setembro
+            {% elif calendario.data_criacao.month == 10 %}outubro
+            {% elif calendario.data_criacao.month == 11 %}novembro
+            {% elif calendario.data_criacao.month == 12 %}dezembro
+            {% endif %} de {{ calendario.data_criacao|date:"Y" }}.
+        </p>
+    </div>
+
+    <!-- Assinaturas Visuais (Local de Assinatura Física) -->
+    {% if assinaturas %}
+        <div class="mt-5">
+            {% for assinatura in assinaturas %}
+            <div style="text-align: center; margin-bottom: 20px;">
+                {% if assinatura.assinado_por.militar %}
+                    <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">
+                        {{ assinatura.assinado_por.militar|nome_completo_militar }}
+                    </div>
+                    <div style="font-size: 12px; color: #888; margin-bottom: 3px;">
+                        {{ assinatura.funcao_assinatura|default:"Função não registrada" }}
+                    </div>
+                    <div style="font-size: 10px; font-weight: bold; color: #666;">
+                        {{ assinatura.get_tipo_assinatura_display }}
+                    </div>
+                {% else %}
+                    <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">
+                        {{ assinatura.assinado_por.get_full_name|default:assinatura.assinado_por.username }}
+                    </div>
+                    <div style="font-size: 12px; color: #888; margin-bottom: 3px;">
+                        {{ assinatura.funcao_assinatura|default:"Função não registrada" }}
+                    </div>
+                    <div style="font-size: 10px; font-weight: bold; color: #666;">
+                        {{ assinatura.get_tipo_assinatura_display }}
+                    </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- Assinaturas Eletrônicas -->
+    {% if assinaturas %}
+        <div class="mt-5">
+            {% for assinatura in assinaturas %}
+            <div style="display: flex; align-items: flex-start; border: 1px solid #888; border-radius: 6px; margin-bottom: 10px; background: #fafafa;">
+                <div style="padding: 8px;">
+                    <img src="{% static 'logo_cbmepi.png' %}" width="60" height="60" alt="Logo CBMEPI" style="border: 2px solid #bbb; border-radius: 50%; background: #fff; object-fit: cover; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                </div>
+                <div style="flex-grow: 1;">
+                    <div style="padding: 8px; font-size: 15px; text-align: justify; display: flex; align-items: center; justify-content: space-between;">
+                        <div style="flex-grow: 1;">
+                            Documento assinado eletronicamente por <b>{% if assinatura.assinado_por.militar %}{{ assinatura.assinado_por.militar|nome_completo_militar }}{% else %}{{ assinatura.assinado_por.get_full_name|default:assinatura.assinado_por.username }}{% endif %}</b> <b>- {{ assinatura.funcao_assinatura|default:"Função não registrada" }}</b>, em {{ assinatura.data_assinatura|formatar_data_assinatura_simples }}, às {{ assinatura.data_assinatura|formatar_hora_assinatura }}, conforme horário oficial de Brasília, com fundamento na Portaria XXX/2025 Gab. Cmdo. Geral/CBMEPI de XX de XXXXX de 2025.
+                        </div>
+                        {% if calendario.status != 'HOMOLOGADO' and assinatura.assinado_por == request.user %}
+                            <div style="margin-left: 10px;">
+                                <a href="{% url 'militares:retirar_assinatura_calendario' calendario.pk assinatura.pk %}?next={{ request.path|urlencode }}" 
+                                   class="btn btn-sm btn-outline-warning" 
+                                   title="Retirar assinatura"
+                                   onclick="return confirm('Tem certeza que deseja retirar esta assinatura?')">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="mt-5">
+            <p class="text-muted">Nenhuma assinatura eletrônica registrada.</p>
+        </div>
+    {% endif %}
+
+    <!-- Botões de Ação -->
+    <div class="text-center mt-4">
+        <button class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#modalAssinatura">
+            <i class="fas fa-signature"></i> Assinar Documento
+        </button>
+        <a href="{% url 'militares:calendario_promocao_gerar_pdf' calendario.pk %}" class="btn btn-primary" target="_blank">
+            <i class="fas fa-file-pdf"></i> Gerar PDF
+        </a>
+    </div>
+
+    <!-- Modal de Assinatura -->
+    <div class="modal fade" id="modalAssinatura" tabindex="-1" aria-labelledby="modalAssinaturaLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <form method="post" action="{% url 'militares:calendario_promocao_assinar' calendario.pk %}">
+            {% csrf_token %}
+            <div class="modal-header">
+              <h5 class="modal-title" id="modalAssinaturaLabel">Assinar Documento</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+              <!-- Campo para selecionar função -->
+              <div class="mb-3">
+                <label for="funcao_assinatura" class="form-label">Função para Assinatura:</label>
+                <select class="form-control" id="funcao_assinatura" name="funcao_assinatura" required>
+                  <option value="">Selecione uma função...</option>
+                  {% for funcao in funcoes_usuario %}
+                    <option value="{{ funcao.nome }}" {% if funcao.nome == funcao_atual %}selected{% endif %}>
+                      {{ funcao.descricao }}
+                    </option>
+                  {% endfor %}
+                </select>
+                <div class="form-text">Selecione a função que será exibida na assinatura do documento.</div>
+              </div>
+              
+              <div class="mb-3">
+                <label for="tipo_assinatura" class="form-label">Tipo de Assinatura:</label>
+                <select class="form-control" id="tipo_assinatura" name="tipo_assinatura">
+                  <option value="ELABORACAO">Elaboração</option>
+                  <option value="REVISAO">Revisão</option>
+                  <option value="APROVACAO">Aprovação</option>
+                  <option value="HOMOLOGACAO">Homologação</option>
+                  <option value="OUTROS">Outros</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label for="observacoes" class="form-label">Observações:</label>
+                <textarea class="form-control" id="observacoes" name="observacoes"></textarea>
+              </div>
+              <div class="mb-3">
+                <label for="senha" class="form-label">Senha:</label>
+                <input type="password" class="form-control" id="senha" name="senha" placeholder="Digite sua senha para confirmar a assinatura" required>
+                <div class="form-text">Digite sua senha para confirmar a assinatura eletrônica.</div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+              <button type="submit" class="btn btn-success">Assinar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+</div>
+{% endblock %} 

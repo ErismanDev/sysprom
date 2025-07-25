@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+{% block title %}Gerenciar Interstícios{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4 text-primary"><i class="fas fa-hourglass-half me-2"></i>Gerenciar Interstícios</h2>
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+    
+    <!-- Botão para mostrar/ocultar formulário de novo interstício -->
+    <div class="mb-3">
+        <button type="button" class="btn btn-primary" data-bs-toggle="collapse" data-bs-target="#novoIntersticio" aria-expanded="false">
+            <i class="fas fa-plus me-1"></i>Inserir Novo Interstício
+        </button>
+    </div>
+    
+    <!-- Formulário para novo interstício -->
+    <div class="collapse mb-4" id="novoIntersticio">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Novo Interstício</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" action="{% url 'militares:intersticio_create' %}">
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="col-md-3">
+                            <label for="novo_quadro" class="form-label">Quadro</label>
+                            <select name="novo_quadro" id="novo_quadro" class="form-select" required>
+                                <option value="">Selecione...</option>
+                                {% for codigo, nome in quadros %}
+                                    <option value="{{ codigo }}">{{ nome }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="novo_posto" class="form-label">Posto</label>
+                            <select name="novo_posto" id="novo_posto" class="form-select" required>
+                                <option value="">Selecione...</option>
+                                {% for codigo, nome in postos %}
+                                    <option value="{{ codigo }}">{{ nome }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="novo_anos" class="form-label">Tempo Mínimo (anos)</label>
+                            <input type="number" min="0" name="novo_anos" id="novo_anos" class="form-control" value="0" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="novo_meses" class="form-label">Tempo Mínimo (meses)</label>
+                            <input type="number" min="0" max="11" name="novo_meses" id="novo_meses" class="form-control" value="0" required>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save me-1"></i>Salvar Novo Interstício
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary ms-2" data-bs-toggle="collapse" data-bs-target="#novoIntersticio">
+                            <i class="fas fa-times me-1"></i>Cancelar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tabelas organizadas por quadro -->
+    <form method="post">
+        {% csrf_token %}
+        
+        {% regroup intersticios by quadro as quadro_list %}
+        
+        {% for quadro in quadro_list %}
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-shield-alt me-2"></i>
+                    {% if quadro.grouper == 'COMB' %}
+                        Quadro de Oficiais Combatentes
+                    {% elif quadro.grouper == 'SAUDE' %}
+                        Quadro de Oficiais de Saúde
+                    {% elif quadro.grouper == 'ENG' %}
+                        Quadro de Oficiais Engenheiros
+                    {% elif quadro.grouper == 'COMP' %}
+                        Quadro de Oficiais Complementares
+                    {% elif quadro.grouper == 'PRACAS' %}
+                        Quadro de Praças Bombeiros Militares
+                    {% else %}
+                        {{ quadro.grouper|title }}
+                    {% endif %}
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 30%">Posto</th>
+                                <th class="text-center" style="width: 20%">Tempo Mínimo (anos)</th>
+                                <th class="text-center" style="width: 20%">Tempo Mínimo (meses)</th>
+                                <th class="text-center" style="width: 10%">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for inter in quadro.list %}
+                            <tr>
+                                <td>
+                                    <strong>{{ inter.get_posto_display }}</strong>
+                                </td>
+                                <td class="text-center">
+                                    <input type="number" min="0" name="anos_{{ inter.id }}" value="{{ inter.tempo_minimo_anos }}" class="form-control form-control-sm" style="width:90px;display:inline-block;">
+                                </td>
+                                <td class="text-center">
+                                    <input type="number" min="0" max="11" name="meses_{{ inter.id }}" value="{{ inter.tempo_minimo_meses }}" class="form-control form-control-sm" style="width:90px;display:inline-block;">
+                                </td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-danger btn-sm" onclick="excluirIntersticio({{ inter.id }})" title="Excluir interstício">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>Nenhum interstício cadastrado.
+        </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-success mt-3">
+            <i class="fas fa-save me-1"></i>Salvar Alterações
+        </button>
+        <a href="{% url 'militares:intersticio_list' %}" class="btn btn-outline-secondary mt-3 ms-2">
+            <i class="fas fa-arrow-left me-1"></i>Voltar para Consulta
+        </a>
+    </form>
+</div>
+
+<script>
+function excluirIntersticio(id) {
+    if (confirm('Tem certeza que deseja excluir este interstício?')) {
+        fetch(`/militares/intersticios/${id}/excluir/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Erro ao excluir interstício: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao excluir interstício');
+        });
+    }
+}
+</script>
+{% endblock %} 

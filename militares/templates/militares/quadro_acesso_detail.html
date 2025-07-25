@@ -1,0 +1,481 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load militares_extras %}
+
+{% block title %}Quadro de Acesso - Oficiais - {{ quadro.get_titulo_completo }}{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 900px;">
+
+
+    <!-- Informações do Quadro -->
+    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; background: #f8f9fa;">
+        <div class="row">
+            <div class="col-md-6">
+                <h5 style="color: #2c3e50; margin-bottom: 15px;">
+                    <i class="fas fa-users"></i> Quadro de Acesso de Oficiais
+                </h5>
+                <p style="margin-bottom: 5px;"><strong>Tipo:</strong> {{ quadro.get_tipo_display|default:"-" }}</p>
+                <p style="margin-bottom: 5px;"><strong>Status:</strong> 
+                    <span style="color: {% if quadro.status == 'ELABORADO' %}#27ae60{% elif quadro.status == 'HOMOLOGADO' %}#3498db{% else %}#e74c3c{% endif %}; font-weight: bold;">
+                        {{ quadro.get_status_display|default:"-" }}
+                    </span>
+                </p>
+                <p style="margin-bottom: 5px;"><strong>Data da Promoção:</strong> {{ quadro.data_promocao|date:"d/m/Y"|default:"-" }}</p>
+            </div>
+            <div class="col-md-6">
+                <p style="margin-bottom: 5px;"><strong>Criado em:</strong> {{ quadro.data_criacao|date:"d/m/Y H:i"|default:"-" }}</p>
+                {% if quadro.data_atualizacao %}
+                    <p style="margin-bottom: 5px;"><strong>Atualizado em:</strong> {{ quadro.data_atualizacao|date:"d/m/Y H:i" }}</p>
+                {% endif %}
+                <p style="margin-bottom: 5px;">
+                    {% if quadro.tipo == 'ANTIGUIDADE' %}
+                        <span style="background: #3498db; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8em;">Por Antiguidade</span>
+                    {% elif quadro.tipo == 'MERECIMENTO' %}
+                        <span style="background: #27ae60; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8em;">Por Merecimento</span>
+                    {% else %}
+                        <span style="background: #f39c12; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8em;">Manual</span>
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botões de Ação -->
+    <div class="text-center mb-4">
+        <a href="{% url 'militares:quadro_acesso_list' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Voltar à Lista
+        </a>
+        {% if quadro.status != 'HOMOLOGADO' %}
+            <a href="{% url 'militares:quadro_acesso_edit' quadro.pk %}" class="btn btn-primary">
+                <i class="fas fa-edit"></i> Editar
+            </a>
+            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalAdicionarMilitar">
+                <i class="fas fa-plus"></i> Adicionar Militar
+            </button>
+        {% endif %}
+        <a href="{% url 'militares:visualizar_quadro_html' quadro.pk %}" class="btn btn-info">
+            <i class="fas fa-eye"></i> Visualizar HTML
+        </a>
+    </div>
+
+    <!-- Estatísticas -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div style="border: 1px solid #27ae60; border-radius: 6px; padding: 15px; background: #f0f8f0; text-align: center;">
+                <h6 style="color: #27ae60; margin-bottom: 5px;">Oficiais Aptos</h6>
+                <h3 style="color: #27ae60; margin: 0;">{{ quadro.itemquadroacesso_set.count }}</h3>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div style="border: 1px solid #e74c3c; border-radius: 6px; padding: 15px; background: #fdf2f2; text-align: center;">
+                <h6 style="color: #e74c3c; margin-bottom: 5px;">Oficiais Inaptos</h6>
+                <h3 style="color: #e74c3c; margin: 0;">{{ total_inaptos }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <!-- Observações -->
+    {% if quadro.observacoes %}
+    <div style="border: 1px solid #3498db; border-radius: 6px; padding: 15px; margin-bottom: 20px; background: #f0f8ff;">
+        <h6 style="color: #3498db; margin-bottom: 10px;"><i class="fas fa-info-circle"></i> Observações</h6>
+        <p style="margin: 0; white-space: pre-wrap;">{{ quadro.observacoes }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Quadro de Acesso -->
+    {% if quadro.status == 'ELABORADO' %}
+        {% for codigo_quadro, dados_quadro in estrutura_quadros.items %}
+            <div style="border: 1px solid #888; border-radius: 6px; margin-bottom: 15px; background: #fafafa;">
+                <div style="padding: 15px;">
+                    <h5 class="mt-2 mb-3" style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 8px;">{{ dados_quadro.nome }}</h5>
+                    
+                    {% for transicao in dados_quadro.transicoes %}
+                        <div style="margin-bottom: 20px;">
+                            <h6 style="color: #3498db; text-align: center; margin-bottom: 15px;">
+                                <i class="fas fa-arrow-right"></i> {{ transicao.origem_nome }} → {{ transicao.destino_nome }}
+                            </h6>
+                            
+                            {% if transicao.militares %}
+                                <div style="overflow-x: auto;">
+                                    <table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd;">
+                                        <thead style="background: #2c3e50; color: white;">
+                                            <tr>
+                                                <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Posição</th>
+                                                <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Posto</th>
+                                                <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Nome</th>
+                                                <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">CPF</th>
+                                                {% if quadro.tipo == 'MERECIMENTO' or quadro.criterio_ordenacao_manual == 'MERECIMENTO' %}
+                                                    <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Pontuação</th>
+                                                {% endif %}
+                                                <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for militar in transicao.militares %}
+                                                <tr style="background: {% cycle '#fff' '#f9f9f9' %}">
+                                                    <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">
+                                                        <span style="background: #3498db; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.8em;">{{ forloop.counter }}</span>
+                                                    </td>
+                                                    <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">
+                                                        <span style="background: #27ae60; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.8em;">{{ militar.militar.get_posto_graduacao_display }}</span>
+                                                    </td>
+                                                    <td style="padding: 8px; text-align: left; border: 1px solid #ddd; font-weight: bold;">{{ militar.militar.nome_completo }}</td>
+                                                    <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">{{ militar.militar.cpf|slice:":3" }}.***.***-{{ militar.militar.cpf|slice:"-2:" }}</td>
+                                                    {% if quadro.tipo == 'MERECIMENTO' or quadro.criterio_ordenacao_manual == 'MERECIMENTO' %}
+                                                        <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">
+                                                            {% if militar.pontuacao %}
+                                                                <span style="background: #f39c12; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.8em;">{{ militar.pontuacao|floatformat:2 }}</span>
+                                                            {% else %}
+                                                                <span style="color: #999;">-</span>
+                                                            {% endif %}
+                                                        </td>
+                                                    {% endif %}
+                                                    <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">
+                                                        <div style="display: flex; gap: 5px; justify-content: center;">
+                                                            <a href="{% url 'militares:militar_detail' militar.militar.pk %}" class="btn btn-outline-primary btn-sm" title="Ver Militar">
+                                                                <i class="fas fa-eye"></i>
+                                                            </a>
+                                                            {% if quadro.status != 'HOMOLOGADO' %}
+                                                                <a href="{% url 'militares:remover_militar_quadro_oficiais' quadro.pk militar.militar.pk %}"
+                                                                   class="btn btn-outline-danger btn-sm" title="Remover"
+                                                                   onclick="return confirm('Tem certeza que deseja remover {{ militar.militar.nome_completo }} do quadro?')">
+                                                                    <i class="fas fa-trash"></i>
+                                                                </a>
+                                                            {% endif %}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div style="border: 1px solid #f39c12; border-radius: 6px; padding: 15px; background: #fef9e7; text-align: center;">
+                                    <i class="fas fa-exclamation-triangle" style="color: #f39c12; font-size: 1.2em;"></i>
+                                    <strong style="color: #f39c12;">Não há oficiais aptos para esta transição.</strong>
+                                    <br>
+                                    <small style="color: #666; display: block; margin-top: 8px; text-align: left;">
+                                        Deixa de ser elaborado o Quadro de Acesso por {% if quadro.tipo == 'ANTIGUIDADE' %}Antiguidade{% else %}Merecimento{% endif %} para o posto de {{ transicao.destino_nome }} em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.
+                                    </small>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div style="border: 1px solid #3498db; border-radius: 6px; padding: 20px; background: #f0f8ff; text-align: center;">
+            <i class="fas fa-info-circle" style="color: #3498db; font-size: 2em; margin-bottom: 10px;"></i>
+            <h5 style="color: #3498db; margin-bottom: 10px;">Quadro em Elaboração</h5>
+            <p style="color: #666; margin: 0;">Os oficiais aptos serão exibidos quando o quadro for elaborado.</p>
+        </div>
+    {% endif %}
+
+    <!-- Assinaturas -->
+    {% if assinaturas %}
+        <div style="border: 1px solid #3498db; border-radius: 6px; margin-top: 20px; background: #f0f8ff;">
+            <div style="padding: 15px; border-bottom: 1px solid #3498db;">
+                <h5 style="color: #3498db; margin: 0;">
+                    <i class="fas fa-signature"></i> Assinaturas Eletrônicas
+                </h5>
+            </div>
+            <div style="padding: 15px;">
+                {% for assinatura in assinaturas %}
+                <div style="display: flex; align-items: flex-start; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 10px; background: #fff; padding: 10px;">
+                    <div style="padding: 8px;">
+                        <img src="{% static 'logo_cbmepi.png' %}" width="60" height="60" alt="Logo CBMEPI" style="border: 2px solid #bbb; border-radius: 50%; background: #fff; object-fit: cover; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    </div>
+                    <div style="flex-grow: 1;">
+                        {% if assinatura.assinado_por.militar %}
+                            <!-- Assinatura Visual -->
+                            <div style="margin-top: 20px; text-align: center; border-top: 1px solid #ccc; padding-top: 15px;">
+                                <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">
+                                    {{ assinatura.assinado_por.militar|nome_completo_militar }}
+                                </div>
+                                <div style="font-size: 12px; color: #888;">
+                                    {{ assinatura.funcao_assinatura|default:"Função não registrada" }}
+                                </div>
+                            </div>
+                            <div style="padding: 8px; font-size: 15px; text-align: justify;">
+                                Documento assinado eletronicamente por <b>{{ assinatura.assinado_por.militar|nome_completo_militar }}</b> <b>- {{ assinatura.funcao_assinatura|default:"Função não registrada" }}</b>, em {{ assinatura.data_assinatura|date:"d/m/Y" }}, às {{ assinatura.data_assinatura|date:"H:i" }}, conforme horário oficial de Brasília, com fundamento na Portaria XXX/2025 Gab. Cmdo. Geral/CBMEPI de XX de XXXXX de 2025. <span style="font-size: 10px; color: #666; font-style: italic;">({{ assinatura.get_tipo_assinatura_display }})</span>
+                            </div>
+                        {% else %}
+                            <!-- Assinatura Visual -->
+                            <div style="margin-top: 20px; text-align: center; border-top: 1px solid #ccc; padding-top: 15px;">
+                                <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">
+                                    {{ assinatura.assinado_por.get_full_name|default:assinatura.assinado_por.username }}
+                                </div>
+                                <div style="font-size: 12px; color: #888;">
+                                    {{ assinatura.funcao_assinatura|default:"Função não registrada" }}
+                                </div>
+                            </div>
+                            <div style="padding: 8px; font-size: 15px; text-align: justify;">
+                                Documento assinado eletronicamente por <b>{{ assinatura.assinado_por.get_full_name|default:assinatura.assinado_por.username }}</b> <b>- {{ assinatura.funcao_assinatura|default:"Função não registrada" }}</b>, em {{ assinatura.data_assinatura|date:"d/m/Y" }}, às {{ assinatura.data_assinatura|date:"H:i" }}, conforme horário oficial de Brasília, com fundamento na Portaria XXX/2025 Gab. Cmdo. Geral/CBMEPI de XX de XXXXX de 2025. <span style="font-size: 10px; color: #666; font-style: italic;">({{ assinatura.get_tipo_assinatura_display }})</span>
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% if quadro.status != 'HOMOLOGADO' and assinatura.assinado_por == user or user.is_superuser or user.is_staff %}
+                    <div style="padding: 8px; display: flex; align-items: center;">
+                        <a href="{% url 'militares:retirar_assinatura_quadro_acesso' quadro.pk assinatura.pk %}?next={{ request.path|urlencode }}" 
+                           class="btn btn-sm btn-outline-warning" 
+                           title="Retirar assinatura"
+                           onclick="return confirm('Tem certeza que deseja retirar esta assinatura?')">
+                            <i class="fas fa-trash"></i>
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Modal Adicionar Oficial -->
+<div class="modal fade" id="modalAdicionarMilitar" tabindex="-1" aria-labelledby="modalAdicionarMilitarLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title" id="modalAdicionarMilitarLabel">
+          <i class="fas fa-plus"></i> Adicionar Oficial ao Quadro
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <form method="post" action="{% url 'militares:adicionar_oficial_quadro_oficiais' quadro.pk %}">
+        {% csrf_token %}
+        <div class="modal-body">
+          <!-- Busca AJAX -->
+          <div class="mb-3">
+            <label for="buscaOficial" class="form-label">Buscar Oficial</label>
+            <div class="input-group">
+              <input type="text" class="form-control" id="buscaOficial" placeholder="Digite o nome do oficial..." autocomplete="off">
+              <button class="btn btn-outline-secondary" type="button" id="btnBuscarOficial">
+                <i class="fas fa-search"></i> Buscar
+              </button>
+              <button class="btn btn-outline-primary" type="button" id="btnCarregarTodosOficiais">
+                <i class="fas fa-list"></i> Carregar Todos
+              </button>
+            </div>
+            <div class="form-text">Digite pelo menos 2 caracteres para buscar ou clique em "Carregar Todos"</div>
+          </div>
+
+          <!-- Lista de Oficiais Disponíveis -->
+          <div class="mb-3" id="listaOficiais" style="display: none;">
+            <label class="form-label">Oficiais Disponíveis</label>
+            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+              <table class="table table-sm table-hover">
+                <thead class="table-light sticky-top">
+                  <tr>
+                    <th>Selecionar</th>
+                    <th>Nome</th>
+                    <th>Posto</th>
+                    <th>Quadro</th>
+                    <th>Pontuação</th>
+                    <th>CPF</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyOficiais">
+                  <!-- Dados via AJAX -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Informações do Oficial Selecionado -->
+          <div id="infoOficialSelecionado" style="display: none;">
+            <div class="alert alert-info">
+              <h6><i class="fas fa-user"></i> Oficial Selecionado</h6>
+              <div class="row">
+                <div class="col-md-6">
+                  <p><strong>Nome:</strong> <span id="nomeOficial"></span></p>
+                  <p><strong>Posto:</strong> <span id="postoOficial"></span></p>
+                  <p><strong>Quadro:</strong> <span id="quadroOficial"></span></p>
+                </div>
+                <div class="col-md-6">
+                  <p><strong>Pontuação:</strong> <span id="pontuacaoOficial"></span></p>
+                  <p><strong>CPF:</strong> <span id="cpfOficial"></span></p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Campos de Posição e Pontuação -->
+          <div class="row" id="camposAdicionaisOficiais" style="display: none;">
+            {% if quadro.tipo == 'MERECIMENTO' %}
+              <div class="col-12">
+                <div class="alert alert-info">
+                  <i class="fas fa-info-circle me-2"></i>
+                  <strong>Quadro por Merecimento:</strong> A posição e pontuação serão automaticamente definidas com base na ficha de conceito do oficial.
+                </div>
+              </div>
+            {% else %}
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="posicao" class="form-label">Posição (Opcional)</label>
+                  <input type="number" class="form-control" id="posicao" name="posicao" min="1" placeholder="Deixe em branco para posição automática">
+                  <div class="form-text">Se não informada, será atribuída automaticamente</div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="pontuacao" class="form-label">
+                    {% if quadro.tipo == 'ANTIGUIDADE' %}
+                      Antiguidade Manual (Opcional)
+                    {% else %}
+                      Pontuação Manual (Opcional)
+                    {% endif %}
+                  </label>
+                  <input type="number" class="form-control" id="pontuacao" name="pontuacao" step="0.01" min="0" placeholder="Deixe em branco para valor automático">
+                  <div class="form-text">
+                    {% if quadro.tipo == 'ANTIGUIDADE' %}
+                      Se não informada, será usada a numeração de antiguidade
+                    {% else %}
+                      Se não informada, será usado o valor automático
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            {% endif %}
+          </div>
+
+          <!-- Militar ID (hidden) -->
+          <input type="hidden" id="militar_id" name="militar_id" required>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btnAdicionarOficial" disabled>
+            <i class="fas fa-plus"></i> Adicionar ao Quadro
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+
+document.addEventListener('DOMContentLoaded', function() {
+    const buscaOficial = document.getElementById('buscaOficial');
+    const btnBuscarOficial = document.getElementById('btnBuscarOficial');
+    const btnCarregarTodosOficiais = document.getElementById('btnCarregarTodosOficiais');
+    const listaOficiais = document.getElementById('listaOficiais');
+    const tbodyOficiais = document.getElementById('tbodyOficiais');
+    const infoOficialSelecionado = document.getElementById('infoOficialSelecionado');
+    const camposAdicionais = document.getElementById('camposAdicionaisOficiais');
+    const militarId = document.getElementById('militar_id');
+    const btnAdicionar = document.getElementById('btnAdicionarOficial');
+    let oficiaisDisponiveis = [];
+    let oficialSelecionado = null;
+    function buscarOficiais(termo) {
+        if (termo.length < 2) {
+            tbodyOficiais.innerHTML = '';
+            listaOficiais.style.display = 'none';
+            return;
+        }
+        fetch(`{% url 'militares:buscar_oficiais_elegiveis' %}?termo=${encodeURIComponent(termo)}&quadro_id={{ quadro.pk }}`)
+            .then(response => response.json())
+            .then(data => {
+                oficiaisDisponiveis = data.militares;
+                exibirOficiais();
+            })
+            .catch(error => {
+                console.error('Erro ao buscar oficiais:', error);
+            });
+    }
+    function carregarTodosOficiais() {
+        // Buscar todos os oficiais elegíveis (termo vazio)
+        fetch(`{% url 'militares:buscar_oficiais_elegiveis' %}?termo=&quadro_id={{ quadro.pk }}`)
+            .then(response => response.json())
+            .then(data => {
+                oficiaisDisponiveis = data.militares;
+                exibirOficiais();
+            })
+            .catch(error => {
+                console.error('Erro ao carregar oficiais:', error);
+            });
+    }
+    function exibirOficiais() {
+        if (oficiaisDisponiveis.length === 0) {
+            tbodyOficiais.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Nenhum oficial encontrado</td></tr>';
+        } else {
+            tbodyOficiais.innerHTML = oficiaisDisponiveis.map(oficial => {
+                return `
+                <tr>
+                    <td><input type="radio" name="oficial_selecionado" value="${oficial.id}" onchange="window.selecionarOficial(${oficial.id})"></td>
+                    <td>${oficial.nome_completo}</td>
+                    <td>${oficial.posto_graduacao}</td>
+                    <td>${oficial.quadro}</td>
+                    <td>${oficial.pontuacao.toFixed(2)}</td>
+                    <td>${oficial.cpf}</td>
+                </tr>
+                `;
+            }).join('');
+        }
+        listaOficiais.style.display = 'block';
+    }
+    window.selecionarOficial = function(id) {
+        oficialSelecionado = oficiaisDisponiveis.find(o => o.id === id);
+        if (oficialSelecionado) {
+            document.getElementById('nomeOficial').textContent = oficialSelecionado.nome_completo;
+            document.getElementById('postoOficial').textContent = oficialSelecionado.posto_graduacao;
+            document.getElementById('quadroOficial').textContent = oficialSelecionado.quadro;
+            document.getElementById('pontuacaoOficial').textContent = oficialSelecionado.pontuacao.toFixed(2);
+            document.getElementById('cpfOficial').textContent = oficialSelecionado.cpf;
+            militarId.value = oficialSelecionado.id;
+            infoOficialSelecionado.style.display = 'block';
+            camposAdicionais.style.display = 'flex';
+            btnAdicionar.disabled = false;
+            // Preencher campo de pontuação se não for merecimento
+            const tipoQuadro = '{{ quadro.tipo }}';
+            if (tipoQuadro !== 'MERECIMENTO') {
+                document.getElementById('pontuacao').value = oficialSelecionado.pontuacao.toFixed(2);
+            }
+        }
+    };
+    btnBuscarOficial.addEventListener('click', function() {
+        buscarOficiais(buscaOficial.value);
+    });
+    btnCarregarTodosOficiais.addEventListener('click', function() {
+        carregarTodosOficiais();
+    });
+    buscaOficial.addEventListener('input', function() {
+        if (this.value.length >= 2) {
+            buscarOficiais(this.value);
+        }
+    });
+});
+</script>
+
+{% if militares_inaptos %}
+<div style="border: 1px solid #e74c3c; border-radius: 6px; margin-top: 30px; background: #fdf2f2;">
+    <div style="padding: 15px; border-bottom: 1px solid #e74c3c;">
+        <h5 style="color: #e74c3c; margin: 0;">
+            <i class="fas fa-user-times"></i> Militares Inaptos para o Quadro
+        </h5>
+    </div>
+    <div style="padding: 15px;">
+        <table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd;">
+            <thead style="background: #e74c3c; color: white;">
+                <tr>
+                    <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Nome</th>
+                    <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Posto</th>
+                    <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Motivo</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in militares_inaptos %}
+                <tr style="background: {% cycle '#fff' '#f9f9f9' %}">
+                    <td style="padding: 8px; text-align: left; border: 1px solid #ddd; font-weight: bold;">{{ item.militar.nome_completo }}</td>
+                    <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">{{ item.militar.get_posto_graduacao_display }}</td>
+                    <td style="padding: 8px; text-align: center; border: 1px solid #ddd; color: #e74c3c;">{{ item.motivo }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %} 

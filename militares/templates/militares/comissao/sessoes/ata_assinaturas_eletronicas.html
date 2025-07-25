@@ -1,0 +1,481 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load militares_extras %}
+
+{% block title %}Assinaturas Eletrônicas - Ata da Sessão {{ sessao.numero }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.assinaturas-container {
+    background: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+    margin-bottom: 2rem;
+}
+
+.assinaturas-header {
+    background: linear-gradient(135deg, #2c5aa0 0%, #1e3a6b 100%);
+    color: white;
+    padding: 1.5rem;
+    border-radius: 0.75rem 0.75rem 0 0;
+}
+
+.assinaturas-content {
+    padding: 2rem;
+}
+
+.assinatura-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.5rem;
+    padding: 1.5rem 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.assinatura-item:last-child {
+    border-bottom: none;
+}
+
+.assinatura-icon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 100px;
+}
+
+.sei-icon {
+    background: #e9ecef;
+    border: 1px solid #ced4da;
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    text-align: center;
+    width: 80px;
+    height: 80px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.sei-text {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #495057;
+    line-height: 1;
+}
+
+.sei-subtext {
+    font-size: 0.7rem;
+    color: #6c757d;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
+.assinatura-lock {
+    color: #6c757d;
+    font-size: 1rem;
+}
+
+.assinatura-texto {
+    flex: 1;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: #495057;
+}
+
+.decreto-link {
+    color: #007bff;
+    text-decoration: underline;
+}
+
+.decreto-link:hover {
+    color: #0056b3;
+    text-decoration: none;
+}
+
+.info-card {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.info-card h5 {
+    color: #2c5aa0;
+    margin-bottom: 1rem;
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+
+.info-label {
+    font-weight: 600;
+    color: #495057;
+}
+
+.info-value {
+    color: #6c757d;
+}
+
+.assinatura-simples {
+    background: #f8f9fa;
+    border: 2px dashed #dee2e6;
+    border-radius: 0.5rem;
+    padding: 2rem;
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.assinatura-simples h5 {
+    color: #2c5aa0;
+    margin-bottom: 1rem;
+}
+
+.btn-assinar-simples {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    border: none;
+    color: white;
+    padding: 0.75rem 2rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-assinar-simples:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(40, 167, 69, 0.3);
+    color: white;
+}
+
+.btn-assinar-simples:disabled {
+    background: #6c757d;
+    transform: none;
+    box-shadow: none;
+}
+
+@media (max-width: 768px) {
+    .assinatura-item {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+    
+    .assinatura-texto {
+        text-align: center;
+    }
+    
+    .info-row {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="d-sm-flex align-items-center justify-content-between mb-4">
+                <h1 class="h3 mb-0 text-gray-800">
+                    <i class="fas fa-signature me-2"></i>Assinaturas Eletrônicas
+                </h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <a href="{% url 'militares:sessao_comissao_detail' sessao.pk %}" class="btn btn-primary">
+                        <i class="fas fa-arrow-left me-1"></i>
+                        Voltar à Sessão
+                    </a>
+                    {% if ata.status == 'ASSINADA' or ata.status == 'FINALIZADA' %}
+                    <a href="{% url 'militares:ata_gerar_pdf' sessao.pk %}" class="btn btn-danger ms-2" target="_blank">
+                        <i class="fas fa-file-pdf me-1"></i>
+                        Gerar PDF
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Informações da Ata -->
+            <div class="info-card">
+                <h5><i class="fas fa-file-alt me-2"></i>Informações da Ata</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="info-row">
+                            <span class="info-label">Sessão:</span>
+                            <span class="info-value">{{ sessao.numero }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Data da Sessão:</span>
+                            <span class="info-value">{{ sessao.data_sessao|date:"d/m/Y" }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Comissão:</span>
+                            <span class="info-value">{{ comissao.nome }}</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="info-row">
+                            <span class="info-label">Status da Ata:</span>
+                            <span class="info-value">
+                                <span class="badge bg-{% if ata.status == 'ASSINADA' %}success{% elif ata.status == 'PARA_ASSINATURA' %}warning{% else %}secondary{% endif %}">
+                                    {{ ata.get_status_display }}
+                                </span>
+                            </span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Versão:</span>
+                            <span class="info-value">{{ ata.versao }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Total de Assinaturas:</span>
+                            <span class="info-value">{{ assinaturas.count }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Assinatura Simples (SEI Style) -->
+            {% if ata.status == 'PARA_ASSINATURA' and membro_usuario %}
+                <div class="assinatura-simples">
+                    <h5><i class="fas fa-signature me-2"></i>Assinar Eletronicamente</h5>
+                    <p class="text-muted mb-3">
+                        Clique no botão abaixo para assinar eletronicamente esta ata, 
+                        similar ao sistema SEI, sem necessidade de certificado digital.
+                    </p>
+                    <button type="button" class="btn btn-assinar-simples" onclick="assinarSimples()">
+                        <i class="fas fa-signature me-2"></i>Assinar Eletronicamente
+                    </button>
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            A assinatura será registrada com data e hora atuais, conforme padrão SEI.
+                        </small>
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Lista de Assinaturas -->
+            <div class="assinaturas-container">
+                <div class="assinaturas-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-signature me-2"></i>Assinaturas Eletrônicas da Ata
+                    </h4>
+                    <p class="mb-0 mt-2">Documento assinado conforme padrão SEI</p>
+                </div>
+                
+                <div class="assinaturas-content">
+                    {% if assinaturas %}
+                        {% for assinatura in assinaturas %}
+                            <div class="assinatura-item">
+                                <div class="assinatura-icon">
+                                    <div class="sei-icon">
+                                        <span class="sei-text">sei!</span>
+                                        <span class="sei-subtext">assinatura eletrônica</span>
+                                    </div>
+                                    <i class="fas fa-lock assinatura-lock"></i>
+                                </div>
+                                <div class="assinatura-texto">
+                                    Documento assinado eletronicamente por <strong>{% if assinatura.membro.militar %}{{ assinatura.membro.militar|nome_completo_militar }}{% else %}{{ assinatura.assinado_por.get_full_name|default:assinatura.assinado_por.username }}{% endif %}</strong> - Matr.{{ assinatura.membro.militar.matricula }}, em {{ assinatura.data_assinatura|formatar_data_assinatura_simples }}, às {{ assinatura.data_assinatura|formatar_hora_assinatura }}, conforme horário oficial de Brasília, com fundamento no Cap. III, Art. 14 do <a href="#" class="decreto-link">Decreto Estadual nº 18.142, de 28 de fevereiro de 2019</a>.
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-signature fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Nenhuma assinatura eletrônica encontrada</h5>
+                            <p class="text-muted">Esta ata ainda não possui assinaturas eletrônicas registradas.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação de Assinatura -->
+<div class="modal fade" id="confirmacaoModal" tabindex="-1" aria-labelledby="confirmacaoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="confirmacaoModalLabel">
+                    <i class="fas fa-signature"></i> Confirmar Assinatura Eletrônica
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-4">
+                    <i class="fas fa-signature fa-3x text-success mb-3"></i>
+                    <h5>Confirmar Assinatura</h5>
+                    <p class="text-muted">
+                        Você está prestes a assinar eletronicamente a Ata da Sessão {{ sessao.numero }}.
+                    </p>
+                </div>
+                
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-title">Informações da Assinatura:</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Assinante:</strong> {{ request.user.get_full_name|default:request.user.username }}</li>
+                            <li><strong>Matrícula:</strong> {{ request.user.militar.matricula|default:"N/A" }}</li>
+                            <li><strong>Posto/Graduação:</strong> {{ request.user.militar.get_posto_graduacao_display|default:"N/A" }}</li>
+                            <li><strong>Data/Hora:</strong> <span id="dataHoraConfirmacao"></span></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Importante:</strong> Esta assinatura eletrônica tem a mesma validade de uma assinatura física, 
+                    conforme fundamento legal aplicável.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> Cancelar
+                </button>
+                <button type="button" class="btn btn-success" onclick="confirmarAssinatura()">
+                    <i class="fas fa-signature"></i> Confirmar Assinatura
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function assinarSimples() {
+    // Atualizar data/hora na confirmação
+    const agora = new Date();
+    const dataHora = agora.toLocaleString('pt-BR');
+    document.getElementById('dataHoraConfirmacao').textContent = dataHora;
+    
+    // Abrir modal de confirmação
+    new bootstrap.Modal(document.getElementById('confirmacaoModal')).show();
+}
+
+function confirmarAssinatura() {
+    const btnConfirmar = document.querySelector('#confirmacaoModal .btn-success');
+    const originalText = btnConfirmar.innerHTML;
+    btnConfirmar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Assinando...';
+    btnConfirmar.disabled = true;
+    
+    // Simular processo de assinatura (sem certificado digital)
+    setTimeout(() => {
+        // Gerar dados da assinatura
+        const agora = new Date();
+        const hash = gerarHashSimples();
+        const timestamp = agora.toISOString();
+        const assinatura = btoa(`${hash}:${timestamp}:{{ request.user.username }}`);
+        
+        // Enviar para o servidor
+        enviarAssinaturaSimples(hash, timestamp, assinatura);
+    }, 1500);
+}
+
+function gerarHashSimples() {
+    // Hash simples baseado no conteúdo da ata e timestamp
+    const conteudo = '{{ ata.conteudo|striptags|escapejs }}';
+    const timestamp = new Date().getTime();
+    let hash = 0;
+    
+    for (let i = 0; i < conteudo.length; i++) {
+        const char = conteudo.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+    }
+    
+    return Math.abs(hash + timestamp).toString(16);
+}
+
+function enviarAssinaturaSimples(hash, timestamp, assinatura) {
+    const dados = {
+        hash: hash,
+        timestamp: timestamp,
+        assinatura: assinatura,
+        certificado: 'ASSINATURA_SIMPLES_SEI',
+        assinante: '{{ request.user.username }}',
+        data_assinatura: new Date().toISOString()
+    };
+    
+    fetch('{% url "militares:assinar_ata_eletronica" sessao.pk %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify(dados)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Fechar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('confirmacaoModal'));
+            modal.hide();
+            
+            // Mostrar sucesso
+            mostrarMensagemSucesso('Documento assinado eletronicamente com sucesso!');
+            
+            // Recarregar página após um tempo
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            throw new Error(data.error || 'Erro ao assinar documento');
+        }
+    })
+    .catch(error => {
+        console.error('Erro ao assinar documento:', error);
+        mostrarMensagemErro('Erro ao assinar documento: ' + error.message);
+        
+        // Restaurar botão
+        const btnConfirmar = document.querySelector('#confirmacaoModal .btn-success');
+        btnConfirmar.innerHTML = '<i class="fas fa-signature"></i> Confirmar Assinatura';
+        btnConfirmar.disabled = false;
+    });
+}
+
+function mostrarMensagemSucesso(mensagem) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed';
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.innerHTML = `
+        <i class="fas fa-check-circle me-2"></i>
+        ${mensagem}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alertDiv);
+    
+    // Remover após 5 segundos
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.parentNode.removeChild(alertDiv);
+        }
+    }, 5000);
+}
+
+function mostrarMensagemErro(mensagem) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-danger alert-dismissible fade show position-fixed';
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.innerHTML = `
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        ${mensagem}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alertDiv);
+    
+    // Remover após 5 segundos
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.parentNode.removeChild(alertDiv);
+        }
+    }, 5000);
+}
+</script>
+{% endblock %} 

@@ -1,0 +1,200 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .assinatura-form {
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 30px;
+    }
+    
+    .almanaque-info {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .form-label {
+        font-weight: 500;
+        color: #495057;
+    }
+    
+    .form-control:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+    }
+    
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Cabeçalho -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-signature text-primary"></i>
+                {{ title }}
+            </h1>
+            <p class="text-muted mb-0">Adicionar assinatura ao almanaque</p>
+        </div>
+        <div>
+            <a href="{% url 'militares:almanaque_detail' almanaque.pk %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Voltar aos Detalhes
+            </a>
+        </div>
+    </div>
+
+    <!-- Informações do Almanaque -->
+    <div class="almanaque-info">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h4 class="mb-1">{{ almanaque.titulo }}</h4>
+                <p class="mb-0">
+                    <i class="fas fa-hashtag"></i> {{ almanaque.numero|default:"Sem numeração" }} |
+                    <i class="fas fa-calendar"></i> {{ almanaque.data_geracao|date:"d/m/Y às H:i" }} |
+                    <i class="fas fa-users"></i> {{ almanaque.total_geral }} militares
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                <span class="badge bg-light text-dark me-2">{{ almanaque.get_tipo_display }}</span>
+                <span class="badge bg-{{ almanaque.get_status_color }}">{{ almanaque.get_status_display }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulário de Assinatura -->
+    <div class="assinatura-form">
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="tipo_assinatura" class="form-label">
+                            <i class="fas fa-tag"></i> Tipo de Assinatura *
+                        </label>
+                        <select name="tipo_assinatura" id="tipo_assinatura" class="form-select" required>
+                            <option value="">Selecione o tipo de assinatura</option>
+                            <option value="APROVACAO">Aprovação</option>
+                            <option value="HOMOLOGACAO">Homologação</option>
+                            <option value="REVISAO">Revisão</option>
+                            <option value="CONFERENCIA">Conferência</option>
+                            <option value="ELETRONICA">Eletrônica</option>
+                        </select>
+                        <div class="form-text">
+                            Escolha o tipo de assinatura que você está realizando.
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="cargo_funcao" class="form-label">
+                            <i class="fas fa-user-tie"></i> Cargo/Função
+                        </label>
+                        <input type="text" name="cargo_funcao" id="cargo_funcao" 
+                               class="form-control" 
+                               placeholder="Ex: Comandante Geral, Diretor de Gestão de Pessoal"
+                               value="{{ request.user.get_full_name|default:request.user.username }}">
+                        <div class="form-text">
+                            Cargo ou função que você exerce para esta assinatura.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="observacoes" class="form-label">
+                    <i class="fas fa-comment"></i> Observações
+                </label>
+                <textarea name="observacoes" id="observacoes" 
+                          class="form-control" rows="4"
+                          placeholder="Observações adicionais sobre a assinatura (opcional)"></textarea>
+                <div class="form-text">
+                    Observações ou comentários sobre esta assinatura.
+                </div>
+            </div>
+
+            <!-- Informações do Assinante -->
+            <div class="alert alert-info">
+                <h6><i class="fas fa-info-circle"></i> Informações do Assinante:</h6>
+                <p class="mb-1">
+                    <strong>Nome:</strong> {{ request.user.get_full_name|default:request.user.username }}
+                </p>
+                <p class="mb-1">
+                    <strong>Usuário:</strong> {{ request.user.username }}
+                </p>
+                <p class="mb-0">
+                    <strong>Data/Hora:</strong> {{ now|date:"d/m/Y às H:i" }}
+                </p>
+            </div>
+
+            <!-- Verificação de Assinatura Existente -->
+            {% if assinaturas_existentes %}
+            <div class="alert alert-warning">
+                <h6><i class="fas fa-exclamation-triangle"></i> Assinaturas Existentes:</h6>
+                <p class="mb-2">Você já possui as seguintes assinaturas neste almanaque:</p>
+                <ul class="mb-0">
+                    {% for assinatura in assinaturas_existentes %}
+                    <li>
+                        <strong>{{ assinatura.get_tipo_assinatura_display }}</strong> - 
+                        {{ assinatura.data_assinatura|date:"d/m/Y às H:i" }}
+                        {% if assinatura.cargo_funcao %} ({{ assinatura.cargo_funcao }}){% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <!-- Botões -->
+            <div class="d-flex justify-content-between">
+                <a href="{% url 'militares:almanaque_detail' almanaque.pk %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-times"></i> Cancelar
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-signature"></i> Adicionar Assinatura
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Auto-preencher cargo/função se estiver vazio
+        const cargoFuncaoInput = document.getElementById('cargo_funcao');
+        if (!cargoFuncaoInput.value.trim()) {
+            // Tentar obter cargo/função do usuário se disponível
+            // Aqui você pode adicionar lógica para buscar o cargo do usuário
+        }
+        
+        // Validação do formulário
+        const form = document.querySelector('form');
+        form.addEventListener('submit', function(e) {
+            const tipoAssinatura = document.getElementById('tipo_assinatura').value;
+            if (!tipoAssinatura) {
+                e.preventDefault();
+                alert('Por favor, selecione o tipo de assinatura.');
+                return false;
+            }
+        });
+    });
+</script>
+{% endblock %} 

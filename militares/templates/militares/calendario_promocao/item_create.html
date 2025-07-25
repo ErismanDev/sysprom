@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-plus"></i> {{ title }}
+                    </h3>
+                    <div class="card-tools">
+                        <a href="{% url 'militares:calendario_promocao_detail' pk=calendario.pk %}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-arrow-left"></i> Voltar
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if proximo_item %}
+                        <div class="alert alert-info">
+                            <h5><i class="fas fa-info-circle"></i> Próximo Item Sugerido</h5>
+                            <p><strong>Item {{ ordem_proximo_item }}:</strong> 
+                                {% for tipo in tipos_atividade %}
+                                    {% if tipo.valor == proximo_item %}
+                                        {{ tipo.label }}
+                                    {% endif %}
+                                {% endfor %}
+                            </p>
+                            <p class="mb-0">Este item foi automaticamente selecionado baseado na ordem lógica do processo de promoção.</p>
+                        </div>
+                    {% endif %}
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="tipo_atividade"><strong>Tipo de Atividade *</strong></label>
+                                    <select name="tipo_atividade" id="tipo_atividade" class="form-control" required>
+                                        <option value="">Selecione o tipo de atividade</option>
+                                        {% for tipo in tipos_atividade %}
+                                            <option value="{{ tipo.valor }}" 
+                                                    {% if proximo_item == tipo.valor %}selected{% endif %}
+                                                    data-ordem="{{ tipo.ordem }}">
+                                                {{ tipo.display }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="ordem"><strong>Ordem</strong></label>
+                                    <input type="number" name="ordem" id="ordem" class="form-control" 
+                                           value="{{ ordem_proximo_item }}" min="1" max="99" readonly>
+                                    <small class="form-text text-muted">A ordem será definida automaticamente baseada no tipo de atividade.</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="data_inicio"><strong>Data de Início *</strong></label>
+                                    <input type="date" name="data_inicio" id="data_inicio" class="form-control" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="data_fim"><strong>Data de Fim *</strong></label>
+                                    <input type="date" name="data_fim" id="data_fim" class="form-control" required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="form-group">
+                                    <label for="observacoes"><strong>Observações</strong></label>
+                                    <textarea name="observacoes" id="observacoes" class="form-control" rows="3" 
+                                              placeholder="Observações sobre esta atividade..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="form-group">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save"></i> Salvar Item
+                                    </button>
+                                    <a href="{% url 'militares:calendario_promocao_detail' pk=calendario.pk %}" class="btn btn-primary">
+                                        <i class="fas fa-times"></i> Cancelar
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tipoSelect = document.getElementById('tipo_atividade');
+    const ordemInput = document.getElementById('ordem');
+    
+    // Atualizar ordem quando o tipo de atividade for alterado
+    tipoSelect.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        const ordem = selectedOption.getAttribute('data-ordem');
+        if (ordem) {
+            ordemInput.value = ordem;
+        }
+    });
+    
+    // Definir data mínima como hoje
+    const hoje = new Date().toISOString().split('T')[0];
+    document.getElementById('data_inicio').min = hoje;
+    document.getElementById('data_fim').min = hoje;
+    
+    // Validar que data_fim não seja menor que data_inicio
+    document.getElementById('data_inicio').addEventListener('change', function() {
+        document.getElementById('data_fim').min = this.value;
+    });
+});
+</script>
+{% endblock %} 

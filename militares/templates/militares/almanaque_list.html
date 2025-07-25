@@ -1,0 +1,308 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .stats-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    
+    .stats-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    
+    .filter-section {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .almanaque-card {
+        border: 1px solid #e9ecef;
+        border-radius: 10px;
+        margin-bottom: 15px;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    
+    .almanaque-card:hover {
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        transform: translateY(-2px);
+    }
+    
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-weight: 500;
+    }
+    
+    .status-rascunho { background-color: #6c757d; color: white; }
+    .status-elaboracao { background-color: #ffc107; color: black; }
+    .status-finalizado { background-color: #17a2b8; color: white; }
+    .status-aprovado { background-color: #28a745; color: white; }
+    .status-homologado { background-color: #007bff; color: white; }
+    
+    .tipo-badge {
+        font-size: 0.75rem;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-weight: 500;
+    }
+    
+    .tipo-oficiais { background-color: #dc3545; color: white; }
+    .tipo-pracas { background-color: #fd7e14; color: white; }
+    .tipo-geral { background-color: #6f42c1; color: white; }
+    
+    .action-buttons {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+    }
+    
+    .btn-sm {
+        font-size: 0.75rem;
+        padding: 4px 8px;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: #6c757d;
+    }
+    
+    .empty-state i {
+        font-size: 3rem;
+        margin-bottom: 15px;
+        opacity: 0.5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Cabeçalho -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-book-open text-primary"></i>
+                {{ title }}
+            </h1>
+            <p class="text-muted mb-0">Gerencie os almanaques dos militares</p>
+        </div>
+        <a href="{% url 'militares:almanaque_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Criar Almanaque
+        </a>
+    </div>
+
+    <!-- Estatísticas -->
+    <div class="row mb-4">
+        <div class="col-md-2">
+            <div class="stats-card text-center">
+                <div class="stats-number">{{ total_almanaques }}</div>
+                <div class="stats-label">Total Almanaques</div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="stats-card text-center" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div class="stats-number">{{ almanaques_oficiais }}</div>
+                <div class="stats-label">Oficiais</div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="stats-card text-center" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <div class="stats-number">{{ almanaques_pracas }}</div>
+                <div class="stats-label">Praças</div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="stats-card text-center" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                <div class="stats-number">{{ almanaques_geral }}</div>
+                <div class="stats-label">Geral</div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="stats-card text-center" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+                <div class="stats-number">{{ total_oficiais }}</div>
+                <div class="stats-label">Total Oficiais</div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="stats-card text-center" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);">
+                <div class="stats-number">{{ total_pracas }}</div>
+                <div class="stats-label">Total Praças</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="filter-section">
+        <h5 class="mb-3">
+            <i class="fas fa-filter"></i> Filtros
+        </h5>
+        <form method="get" class="row g-3">
+            <div class="col-md-2">
+                <label for="tipo" class="form-label">Tipo</label>
+                <select name="tipo" id="tipo" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="OFICIAIS" {% if filtros.tipo == 'OFICIAIS' %}selected{% endif %}>Oficiais</option>
+                    <option value="PRACAS" {% if filtros.tipo == 'PRACAS' %}selected{% endif %}>Praças</option>
+                    <option value="GERAL" {% if filtros.tipo == 'GERAL' %}selected{% endif %}>Geral</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="status" class="form-label">Status</label>
+                <select name="status" id="status" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="RASCUNHO" {% if filtros.status == 'RASCUNHO' %}selected{% endif %}>Rascunho</option>
+                    <option value="EM_ELABORACAO" {% if filtros.status == 'EM_ELABORACAO' %}selected{% endif %}>Em Elaboração</option>
+                    <option value="FINALIZADO" {% if filtros.status == 'FINALIZADO' %}selected{% endif %}>Finalizado</option>
+                    <option value="APROVADO" {% if filtros.status == 'APROVADO' %}selected{% endif %}>Aprovado</option>
+                    <option value="HOMOLOGADO" {% if filtros.status == 'HOMOLOGADO' %}selected{% endif %}>Homologado</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="data_inicio" class="form-label">Data Início</label>
+                <input type="date" name="data_inicio" id="data_inicio" class="form-control" value="{{ filtros.data_inicio }}">
+            </div>
+            <div class="col-md-2">
+                <label for="data_fim" class="form-label">Data Fim</label>
+                <input type="date" name="data_fim" id="data_fim" class="form-control" value="{{ filtros.data_fim }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search"></i> Filtrar
+                    </button>
+                    <a href="{% url 'militares:almanaque_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-times"></i> Limpar
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Lista de Almanaques -->
+    <div class="row">
+        <div class="col-12">
+            {% if almanaques %}
+                {% for almanaque in almanaques %}
+                <div class="almanaque-card">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-3">
+                                <h6 class="card-title mb-1">
+                                    <a href="{% url 'militares:almanaque_detail' almanaque.pk %}" class="text-decoration-none">
+                                        {{ almanaque.titulo }}
+                                    </a>
+                                </h6>
+                                <small class="text-muted">
+                                    <i class="fas fa-hashtag"></i> {{ almanaque.numero|default:"Sem numeração" }}
+                                </small>
+                            </div>
+                            <div class="col-md-2">
+                                <span class="tipo-badge tipo-{{ almanaque.tipo|lower }}">
+                                    {{ almanaque.get_tipo_display }}
+                                </span>
+                            </div>
+                            <div class="col-md-2">
+                                <span class="status-badge status-{{ almanaque.status|lower }}">
+                                    {{ almanaque.get_status_display }}
+                                </span>
+                            </div>
+                            <div class="col-md-2">
+                                <small class="text-muted">
+                                    <i class="fas fa-calendar"></i> {{ almanaque.data_geracao|date:"d/m/Y H:i" }}
+                                </small>
+                                <br>
+                                <small class="text-muted">
+                                    <i class="fas fa-user"></i> {{ almanaque.criado_por|default:"Sistema" }}
+                                </small>
+                            </div>
+                            <div class="col-md-2">
+                                <small class="text-muted">
+                                    <i class="fas fa-users"></i> {{ almanaque.total_geral }} militares
+                                </small>
+                                <br>
+                                <small class="text-muted">
+                                    <i class="fas fa-signature"></i> {{ almanaque.get_total_assinaturas }} assinaturas
+                                </small>
+                            </div>
+                            <div class="col-md-1">
+                                <div class="action-buttons">
+                                    <a href="{% url 'militares:almanaque_detail' almanaque.pk %}" 
+                                       class="btn btn-sm btn-outline-primary" title="Detalhes">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{% url 'militares:almanaque_visualizar_html' almanaque.pk %}" 
+                                       class="btn btn-sm btn-outline-info" title="Assinar">
+                                        <i class="fas fa-signature"></i>
+                                    </a>
+                                                <a href="{% url 'militares:almanaque_gerar_pdf' almanaque.pk %}" 
+               class="btn btn-sm btn-outline-warning" title="Gerar PDF" target="_blank">
+                <i class="fas fa-file-pdf"></i>
+            </a>
+                                    {% if almanaque.pode_ser_editado %}
+                                    <a href="{% url 'militares:almanaque_edit' almanaque.pk %}" 
+                                       class="btn btn-sm btn-outline-warning" title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    {% endif %}
+                                    {% if almanaque.pode_ser_excluido %}
+                                    <a href="{% url 'militares:almanaque_delete' almanaque.pk %}" 
+                                       class="btn btn-sm btn-outline-danger" title="Excluir">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-book-open"></i>
+                    <h4>Nenhum almanaque encontrado</h4>
+                    <p>Não há almanaques que correspondam aos filtros aplicados.</p>
+                    <a href="{% url 'militares:almanaque_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Criar Primeiro Almanaque
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-submit form when filters change
+    document.addEventListener('DOMContentLoaded', function() {
+        const filterForm = document.querySelector('form[method="get"]');
+        const filterInputs = filterForm.querySelectorAll('select, input[type="date"]');
+        
+        filterInputs.forEach(input => {
+            input.addEventListener('change', function() {
+                filterForm.submit();
+            });
+        });
+    });
+</script>
+{% endblock %} 

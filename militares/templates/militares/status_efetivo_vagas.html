@@ -1,0 +1,302 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load militares_extras %}
+
+{% block title %}Status do Efetivo - Vagas{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Cabeçalho -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-0 text-primary">
+                        <i class="fas fa-chart-bar me-2"></i>Status do Efetivo - Vagas
+                    </h2>
+                    <p class="text-muted mb-0">Controle automático do efetivo atual nas vagas</p>
+                </div>
+                <div>
+                    <a href="{% url 'militares:reordenar_antiguidade_apos_inativacao' %}" class="btn btn-warning me-2">
+                        <i class="fas fa-sort-numeric-up me-2"></i>Reordenar Antiguidade
+                    </a>
+                    <form method="post" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" name="atualizar_efetivo" class="btn btn-success">
+                            <i class="fas fa-sync-alt me-2"></i>Atualizar Efetivo
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cards de Resumo -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">{{ total_militares_ativos }}</h4>
+                            <p class="mb-0">Militares Ativos</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-users fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">{{ total_vagas }}</h4>
+                            <p class="mb-0">Vagas Cadastradas</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-clipboard-list fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">{{ total_previsoes }}</h4>
+                            <p class="mb-0">Previsões Ativas</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-chart-line fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">
+                                <i class="fas fa-clock me-1"></i>
+                            </h4>
+                            <p class="mb-0">Atualização Automática</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-robot fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela de Efetivo por Posto/Quadro -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-table me-2"></i>Efetivo por Posto/Quadro
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Posto/Quadro</th>
+                                    <th class="text-center">Efetivo Atual</th>
+                                    <th class="text-center">Vaga Cadastrada</th>
+                                    <th class="text-center">Efetivo na Vaga</th>
+                                    <th class="text-center">Vagas Disponíveis</th>
+                                    <th class="text-center">Previsão Ativa</th>
+                                    <th class="text-center">Efetivo na Previsão</th>
+                                    <th class="text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for key, info in efetivo_por_posto_quadro.items %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ key }}</strong>
+                                        <br>
+                                        <small class="text-muted">
+                                            {% for militar in info.militares|slice:":3" %}
+                                                {{ militar.nome_completo }}{% if not forloop.last %}, {% endif %}
+                                            {% endfor %}
+                                            {% if info.militares|length > 3 %}
+                                                <span class="text-muted">+{{ info.militares|length|add:"-3" }} mais</span>
+                                            {% endif %}
+                                        </small>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-primary fs-6">{{ info.efetivo_atual }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        {% if key in vagas_dict %}
+                                            <span class="badge bg-success">Sim</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Não</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if key in vagas_dict %}
+                                            <span class="badge bg-info">{{ vagas_dict|get_item:key|get_attr:"efetivo_atual" }}</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if key in vagas_dict %}
+                                            {% with vaga=vagas_dict|get_item:key %}
+                                                <span class="badge {% if vaga.vagas_disponiveis > 0 %}bg-success{% else %}bg-danger{% endif %}">
+                                                    {{ vaga.vagas_disponiveis }}
+                                                </span>
+                                            {% endwith %}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if key in previsoes_dict %}
+                                            <span class="badge bg-success">Sim</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Não</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if key in previsoes_dict %}
+                                            <span class="badge bg-info">{{ previsoes_dict|get_item:key|get_attr:"efetivo_atual" }}</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if key in vagas_dict and key in previsoes_dict %}
+                                            {% with vaga=vagas_dict|get_item:key previsao=previsoes_dict|get_item:key %}
+                                                {% if vaga.efetivo_atual == info.efetivo_atual and previsao.efetivo_atual == info.efetivo_atual %}
+                                                    <span class="badge bg-success">
+                                                        <i class="fas fa-check me-1"></i>Sincronizado
+                                                    </span>
+                                                {% elif vaga.efetivo_atual == info.efetivo_atual %}
+                                                    <span class="badge bg-warning">
+                                                        <i class="fas fa-exclamation-triangle me-1"></i>Vaga OK
+                                                    </span>
+                                                {% elif previsao.efetivo_atual == info.efetivo_atual %}
+                                                    <span class="badge bg-warning">
+                                                        <i class="fas fa-exclamation-triangle me-1"></i>Previsão OK
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge bg-danger">
+                                                        <i class="fas fa-times me-1"></i>Desatualizado
+                                                    </span>
+                                                {% endif %}
+                                            {% endwith %}
+                                        {% elif key in vagas_dict %}
+                                            {% with vaga=vagas_dict|get_item:key %}
+                                                {% if vaga.efetivo_atual == info.efetivo_atual %}
+                                                    <span class="badge bg-success">
+                                                        <i class="fas fa-check me-1"></i>Vaga OK
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge bg-danger">
+                                                        <i class="fas fa-times me-1"></i>Vaga Desatualizada
+                                                    </span>
+                                                {% endif %}
+                                            {% endwith %}
+                                        {% elif key in previsoes_dict %}
+                                            {% with previsao=previsoes_dict|get_item:key %}
+                                                {% if previsao.efetivo_atual == info.efetivo_atual %}
+                                                    <span class="badge bg-success">
+                                                        <i class="fas fa-check me-1"></i>Previsão OK
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge bg-danger">
+                                                        <i class="fas fa-times me-1"></i>Previsão Desatualizada
+                                                    </span>
+                                                {% endif %}
+                                            {% endwith %}
+                                        {% else %}
+                                            <span class="badge bg-secondary">
+                                                <i class="fas fa-question me-1"></i>Não Cadastrado
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted">
+                                        <i class="fas fa-info-circle me-2"></i>Nenhum militar ativo encontrado.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Informações do Sistema -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>Informações do Sistema
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-cog me-2"></i>Funcionalidades Automáticas</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-check text-success me-2"></i>Atualização automática ao cadastrar/editar militares</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Criação automática de vagas quando necessário</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Sincronização com previsões de vagas</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Controle de efetivo por posto e quadro</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-tools me-2"></i>Comandos Disponíveis</h6>
+                            <ul class="list-unstyled">
+                                <li><code>python manage.py atualizar_efetivo_vagas</code> - Atualização manual</li>
+                                <li><code>python manage.py atualizar_efetivo_vagas --dry-run</code> - Modo de teste</li>
+                                <li><code>python manage.py atualizar_efetivo_vagas --verbose</code> - Informações detalhadas</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Template Tags Customizadas -->
+{% load militares_extras %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Auto-refresh a cada 30 segundos
+    setInterval(function() {
+        location.reload();
+    }, 30000);
+    
+    // Tooltip para informações detalhadas
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+{% endblock %} 

@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titulo }} - SysProm - CBMEPI{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-center">
+  <div style="width: 100%; max-width: 1000px;">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">
+            <i class="fas fa-magic me-2"></i>
+            {{ titulo }}
+        </h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <a href="{% url 'militares:sessao_editar_ata' sessao.pk %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i>
+                Voltar à Edição da Ata
+            </a>
+        </div>
+    </div>
+
+    <!-- Informações da Sessão -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-info-circle me-2"></i>
+                Informações da Sessão
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Número:</strong> {{ sessao.numero }}</p>
+                    <p><strong>Data:</strong> {{ sessao.data_sessao|date:"d/m/Y" }}</p>
+                    <p><strong>Horário:</strong> {{ sessao.hora_inicio|time:"H:i" }}{% if sessao.hora_fim %} - {{ sessao.hora_fim|time:"H:i" }}{% endif %}</p>
+                    <p><strong>Local:</strong> {{ sessao.local }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Comissão:</strong> {{ sessao.comissao.nome }}</p>
+                    <p><strong>Tipo de Comissão:</strong> {{ sessao.comissao.get_tipo_display }}</p>
+                    <p><strong>Tipo de Sessão:</strong> {{ sessao.get_tipo_display }}</p>
+                    <p><strong>Status:</strong> {{ sessao.get_status_display }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modelo Padrão -->
+    {% if modelo_padrao %}
+    <div class="card mb-4">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0">
+                <i class="fas fa-star me-2"></i>
+                Modelo Padrão Disponível
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h6 class="mb-1">{{ modelo_padrao.nome }}</h6>
+                    {% if modelo_padrao.descricao %}
+                    <p class="text-muted mb-2">{{ modelo_padrao.descricao }}</p>
+                    {% endif %}
+                    <div class="mb-2">
+                        <span class="badge bg-info me-1">{{ modelo_padrao.get_tipo_comissao_display }}</span>
+                        <span class="badge bg-secondary">{{ modelo_padrao.get_tipo_sessao_display }}</span>
+                    </div>
+                </div>
+                <div class="col-md-4 text-end">
+                    <form method="post" style="display: inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="modelo_id" value="{{ modelo_padrao.pk }}">
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-magic me-1"></i>
+                            Aplicar Modelo Padrão
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Lista de Modelos Disponíveis -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-list me-2"></i>
+                Modelos Disponíveis ({{ modelos_disponiveis.count }})
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if modelos_disponiveis %}
+            <div class="row">
+                {% for modelo in modelos_disponiveis %}
+                {% if not modelo.padrao or not modelo_padrao %}
+                <div class="col-md-6 mb-3">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h6 class="mb-0">
+                                {{ modelo.nome }}
+                                {% if modelo.padrao %}
+                                <span class="badge bg-warning ms-1">Padrão</span>
+                                {% endif %}
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {% if modelo.descricao %}
+                            <p class="text-muted small mb-2">{{ modelo.descricao }}</p>
+                            {% endif %}
+                            <div class="mb-2">
+                                <span class="badge bg-info me-1">{{ modelo.get_tipo_comissao_display }}</span>
+                                <span class="badge bg-secondary">{{ modelo.get_tipo_sessao_display }}</span>
+                            </div>
+                            <div class="mb-2">
+                                <small class="text-muted">
+                                    <i class="fas fa-user me-1"></i>
+                                    {{ modelo.criado_por.get_full_name|default:modelo.criado_por.username }}
+                                </small>
+                                <br>
+                                <small class="text-muted">
+                                    <i class="fas fa-calendar me-1"></i>
+                                    {{ modelo.data_criacao|date:"d/m/Y" }}
+                                </small>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <form method="post" style="display: inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="modelo_id" value="{{ modelo.pk }}">
+                                <button type="submit" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-magic me-1"></i>
+                                    Aplicar Modelo
+                                </button>
+                            </form>
+                            <a href="{% url 'militares:modelo_ata_detail' modelo.pk %}" class="btn btn-outline-secondary btn-sm ms-1" title="Visualizar">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+                <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">Nenhum modelo disponível</h5>
+                <p class="text-muted">Não existem modelos compatíveis com esta sessão.</p>
+                <a href="{% url 'militares:modelo_ata_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i>
+                    Criar Novo Modelo
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+  </div>
+</div>
+{% endblock %} 

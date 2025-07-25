@@ -1,0 +1,183 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Excluir Militar - {{ militar.nome_completo }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                        Confirmar Exclusão de Militar
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-danger">
+                        <h5 class="alert-heading">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Atenção!
+                        </h5>
+                        <p class="mb-0">
+                            Você está prestes a excluir permanentemente o militar:
+                        </p>
+                        <div class="mt-3 p-3 bg-light rounded">
+                            <h6 class="mb-2">
+                                <strong>{{ militar.get_posto_graduacao_display }} {{ militar.nome_completo }}</strong>
+                            </h6>
+                            <p class="mb-1"><strong>Matrícula:</strong> {{ militar.matricula }}</p>
+                            <p class="mb-1"><strong>Quadro:</strong> {{ militar.get_quadro_display }}</p>
+                            <p class="mb-0"><strong>Situação:</strong> {{ militar.get_situacao_display }}</p>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <h6 class="alert-heading">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Informações Importantes
+                        </h6>
+                        <ul class="mb-0">
+                            <li>Esta ação é <strong>irreversível</strong></li>
+                            <li>Todos os dados relacionados ao militar serão excluídos</li>
+                            <li>Fichas de conceito, documentos e histórico serão perdidos</li>
+                            <li>É necessário confirmar com sua senha</li>
+                        </ul>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'militares:militar_list' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Cancelar
+                        </a>
+                        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal">
+                            <i class="fas fa-trash me-2"></i>Excluir Militar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="confirmDeleteModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Confirmar Exclusão
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" id="deleteForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-danger">
+                        <h6 class="alert-heading">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Confirmação Final
+                        </h6>
+                        <p class="mb-3">
+                            Para confirmar a exclusão do militar <strong>{{ militar.nome_completo }}</strong>, 
+                            digite sua senha:
+                        </p>
+                        {% if messages %}
+                            {% for message in messages %}
+                                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash me-2"></i>Confirmar Exclusão
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Sucesso -->
+<div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="successModalLabel">
+                    <i class="fas fa-check-circle me-2"></i>
+                    Militar Excluído
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center">
+                    <i class="fas fa-check-circle text-success" style="font-size: 3rem;"></i>
+                    <h5 class="mt-3">Militar excluído com sucesso!</h5>
+                    <p class="text-muted">
+                        O militar <strong>{{ militar.nome_completo }}</strong> foi removido permanentemente do sistema.
+                    </p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a href="{% url 'militares:militar_list' %}" class="btn btn-primary">
+                    <i class="fas fa-list me-2"></i>Voltar à Lista
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const senhaModal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
+    const senhaInput = document.getElementById('senha');
+    const senhaError = document.getElementById('senhaError');
+    const deleteForm = document.getElementById('deleteForm');
+    // Exibir modal ao clicar no botão de exclusão (caso exista)
+    const btnDelete = document.getElementById('btnDeleteMilitar');
+    if (btnDelete) {
+        btnDelete.addEventListener('click', function() {
+            senhaInput.value = '';
+            senhaError.style.display = 'none';
+            senhaInput.classList.remove('is-invalid');
+            senhaModal.show();
+            setTimeout(() => senhaInput.focus(), 500);
+        });
+    }
+    // Validação do formulário
+    deleteForm.addEventListener('submit', function(e) {
+        const senha = senhaInput.value.trim();
+        if (!senha) {
+            e.preventDefault();
+            senhaInput.classList.add('is-invalid');
+            senhaError.style.display = 'block';
+            senhaInput.focus();
+            return false;
+        }
+    });
+    // Limpar erro ao digitar
+    senhaInput.addEventListener('input', function() {
+        if (this.value.trim()) {
+            this.classList.remove('is-invalid');
+            senhaError.style.display = 'none';
+        }
+    });
+    senhaInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            deleteForm.requestSubmit();
+        }
+    });
+});
+</script>
+{% endblock %} 

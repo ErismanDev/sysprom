@@ -1,0 +1,430 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if comissao %}Editar Comissão{% else %}Nova Comissão{% endif %} - SysProm - CBMEPI{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-header {
+        background: linear-gradient(135deg, #2c5aa0 0%, #1e3a6b 100%);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+    }
+    
+    .form-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    
+    .form-card .card-header {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-bottom: 2px solid #dee2e6;
+        padding: 1.5rem;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 0.5rem;
+    }
+    
+    .form-control, .form-select {
+        border-radius: 8px;
+        border: 2px solid #e9ecef;
+        padding: 0.75rem;
+        transition: all 0.2s ease;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #2c5aa0;
+        box-shadow: 0 0 0 0.2rem rgba(44, 90, 160, 0.25);
+    }
+    
+    .info-panel {
+        background: #e3f2fd;
+        border: 1px solid #2c5aa0;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .composition-card {
+        border: none;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        margin-bottom: 1rem;
+        overflow: hidden;
+    }
+    
+    .composition-card .card-header {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-bottom: 1px solid #dee2e6;
+        padding: 1rem;
+    }
+    
+    .composition-badge {
+        font-size: 0.75rem;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 600;
+    }
+    
+    .btn-submit {
+        border-radius: 8px;
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-submit:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .alert-custom {
+        border-radius: 8px;
+        border: none;
+        padding: 1rem;
+    }
+    
+    .tip-item {
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .tip-item:last-child {
+        border-bottom: none;
+    }
+    
+    .tip-icon {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        margin-right: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="form-header">
+    <div class="container-fluid">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="mb-2">
+                    <i class="fas fa-gavel me-3"></i>
+                    {% if comissao %}Editar Comissão{% else %}Nova Comissão{% endif %}
+                </h1>
+                <p class="mb-0 opacity-75">
+                    {% if comissao %}
+                        Editando comissão: {{ comissao.nome }}
+                    {% else %}
+                        Criar nova comissão de promoções
+                    {% endif %}
+                </p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <a href="{% url 'militares:comissao_list' %}" class="btn btn-light">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Voltar à Lista
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <div class="row">
+        <!-- Formulário Principal -->
+        <div class="col-lg-8">
+            <div class="card form-card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-edit me-2"></i>
+                        Dados da Comissão
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="row g-3">
+                            <!-- Tipo e Nome -->
+                            <div class="col-md-6">
+                                <label for="{{ form.tipo.id_for_label }}" class="form-label">
+                                    <i class="fas fa-tag me-1"></i>
+                                    Tipo de Comissão <span class="text-danger">*</span>
+                                </label>
+                                {{ form.tipo }}
+                                {% if form.tipo.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.tipo.errors %}
+                                            <i class="fas fa-exclamation-triangle me-1"></i>{{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="{{ form.nome.id_for_label }}" class="form-label">
+                                    <i class="fas fa-font me-1"></i>
+                                    Nome da Comissão <span class="text-danger">*</span>
+                                </label>
+                                {{ form.nome }}
+                                <small class="form-text text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Preenchido automaticamente conforme o tipo
+                                </small>
+                                {% if form.nome.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.nome.errors %}
+                                            <i class="fas fa-exclamation-triangle me-1"></i>{{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Datas -->
+                            <div class="col-md-6">
+                                <label for="{{ form.data_criacao.id_for_label }}" class="form-label">
+                                    <i class="fas fa-calendar-plus me-1"></i>
+                                    Data de Criação <span class="text-danger">*</span>
+                                </label>
+                                {{ form.data_criacao }}
+                                {% if form.data_criacao.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.data_criacao.errors %}
+                                            <i class="fas fa-exclamation-triangle me-1"></i>{{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="{{ form.data_termino.id_for_label }}" class="form-label">
+                                    <i class="fas fa-calendar-times me-1"></i>
+                                    Data de Término
+                                </label>
+                                {{ form.data_termino }}
+                                <small class="form-text text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Deixe em branco se for permanente
+                                </small>
+                                {% if form.data_termino.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.data_termino.errors %}
+                                            <i class="fas fa-exclamation-triangle me-1"></i>{{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Status -->
+                            <div class="col-md-6">
+                                <label for="{{ form.status.id_for_label }}" class="form-label">
+                                    <i class="fas fa-toggle-on me-1"></i>
+                                    Status <span class="text-danger">*</span>
+                                </label>
+                                {{ form.status }}
+                                {% if form.status.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.status.errors %}
+                                            <i class="fas fa-exclamation-triangle me-1"></i>{{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Observações -->
+                            <div class="col-12">
+                                <label for="{{ form.observacoes.id_for_label }}" class="form-label">
+                                    <i class="fas fa-sticky-note me-1"></i>
+                                    Observações
+                                </label>
+                                {{ form.observacoes }}
+                                <small class="form-text text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Informações adicionais sobre a comissão
+                                </small>
+                                {% if form.observacoes.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.observacoes.errors %}
+                                            <i class="fas fa-exclamation-triangle me-1"></i>{{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Botões -->
+                        <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+                            <a href="{% url 'militares:comissao_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>
+                                Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-submit">
+                                <i class="fas fa-save me-1"></i>
+                                {% if comissao %}Atualizar Comissão{% else %}Criar Comissão{% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Painel Informativo -->
+        <div class="col-lg-4">
+            <!-- Informações Gerais -->
+            <div class="info-panel">
+                <h6 class="mb-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Informações Importantes
+                </h6>
+                <div class="small">
+                    <p><strong>CPO</strong> - Comissão de Promoções de Oficiais</p>
+                    <p><strong>CPP</strong> - Comissão de Promoções de Praças</p>
+                    <p class="mb-0">Cada tipo tem composição e atribuições específicas conforme a legislação.</p>
+                </div>
+            </div>
+            
+            <!-- Composição CPO -->
+            <div class="card composition-card">
+                <div class="card-header">
+                    <div class="d-flex align-items-center">
+                        <span class="badge bg-primary composition-badge me-2">CPO</span>
+                        <h6 class="mb-0">Comissão de Promoções de Oficiais</h6>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled small mb-0">
+                        <li class="mb-2">
+                            <i class="fas fa-user-tie text-primary me-1"></i>
+                            <strong>Presidente:</strong> Comandante-Geral
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-users text-info me-1"></i>
+                            <strong>Natos:</strong> Subcomandante-Geral, DGP
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-star text-warning me-1"></i>
+                            <strong>Efetivos:</strong> 2 Coronéis
+                        </li>
+                        <li>
+                            <i class="fas fa-user-plus text-secondary me-1"></i>
+                            <strong>Suplentes:</strong> 1 Coronel
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Composição CPP -->
+            <div class="card composition-card">
+                <div class="card-header">
+                    <div class="d-flex align-items-center">
+                        <span class="badge bg-success composition-badge me-2">CPP</span>
+                        <h6 class="mb-0">Comissão de Promoções de Praças</h6>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled small mb-0">
+                        <li class="mb-2">
+                            <i class="fas fa-user-tie text-success me-1"></i>
+                            <strong>Presidente:</strong> Subcomandante-Geral
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-users text-info me-1"></i>
+                            <strong>Nato:</strong> 02 Comandantes Regionais
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-star text-warning me-1"></i>
+                            <strong>Efetivos:</strong> 2 Oficiais Superiores
+                        </li>
+                        <li>
+                            <i class="fas fa-user-plus text-secondary me-1"></i>
+                            <strong>Suplentes:</strong> 2 Oficiais Superiores
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Dicas -->
+            <div class="alert alert-info alert-custom">
+                <h6 class="mb-3">
+                    <i class="fas fa-lightbulb me-2"></i>
+                    Dicas para Criação
+                </h6>
+                <div class="small">
+                    <div class="tip-item">
+                        <span class="tip-icon bg-primary text-white">1</span>
+                        Use um nome descritivo para a comissão
+                    </div>
+                    <div class="tip-item">
+                        <span class="tip-icon bg-success text-white">2</span>
+                        Defina a data de término se for temporária
+                    </div>
+                    <div class="tip-item">
+                        <span class="tip-icon bg-info text-white">3</span>
+                        Após criar, adicione os membros
+                    </div>
+                    <div class="tip-item">
+                        <span class="tip-icon bg-warning text-white">4</span>
+                        Agende as sessões conforme necessário
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Base Legal -->
+            <div class="alert alert-secondary alert-custom">
+                <h6 class="mb-2">
+                    <i class="fas fa-book me-2"></i>
+                    Base Legal
+                </h6>
+                <p class="mb-0 small">
+                    Leis 5.461, 5.462/2005 e 7.772/2022
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Adicionar classes Bootstrap aos campos
+    document.addEventListener('DOMContentLoaded', function() {
+        const inputs = document.querySelectorAll('input, select, textarea');
+        inputs.forEach(function(input) {
+            if (input.type !== 'hidden') {
+                input.classList.add('form-control');
+            }
+        });
+        
+        // Auto-preenchimento do nome baseado no tipo
+        const tipoSelect = document.getElementById('{{ form.tipo.id_for_label }}');
+        const nomeInput = document.getElementById('{{ form.nome.id_for_label }}');
+        
+        if (tipoSelect && nomeInput) {
+            tipoSelect.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                if (selectedOption.value) {
+                    nomeInput.value = selectedOption.text;
+                }
+            });
+        }
+        
+        // Data atual como padrão para data de criação
+        const dataCriacaoInput = document.getElementById('{{ form.data_criacao.id_for_label }}');
+        if (dataCriacaoInput && !dataCriacaoInput.value) {
+            const today = new Date().toISOString().split('T')[0];
+            dataCriacaoInput.value = today;
+        }
+    });
+</script>
+{% endblock %} 

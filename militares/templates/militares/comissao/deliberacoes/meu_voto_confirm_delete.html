@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - SysProm - CBMEPI{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-center">
+  <div style="width: 100%; max-width: 600px;">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">
+            <i class="fas fa-trash me-2"></i>
+            {{ title }}
+        </h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <a href="{% url 'militares:meu_voto_detail' voto.pk %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i>
+                Voltar ao Voto
+            </a>
+        </div>
+    </div>
+    
+    <div class="card border-danger">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Confirmar Exclusão
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-warning">
+                <h6 class="alert-heading">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Atenção!
+                </h6>
+                <p class="mb-0">
+                    Você está prestes a excluir seu voto na <strong>Deliberação {{ voto.deliberacao.numero }}</strong>. 
+                    Esta ação não pode ser desfeita.
+                </p>
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <p><strong>Deliberação:</strong> {{ voto.deliberacao.numero }}</p>
+                    <p><strong>Assunto:</strong> {{ voto.deliberacao.assunto }}</p>
+                    <p><strong>Seu Voto:</strong> 
+                        <span class="badge {% if voto.voto == 'FAVOR' %}bg-success{% elif voto.voto == 'CONTRA' %}bg-danger{% else %}bg-secondary{% endif %}">
+                            {{ voto.get_voto_display }}
+                        </span>
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Data da Sessão:</strong> {{ voto.deliberacao.sessao.data_sessao|date:"d/m/Y" }}</p>
+                    <p><strong>Comissão:</strong> {{ voto.deliberacao.sessao.comissao.nome }}</p>
+                    <p><strong>Data de Registro:</strong> {{ voto.data_registro|date:"d/m/Y H:i" }}</p>
+                </div>
+            </div>
+            
+            {% if voto.voto_proferido %}
+            <div class="mb-3">
+                <h6>Voto Proferido:</h6>
+                <div class="border rounded p-3 bg-light">
+                    {{ voto.voto_proferido|safe }}
+                </div>
+            </div>
+            {% endif %}
+            
+            <form method="post" id="delete-form">
+                {% csrf_token %}
+                
+                <!-- Confirmação de Senha -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="fas fa-lock me-2"></i>
+                            Confirmação de Senha
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-3">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Digite sua senha para confirmar a exclusão do voto.
+                        </p>
+                        <div class="form-group">
+                            <label for="senha_votante" class="form-label">Senha</label>
+                            <input type="password" class="form-control" id="senha_votante" name="senha_votante" 
+                                   placeholder="Digite sua senha" required>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Botões de Ação -->
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'militares:meu_voto_detail' voto.pk %}" class="btn btn-secondary">
+                        <i class="fas fa-times me-1"></i>
+                        Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash me-1"></i>
+                        Confirmar Exclusão
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Validação do formulário
+    const form = document.getElementById('delete-form');
+    
+    form.addEventListener('submit', function(e) {
+        const senha = document.getElementById('senha_votante').value;
+        if (!senha) {
+            e.preventDefault();
+            alert('Você deve digitar sua senha para confirmar a exclusão.');
+            return false;
+        }
+        
+        // Confirmação adicional
+        if (!confirm('Tem certeza que deseja excluir este voto? Esta ação não pode ser desfeita.')) {
+            e.preventDefault();
+            return false;
+        }
+    });
+});
+</script>
+{% endblock %} 

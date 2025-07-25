@@ -1,0 +1,533 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title|default:'Nova Sessão da Comissão' }} - SysProm - CBMEPI{% endblock %}
+
+{% block extra_css %}
+<style>
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    }
+    
+    .card.shadow-lg {
+        box-shadow: 0 1rem 3rem rgba(0,0,0,.175) !important;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    
+    .invalid-feedback {
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+    
+    .form-label.fw-bold {
+        color: #495057;
+        margin-bottom: 0.5rem;
+    }
+    
+    .card-header.bg-light {
+        background-color: #f8f9fa !important;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .text-danger {
+        color: #dc3545 !important;
+    }
+    
+    /* Melhorar visual dos campos de data e hora */
+    input[type="date"], input[type="time"] {
+        background-color: #fff;
+        border: 1px solid #ced4da;
+        border-radius: 0.375rem;
+        padding: 0.375rem 0.75rem;
+        font-size: 1rem;
+        line-height: 1.5;
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+    
+    input[type="date"]:focus, input[type="time"]:focus {
+        border-color: #007bff;
+        outline: 0;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    
+    /* Estilo para campos obrigatórios */
+    .form-label .text-danger {
+        font-weight: bold;
+    }
+    
+    /* Responsividade melhorada */
+    @media (max-width: 768px) {
+        .btn-lg {
+            padding: 0.5rem 1rem;
+            font-size: 1rem;
+        }
+        
+        .card-body {
+            padding: 1rem !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-gradient-primary text-white py-3">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-calendar-alt fa-2x me-3"></i>
+                        <div>
+                            <h4 class="mb-0">
+                                {% if form.instance.pk %}Editar Sessão da Comissão{% else %}Nova Sessão da Comissão{% endif %}
+                            </h4>
+                            <small class="opacity-75">
+                                {% if form.instance.pk %}
+                                    Editando sessão da comissão
+                                {% else %}
+                                    Agendando nova sessão
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body p-4">
+                    <!-- Informações da Comissão -->
+                    <div class="alert alert-info border-start border-4 border-info mb-4">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h6 class="mb-1"><i class="fas fa-info-circle me-2"></i>Comissão</h6>
+                                <p class="mb-0">
+                                    <strong>{{ comissao.nome }}</strong><br>
+                                    <small class="text-muted">Status: {{ comissao.get_status_display }} | Membros: {{ comissao.total_membros }}</small>
+                                </p>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <a href="{% url 'militares:sessao_comissao_list' %}?comissao={{ comissao.pk }}" class="btn btn-outline-secondary btn-sm">
+                                    <i class="fas fa-arrow-left me-1"></i>
+                                    Voltar às Sessões
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form method="post" enctype="multipart/form-data" novalidate class="needs-validation">
+                        {% csrf_token %}
+                        
+                        <!-- Exibir mensagens de erro gerais -->
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <strong>Erros encontrados:</strong>
+                                <ul class="mb-0 mt-2">
+                                    {% for error in form.non_field_errors %}
+                                        <li>{{ error }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+                        
+                        <!-- Grupo: Informações da Sessão -->
+                        <div class="card mb-4 border-0 shadow-sm">
+                            <div class="card-header bg-light border-0">
+                                <h6 class="mb-0 text-primary">
+                                    <i class="fas fa-calendar-alt me-2"></i>1. Informações da Sessão
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.numero.id_for_label }}" class="form-label fw-bold">
+                                {{ form.numero.label }} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.numero }}
+                            {% if form.numero.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.numero.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.tipo.id_for_label }}" class="form-label fw-bold">
+                                {{ form.tipo.label }} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.tipo }}
+                            {% if form.tipo.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.tipo.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.status.id_for_label }}" class="form-label fw-bold">
+                                {{ form.status.label }} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.status }}
+                            {% if form.status.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.status.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.data_sessao.id_for_label }}" class="form-label fw-bold">
+                                {{ form.data_sessao.label }} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.data_sessao }}
+                            {% if form.data_sessao.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.data_sessao.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="{{ form.hora_inicio.id_for_label }}" class="form-label fw-bold">
+                                {{ form.hora_inicio.label }} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.hora_inicio }}
+                            {% if form.hora_inicio.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.hora_inicio.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="{{ form.hora_fim.id_for_label }}" class="form-label fw-bold">
+                                {{ form.hora_fim.label }}
+                            </label>
+                            {{ form.hora_fim }}
+                            {% if form.hora_fim.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.hora_fim.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12 mb-3">
+                            <label for="{{ form.local.id_for_label }}" class="form-label fw-bold">
+                                {{ form.local.label }} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.local }}
+                            {% if form.local.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.local.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12 mb-3">
+                            <label for="{{ form.observacoes.id_for_label }}" class="form-label fw-bold">
+                                <i class="fas fa-sticky-note me-2"></i>{{ form.observacoes.label }}
+                            </label>
+                            {{ form.observacoes }}
+                            {% if form.observacoes.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.observacoes.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Adicione observações importantes sobre a sessão, como instruções especiais, documentos necessários ou informações complementares.
+                            </div>
+                        </div>
+                    </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Grupo: Conteúdo da Sessão -->
+                        <div class="card mb-4 border-0 shadow-sm">
+                            <div class="card-header bg-light border-0">
+                                <h6 class="mb-0 text-primary">
+                                    <i class="fas fa-file-alt me-2"></i>2. Conteúdo da Sessão
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label for="{{ form.pauta.id_for_label }}" class="form-label fw-bold">
+                                        {{ form.pauta.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group">
+                                        {{ form.pauta }}
+                                        <button type="button" class="btn btn-outline-secondary" id="carregar-quadros-btn" style="display: none;" title="Carregar Quadros de Acesso Atuais">
+                                            <i class="fas fa-table me-1"></i>
+                                            Carregar Quadros
+                                        </button>
+                                    </div>
+                                    {% if form.pauta.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.pauta.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text" id="quadros-info" style="display: none;">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        <strong>Quadros de Acesso carregados:</strong> Os quadros de acesso atuais (Antiguidade e Merecimento) foram adicionados à pauta.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Grupo: Documento da Sessão (Opcional) -->
+                        <div class="card mb-4 border-0 shadow-sm">
+                            <div class="card-header bg-light border-0">
+                                <h6 class="mb-0 text-primary">
+                                    <i class="fas fa-file-upload me-2"></i>3. Documento da Sessão (Opcional)
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Documento que gerou a reunião:</strong> Você pode anexar o documento que deu origem a esta sessão (ex: Quadro de Acesso, Memorando, etc.)
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.documento_titulo.id_for_label }}" class="form-label fw-bold">
+                                            {{ form.documento_titulo.label }}
+                                        </label>
+                                        {{ form.documento_titulo }}
+                                        {% if form.documento_titulo.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.documento_titulo.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.documento_tipo.id_for_label }}" class="form-label fw-bold">
+                                            {{ form.documento_tipo.label }}
+                                        </label>
+                                        {{ form.documento_tipo }}
+                                        {% if form.documento_tipo.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.documento_tipo.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-12 mb-3">
+                                        <label for="{{ form.documento_arquivo.id_for_label }}" class="form-label fw-bold">
+                                            {{ form.documento_arquivo.label }}
+                                        </label>
+                                        {{ form.documento_arquivo }}
+                                        {% if form.documento_arquivo.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.documento_arquivo.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                        <div class="form-text">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            {{ form.documento_arquivo.help_text }}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-12 mb-3">
+                                        <label for="{{ form.documento_descricao.id_for_label }}" class="form-label fw-bold">
+                                            {{ form.documento_descricao.label }}
+                                        </label>
+                                        {{ form.documento_descricao }}
+                                        {% if form.documento_descricao.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.documento_descricao.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Botões de Ação -->
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'militares:sessao_comissao_list' %}?comissao={{ comissao.pk }}" class="btn btn-secondary me-md-2">
+                                <i class="fas fa-times me-1"></i>
+                                Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-save me-1"></i>
+                                Salvar Sessão
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Adicionar classes Bootstrap aos campos
+    document.addEventListener('DOMContentLoaded', function() {
+        const inputs = document.querySelectorAll('input, select, textarea');
+        inputs.forEach(function(input) {
+            input.classList.add('form-control');
+        });
+        
+        // Adicionar classe específica para textarea
+        const textareas = document.querySelectorAll('textarea');
+        textareas.forEach(function(textarea) {
+            textarea.classList.add('form-control');
+        });
+        
+        // Adicionar classe específica para select
+        const selects = document.querySelectorAll('select');
+        selects.forEach(function(select) {
+            select.classList.add('form-select');
+        });
+        
+        // Validação do formulário
+        const form = document.querySelector('.needs-validation');
+        const submitBtn = document.querySelector('button[type="submit"]');
+        
+        form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+                
+                // Mostrar mensagem de erro
+                if (!document.querySelector('.alert-danger')) {
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'alert alert-danger mt-3';
+                    alertDiv.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Por favor, corrija os erros no formulário antes de continuar.';
+                    form.insertBefore(alertDiv, form.firstChild);
+                }
+            } else {
+                // Desabilitar botão e mostrar loading
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Salvando...';
+                
+                // Remover alertas de erro
+                const errorAlerts = document.querySelectorAll('.alert-danger');
+                errorAlerts.forEach(alert => alert.remove());
+            }
+            form.classList.add('was-validated');
+        });
+        
+        // Validação adicional de campos obrigatórios
+        const requiredFields = form.querySelectorAll('[required]');
+        requiredFields.forEach(field => {
+            field.addEventListener('blur', function() {
+                if (!this.value.trim()) {
+                    this.classList.add('is-invalid');
+                } else {
+                    this.classList.remove('is-invalid');
+                    this.classList.add('is-valid');
+                }
+            });
+        });
+        
+        // Funcionalidade para carregar quadros de acesso
+        const tipoSelect = document.querySelector('#id_tipo');
+        const carregarQuadrosBtn = document.getElementById('carregar-quadros-btn');
+        const pautaTextarea = document.querySelector('#id_pauta');
+        const quadrosInfo = document.getElementById('quadros-info');
+        
+        // Verificar se o tipo atual é relacionado a quadro de acesso
+        function verificarTipoQuadro() {
+            const tipoSelecionado = tipoSelect.value;
+            if (tipoSelecionado === 'ESPECIAL' || tipoSelecionado === 'EXTRAORDINARIA') {
+                carregarQuadrosBtn.style.display = 'block';
+            } else {
+                carregarQuadrosBtn.style.display = 'none';
+                quadrosInfo.style.display = 'none';
+            }
+        }
+        
+        // Verificar tipo inicial
+        verificarTipoQuadro();
+        
+        // Listener para mudança no tipo
+        tipoSelect.addEventListener('change', verificarTipoQuadro);
+        
+        // Monitorar upload de arquivos
+        const fileInput = document.querySelector('#id_documento_arquivo');
+        if (fileInput) {
+            fileInput.addEventListener('change', function() {
+                const file = this.files[0];
+                if (file) {
+                    const fileSize = (file.size / (1024 * 1024)).toFixed(2);
+                    const maxSize = 10;
+                    
+                    if (file.size > maxSize * 1024 * 1024) {
+                        alert(`Arquivo muito grande. Tamanho máximo: ${maxSize}MB`);
+                        this.value = '';
+                        return;
+                    }
+                    
+                    // Mostrar informações do arquivo
+                    const fileInfo = document.createElement('div');
+                    fileInfo.className = 'alert alert-info mt-2';
+                    fileInfo.innerHTML = `
+                        <i class="fas fa-file me-2"></i>
+                        <strong>Arquivo selecionado:</strong> ${file.name} (${fileSize}MB)
+                    `;
+                    
+                    // Remover informações anteriores
+                    const existingInfo = this.parentNode.querySelector('.alert-info');
+                    if (existingInfo) {
+                        existingInfo.remove();
+                    }
+                    
+                    this.parentNode.appendChild(fileInfo);
+                }
+            });
+        }
+        
+        // Botão para carregar quadros de acesso
+        carregarQuadrosBtn.addEventListener('click', function() {
+            // Fazer requisição AJAX para buscar quadros de acesso atuais
+            fetch('{% url "militares:quadro_acesso_list" %}?ajax=1')
+                .then(response => response.json())
+                .then(data => {
+                    let pautaAtual = pautaTextarea.value;
+                    let quadrosAdicionados = '';
+                    
+                    // Filtrar apenas quadros ativos (ANTIGUIDADE e MERECIMENTO)
+                    const quadrosAtivos = data.quadros.filter(quadro => 
+                        (quadro.tipo === 'ANTIGUIDADE' || quadro.tipo === 'MERECIMENTO') && 
+                        quadro.status === 'HOMOLOGADO'
+                    );
+                    
+                    if (quadrosAtivos.length > 0) {
+                        quadrosAdicionados = '\n\n=== QUADROS DE ACESSO ATUAIS ===\n';
+                        quadrosAtivos.forEach(quadro => {
+                            quadrosAdicionados += `\n• ${quadro.get_tipo_display} - ${quadro.data_promocao}\n`;
+                            quadrosAdicionados += `  Status: ${quadro.get_status_display}\n`;
+                            if (quadro.total_militares > 0) {
+                                quadrosAdicionados += `  Total de militares: ${quadro.total_militares}\n`;
+                            }
+                        });
+                        
+                        // Adicionar à pauta atual
+                        pautaTextarea.value = pautaAtual + quadrosAdicionados;
+                        quadrosInfo.style.display = 'block';
+                        
+                        // Mostrar mensagem de sucesso
+                        alert('Quadros de acesso atuais foram adicionados à pauta!');
+                    } else {
+                        alert('Nenhum quadro de acesso ativo encontrado.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar quadros:', error);
+                    alert('Erro ao carregar quadros de acesso. Tente novamente.');
+                });
+        });
+    });
+</script>
+{% endblock %} 

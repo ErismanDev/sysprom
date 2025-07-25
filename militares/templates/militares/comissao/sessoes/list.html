@@ -1,0 +1,260 @@
+{% extends 'base.html' %}
+
+{% block title %}Sessões da Comissão - SysProm - CBMEPI{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-calendar-alt me-2"></i>
+        Sessões da Comissão: {{ comissao.nome }}
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'militares:comissao_detail' comissao.pk %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i>
+            Voltar à Comissão
+        </a>
+        <a href="{% url 'militares:sessao_comissao_create' %}?comissao={{ comissao.pk }}" class="btn btn-primary ms-2">
+            <i class="fas fa-plus me-1"></i>
+            Nova Sessão
+        </a>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-filter me-2"></i>
+            Filtros
+        </h5>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label for="status" class="form-label">Status</label>
+                <select name="status" id="status" class="form-select">
+                    <option value="">Todos</option>
+                    {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="tipo" class="form-label">Tipo</label>
+                <select name="tipo" id="tipo" class="form-select">
+                    <option value="">Todos</option>
+                    {% for value, label in tipo_choices %}
+                        <option value="{{ value }}" {% if request.GET.tipo == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary me-2">
+                    <i class="fas fa-search me-1"></i>
+                    Filtrar
+                </button>
+                <a href="{% url 'militares:sessao_comissao_list' %}?comissao={{ comissao.pk }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-times me-1"></i>
+                    Limpar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Lista de Sessões -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-list me-2"></i>
+            Sessões ({{ sessoes.count }})
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if sessoes %}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Sessão</th>
+                            <th>Data</th>
+                            <th>Horário</th>
+                            <th>Tipo</th>
+                            <th>Status</th>
+                            <th>Local</th>
+                            <th>Presentes</th>
+                            <th>Atas</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sessao in sessoes %}
+                        <tr>
+                            <td>
+                                <strong>Sessão {{ sessao.numero }}</strong>
+                                {% if sessao.observacoes %}
+                                    <br><small class="text-muted">{{ sessao.observacoes|truncatechars:50 }}</small>
+                                {% endif %}
+                            </td>
+                            <td>{{ sessao.data_sessao|date:"d/m/Y" }}</td>
+                            <td>
+                                {{ sessao.hora_inicio|time:"H:i" }}
+                                {% if sessao.hora_fim %}
+                                    - {{ sessao.hora_fim|time:"H:i" }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if sessao.tipo == 'ORDINARIA' %}
+                                    <span class="badge bg-primary">{{ sessao.get_tipo_display }}</span>
+                                {% elif sessao.tipo == 'EXTRAORDINARIA' %}
+                                    <span class="badge bg-warning">{{ sessao.get_tipo_display }}</span>
+                                {% else %}
+                                    <span class="badge bg-info">{{ sessao.get_tipo_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if sessao.status == 'CONCLUIDA' %}
+                                    <span class="badge bg-success">{{ sessao.get_status_display }}</span>
+                                {% elif sessao.status == 'EM_ANDAMENTO' %}
+                                    <span class="badge bg-warning">{{ sessao.get_status_display }}</span>
+                                {% elif sessao.status == 'AGENDADA' %}
+                                    <span class="badge bg-info">{{ sessao.get_status_display }}</span>
+                                {% elif sessao.status == 'CANCELADA' %}
+                                    <span class="badge bg-danger">{{ sessao.get_status_display }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ sessao.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ sessao.local|truncatechars:30 }}</td>
+                            <td>
+                                <span class="badge bg-success">{{ sessao.presentes.count }}/{{ sessao.presencas.count }}</span>
+                            </td>
+                            <td>
+                                {% if sessao.ata_editada %}
+                                    {% if sessao.ata_editada.status == 'RASCUNHO' %}
+                                        <span class="badge bg-warning">Rascunho</span>
+                                    {% elif sessao.ata_editada.status == 'PARA_ASSINATURA' %}
+                                        <span class="badge bg-info">Para Assinatura</span>
+                                    {% elif sessao.ata_editada.status == 'ASSINADA' %}
+                                        <span class="badge bg-success">Assinada</span>
+                                    {% elif sessao.ata_editada.status == 'FINALIZADA' %}
+                                        <span class="badge bg-primary">Finalizada</span>
+                                    {% endif %}
+                                    <br><small class="text-muted">v{{ sessao.ata_editada.versao }}</small>
+                                {% else %}
+                                    <span class="badge bg-secondary">Sem Ata</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'militares:sessao_comissao_detail' sessao.pk %}" 
+                                       class="btn btn-sm btn-outline-primary" title="Ver detalhes">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{% url 'militares:sessao_comissao_update' sessao.pk %}" 
+                                       class="btn btn-sm btn-outline-warning" title="Editar Sessão">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="{% url 'militares:presenca_sessao_update' sessao.pk %}" 
+                                       class="btn btn-sm btn-outline-info" title="Registrar presenças">
+                                        <i class="fas fa-users"></i>
+                                    </a>
+                                    {% if sessao.ata_editada %}
+                                        {% if sessao.ata_editada.status == 'RASCUNHO' %}
+                                            <a href="{% url 'militares:sessao_editar_ata' sessao.pk %}" 
+                                               class="btn btn-sm btn-outline-success" title="Editar Ata">
+                                                <i class="fas fa-file-alt"></i>
+                                            </a>
+                                        {% elif sessao.ata_editada.status == 'FINALIZADA' %}
+                                            <a href="{% url 'militares:ata_gerar_pdf' sessao.pk %}" 
+                                               class="btn btn-sm btn-outline-secondary" title="Gerar PDF">
+                                                <i class="fas fa-file-pdf"></i>
+                                            </a>
+                                        {% endif %}
+                                        <a href="{% url 'militares:sessao_gerar_ata' sessao.pk %}" 
+                                           class="btn btn-sm btn-outline-info" title="Visualizar Ata">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    {% else %}
+                                        <a href="{% url 'militares:sessao_editar_ata' sessao.pk %}" 
+                                           class="btn btn-sm btn-outline-success" title="Criar Ata">
+                                            <i class="fas fa-plus"></i>
+                                        </a>
+                                    {% endif %}
+                                    {% if sessao.deliberacoes.exists %}
+                                        <a href="{% url 'militares:sessao_comissao_detail' sessao.pk %}" 
+                                           class="btn btn-sm btn-outline-dark" title="Ver Deliberações">
+                                            <i class="fas fa-gavel"></i>
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-4">
+                <i class="fas fa-calendar-alt fa-2x text-muted mb-3"></i>
+                <h6 class="text-muted">Nenhuma sessão encontrada</h6>
+                <p class="text-muted">
+                    {% if request.GET.status or request.GET.tipo %}
+                        Tente ajustar os filtros ou 
+                    {% endif %}
+                    Agende a primeira sessão da comissão.
+                </p>
+                <a href="{% url 'militares:sessao_comissao_create' %}?comissao={{ comissao.pk }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i>
+                    Agendar Primeira Sessão
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Informações da Comissão -->
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Informações da Comissão
+                </h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Nome:</strong> {{ comissao.nome }}</p>
+                <p><strong>Status:</strong> 
+                    {% if comissao.status == 'ATIVA' %}
+                        <span class="badge bg-success">{{ comissao.get_status_display }}</span>
+                    {% else %}
+                        <span class="badge bg-secondary">{{ comissao.get_status_display }}</span>
+                    {% endif %}
+                </p>
+                <p><strong>Data de Criação:</strong> {{ comissao.data_criacao|date:"d/m/Y" }}</p>
+                {% if comissao.data_termino %}
+                    <p><strong>Data de Término:</strong> {{ comissao.data_termino|date:"d/m/Y" }}</p>
+                {% endif %}
+                <p><strong>Total de Membros:</strong> <span class="badge bg-info">{{ comissao.total_membros }}</span></p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>
+                    Estatísticas das Sessões
+                </h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Total de Sessões:</strong> <span class="badge bg-primary">{{ sessoes.count }}</span></p>
+                <p><strong>Sessões Concluídas:</strong> <span class="badge bg-success">{{ sessoes|dictsort:"status"|length }}</span></p>
+                <p><strong>Sessões Agendadas:</strong> <span class="badge bg-info">{{ sessoes|dictsort:"status"|length }}</span></p>
+                <p><strong>Sessões em Andamento:</strong> <span class="badge bg-warning">{{ sessoes|dictsort:"status"|length }}</span></p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

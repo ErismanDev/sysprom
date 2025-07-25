@@ -1,0 +1,1123 @@
+{% extends 'base.html' %}
+
+{% block title %}Detalhes da Sessão - SysProm - CBMEPI{% endblock %}
+
+{% block content %}
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">
+            <i class="fas fa-calendar-alt me-2"></i>
+            Detalhes da Sessão {{ sessao.numero }}
+        </h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <a href="{% url 'militares:sessao_comissao_list' %}?comissao={{ sessao.comissao.pk }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i>
+                Voltar às Sessões
+            </a>
+            <a href="{% url 'militares:sessao_comissao_update' sessao.pk %}" class="btn btn-warning ms-2">
+                <i class="fas fa-edit me-1"></i>
+                Editar Sessão
+            </a>
+            <a href="{% url 'militares:presenca_sessao_update' sessao.pk %}" class="btn btn-info ms-2">
+                <i class="fas fa-users me-1"></i>
+                Presenças
+            </a>
+            {% if sessao.status != 'CONCLUIDA' %}
+                <a href="{% url 'militares:sessao_encerrar' sessao.pk %}" class="btn btn-danger ms-2">
+                    <i class="fas fa-door-closed me-1"></i>
+                        Encerrar Sessão
+                </a>
+            {% endif %}
+            <a href="{% url 'militares:sessao_gerar_pdf_completo' sessao.pk %}" class="btn btn-success ms-2" target="_blank" title="Abrir PDF em nova guia" onclick="return confirm('Gerar PDF completo da sessão?')">
+                <i class="fas fa-file-pdf me-1"></i>
+                Gerar PDF Completo
+            </a>
+        </div>
+    </div>
+
+<div class="row">
+    <div class="col-12">
+        <!-- Informações da Sessão (fora do acordeão) -->
+        <div class="card mb-4 shadow-lg">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Informações da Sessão
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <dl class="row mb-0">
+                            <dt class="col-sm-4">Número</dt>
+                            <dd class="col-sm-8">{{ sessao.numero }}</dd>
+                            <dt class="col-sm-4">Tipo</dt>
+                            <dd class="col-sm-8">{{ sessao.get_tipo_display }}</dd>
+                            <dt class="col-sm-4">Status</dt>
+                            <dd class="col-sm-8">
+                                {% if sessao.status == 'CONCLUIDA' %}
+                                    <span class="badge bg-success">{{ sessao.get_status_display }}</span>
+                                {% elif sessao.status == 'EM_ANDAMENTO' %}
+                                    <span class="badge bg-warning">{{ sessao.get_status_display }}</span>
+                                {% elif sessao.status == 'AGENDADA' %}
+                                    <span class="badge bg-info">{{ sessao.get_status_display }}</span>
+                                {% elif sessao.status == 'CANCELADA' %}
+                                    <span class="badge bg-danger">{{ sessao.get_status_display }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ sessao.get_status_display }}</span>
+                                {% endif %}
+                            </dd>
+                        </dl>
+                    </div>
+                    <div class="col-md-6">
+                        <dl class="row mb-0">
+                            <dt class="col-sm-4">Data</dt>
+                            <dd class="col-sm-8">{{ sessao.data_sessao|date:"d/m/Y" }}</dd>
+                            <dt class="col-sm-4">Horário</dt>
+                            <dd class="col-sm-8">
+                                {{ sessao.hora_inicio|time:"H:i" }}
+                                {% if sessao.hora_fim %}- {{ sessao.hora_fim|time:"H:i" }}{% endif %}
+                            </dd>
+                            <dt class="col-sm-4">Local</dt>
+                            <dd class="col-sm-8">{{ sessao.local }}</dd>
+                        </dl>
+                    </div>
+                </div>
+                {% if sessao.pauta or sessao.observacoes %}
+                <div class="row mt-3">
+                    {% if sessao.pauta %}
+                    <div class="col-md-6">
+                        <dl class="row mb-0">
+                            <dt class="col-sm-4">Pauta</dt>
+                            <dd class="col-sm-8">{{ sessao.pauta }}</dd>
+                        </dl>
+                    </div>
+                    {% endif %}
+                    {% if sessao.observacoes %}
+                    <div class="col-md-6">
+                        <dl class="row mb-0">
+                            <dt class="col-sm-4">Observações</dt>
+                            <dd class="col-sm-8">{{ sessao.observacoes }}</dd>
+                        </dl>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Acordeões Separados com Alto Relevo -->
+        <div class="accordion" id="sessaoAccordion">
+            <!-- Presenças -->
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingPresencas">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePresencas" 
+                            aria-expanded="false" aria-controls="collapsePresencas">
+                        <i class="fas fa-users me-2"></i>
+                        <strong>Presenças</strong>
+                        {% if presencas %}
+                            <span class="badge bg-primary ms-2">{{ presencas|length }} membros</span>
+                        {% endif %}
+                    </button>
+                </h2>
+                <div id="collapsePresencas" class="accordion-collapse collapse" aria-labelledby="headingPresencas" data-bs-parent="#sessaoAccordion">
+                    <div class="accordion-body">
+                        {% if presencas %}
+                        <ul class="list-group">
+                            {% for presenca in presencas %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ presenca.membro }}
+                                {% if presenca.presente %}
+                                    <span class="badge bg-success">Presente</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Ausente</span>
+                                {% endif %}
+                                {% if presenca.justificativa %}
+                                    <span class="ms-2 text-muted small">({{ presenca.justificativa }})</span>
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <p class="text-muted">Nenhuma presença registrada.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <!-- Quadros de Acesso (Acordeão) -->
+            {% if pauta_aprovacao_quadro and quadros_acesso_sessao %}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingQuadrosAcesso">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseQuadrosAcesso" 
+                            aria-expanded="false" aria-controls="collapseQuadrosAcesso">
+                        <i class="fas fa-table me-2"></i>
+                        <strong>Quadros de Acesso da Comissão</strong>
+                        <span class="badge bg-primary ms-2">{{ quadros_acesso_sessao|length }} quadros</span>
+                    </button>
+                </h2>
+                <div id="collapseQuadrosAcesso" class="accordion-collapse collapse" aria-labelledby="headingQuadrosAcesso" data-bs-parent="#sessaoAccordion">
+                    <div class="accordion-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Número</th>
+                                        <th>Tipo</th>
+                                        <th>Data Promoção</th>
+                                        <th>Status</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for quadro in quadros_acesso_sessao %}
+                                    <tr>
+                                        <td><strong>{{ quadro.numero }}</strong></td>
+                                        <td>{{ quadro.get_tipo_display }}</td>
+                                        <td>{{ quadro.data_promocao|date:"d/m/Y" }}</td>
+                                        <td>
+                                            <span class="badge bg-info">{{ quadro.get_status_display }}</span>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <!-- Botão Visualizar -->
+                                                {% if quadro.categoria == 'PRACAS' %}
+                                                    <a href="{% url 'militares:quadro_acesso_pracas_detail' quadro.pk %}" 
+                                                       class="btn btn-sm btn-outline-primary" title="Ver detalhes">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                {% else %}
+                                                    <a href="{% url 'militares:quadro_acesso_detail' quadro.pk %}" 
+                                                       class="btn btn-sm btn-outline-primary" title="Ver detalhes">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                {% endif %}
+                                                
+                                                <!-- Botão Editar - apenas se não estiver homologado -->
+                                                {% if quadro.status != 'HOMOLOGADO' %}
+                                                    {% if quadro.categoria == 'PRACAS' %}
+                                                        <a href="{% url 'militares:quadro_acesso_pracas_edit' quadro.pk %}" 
+                                                           class="btn btn-sm btn-outline-info" title="Editar">
+                                                            <i class="fas fa-edit"></i>
+                                                        </a>
+                                                    {% else %}
+                                                        <a href="{% url 'militares:quadro_acesso_edit' quadro.pk %}" 
+                                                           class="btn btn-sm btn-outline-info" title="Editar">
+                                                            <i class="fas fa-edit"></i>
+                                                        </a>
+                                                    {% endif %}
+                                                {% endif %}
+                                                
+                                                <!-- Botão Exportar PDF -->
+                                                {% if quadro.categoria == 'PRACAS' %}
+                                                    <a href="{% url 'militares:quadro_acesso_pracas_pdf' quadro.pk %}" 
+                                                       class="btn btn-sm btn-outline-secondary" title="Visualizar PDF" target="_blank">
+                                                        <i class="fas fa-file-pdf"></i>
+                                                    </a>
+                                                {% else %}
+                                                    <a href="{% url 'militares:quadro_acesso_pdf' quadro.pk %}" 
+                                                       class="btn btn-sm btn-outline-secondary" title="Visualizar PDF" target="_blank">
+                                                        <i class="fas fa-file-pdf"></i>
+                                                    </a>
+                                                {% endif %}
+                                                
+                                                <!-- Botão Assinar Documentos - apenas se estiver elaborado -->
+                                                {% if quadro.status == 'ELABORADO' %}
+                                                    <a href="{% url 'militares:visualizar_quadro_html' quadro.pk %}" class="btn btn-sm btn-outline-success" title="Assinar Documentos">
+                                                        <i class="fas fa-file-signature"></i>
+                                                    </a>
+                                                {% endif %}
+                                                
+                                                <!-- Botão Homologar - apenas se estiver elaborado -->
+                                                {% if quadro.status == 'ELABORADO' %}
+                                                    {% if quadro.categoria == 'PRACAS' %}
+                                                        <button type="button" class="btn btn-sm btn-outline-success" 
+                                                                title="Homologar" 
+                                                                data-bs-toggle="modal" 
+                                                                data-bs-target="#modalHomologar"
+                                                                data-quadro-id="{{ quadro.pk }}"
+                                                                data-quadro-titulo="{{ quadro.get_titulo_completo }}"
+                                                                data-homologar-url="{% url 'militares:homologar_quadro_acesso_pracas' quadro.pk %}?v=1.0.1">
+                                                            <i class="fas fa-check-circle"></i>
+                                                        </button>
+                                                    {% else %}
+                                                        <button type="button" class="btn btn-sm btn-outline-success" 
+                                                                title="Homologar" 
+                                                                data-bs-toggle="modal" 
+                                                                data-bs-target="#modalHomologar"
+                                                                data-quadro-id="{{ quadro.pk }}"
+                                                                data-quadro-titulo="{{ quadro.get_titulo_completo }}"
+                                                                data-homologar-url="{% url 'militares:homologar_quadro_acesso' quadro.pk %}?v=1.0.1">
+                                                            <i class="fas fa-check-circle"></i>
+                                                        </button>
+                                                    {% endif %}
+                                                {% endif %}
+                                                
+                                                <!-- Botão Deshomologar - apenas se estiver homologado -->
+                                                {% if quadro.status == 'HOMOLOGADO' %}
+                                                    {% if quadro.homologado_por == request.user or not quadro.homologado_por %}
+                                                        {% if quadro.categoria == 'PRACAS' %}
+                                                            <button type="button" class="btn btn-sm btn-outline-warning" 
+                                                                    title="Deshomologar" 
+                                                                    data-bs-toggle="modal" 
+                                                                    data-bs-target="#modalDeshomologar"
+                                                                    data-quadro-id="{{ quadro.pk }}"
+                                                                    data-quadro-titulo="{{ quadro.get_titulo_completo }}"
+                                                                    data-deshomologar-url="{% url 'militares:deshomologar_quadro_acesso_pracas' quadro.pk %}?v=1.0.1">
+                                                                <i class="fas fa-undo"></i>
+                                                            </button>
+                                                        {% else %}
+                                                            <button type="button" class="btn btn-sm btn-outline-warning" 
+                                                                    title="Deshomologar" 
+                                                                    data-bs-toggle="modal" 
+                                                                    data-bs-target="#modalDeshomologar"
+                                                                    data-quadro-id="{{ quadro.pk }}"
+                                                                    data-quadro-titulo="{{ quadro.get_titulo_completo }}"
+                                                                    data-deshomologar-url="{% url 'militares:deshomologar_quadro_acesso' quadro.pk %}?v=1.0.1">
+                                                                <i class="fas fa-undo"></i>
+                                                            </button>
+                                                        {% endif %}
+                                                    {% else %}
+                                                        <button type="button" class="btn btn-sm btn-outline-warning" 
+                                                                title="Apenas {{ quadro.homologado_por.get_full_name|default:quadro.homologado_por.username }} pode deshomologar" disabled>
+                                                            <i class="fas fa-undo"></i>
+                                                        </button>
+                                                    {% endif %}
+                                                {% endif %}
+                                                
+                                                <!-- Botão Regenerar - apenas se não estiver homologado -->
+                                                {% if quadro.status != 'HOMOLOGADO' %}
+                                                    {% if quadro.categoria == 'PRACAS' %}
+                                                        <form method="post" action="{% url 'militares:regerar_quadro_acesso_pracas' quadro.pk %}" 
+                                                              style="display: inline;" onsubmit="return confirm('Regenerar este quadro?')">
+                                                            {% csrf_token %}
+                                                            <button type="submit" class="btn btn-sm btn-outline-warning" title="Regenerar">
+                                                                <i class="fas fa-sync-alt"></i>
+                                                            </button>
+                                                        </form>
+                                                    {% else %}
+                                                        <form method="post" action="{% url 'militares:regerar_quadro_acesso' quadro.pk %}" 
+                                                              style="display: inline;" onsubmit="return confirm('Regenerar este quadro?')">
+                                                            {% csrf_token %}
+                                                            <button type="submit" class="btn btn-sm btn-outline-warning" title="Regenerar">
+                                                                <i class="fas fa-sync-alt"></i>
+                                                            </button>
+                                                        </form>
+                                                    {% endif %}
+                                                {% endif %}
+                                                
+                                                <!-- Botão Excluir - Quadros homologados não podem ser excluídos -->
+                                                {% if quadro.status == 'HOMOLOGADO' %}
+                                                    <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                            title="Quadros homologados não podem ser excluídos." disabled>
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                {% else %}
+                                                    {% if quadro.categoria == 'PRACAS' %}
+                                                        <form method="post" action="{% url 'militares:delete_quadro_acesso_pracas' quadro.pk %}" 
+                                                              style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir este quadro de acesso? Esta ação não pode ser desfeita.')">
+                                                            {% csrf_token %}
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        </form>
+                                                    {% else %}
+                                                        <form method="post" action="{% url 'militares:delete_quadro_acesso' quadro.pk %}" 
+                                                              style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir este quadro de acesso? Esta ação não pode ser desfeita.')">
+                                                            {% csrf_token %}
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        </form>
+                                                    {% endif %}
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            <!-- Progresso de Votação -->
+            {% if sessao.status == 'EM_ANDAMENTO' and deliberacoes %}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingProgresso">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseProgresso" 
+                            aria-expanded="false" aria-controls="collapseProgresso">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        <strong>Progresso de Votação</strong>
+                        {% if sessao.todos_presentes_votaram_exceto_presidente %}
+                            <span class="badge bg-success ms-2">Completo</span>
+                        {% else %}
+                            <span class="badge bg-warning ms-2">Em Andamento</span>
+                        {% endif %}
+                    </button>
+                </h2>
+                <div id="collapseProgresso" class="accordion-collapse collapse" aria-labelledby="headingProgresso" data-bs-parent="#sessaoAccordion">
+                    <div class="accordion-body">
+                        {% for deliberacao in deliberacoes %}
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <strong>{{ deliberacao.assunto }}</strong>
+                                <span class="badge bg-info">{{ deliberacao.votos.count }}/{{ sessao.total_presentes }} votos</span>
+                            </div>
+                            <div class="progress" style="height: 20px;">
+                                {% widthratio deliberacao.votos.count sessao.total_presentes 100 as progresso %}
+                                <div class="progress-bar {% if progresso == 100 %}bg-success{% elif progresso > 50 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                     role="progressbar" 
+                                     style="width: {{ progresso }}%" 
+                                     aria-valuenow="{{ progresso }}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100">
+                                    {{ progresso }}%
+                                </div>
+                            </div>
+                            {% if progresso == 100 %}
+                                <small class="text-success mt-1 d-block">
+                                    <i class="fas fa-check-circle me-1"></i>
+                                    Todos os membros presentes votaram nesta deliberação
+                                </small>
+                            {% else %}
+                                <small class="text-muted mt-1 d-block">
+                                    <i class="fas fa-clock me-1"></i>
+                                    Aguardando {{ sessao.total_presentes|add:"-"|add:deliberacao.votos.count }} voto(s)
+                                </small>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                        {% if sessao.todos_presentes_votaram_exceto_presidente %}
+                        <div class="alert alert-success mt-3">
+                            <i class="fas fa-check-circle me-2"></i>
+                            <strong>Todos os membros presentes votaram em todas as deliberações!</strong><br>
+                            Qualquer membro da comissão pode encerrar a sessão agora.
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            <!-- Documentos -->
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingDocumentos">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDocumentos" 
+                            aria-expanded="false" aria-controls="collapseDocumentos">
+                        <i class="fas fa-file-alt me-2"></i>
+                        <strong>Documentos</strong>
+                        {% if sessao.documentos.all %}
+                            <span class="badge bg-primary ms-2">{{ sessao.documentos.all|length }} documentos</span>
+                        {% endif %}
+                    </button>
+                </h2>
+                <div id="collapseDocumentos" class="accordion-collapse collapse" aria-labelledby="headingDocumentos" data-bs-parent="#sessaoAccordion">
+                    <div class="accordion-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="mb-0">Documentos da Sessão</h6>
+                            <a href="{% url 'militares:documento_sessao_create' %}?sessao={{ sessao.pk }}" class="btn btn-success btn-sm">
+                                <i class="fas fa-plus me-1"></i>
+                                Enviar Documento
+                            </a>
+                        </div>
+                        {% if sessao.documentos.all %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Título</th>
+                                        <th>Tipo</th>
+                                        <th>Upload por</th>
+                                        <th>Data</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for documento in sessao.documentos.all %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ documento.titulo }}</strong>
+                                            {% if documento.descricao %}
+                                                <br><small class="text-muted">{{ documento.descricao|truncatechars:50 }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">{{ documento.get_tipo_display }}</span>
+                                        </td>
+                                        <td>{{ documento.upload_por.get_full_name|default:documento.upload_por.username }}</td>
+                                        <td>{{ documento.data_upload|date:"d/m/Y H:i" }}</td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <a href="{% url 'militares:documento_sessao_view' documento.pk %}" class="btn btn-outline-primary" title="Visualizar">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                <a href="{% url 'militares:documento_sessao_download' documento.pk %}" class="btn btn-outline-success" title="Download">
+                                                    <i class="fas fa-download"></i>
+                                                </a>
+                                                <a href="{% url 'militares:documento_sessao_update' documento.pk %}" class="btn btn-outline-warning" title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <a href="{% url 'militares:documento_sessao_delete' documento.pk %}" class="btn btn-outline-danger" title="Excluir">
+                                                    <i class="fas fa-trash"></i>
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <p class="text-muted">Nenhum documento enviado.</p>
+                        <a href="{% url 'militares:documento_sessao_create' %}?sessao={{ sessao.pk }}" class="btn btn-success">
+                            <i class="fas fa-plus me-1"></i>
+                            Enviar Primeiro Documento
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <!-- Deliberações -->
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingDeliberacoes">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDeliberacoes" 
+                            aria-expanded="false" aria-controls="collapseDeliberacoes">
+                        <i class="fas fa-gavel me-2"></i>
+                        <strong>Deliberações</strong>
+                        {% if deliberacoes %}
+                            <span class="badge bg-primary ms-2">{{ deliberacoes|length }} deliberações</span>
+                        {% endif %}
+                    </button>
+                </h2>
+                <div id="collapseDeliberacoes" class="accordion-collapse collapse" aria-labelledby="headingDeliberacoes" data-bs-parent="#sessaoAccordion">
+                    <div class="accordion-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="mb-0">Deliberações da Sessão</h6>
+                            <div>
+                                <a href="{% url 'militares:deliberacao_comissao_resultado' sessao.pk %}" class="btn btn-info btn-sm me-2">
+                                    <i class="fas fa-chart-pie me-1"></i>
+                                    Ver Resultados
+                                </a>
+                                <a href="{% url 'militares:deliberacao_comissao_create' %}?sessao={{ sessao.pk }}" class="btn btn-success btn-sm">
+                                    <i class="fas fa-plus me-1"></i>
+                                    Nova Deliberação
+                                </a>
+                            </div>
+                        </div>
+                        {% if deliberacoes %}
+                        <ul class="list-group">
+                            {% for deliberacao in deliberacoes %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>{{ deliberacao.assunto }}</strong><br>
+                                    <small class="text-muted">
+                                        Deliberação {{ deliberacao.numero }} - {{ deliberacao.get_tipo_display }}
+                                        {% if deliberacao.aprovada %}
+                                            <span class="badge bg-success ms-1">Aprovada</span>
+                                        {% else %}
+                                            <span class="badge bg-danger ms-1">Reprovada</span>
+                                        {% endif %}
+                                    </small>
+                                </div>
+                                <div>
+                                    {% if deliberacao.votos.count > 0 %}
+                                        <!-- Votação concluída - mostrar botão para registrar resultado -->
+                                        {% if not deliberacao.resultado %}
+                                            <a href="{% url 'militares:deliberacao_resultado_update' deliberacao.pk %}" class="btn btn-sm btn-success me-1">
+                                                <i class="fas fa-check-circle me-1"></i>
+                                                Registrar Resultado
+                                            </a>
+                                        {% else %}
+                                            <span class="badge bg-success me-1">
+                                                <i class="fas fa-check me-1"></i>
+                                                Resultado Registrado
+                                            </span>
+                                        {% endif %}
+                                    {% else %}
+                                        <!-- Votação em andamento -->
+                                        <span class="badge bg-warning me-1">
+                                            <i class="fas fa-clock me-1"></i>
+                                            Aguardando Votos
+                                        </span>
+                                    {% endif %}
+                                    
+                                    <a href="{% url 'militares:voto_deliberacao_create' deliberacao.pk %}" class="btn btn-sm btn-outline-warning me-1" id="btn-votar-{{ deliberacao.pk }}">
+                                        <i class="fas fa-vote-yea me-1"></i>
+                                        Votar
+                                    </a>
+                                    <a href="{% url 'militares:deliberacao_comissao_update' deliberacao.pk %}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-edit me-1"></i>
+                                        Editar
+                                    </a>
+                                </div>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <p class="text-muted">Nenhuma deliberação registrada.</p>
+                        <a href="{% url 'militares:deliberacao_comissao_create' %}?sessao={{ sessao.pk }}" class="btn btn-success">
+                            <i class="fas fa-plus me-1"></i>
+                            Criar Primeira Deliberação
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <!-- Atas -->
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingAtas">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAtas" 
+                            aria-expanded="false" aria-controls="collapseAtas">
+                        <i class="fas fa-file-alt me-2"></i>
+                        <strong>Atas</strong>
+                        {% if sessao.ata_editada %}
+                            <span class="badge bg-primary ms-2">1 ata</span>
+                        {% endif %}
+                    </button>
+                </h2>
+                <div id="collapseAtas" class="accordion-collapse collapse" aria-labelledby="headingAtas" data-bs-parent="#sessaoAccordion">
+                    <div class="accordion-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="mb-0">Atas da Sessão</h6>
+                            <div>
+                                <a href="{% url 'militares:sessao_editar_ata' sessao.pk %}" class="btn btn-success btn-sm">
+                                    <i class="fas fa-plus me-1"></i>
+                                    Criar Ata
+                                </a>
+                                {% if sessao.ata_editada %}
+                                    <a href="{% url 'militares:ata_gerar_pdf' sessao.pk %}" class="btn btn-danger btn-sm" target="_blank" title="Gerar PDF em nova guia">
+                                        <i class="fas fa-file-pdf me-1"></i>
+                                        Gerar PDF
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% if sessao.ata_editada %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Versão</th>
+                                        <th>Status</th>
+                                        <th>Editado por</th>
+                                        <th>Data/Hora</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            <strong>v{{ sessao.ata_editada.versao }}</strong>
+                                        </td>
+                                        <td>
+                                            {% if sessao.ata_editada.status == 'RASCUNHO' %}
+                                                <span class="badge bg-warning">{{ sessao.ata_editada.get_status_display }}</span>
+                                            {% elif sessao.ata_editada.status == 'PARA_ASSINATURA' %}
+                                                <span class="badge bg-info">{{ sessao.ata_editada.get_status_display }}</span>
+                                            {% elif sessao.ata_editada.status == 'ASSINADA' %}
+                                                <span class="badge bg-success">{{ sessao.ata_editada.get_status_display }}</span>
+                                            {% elif sessao.ata_editada.status == 'FINALIZADA' %}
+                                                <span class="badge bg-primary">{{ sessao.ata_editada.get_status_display }}</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ sessao.ata_editada.get_status_display }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ sessao.ata_editada.editado_por.get_full_name|default:sessao.ata_editada.editado_por.username }}</td>
+                                        <td>{{ sessao.ata_editada.data_edicao|date:"d/m/Y H:i" }}</td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <a href="{% url 'militares:sessao_gerar_ata' sessao.pk %}" class="btn btn-outline-info" title="Visualizar HTML">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                <a href="{% url 'militares:ata_gerar_pdf' sessao.pk %}" class="btn btn-outline-danger" title="Gerar PDF" target="_blank">
+                                                    <i class="fas fa-file-pdf"></i>
+                                                </a>
+                                                {% if sessao.ata_editada.status == 'RASCUNHO' %}
+                                                    <a href="{% url 'militares:sessao_editar_ata' sessao.pk %}" class="btn btn-outline-warning" title="Editar Ata">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                {% else %}
+                                                    <a href="{% url 'militares:sessao_editar_ata' sessao.pk %}" class="btn btn-outline-primary" title="Editar">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
+                            <h6 class="text-muted">Nenhuma ata encontrada</h6>
+                            <p class="text-muted">Esta sessão ainda não possui atas registradas.</p>
+                            <a href="{% url 'militares:sessao_editar_ata' sessao.pk %}" class="btn btn-success">
+                                <i class="fas fa-plus me-1"></i>
+                                Criar Primeira Ata
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <!-- Votos da Sessão -->
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingVotos">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseVotos" 
+                            aria-expanded="false" aria-controls="collapseVotos">
+                        <i class="fas fa-vote-yea me-2"></i>
+                        <strong>Votos da Sessão</strong>
+                        {% if votos_sessao %}
+                            <span class="badge bg-primary ms-2">{{ votos_sessao|length }} votos</span>
+                        {% endif %}
+                    </button>
+                </h2>
+                <div id="collapseVotos" class="accordion-collapse collapse" aria-labelledby="headingVotos" data-bs-parent="#sessaoAccordion">
+                    <div class="accordion-body">
+                        {% if votos_sessao %}
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Membro</th>
+                                        <th>Deliberação</th>
+                                        <th>Voto</th>
+                                        <th>Data/Hora</th>
+                                        <th>Voto Proferido</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for voto in votos_sessao %}
+                                    <tr>
+                                        <td>
+                                            {{ voto.membro.militar.nome_completo }}<br>
+                                            <small class="text-muted">{{ voto.membro.cargo.nome }}</small>
+                                        </td>
+                                        <td>{{ voto.deliberacao.assunto }}<br><small class="text-muted">Deliberação {{ voto.deliberacao.numero }}</small></td>
+                                        <td>
+                                            {% if voto.voto == 'FAVOR' %}
+                                                <span class="badge bg-success"><i class="fas fa-thumbs-up me-1"></i>Favor</span>
+                                            {% elif voto.voto == 'CONTRA' %}
+                                                <span class="badge bg-danger"><i class="fas fa-thumbs-down me-1"></i>Contra</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary"><i class="fas fa-minus-circle me-1"></i>Abstenção</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ voto.data_registro|date:"d/m/Y H:i" }}</td>
+                                        <td>
+                                            {% if voto.voto_proferido %}
+                                            <button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="modal" data-bs-target="#modalVotoProferido{{ voto.id }}">
+                                                <i class="fas fa-eye"></i> Ver
+                                            </button>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <p class="text-muted">Nenhum voto registrado nesta sessão.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <!-- Justificativas de Encerramento -->
+            {% if justificativas_encerramento %}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingJustificativas">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseJustificativas" 
+                            aria-expanded="false" aria-controls="collapseJustificativas">
+                        <i class="fas fa-clipboard-list me-2"></i>
+                        <strong>Justificativas de Encerramento</strong>
+                        <span class="badge bg-warning ms-2">{{ justificativas_encerramento|length }} justificativas</span>
+                    </button>
+                </h2>
+                <div id="collapseJustificativas" class="accordion-collapse collapse" aria-labelledby="headingJustificativas" data-bs-parent="#sessaoAccordion">
+                    <div class="accordion-body">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Sessão encerrada com justificativas</strong><br>
+                            Os seguintes membros estavam presentes mas não votaram em todas as deliberações:
+                        </div>
+                        {% for justificativa in justificativas_encerramento %}
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <strong>{{ justificativa.membro.militar.nome_completo }}</strong><br>
+                                        <small class="text-muted">{{ justificativa.membro.cargo.nome }}</small>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <strong>Justificativa:</strong><br>
+                                        <em>{{ justificativa.justificativa }}</em><br>
+                                        <small class="text-muted">
+                                            Registrado por {{ justificativa.registrado_por.get_full_name|default:justificativa.registrado_por.username }} 
+                                            em {{ justificativa.data_registro|date:"d/m/Y H:i" }}
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Estilos para alto relevo dos acordeões */
+    .accordion-item {
+        border: none !important;
+        margin-bottom: 1rem;
+        border-radius: 15px !important;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .accordion-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 35px rgba(0,0,0,0.2) !important;
+    }
+    
+    .accordion-header {
+        border: none !important;
+    }
+    
+    .accordion-button {
+        background: linear-gradient(135deg, #6c757d 0%, #495057 100%) !important;
+        color: white !important;
+        border: none !important;
+        padding: 1.25rem 1.5rem !important;
+        font-weight: 600 !important;
+        font-size: 1.1rem !important;
+        border-radius: 15px 15px 0 0 !important;
+        transition: all 0.3s ease;
+    }
+    
+    .accordion-button:not(.collapsed) {
+        background: linear-gradient(135deg, #495057 0%, #6c757d 100%) !important;
+        color: white !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    
+    .accordion-button:hover {
+        background: linear-gradient(135deg, #5a6268 0%, #343a40 100%) !important;
+        transform: translateY(-1px);
+    }
+    
+    .accordion-button:focus {
+        box-shadow: 0 0 0 0.25rem rgba(108, 117, 125, 0.25) !important;
+    }
+    
+    .accordion-body {
+        background: white;
+        padding: 1.5rem !important;
+        border-radius: 0 0 15px 15px;
+    }
+    
+    /* Estilo para o card de informações */
+    .card.shadow-lg {
+        border-radius: 15px;
+        border: none;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1) !important;
+    }
+    
+    .card-header.bg-primary {
+        border-radius: 15px 15px 0 0 !important;
+        background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%) !important;
+        border: none;
+    }
+    
+    /* Badges nos acordeões */
+    .accordion-button .badge {
+        background: rgba(255,255,255,0.2) !important;
+        color: white !important;
+        font-weight: 500;
+    }
+    
+    /* Animações suaves */
+    .accordion-collapse {
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+    
+    /* Botão expandir/colapsar */
+    #toggleAllBtn {
+        border-radius: 25px;
+        padding: 0.5rem 1.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    #toggleAllBtn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Adicionar animação suave aos acordeões
+    const accordionItems = document.querySelectorAll('.accordion-collapse');
+    
+    accordionItems.forEach(item => {
+        item.addEventListener('show.bs.collapse', function() {
+            this.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+        });
+        
+        item.addEventListener('hide.bs.collapse', function() {
+            this.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+        });
+    });
+});
+</script>
+
+<!-- Modais para Votos Proferidos -->
+{% for voto in votos_sessao %}
+    {% if voto.voto_proferido %}
+    <div class="modal fade" id="modalVotoProferido{{ voto.id }}" tabindex="-1" aria-labelledby="modalVotoProferidoLabel{{ voto.id }}" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalVotoProferidoLabel{{ voto.id }}">
+                        <i class="fas fa-vote-yea me-2"></i>
+                        Voto Proferido - {{ voto.membro.militar.nome_completo }}
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Deliberação:</strong> {{ voto.deliberacao.assunto }}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Voto:</strong> 
+                            {% if voto.voto == 'FAVOR' %}
+                                <span class="badge bg-success"><i class="fas fa-thumbs-up me-1"></i>Favor</span>
+                            {% elif voto.voto == 'CONTRA' %}
+                                <span class="badge bg-danger"><i class="fas fa-thumbs-down me-1"></i>Contra</span>
+                            {% else %}
+                                <span class="badge bg-secondary"><i class="fas fa-minus-circle me-1"></i>Abstenção</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="voto-proferido-content">
+                        {{ voto.voto_proferido|safe }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Fechar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+{% endfor %}
+
+<!-- Modal para Confirmação de Senha na Homologação -->
+<div class="modal fade" id="modalHomologar" tabindex="-1" aria-labelledby="modalHomologarLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalHomologarLabel">
+                    <i class="fas fa-check-circle me-2"></i>Confirmar Homologação
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formHomologar" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>Tem certeza que deseja homologar o quadro <strong id="quadroTitulo"></strong>?</p>
+                    <p class="text-muted">Esta ação não pode ser desfeita.</p>
+                    
+                    <div class="mb-3">
+                        <label for="funcao_homologacao" class="form-label">Função para Homologação:</label>
+                        <select class="form-select" id="funcao_homologacao" name="funcao_homologacao" required>
+                            <option value="">Selecione uma função...</option>
+                            {% for funcao in request.user.funcoes.all %}
+                                {% if funcao.status == 'ATIVO' %}
+                                    <option value="{{ funcao.id }}">{{ funcao.cargo_funcao.nome }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="senha_homologacao" class="form-label">Senha de Confirmação:</label>
+                        <input type="password" class="form-control" id="senha_homologacao" name="senha" required>
+                        <div class="form-text">Digite sua senha para confirmar a homologação.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check-circle me-2"></i>Homologar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Confirmação de Senha na Deshomologação -->
+<div class="modal fade" id="modalDeshomologar" tabindex="-1" aria-labelledby="modalDeshomologarLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="modalDeshomologarLabel">
+                    <i class="fas fa-undo me-2"></i>Confirmar Deshomologação
+                </h5>
+                <button type="button" class="btn-close btn-close-dark" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formDeshomologar" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>Tem certeza que deseja deshomologar o quadro <strong id="quadroTituloDeshomologar"></strong>?</p>
+                    <p class="text-muted">Esta ação não pode ser desfeita.</p>
+                    
+                    <div class="mb-3">
+                        <label for="funcao_deshomologacao" class="form-label">Função para Deshomologação:</label>
+                        <select class="form-select" id="funcao_deshomologacao" name="funcao_deshomologacao" required>
+                            <option value="">Selecione uma função...</option>
+                            {% for funcao in request.user.funcoes.all %}
+                                {% if funcao.status == 'ATIVO' %}
+                                    <option value="{{ funcao.id }}">{{ funcao.cargo_funcao.nome }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="senha_deshomologacao" class="form-label">Senha de Confirmação:</label>
+                        <input type="password" class="form-control" id="senha_deshomologacao" name="senha" required>
+                        <div class="form-text">Digite sua senha para confirmar a deshomologação.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-undo me-2"></i>Deshomologar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Script para modais de homologação/deshomologação
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Script de homologação/deshomologação carregado');
+    
+    // Verificar se Bootstrap está carregado
+    if (typeof bootstrap === 'undefined') {
+        console.error('Bootstrap não está carregado!');
+        return;
+    }
+    
+    // Verificar se os modais existem
+    const modalHomologar = document.getElementById('modalHomologar');
+    const modalDeshomologar = document.getElementById('modalDeshomologar');
+    
+    if (!modalHomologar) {
+        console.error('Modal de homologação não encontrado!');
+        return;
+    }
+    
+    if (!modalDeshomologar) {
+        console.error('Modal de deshomologação não encontrado!');
+        return;
+    }
+    
+    // Inicializar os modais
+    const modalHomologarInstance = new bootstrap.Modal(modalHomologar);
+    const modalDeshomologarInstance = new bootstrap.Modal(modalDeshomologar);
+    console.log('Modais inicializados com sucesso');
+    
+    // Encontrar todos os botões de homologar
+    const botoesHomologar = document.querySelectorAll('[data-bs-target="#modalHomologar"]');
+    console.log('Botões de homologar encontrados:', botoesHomologar.length);
+    
+    // Encontrar todos os botões de deshomologar
+    const botoesDeshomologar = document.querySelectorAll('[data-bs-target="#modalDeshomologar"]');
+    console.log('Botões de deshomologar encontrados:', botoesDeshomologar.length);
+    
+    // Adicionar eventos de clique para botões de homologar
+    botoesHomologar.forEach((botao, index) => {
+        botao.addEventListener('click', function(e) {
+            console.log(`Botão de homologar ${index + 1} clicado`);
+            
+            // Obter dados do botão
+            const quadroId = this.getAttribute('data-quadro-id');
+            const quadroTitulo = this.getAttribute('data-quadro-titulo');
+            const homologarUrl = this.getAttribute('data-homologar-url');
+            
+            console.log('Dados do botão:', { quadroId, quadroTitulo, homologarUrl });
+            
+            // Configurar o formulário
+            const form = document.getElementById('formHomologar');
+            const tituloElement = document.getElementById('quadroTitulo');
+            
+            if (form && tituloElement && homologarUrl && homologarUrl !== 'null') {
+                form.action = homologarUrl;
+                tituloElement.textContent = quadroTitulo || 'Quadro';
+                
+                console.log('Modal de homologação configurado com sucesso');
+                console.log('URL final:', form.action);
+                
+                // Abrir o modal
+                modalHomologarInstance.show();
+            } else {
+                console.error('Erro ao configurar modal de homologação:', { form: !!form, tituloElement: !!tituloElement, homologarUrl });
+            }
+        });
+    });
+    
+    // Adicionar eventos de clique para botões de deshomologar
+    botoesDeshomologar.forEach((botao, index) => {
+        botao.addEventListener('click', function(e) {
+            console.log(`Botão de deshomologar ${index + 1} clicado`);
+            
+            // Obter dados do botão
+            const quadroId = this.getAttribute('data-quadro-id');
+            const quadroTitulo = this.getAttribute('data-quadro-titulo');
+            const deshomologarUrl = this.getAttribute('data-deshomologar-url');
+            
+            console.log('Dados do botão:', { quadroId, quadroTitulo, deshomologarUrl });
+            
+            // Configurar o formulário
+            const form = document.getElementById('formDeshomologar');
+            const tituloElement = document.getElementById('quadroTituloDeshomologar');
+            
+            if (form && tituloElement && deshomologarUrl && deshomologarUrl !== 'null') {
+                form.action = deshomologarUrl;
+                tituloElement.textContent = quadroTitulo || 'Quadro';
+                
+                console.log('Modal de deshomologação configurado com sucesso');
+                console.log('URL final:', form.action);
+                
+                // Abrir o modal
+                modalDeshomologarInstance.show();
+            } else {
+                console.error('Erro ao configurar modal de deshomologação:', { form: !!form, tituloElement: !!tituloElement, deshomologarUrl });
+            }
+        });
+    });
+});
+</script>
+
+{% endblock %} 

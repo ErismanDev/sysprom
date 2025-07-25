@@ -1,0 +1,308 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+
+
+{% block extra_css %}
+<style>
+    /* Estilos padrão do sistema */
+    .table th {
+        background-color: #343a40 !important;
+        color: white !important;
+        font-weight: bold !important;
+        border-color: #454d55 !important;
+    }
+    
+    .table td {
+        vertical-align: middle !important;
+        color: #000000 !important;
+        font-weight: 500 !important;
+    }
+    
+    .table-striped tbody tr:nth-of-type(odd) {
+        background-color: rgba(0,0,0,.02) !important;
+    }
+    
+    .table-hover tbody tr:hover {
+        background-color: rgba(0,123,255,.1) !important;
+    }
+    
+    .badge {
+        font-size: 0.85em !important;
+        padding: 0.4em 0.6em !important;
+    }
+    
+    .card-header {
+        border-bottom: 2px solid #007bff !important;
+    }
+    
+    .text-dark {
+        color: #000000 !important;
+    }
+    
+    .text-secondary {
+        color: #000000 !important;
+    }
+    
+    .font-weight-bold {
+        font-weight: 700 !important;
+    }
+    
+    /* Garantir que todos os textos na tabela sejam pretos */
+    .table td * {
+        color: #000000 !important;
+    }
+    
+    .table td strong {
+        color: #000000 !important;
+    }
+    
+    .table td small {
+        color: #000000 !important;
+    }
+    
+    /* Badges com fundo claro e texto preto */
+    .badge-light {
+        background-color: #f8f9fa !important;
+        color: #000000 !important;
+        border: 1px solid #dee2e6 !important;
+    }
+    
+    .badge-info {
+        background-color: #17a2b8 !important;
+        color: #ffffff !important;
+    }
+    
+    .badge-warning {
+        background-color: #ffc107 !important;
+        color: #000000 !important;
+    }
+    
+    .badge-success {
+        background-color: #28a745 !important;
+        color: #ffffff !important;
+    }
+    
+    /* Estilos específicos para a página de detalhes */
+    .table-sm td, .table-sm th {
+        padding: 0.75rem;
+        font-size: 14px;
+    }
+    
+    h5 {
+        font-weight: 600;
+        color: #1e3a8a;
+        margin-bottom: 1rem;
+    }
+    
+    .alert-info {
+        background-color: #e3f2fd;
+        border-color: #90caf9;
+        color: #1565c0;
+        font-weight: 500;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="card-title text-white">
+                        <i class="fas fa-calendar-alt"></i> {{ title }}
+                    </h3>
+                    <div class="card-tools">
+                        <a href="{% url 'militares:calendario_promocao_list' %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-arrow-left"></i> Voltar
+                        </a>
+                        {% if can_edit %}
+                            <a href="{% url 'militares:calendario_promocao_update' calendario.pk %}" class="btn btn-warning btn-sm">
+                                <i class="fas fa-edit"></i> Editar
+                            </a>
+                        {% endif %}
+                        {% if calendario.status in 'RASCUNHO,EM_ELABORACAO' %}
+                            <a href="{% url 'militares:calendario_promocao_aprovar' calendario.pk %}" class="btn btn-primary btn-sm">
+                                <i class="fas fa-check"></i> Aprovar
+                            </a>
+                        {% endif %}
+                        {% if calendario.status == 'APROVADO' %}
+                            <a href="{% url 'militares:calendario_promocao_homologar' calendario.pk %}" class="btn btn-primary btn-sm">
+                                <i class="fas fa-stamp"></i> Homologar
+                            </a>
+                        {% endif %}
+                        <a href="{% url 'militares:calendario_promocao_visualizar_assinatura' calendario.pk %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-signature"></i> Visualizar e Assinar
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Informações do Calendário -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h5><i class="fas fa-info-circle"></i> Informações Gerais</h5>
+                            <table class="table table-sm">
+                                <tr>
+                                    <td><strong>Número:</strong></td>
+                                    <td>{{ calendario.numero|default:"Não definido" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Período:</strong></td>
+                                    <td>{{ calendario.periodo_completo }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Status:</strong></td>
+                                    <td>
+                                        {% if calendario.status == 'RASCUNHO' %}
+                                            <span class="badge badge-secondary">Rascunho</span>
+                                        {% elif calendario.status == 'EM_ELABORACAO' %}
+                                            <span class="badge badge-info">Em Elaboração</span>
+                                        {% elif calendario.status == 'APROVADO' %}
+                                            <span class="badge badge-warning">Aprovado</span>
+                                        {% elif calendario.status == 'HOMOLOGADO' %}
+                                            <span class="badge badge-success">Homologado</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Ativo:</strong></td>
+                                    <td>
+                                        {% if calendario.ativo %}
+                                            <span class="badge badge-success">Sim</span>
+                                        {% else %}
+                                            <span class="badge badge-secondary">Não</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Data de Criação:</strong></td>
+                                    <td>{{ calendario.data_criacao|date:"d/m/Y H:i" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Data de Criação:</strong></td>
+                                    <td>{{ calendario.data_criacao|date:"d/m/Y H:i" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Última Atualização:</strong></td>
+                                    <td>{{ calendario.data_atualizacao|date:"d/m/Y H:i" }}</td>
+                                </tr>
+                                {% if calendario.data_aprovacao %}
+                                <tr>
+                                    <td><strong>Aprovado em:</strong></td>
+                                    <td>{{ calendario.data_aprovacao|date:"d/m/Y H:i" }} por {{ calendario.aprovado_por.get_full_name|default:calendario.aprovado_por.username }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if calendario.data_homologacao %}
+                                <tr>
+                                    <td><strong>Homologado em:</strong></td>
+                                    <td>{{ calendario.data_homologacao|date:"d/m/Y H:i" }} por {{ calendario.homologado_por.get_full_name|default:calendario.homologado_por.username }}</td>
+                                </tr>
+                                {% endif %}
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h5><i class="fas fa-sticky-note"></i> Observações</h5>
+                            {% if calendario.observacoes %}
+                                <div class="alert alert-info">
+                                    {{ calendario.observacoes|linebreaks }}
+                                </div>
+                            {% else %}
+                                <p class="text-muted">Nenhuma observação registrada.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Itens do Calendário -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5><i class="fas fa-list"></i> Itens do Calendário</h5>
+                                {% if can_edit %}
+                                    <a href="{% url 'militares:item_calendario_create' calendario.pk %}" class="btn btn-success btn-sm">
+                                        <i class="fas fa-plus"></i> Adicionar Item
+                                    </a>
+                                {% endif %}
+                            </div>
+                            {% if itens %}
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Ordem</th>
+                                                <th>Atividade</th>
+                                                <th>Período</th>
+                                                <th>Status</th>
+                                                <th>Observações</th>
+                                                <th>Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for item in itens %}
+                                            <tr>
+                                                <td>
+                                                    <span class="badge badge-secondary">{{ item.ordem }}</span>
+                                                </td>
+                                                <td>
+                                                    <strong>{{ item.get_tipo_atividade_display }}</strong>
+                                                </td>
+                                                <td>
+                                                    <span class="text-primary">{{ item.periodo_formatado }}</span>
+                                                </td>
+                                                <td>
+                                                    {% if item.status_atual == 'PENDENTE' %}
+                                                        <span class="badge badge-warning">Pendente</span>
+                                                    {% elif item.status_atual == 'EM_ANDAMENTO' %}
+                                                        <span class="badge badge-info">Em Andamento</span>
+                                                    {% else %}
+                                                        <span class="badge badge-success">Concluído</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {% if item.observacoes %}
+                                                        <small class="text-muted">{{ item.observacoes|truncatechars:50 }}</small>
+                                                    {% else %}
+                                                        <span class="text-muted">-</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {% if can_edit %}
+                                                        <div class="btn-group" role="group">
+                                                            <a href="{% url 'militares:item_calendario_update' item.pk %}" 
+                                                               class="btn btn-sm btn-warning" title="Editar">
+                                                                <i class="fas fa-edit"></i>
+                                                            </a>
+                                                            <a href="{% url 'militares:item_calendario_delete' item.pk %}" 
+                                                               class="btn btn-sm btn-danger" title="Excluir">
+                                                                <i class="fas fa-trash"></i>
+                                                            </a>
+                                                        </div>
+                                                    {% else %}
+                                                        <span class="text-muted">Apenas visualização</span>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="text-center py-4">
+                                    <i class="fas fa-list-alt fa-3x text-muted mb-3"></i>
+                                    <h5 class="text-muted">Nenhum item cadastrado</h5>
+                                    <p class="text-muted">Adicione itens ao calendário para definir as atividades de promoção.</p>
+                                    <a href="{% url 'militares:item_calendario_create' calendario.pk %}" class="btn btn-primary">
+                                        <i class="fas fa-plus"></i> Adicionar Primeiro Item
+                                    </a>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-file-signature me-2"></i>{{ title }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Informações do Calendário -->
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-calendar-alt"></i> Calendário de Promoção</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Número:</strong> {{ calendario.numero }}</p>
+                                <p><strong>Período:</strong> {{ calendario.periodo_completo }}</p>
+                                <p><strong>Status:</strong> 
+                                    <span class="badge bg-{% if calendario.status == 'RASCUNHO' %}secondary{% elif calendario.status == 'EM_ELABORACAO' %}info{% elif calendario.status == 'APROVADO' %}warning{% elif calendario.status == 'HOMOLOGADO' %}success{% endif %}">
+                                        {{ calendario.get_status_display }}
+                                    </span>
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Total de Itens:</strong> {{ calendario.itens.count }}</p>
+                                <p><strong>Data de Criação:</strong> {{ calendario.data_criacao|date:"d/m/Y H:i" }}</p>
+                                <p><strong>Última Atualização:</strong> {{ calendario.data_atualizacao|date:"d/m/Y H:i" }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Assinaturas Existentes -->
+                    {% if calendario.assinaturas.exists %}
+                    <div class="mb-3">
+                        <h6><i class="fas fa-signature"></i> Assinaturas Existentes</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Tipo</th>
+                                        <th>Assinado por</th>
+                                        <th>Data/Hora</th>
+                                        <th>Observações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for assinatura in calendario.assinaturas.all %}
+                                    <tr>
+                                        <td>
+                                            <span class="badge bg-info">{{ assinatura.get_tipo_assinatura_display }}</span>
+                                        </td>
+                                        <td>
+                                            <strong>{{ assinatura.assinado_por.get_full_name|default:assinatura.assinado_por.username }}</strong>
+                                        </td>
+                                        <td>{{ assinatura.data_assinatura|date:"d/m/Y H:i" }}</td>
+                                        <td>
+                                            {% if assinatura.observacoes %}
+                                                <small class="text-muted">{{ assinatura.observacoes|truncatechars:50 }}</small>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Formulário de Assinatura -->
+                    <form method="post" id="formAssinarCalendario">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="tipo_assinatura" class="form-label">
+                                <strong>Tipo de Assinatura *</strong>
+                            </label>
+                            <select class="form-select" id="tipo_assinatura" name="tipo_assinatura" required>
+                                <option value="">Selecione o tipo de assinatura...</option>
+                                <option value="ELABORACAO">Elaboração</option>
+                                <option value="REVISAO">Revisão</option>
+                                <option value="APROVACAO" selected>Aprovação</option>
+                                <option value="HOMOLOGACAO">Homologação</option>
+                                <option value="OUTROS">Outros</option>
+                            </select>
+                            <div class="form-text">
+                                Selecione o tipo de assinatura que você está realizando.
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="observacoes" class="form-label">
+                                <strong>Observações da Assinatura</strong>
+                            </label>
+                            <textarea class="form-control" id="observacoes" name="observacoes" 
+                                      rows="3" placeholder="Observações adicionais sobre a assinatura (opcional)"></textarea>
+                            <div class="form-text">
+                                Informações complementares sobre a assinatura ou justificativa.
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="senha" class="form-label">
+                                <strong>Confirme sua Senha *</strong>
+                            </label>
+                            <input type="password" class="form-control" id="senha" name="senha" 
+                                   placeholder="Digite sua senha para confirmar a assinatura" required>
+                            <div class="form-text">
+                                <i class="fas fa-info-circle"></i>
+                                Sua senha é necessária para confirmar a assinatura digital do calendário.
+                            </div>
+                            <div class="invalid-feedback" id="senhaError" style="display:none;">
+                                Por favor, digite sua senha para confirmar a assinatura.
+                            </div>
+                        </div>
+
+                        <!-- Aviso de Assinatura -->
+                        <div class="alert alert-primary">
+                            <h6><i class="fas fa-exclamation-triangle"></i> Importante!</h6>
+                            <p class="mb-0">
+                                Ao assinar este calendário, você confirma que:
+                            </p>
+                            <ul class="mb-0 mt-2">
+                                <li>Revisou todas as informações do calendário de promoção</li>
+                                <li>Concorda com as datas e atividades definidas</li>
+                                <li>Assume a responsabilidade pela assinatura eletrônica</li>
+                                <li>A assinatura será registrada com data e hora precisas</li>
+                                <li>Um código de verificação único será gerado</li>
+                            </ul>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="fas fa-signature"></i> Confirmar Assinatura Eletrônica
+                            </button>
+                            <a href="{% url 'militares:calendario_promocao_visualizar_assinatura' calendario.pk %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('formAssinarCalendario');
+    const senhaInput = document.getElementById('senha');
+    const senhaError = document.getElementById('senhaError');
+    
+    form.addEventListener('submit', function(e) {
+        if (!senhaInput.value.trim()) {
+            e.preventDefault();
+            senhaError.style.display = 'block';
+            senhaInput.classList.add('is-invalid');
+            senhaInput.focus();
+        } else {
+            senhaError.style.display = 'none';
+            senhaInput.classList.remove('is-invalid');
+        }
+    });
+    
+    senhaInput.addEventListener('input', function() {
+        if (this.value.trim()) {
+            senhaError.style.display = 'none';
+            this.classList.remove('is-invalid');
+        }
+    });
+});
+</script>
+{% endblock %} 

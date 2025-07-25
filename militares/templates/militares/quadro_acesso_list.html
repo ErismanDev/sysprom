@@ -1,0 +1,576 @@
+{% extends 'base.html' %}
+
+{% block title %}Quadro de Acesso{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 100%;">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h2><i class="fas fa-clipboard-list me-2"></i>Quadros de Acesso</h2>
+                        <div>
+                            <a href="{% url 'militares:gerar_quadro_acesso' %}" class="btn btn-primary">
+                                <i class="fas fa-plus me-2"></i>Gerar Quadro
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Filtros -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <form method="get" class="row g-3">
+                                <div class="col-md-3">
+                                    <label for="tipo" class="form-label">Tipo</label>
+                                    <select name="tipo" id="tipo" class="form-select">
+                                        <option value="">Todos</option>
+                                        {% for value, label in tipos %}
+                                            <option value="{{ value }}" {% if filtros.tipo == value %}selected{% endif %}>
+                                                {{ label }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="status" class="form-label">Status</label>
+                                    <select name="status" id="status" class="form-select">
+                                        <option value="">Todos</option>
+                                        {% for value, label in status_choices %}
+                                            <option value="{{ value }}" {% if filtros.status == value %}selected{% endif %}>
+                                                {{ label }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="ordenacao" class="form-label">Ordenar por</label>
+                                    <select name="ordenacao" id="ordenacao" class="form-select">
+                                        <option value="-data_criacao" {% if filtros.ordenacao == '-data_criacao' %}selected{% endif %}>
+                                            Data de Geração (mais recente)
+                                        </option>
+                                        <option value="data_criacao" {% if filtros.ordenacao == 'data_criacao' %}selected{% endif %}>
+                                            Data de Geração (mais antiga)
+                                        </option>
+                                        <option value="-data_promocao" {% if filtros.ordenacao == '-data_promocao' %}selected{% endif %}>
+                                            Previsão de Promoção (mais recente)
+                                        </option>
+                                        <option value="data_promocao" {% if filtros.ordenacao == 'data_promocao' %}selected{% endif %}>
+                                            Previsão de Promoção (mais antiga)
+                                        </option>
+                                        <option value="tipo" {% if filtros.ordenacao == 'tipo' %}selected{% endif %}>
+                                            Tipo
+                                        </option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 d-flex align-items-end">
+                                    <button type="submit" class="btn btn-outline-primary me-2">
+                                        <i class="fas fa-filter me-1"></i>Filtrar
+                                    </button>
+                                    <a href="{% url 'militares:quadro_acesso_list' %}" class="btn btn-outline-secondary">
+                                        <i class="fas fa-times me-1"></i>Limpar
+                                    </a>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Estatísticas -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body text-center">
+                                    <h4>{{ estatisticas.total }}</h4>
+                                    <small>Total de Quadros</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h4>{{ estatisticas.elaborados }}</h4>
+                                    <small>Elaborados</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body text-center">
+                                    <h4>{{ estatisticas.homologados }}</h4>
+                                    <small>Homologados</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-white">
+                                <div class="card-body text-center">
+                                    <h4>{{ estatisticas.nao_elaborados }}</h4>
+                                    <small>Não Elaborados</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lista de Quadros -->
+                    {% if quadros %}
+                        <div class="table-responsive" style="min-width: 1100px;">
+                            <table class="table table-striped table-hover" style="min-width: 1100px;">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th style="min-width: 210px;">Numeração</th>
+                                        <th>Categoria</th>
+                                        <th>Tipo</th>
+                                        <th>Previsão de Promoção</th>
+                                        <th>Data de Geração</th>
+                                        <th>Status</th>
+                                        <th>Militares</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for quadro in quadros %}
+                                    <tr>
+                                        <td>
+                                            <span class="badge bg-secondary" style="font-size:0.9em; letter-spacing:0.5px; color: white; font-weight: normal;">
+                                                {{ quadro.numero }}
+                                            </span>
+                                            <br>
+                                            <small style="color: #666; font-size: 0.8em;">
+                                                {{ quadro.get_geracao_display }}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            {% if quadro.categoria == 'OFICIAIS' %}
+                                                <span class="badge bg-info">Oficiais</span>
+                                            {% elif quadro.categoria == 'PRACAS' %}
+                                                <span class="badge bg-warning">Praças</span>
+                                            {% endif %}
+                                        </td>
+
+                                        <td>
+                                            {% if quadro.tipo == 'ANTIGUIDADE' %}
+                                                <span class="badge bg-primary">Quadro de Acesso por Antiguidade</span>
+                                            {% elif quadro.tipo == 'MERECIMENTO' %}
+                                                <span class="badge bg-success">Quadro de Acesso por Merecimento</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Quadro de Acesso</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ quadro.data_promocao|date:"d/m/Y" }}</td>
+                                        <td>{{ quadro.data_criacao|date:"d/m/Y H:i" }}</td>
+                                        <td>
+                                            {% if quadro.status == 'ELABORADO' %}
+                                                <span class="badge bg-success">Elaborado</span>
+                                            {% elif quadro.status == 'HOMOLOGADO' %}
+                                                <span class="badge bg-primary">Homologado</span>
+                                                {% if quadro.data_homologacao %}
+                                                    <br><small class="text-muted">{{ quadro.data_homologacao|date:"d/m/Y" }}</small>
+                                                {% endif %}
+                                                {% if quadro.homologado_por %}
+                                                    <br><small class="text-muted">por {{ quadro.homologado_por.get_full_name|default:quadro.homologado_por.username }}</small>
+                                                {% endif %}
+                                            {% elif quadro.status == 'NAO_ELABORADO' %}
+                                                <span class="badge bg-danger">Não Elaborado</span>
+                                                {% if quadro.motivo_nao_elaboracao %}
+                                                    <br><small class="text-muted">{{ quadro.get_motivo_nao_elaboracao_display }}</small>
+                                                {% endif %}
+                                            {% elif quadro.status == 'EM_ELABORACAO' %}
+                                                <span class="badge bg-warning">Em Elaboração</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ quadro.get_status_display }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if quadro.status == 'ELABORADO' %}
+                                                <span class="badge bg-success">{{ quadro.total_militares_count }}</span>
+                                            {% elif quadro.status == 'HOMOLOGADO' %}
+                                                <span class="badge bg-info">{{ quadro.total_militares_count }}</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                {% if quadro.categoria == 'PRACAS' %}
+                                                    <a href="{% url 'militares:quadro_acesso_pracas_detail' quadro.pk %}" 
+                                                       class="btn btn-sm btn-outline-primary" title="Ver detalhes">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                    
+                                                    <!-- Botão Editar - apenas se não estiver homologado -->
+                                                    {% if quadro.status != 'HOMOLOGADO' %}
+                                                        <a href="{% url 'militares:quadro_acesso_pracas_edit' quadro.pk %}" 
+                                                           class="btn btn-sm btn-outline-info" title="Editar">
+                                                            <i class="fas fa-edit"></i>
+                                                        </a>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <a href="{% url 'militares:quadro_acesso_detail' quadro.pk %}" 
+                                                       class="btn btn-sm btn-outline-primary" title="Ver detalhes">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                    
+                                                    <!-- Botão Editar - apenas se não estiver homologado -->
+                                                    {% if quadro.status != 'HOMOLOGADO' %}
+                                                        <a href="{% url 'militares:quadro_acesso_edit' quadro.pk %}" 
+                                                           class="btn btn-sm btn-outline-info" title="Editar">
+                                                            <i class="fas fa-edit"></i>
+                                                        </a>
+                                                    {% endif %}
+                                                {% endif %}
+                                                
+                                                <!-- Botão Exportar PDF -->
+                                                {% if quadro.categoria == 'PRACAS' %}
+                                                    <a href="{% url 'militares:quadro_acesso_pracas_pdf' quadro.pk %}" 
+                                                       class="btn btn-sm btn-outline-secondary" title="Visualizar PDF" target="_blank">
+                                                        <i class="fas fa-file-pdf"></i>
+                                                    </a>
+                                                {% else %}
+                                                    <a href="{% url 'militares:quadro_acesso_pdf' quadro.pk %}" 
+                                                       class="btn btn-sm btn-outline-secondary" title="Visualizar PDF" target="_blank">
+                                                        <i class="fas fa-file-pdf"></i>
+                                                    </a>
+                                                {% endif %}
+                                                
+                                                <!-- Botão Assinar Documentos - apenas se não estiver homologado -->
+                                                {% if quadro.status == 'ELABORADO' %}
+                                                    <a href="{% url 'militares:visualizar_quadro_html' quadro.pk %}" class="btn btn-sm btn-outline-success" title="Assinar Documentos">
+                                                        <i class="fas fa-file-signature"></i>
+                                                    </a>
+                                                {% endif %}
+                                                
+                                                {% if quadro.status == 'ELABORADO' %}
+                                                    <!-- Botão Homologar -->
+                                                    {% if quadro.categoria == 'PRACAS' %}
+                                                        <button type="button" class="btn btn-sm btn-outline-success" 
+                                                                title="Homologar" 
+                                                                data-bs-toggle="modal" 
+                                                                data-bs-target="#modalHomologar"
+                                                                data-quadro-id="{{ quadro.pk }}"
+                                                                data-quadro-titulo="{{ quadro.get_titulo_completo }}"
+                                                                data-homologar-url="{% url 'militares:homologar_quadro_acesso_pracas' quadro.pk %}?v=1.0.1">
+                                                            <i class="fas fa-check-circle"></i>
+                                                        </button>
+                                                        
+                                                        <!-- Botão Regenerar - apenas se não estiver homologado -->
+                                                        {% if quadro.status != 'HOMOLOGADO' %}
+                                                            <form method="post" action="{% url 'militares:regerar_quadro_acesso_pracas' quadro.pk %}" 
+                                                                  style="display: inline;" onsubmit="return confirm('Regenerar este quadro?')">
+                                                                {% csrf_token %}
+                                                                <button type="submit" class="btn btn-sm btn-outline-warning" title="Regenerar">
+                                                                    <i class="fas fa-sync-alt"></i>
+                                                                </button>
+                                                            </form>
+                                                        {% endif %}
+                                                        
+                                                    {% else %}
+                                                        <button type="button" class="btn btn-sm btn-outline-success" 
+                                                                title="Homologar" 
+                                                                data-bs-toggle="modal" 
+                                                                data-bs-target="#modalHomologar"
+                                                                data-quadro-id="{{ quadro.pk }}"
+                                                                data-quadro-titulo="{{ quadro.get_titulo_completo }}"
+                                                                data-homologar-url="{% url 'militares:homologar_quadro_acesso' quadro.pk %}?v=1.0.1">
+                                                            <i class="fas fa-check-circle"></i>
+                                                        </button>
+                                                        
+                                                        <!-- Botão Regenerar - apenas se não estiver homologado -->
+                                                        {% if quadro.status != 'HOMOLOGADO' %}
+                                                            <form method="post" action="{% url 'militares:regerar_quadro_acesso' quadro.pk %}" 
+                                                                  style="display: inline;" onsubmit="return confirm('Regenerar este quadro?')">
+                                                                {% csrf_token %}
+                                                                <button type="submit" class="btn btn-sm btn-outline-warning" title="Regenerar">
+                                                                    <i class="fas fa-sync-alt"></i>
+                                                                </button>
+                                                            </form>
+                                                        {% endif %}
+                                                    {% endif %}
+                                                {% endif %}
+                                                
+                                                {% if quadro.status == 'HOMOLOGADO' %}
+                                                    <!-- Botão Deshomologar -->
+                                                    {% if quadro.homologado_por == request.user or not quadro.homologado_por %}
+                                                        <button type="button" class="btn btn-sm btn-outline-warning" 
+                                                                title="Deshomologar" 
+                                                                data-bs-toggle="modal" 
+                                                                data-bs-target="#modalDeshomologar"
+                                                                data-quadro-id="{{ quadro.pk }}"
+                                                                data-quadro-titulo="{{ quadro.get_titulo_completo }}"
+                                                                data-deshomologar-url="{% if quadro.categoria == 'PRACAS' %}{% url 'militares:deshomologar_quadro_acesso_pracas' quadro.pk %}{% else %}{% url 'militares:deshomologar_quadro_acesso' quadro.pk %}{% endif %}?v=1.0.1">
+                                                            <i class="fas fa-undo"></i>
+                                                        </button>
+                                                    {% else %}
+                                                        <button type="button" class="btn btn-sm btn-outline-warning" 
+                                                                title="Apenas {{ quadro.homologado_por.get_full_name|default:quadro.homologado_por.username }} pode deshomologar" disabled>
+                                                            <i class="fas fa-undo"></i>
+                                                        </button>
+                                                    {% endif %}
+                                                {% endif %}
+                                                    
+                                                {% if quadro.status == 'NAO_ELABORADO' %}
+                                                    <!-- Botão Elaborar -->
+                                                    {% if not request.user.is_superuser %}
+                                                    {% if quadro.categoria == 'PRACAS' %}
+                                                        <form method="post" action="{% url 'militares:elaborar_quadro_acesso_pracas' quadro.pk %}" 
+                                                              style="display: inline;" onsubmit="return confirm('Elaborar este quadro?')">
+                                                            {% csrf_token %}
+                                                            <button type="submit" class="btn btn-sm btn-outline-success" title="Elaborar">
+                                                                <i class="fas fa-cogs"></i>
+                                                            </button>
+                                                        </form>
+                                                    {% else %}
+                                                        <form method="post" action="{% url 'militares:elaborar_quadro_acesso' quadro.pk %}" 
+                                                              style="display: inline;" onsubmit="return confirm('Elaborar este quadro?')">
+                                                            {% csrf_token %}
+                                                            <button type="submit" class="btn btn-sm btn-outline-success" title="Elaborar">
+                                                                <i class="fas fa-cogs"></i>
+                                                            </button>
+                                                        </form>
+                                                    {% endif %}
+                                                    {% endif %}
+                                                {% endif %}
+                                                
+                                                <!-- Botão Excluir - Quadros homologados não podem ser excluídos -->
+                                                {% if quadro.status == 'HOMOLOGADO' %}
+                                                    <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                            title="Quadros homologados não podem ser excluídos." disabled>
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                {% else %}
+                                                    {% if quadro.categoria == 'PRACAS' %}
+                                                        <form method="post" action="{% url 'militares:delete_quadro_acesso_pracas' quadro.pk %}" 
+                                                              style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir este quadro de acesso? Esta ação não pode ser desfeita.')">
+                                                            {% csrf_token %}
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        </form>
+                                                    {% else %}
+                                                        <form method="post" action="{% url 'militares:delete_quadro_acesso' quadro.pk %}" 
+                                                              style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir este quadro de acesso? Esta ação não pode ser desfeita.')">
+                                                            {% csrf_token %}
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        </form>
+                                                    {% endif %}
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Nenhum quadro de acesso encontrado</h5>
+                            <p class="text-muted">Crie um novo quadro de acesso para começar.</p>
+                            <a href="{% url 'militares:gerar_quadro_acesso' %}" class="btn btn-primary">
+                                <i class="fas fa-plus me-2"></i>Criar Primeiro Quadro
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Confirmação de Senha na Homologação -->
+<div class="modal fade" id="modalHomologar" tabindex="-1" aria-labelledby="modalHomologarLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalHomologarLabel">
+                    <i class="fas fa-check-circle me-2"></i>Confirmar Homologação
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formHomologar" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>Tem certeza que deseja homologar o quadro <strong id="quadroTitulo"></strong>?</p>
+                    <p class="text-muted">Esta ação não pode ser desfeita.</p>
+                    
+                    <div class="mb-3">
+                        <label for="funcao_homologacao" class="form-label">Função para Homologação:</label>
+                        <select class="form-select" id="funcao_homologacao" name="funcao_homologacao" required>
+                            <option value="">Selecione uma função...</option>
+                            {% for funcao in request.user.funcoes.all %}
+                                {% if funcao.status == 'ATIVO' %}
+                                    <option value="{{ funcao.id }}">{{ funcao.cargo_funcao.nome }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="senha_homologacao" class="form-label">Senha de Confirmação:</label>
+                        <input type="password" class="form-control" id="senha_homologacao" name="senha" required>
+                        <div class="form-text">Digite sua senha para confirmar a homologação.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check-circle me-2"></i>Homologar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Confirmação de Senha na Deshomologação -->
+<div class="modal fade" id="modalDeshomologar" tabindex="-1" aria-labelledby="modalDeshomologarLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="modalDeshomologarLabel">
+                    <i class="fas fa-undo me-2"></i>Confirmar Deshomologação
+                </h5>
+                <button type="button" class="btn-close btn-close-dark" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formDeshomologar" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>Tem certeza que deseja deshomologar o quadro <strong id="quadroTituloDeshomologar"></strong>?</p>
+                    <p class="text-muted">Esta ação não pode ser desfeita.</p>
+                    
+                    <div class="mb-3">
+                        <label for="funcao_deshomologacao" class="form-label">Função para Deshomologação:</label>
+                        <select class="form-select" id="funcao_deshomologacao" name="funcao_deshomologacao" required>
+                            <option value="">Selecione uma função...</option>
+                            {% for funcao in request.user.funcoes.all %}
+                                {% if funcao.status == 'ATIVO' %}
+                                    <option value="{{ funcao.id }}">{{ funcao.cargo_funcao.nome }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="senha_deshomologacao" class="form-label">Senha de Confirmação:</label>
+                        <input type="password" class="form-control" id="senha_deshomologacao" name="senha" required>
+                        <div class="form-text">Digite sua senha para confirmar a deshomologação.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-undo me-2"></i>Deshomologar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Versão do script para evitar cache
+const SCRIPT_VERSION = '1.0.10';
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Script de homologação/deshomologação carregado - versão:', SCRIPT_VERSION);
+    
+    // Verificar se Bootstrap está carregado
+    if (typeof bootstrap === 'undefined') {
+        console.error('Bootstrap não está carregado!');
+        return;
+    }
+    
+    // Verificar se os modais existem
+    const modalHomologar = document.getElementById('modalHomologar');
+    const modalDeshomologar = document.getElementById('modalDeshomologar');
+    
+    if (!modalHomologar) {
+        console.error('Modal de homologação não encontrado!');
+        return;
+    }
+    
+    if (!modalDeshomologar) {
+        console.error('Modal de deshomologação não encontrado!');
+        return;
+    }
+    
+    // Inicializar os modais
+    const modalHomologarInstance = new bootstrap.Modal(modalHomologar);
+    const modalDeshomologarInstance = new bootstrap.Modal(modalDeshomologar);
+    console.log('Modais inicializados com sucesso');
+    
+    // Encontrar todos os botões de homologar
+    const botoesHomologar = document.querySelectorAll('[data-bs-target="#modalHomologar"]');
+    console.log('Botões de homologar encontrados:', botoesHomologar.length);
+    
+    // Encontrar todos os botões de deshomologar
+    const botoesDeshomologar = document.querySelectorAll('[data-bs-target="#modalDeshomologar"]');
+    console.log('Botões de deshomologar encontrados:', botoesDeshomologar.length);
+    
+    // Adicionar eventos de clique para botões de homologar
+    botoesHomologar.forEach((botao, index) => {
+        botao.addEventListener('click', function(e) {
+            console.log(`Botão de homologar ${index + 1} clicado`);
+            
+            // Obter dados do botão
+            const quadroId = this.getAttribute('data-quadro-id');
+            const quadroTitulo = this.getAttribute('data-quadro-titulo');
+            const homologarUrl = this.getAttribute('data-homologar-url');
+            
+            console.log('Dados do botão:', { quadroId, quadroTitulo, homologarUrl });
+            
+            // Configurar o formulário
+            const form = document.getElementById('formHomologar');
+            const tituloElement = document.getElementById('quadroTitulo');
+            
+            if (form && tituloElement && homologarUrl && homologarUrl !== 'null') {
+                form.action = homologarUrl;
+                tituloElement.textContent = quadroTitulo || 'Quadro';
+                
+                console.log('Modal de homologação configurado com sucesso');
+                console.log('URL final:', form.action);
+                
+                // Abrir o modal
+                modalHomologarInstance.show();
+            } else {
+                console.error('Erro ao configurar modal de homologação:', { form: !!form, tituloElement: !!tituloElement, homologarUrl });
+            }
+        });
+    });
+    
+    // Adicionar eventos de clique para botões de deshomologar
+    botoesDeshomologar.forEach((botao, index) => {
+        botao.addEventListener('click', function(e) {
+            console.log(`Botão de deshomologar ${index + 1} clicado`);
+            
+            // Obter dados do botão
+            const quadroId = this.getAttribute('data-quadro-id');
+            const quadroTitulo = this.getAttribute('data-quadro-titulo');
+            const deshomologarUrl = this.getAttribute('data-deshomologar-url');
+            
+            console.log('Dados do botão:', { quadroId, quadroTitulo, deshomologarUrl });
+            
+            // Configurar o formulário
+            const form = document.getElementById('formDeshomologar');
+            const tituloElement = document.getElementById('quadroTituloDeshomologar');
+            
+            if (form && tituloElement && deshomologarUrl && deshomologarUrl !== 'null') {
+                form.action = deshomologarUrl;
+                tituloElement.textContent = quadroTitulo || 'Quadro';
+                
+                console.log('Modal de deshomologação configurado com sucesso');
+                console.log('URL final:', form.action);
+                
+                // Abrir o modal
+                modalDeshomologarInstance.show();
+            } else {
+                console.error('Erro ao configurar modal de deshomologação:', { form: !!form, tituloElement: !!tituloElement, deshomologarUrl });
+            }
+        });
+    });
+});
+</script>
+
+{% endblock %} 

@@ -1,0 +1,343 @@
+{% extends 'base.html' %}
+
+{% block title %}Assinaturas da Ata - Sessão {{ sessao.numero }} - SysProm - CBMEPI{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-signature me-2"></i>
+        Assinaturas da Ata - Sessão {{ sessao.numero }}
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'militares:sessao_comissao_detail' sessao.pk %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i>
+            Voltar à Sessão
+        </a>
+        {% if ata.status == 'ASSINADA' or ata.status == 'FINALIZADA' %}
+        <a href="{% url 'militares:ata_gerar_pdf' sessao.pk %}" class="btn btn-danger ms-2" target="_blank">
+            <i class="fas fa-file-pdf me-1"></i>
+            Gerar PDF
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+{% if messages %}
+<div class="messages">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-file-alt me-2"></i>
+                    Status da Ata: 
+                    {% if ata.status == 'RASCUNHO' %}
+                        <span class="badge bg-secondary">Rascunho</span>
+                    {% elif ata.status == 'PARA_ASSINATURA' %}
+                        <span class="badge bg-warning">Para Assinatura</span>
+                    {% elif ata.status == 'ASSINADA' %}
+                        <span class="badge bg-success">Assinada</span>
+                    {% elif ata.status == 'FINALIZADA' %}
+                        <span class="badge bg-primary">Finalizada</span>
+                    {% endif %}
+                </h5>
+            </div>
+            <div class="card-body">
+                <!-- Informações da Ata -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6><strong>Informações da Sessão:</strong></h6>
+                        <p><strong>Número:</strong> {{ sessao.numero }}</p>
+                        <p><strong>Data:</strong> {{ sessao.data_sessao|date:"d/m/Y" }}</p>
+                        <p><strong>Horário:</strong> {{ sessao.hora_inicio|time:"H:i" }}{% if sessao.hora_fim %} - {{ sessao.hora_fim|time:"H:i" }}{% endif %}</p>
+                        <p><strong>Local:</strong> {{ sessao.local }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><strong>Informações da Ata:</strong></h6>
+                        <p><strong>Editada por:</strong> {{ ata.editado_por.get_full_name|default:ata.editado_por.username }}</p>
+                        <p><strong>Data da Edição:</strong> {{ ata.data_edicao|date:"d/m/Y H:i" }}</p>
+                        <p><strong>Versão:</strong> {{ ata.versao }}</p>
+                        {% if ata.data_finalizacao %}
+                        <p><strong>Finalizada em:</strong> {{ ata.data_finalizacao|date:"d/m/Y H:i" }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Progresso das Assinaturas -->
+                {% if ata.status == 'PARA_ASSINATURA' or ata.status == 'ASSINADA' %}
+                <div class="mb-4">
+                    <h6><strong>Progresso das Assinaturas:</strong></h6>
+                    {% with total_presentes=membros_presentes.count total_assinadas=assinaturas.count %}
+                    <div class="progress mb-2" style="height: 25px;">
+                        <div class="progress-bar bg-success" role="progressbar" 
+                             style="width: {% widthratio total_assinadas total_presentes 100 %}%">
+                            {{ total_assinadas }}/{{ total_presentes }} assinaturas
+                        </div>
+                    </div>
+                    <small class="text-muted">
+                        {% if total_assinadas == total_presentes %}
+                            <i class="fas fa-check-circle text-success"></i> Todas as assinaturas foram coletadas!
+                        {% else %}
+                            <i class="fas fa-clock text-warning"></i> Faltam {{ total_presentes|add:"-"|add:total_assinadas }} assinatura(s)
+                        {% endif %}
+                    </small>
+                    {% endwith %}
+                </div>
+                {% endif %}
+
+                <!-- Lista de Membros e Assinaturas -->
+                <div class="mb-4">
+                    <h6><strong>Membros Presentes e Assinaturas:</strong></h6>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Cargo</th>
+                                    <th>Posto/Graduação</th>
+                                    <th>Status da Assinatura</th>
+                                    <th>Data da Assinatura</th>
+                                    <th>Assinado por</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for presenca in membros_presentes %}
+                                {% with assinatura=assinaturas|dictsort:"membro"|dictsortreversed:"data_assinatura"|first %}
+                                <tr>
+                                    <td>{{ presenca.membro.militar.nome_completo }}</td>
+                                    <td>{{ presenca.membro.cargo.nome }}</td>
+                                    <td>{{ presenca.membro.militar.get_posto_graduacao_display }}</td>
+                                    <td>
+                                        {% if assinatura %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-check me-1"></i>Assinada
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-warning">
+                                                <i class="fas fa-clock me-1"></i>Pendente
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if assinatura %}
+                                            {{ assinatura.data_assinatura|date:"d/m/Y H:i" }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if assinatura %}
+                                            {{ assinatura.assinado_por.get_full_name|default:assinatura.assinado_por.username }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if ata.status == 'PARA_ASSINATURA' or ata.status == 'ASSINADA' %}
+                                            {% if assinatura %}
+                                                <button type="button" class="btn btn-sm btn-outline-info" 
+                                                        onclick="verAssinatura({{ assinatura.id }})">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                            {% else %}
+                                                <button type="button" class="btn btn-sm btn-primary" 
+                                                        onclick="registrarAssinatura({{ presenca.membro.id }})">
+                                                    <i class="fas fa-signature"></i> Assinar
+                                                </button>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-muted">Aguardando liberação</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endwith %}
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted">Nenhum membro presente registrado</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Ações -->
+                <div class="d-flex justify-content-between">
+                    <div>
+                        {% if ata.status == 'RASCUNHO' %}
+                        <a href="{% url 'militares:ata_para_assinatura' sessao.pk %}" class="btn btn-success">
+                            <i class="fas fa-check me-1"></i>
+                            Marcar para Assinatura
+                        </a>
+                        {% endif %}
+                        
+                        {% if ata.status == 'ASSINADA' %}
+                        <form method="post" action="{% url 'militares:ata_finalizar' sessao.pk %}" style="display: inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-flag-checkered me-1"></i>
+                                Finalizar Ata
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    
+                    <div>
+                        <button type="button" class="btn btn-success" onclick="abrirModalEditarAta()">
+                            <i class="fas fa-plus me-1"></i>
+                            Criar Ata
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Registrar Assinatura -->
+<div class="modal fade" id="assinaturaModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Registrar Assinatura</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" id="formAssinatura">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Membro:</label>
+                        <input type="text" class="form-control" id="membroNome" readonly>
+                        <input type="hidden" name="membro_id" id="membroId">
+                    </div>
+                    <div class="mb-3">
+                        <label for="observacoes" class="form-label">Observações (opcional):</label>
+                        <textarea class="form-control" id="observacoes" name="observacoes" rows="3" 
+                                  placeholder="Digite observações sobre a assinatura..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-signature me-1"></i>
+                        Confirmar Assinatura
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Ver Assinatura -->
+<div class="modal fade" id="verAssinaturaModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalhes da Assinatura</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="detalhesAssinatura">
+                <!-- Detalhes serão carregados via AJAX -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Edição da Ata -->
+<div class="modal fade" id="modalEditarAta" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Ata</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modalEditarAtaBody">
+                <!-- Conteúdo do formulário será carregado aqui -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Funções para assinaturas
+function registrarAssinatura(membroId) {
+    // Buscar informações do membro
+    const membros = [
+        {% for presenca in membros_presentes %}
+        {
+            id: {{ presenca.membro.id }},
+            nome: "{{ presenca.membro.militar.nome_completo }}",
+                            cargo: "{{ presenca.membro.cargo.nome }}"
+        },
+        {% endfor %}
+    ];
+    
+    const membro = membros.find(m => m.id === membroId);
+    if (membro) {
+        document.getElementById('membroId').value = membroId;
+        document.getElementById('membroNome').value = `${membro.nome} (${membro.cargo})`;
+        new bootstrap.Modal(document.getElementById('assinaturaModal')).show();
+    }
+}
+
+function verAssinatura(assinaturaId) {
+    // Aqui você pode implementar uma chamada AJAX para buscar os detalhes da assinatura
+    // Por enquanto, vamos apenas mostrar uma mensagem
+    document.getElementById('detalhesAssinatura').innerHTML = `
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            Detalhes da assinatura serão exibidos aqui.
+        </div>
+    `;
+    new bootstrap.Modal(document.getElementById('verAssinaturaModal')).show();
+}
+
+function abrirModalEditarAta() {
+    const url = "{% url 'militares:sessao_editar_ata' sessao.pk %}";
+    fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+        .then(response => response.text())
+        .then(html => {
+            document.getElementById('modalEditarAtaBody').innerHTML = html;
+            // Inicializar scripts do CKEditor se necessário
+            if (window.CKEDITOR) {
+                for (const instance in CKEDITOR.instances) {
+                    CKEDITOR.instances[instance].destroy(true);
+                }
+                CKEDITOR.replaceAll();
+            }
+            new bootstrap.Modal(document.getElementById('modalEditarAta')).show();
+        });
+}
+
+// Função para criar ata
+function criarAta() {
+    // Redirecionar para a página de criação/edição de ata
+    window.location.href = "{% url 'militares:sessao_editar_ata' sessao.pk %}";
+}
+
+// Event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-submit do formulário quando todas as assinaturas estiverem completas
+    {% if ata.status == 'ASSINADA' %}
+    const progressBar = document.querySelector('.progress-bar');
+    if (progressBar && progressBar.style.width === '100%') {
+        // Todas as assinaturas foram coletadas
+        console.log('Todas as assinaturas foram coletadas!');
+    }
+    {% endif %}
+});
+</script>
+{% endblock %} 

@@ -1,0 +1,230 @@
+{% extends 'base.html' %}
+
+{% block title %}Gerar Quadro de Acesso - Praças{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-plus-circle me-2"></i>Gerar Quadro de Acesso de Praças
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if form.errors %}
+                        <div class="alert alert-danger">
+                            <strong>Erros no formulário:</strong>
+                            <ul class="mb-0">
+                                {% for field in form %}
+                                    {% for error in field.errors %}
+                                        <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                                    {% endfor %}
+                                {% endfor %}
+                                {% for error in form.non_field_errors %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Seção de quadros existentes -->
+                    <div class="alert alert-info mb-4">
+                        <h6><i class="fas fa-info-circle me-2"></i>Quadros Existentes</h6>
+                        <p class="mb-2">
+                            <strong>Nota:</strong> O sistema não permite criar quadros duplicados (mesmo tipo e data). 
+                            Se você precisar de um novo quadro, use uma data diferente ou edite um existente.
+                        </p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Opções disponíveis:</strong>
+                                <ul class="mb-0">
+                                    <li>Use uma data futura diferente</li>
+                                    <li>Edite um quadro existente</li>
+                                    <li>Exclua um quadro existente primeiro</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Datas sugeridas:</strong>
+                                <ul class="mb-0">
+                                    <li>18 de julho de 2026</li>
+                                    <li>25 de dezembro de 2026</li>
+                                    <li>18 de julho de 2027</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="tipo" class="form-label">
+                                    <strong>Tipo de Acesso *</strong>
+                                </label>
+                                <select name="tipo" id="tipo" class="form-select" required>
+                                    <option value="">Selecione o tipo</option>
+                                    {% for value, label in tipos %}
+                                        <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">
+                                    <strong>Antiguidade:</strong> Ordenação por data de promoção (mais antiga primeiro)<br>
+                                    <strong>Merecimento:</strong> Ordenação por pontuação da ficha de conceito<br>
+                                    <strong>Manual:</strong> Quadro montado manualmente pelo usuário
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="data_promocao" class="form-label">
+                                    <strong>Data de Previsão de Promoções</strong>
+                                </label>
+                                <input type="date" name="data_promocao" id="data_promocao" 
+                                       class="form-control" value="{{ proxima_data_automatica|date:'Y-m-d' }}">
+                                <div class="form-text">
+                                    <strong>Data automática calculada:</strong> {{ proxima_data_automatica|date:"d/m/Y" }}<br>
+                                    <strong>Datas oficiais para praças:</strong> 18 de julho e 25 de dezembro<br>
+                                    <strong>Você pode alterar esta data se necessário</strong>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Campo para critério de ordenação manual (aparece apenas quando tipo=MANUAL) -->
+                        <div class="row" id="criterio_ordenacao_row" style="display: none;">
+                            <div class="col-md-6 mb-3">
+                                <label for="criterio_ordenacao_manual" class="form-label">
+                                    <strong>Critério de Ordenação *</strong>
+                                </label>
+                                <select name="criterio_ordenacao_manual" id="criterio_ordenacao_manual" class="form-select">
+                                    <option value="ANTIGUIDADE">Por Antiguidade</option>
+                                    <option value="MERECIMENTO">Por Merecimento</option>
+                                </select>
+                                <div class="form-text">
+                                    <strong>Antiguidade:</strong> Ordenação por data de promoção (mais antiga primeiro)<br>
+                                    <strong>Merecimento:</strong> Ordenação por pontuação da ficha de conceito
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Campo hidden para status -->
+                        <input type="hidden" name="status" value="EM_ELABORACAO">
+                        
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="alert alert-success">
+                                    <h6><i class="fas fa-calendar-alt me-2"></i>Datas Automáticas de Promoção</h6>
+                                    <p class="mb-0">
+                                        <strong>O sistema calcula automaticamente a próxima data de promoção:</strong>
+                                    </p>
+                                    <ul class="mb-0 mt-2">
+                                        <li><strong>Antes de 18 de julho:</strong> Próxima promoção em 18 de julho</li>
+                                        <li><strong>Entre 18 de julho e 25 de dezembro:</strong> Próxima promoção em 25 de dezembro</li>
+                                        <li><strong>Após 25 de dezembro:</strong> Próxima promoção em 18 de julho do próximo ano</li>
+                                        <li><strong>Data atual calculada:</strong> {{ proxima_data_automatica|date:"d/m/Y" }} (já preenchida no campo acima)</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="alert alert-info">
+                                    <h6><i class="fas fa-magic me-2"></i>Geração de Quadro de Praças</h6>
+                                    <p class="mb-0">
+                                        <strong>O sistema irá gerar um quadro de acesso apenas para praças:</strong>
+                                    </p>
+                                    <ul class="mb-0 mt-2">
+                                        <li><strong>Todos os quadros de praças:</strong> Combatente, Saúde, Músico, etc.</li>
+                                        <li><strong>Todos os postos de praças:</strong> SD, CAB, 3S, 2S, 1S, ST</li>
+                                        <li><strong>Militares aptos:</strong> Que atendam aos requisitos de cada posto</li>
+                                        <li><strong>Ordenação automática:</strong> Por antiguidade ou merecimento conforme selecionado</li>
+                                        <li><strong>Quadro consolidado:</strong> Um único quadro com todos os praças aptos ordenados</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="alert alert-warning">
+                                    <h6><i class="fas fa-exclamation-triangle me-2"></i>Requisitos para Inclusão nos Quadros</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <strong>Requisitos Obrigatórios:</strong>
+                                            <ul class="mb-0">
+                                                <li><strong>Antiguidade:</strong> Ficha de conceito não obrigatória</li>
+                                                <li><strong>Merecimento:</strong> Ficha de conceito obrigatória</li>
+                                                <li>Interstício mínimo completado até a data da promoção</li>
+                                                <li>Inspeção de saúde em dia</li>
+                                                <li>Cursos inerentes ao posto subsequente</li>
+                                                <li>Situação ativa no serviço</li>
+                                            </ul>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <strong>Critérios de Ordenação:</strong>
+                                            <ul class="mb-0">
+                                                <li><strong>Antiguidade:</strong> Data de promoção atual (mais antiga primeiro)</li>
+                                                <li><strong>Merecimento:</strong> Pontuação da ficha de conceito (maior pontuação primeiro)</li>
+                                                <li>Em caso de empate no merecimento, considera antiguidade</li>
+                                                <li><strong>Numeração:</strong> Cada praça possui numeração de antiguidade</li>
+                                                <li><strong>Hierarquia:</strong> SD → CAB → 3S → 2S → 1S → ST</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <div class="alert alert-info">
+                                    <h6><i class="fas fa-sort-numeric-up me-2"></i>Numeração de Antiguidade</h6>
+                                    <p class="mb-0">
+                                        <strong>Como funciona:</strong> Cada praça possui uma numeração de antiguidade dentro do seu posto e quadro específico. 
+                                        A numeração é calculada automaticamente baseada na data de promoção atual, onde o praça mais antigo no posto fica em 1º lugar.
+                                        Esta numeração é importante para desempates e para identificar a posição hierárquica dentro de cada posto.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="d-flex gap-2">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-magic me-2"></i>Gerar Quadro de Praças
+                                    </button>
+                                    <a href="{% url 'militares:quadro_acesso_list' %}" class="btn btn-secondary">
+                                        <i class="fas fa-times me-2"></i>Cancelar
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tipoSelect = document.getElementById('tipo');
+    const criterioRow = document.getElementById('criterio_ordenacao_row');
+    const criterioSelect = document.getElementById('criterio_ordenacao_manual');
+    
+    // Função para mostrar/ocultar campo de critério
+    function toggleCriterioField() {
+        if (tipoSelect.value === 'MANUAL') {
+            criterioRow.style.display = 'block';
+            criterioSelect.required = true;
+        } else {
+            criterioRow.style.display = 'none';
+            criterioSelect.required = false;
+        }
+    }
+    
+    // Executar na carga da página
+    toggleCriterioField();
+    
+    // Executar quando o tipo mudar
+    tipoSelect.addEventListener('change', toggleCriterioField);
+});
+</script>
+{% endblock %} 

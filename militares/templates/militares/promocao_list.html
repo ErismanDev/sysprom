@@ -1,0 +1,325 @@
+{% extends 'base.html' %}
+
+{% block title %}Promoções - SysProm - CBMEPI{% endblock %}
+
+{% block extra_css %}
+<style>
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    }
+    
+    .card.shadow-lg {
+        box-shadow: 0 1rem 3rem rgba(0,0,0,.175) !important;
+    }
+    
+    .table th {
+        background-color: #f8f9fa;
+        border-top: none;
+        font-weight: 600;
+        color: #495057;
+    }
+    
+    .badge {
+        font-size: 0.75rem;
+    }
+    
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+    
+    .search-box {
+        position: relative;
+    }
+    
+    .search-box .form-control {
+        padding-left: 2.5rem;
+    }
+    
+    .search-box .search-icon {
+        position: absolute;
+        left: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+    }
+    
+    .filter-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border: 1px solid #dee2e6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-lg-12">
+            <!-- Cabeçalho -->
+            <div class="card shadow-lg border-0 mb-4">
+                <div class="card-header bg-gradient-primary text-white py-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-medal fa-2x me-3"></i>
+                            <div>
+                                <h4 class="mb-0">Promoções</h4>
+                                <small class="opacity-75">Histórico de promoções dos militares</small>
+                            </div>
+                        </div>
+                        <div class="btn-group">
+                            <a href="{% url 'militares:promocao_create' %}" class="btn btn-light">
+                                <i class="fas fa-plus me-2"></i>Nova Promoção
+                            </a>
+                            <a href="{% url 'militares:promocao_historica_create' %}" class="btn btn-outline-light">
+                                <i class="fas fa-history me-2"></i>Promoção Histórica
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filtros -->
+            <div class="card filter-card mb-4">
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-4">
+                            <div class="search-box">
+                                <i class="fas fa-search search-icon"></i>
+                                <input type="text" name="q" class="form-control" placeholder="Buscar por militar..." 
+                                       value="{{ request.GET.q }}">
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <select name="criterio" class="form-select">
+                                <option value="">Todos os critérios</option>
+                                <option value="ANTIGUIDADE" {% if request.GET.criterio == 'ANTIGUIDADE' %}selected{% endif %}>Antiguidade</option>
+                                <option value="MERECIMENTO" {% if request.GET.criterio == 'MERECIMENTO' %}selected{% endif %}>Merecimento</option>
+                                <option value="POST_MORTEM" {% if request.GET.criterio == 'POST_MORTEM' %}selected{% endif %}>Post Mortem</option>
+                                <option value="RESSARCIMENTO" {% if request.GET.criterio == 'RESSARCIMENTO' %}selected{% endif %}>Ressarcimento</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <input type="date" name="data_inicio" class="form-control" placeholder="Data início"
+                                   value="{{ request.GET.data_inicio }}">
+                        </div>
+                        <div class="col-md-2">
+                            <input type="date" name="data_fim" class="form-control" placeholder="Data fim"
+                                   value="{{ request.GET.data_fim }}">
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-filter me-1"></i>Filtrar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Lista de Promoções -->
+            <div class="card shadow-lg border-0">
+                <div class="card-body p-0">
+                    {% if promocoes %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Militar</th>
+                                        <th>Promoção</th>
+                                        <th>Critério</th>
+                                        <th>Data da Promoção</th>
+                                        <th>Data da Publicação</th>
+                                        <th>Número do Ato</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for promocao in promocoes %}
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div class="avatar-sm bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px;">
+                                                    {{ promocao.militar.nome_completo|first|upper }}
+                                                </div>
+                                                <div>
+                                                    <div class="fw-bold">{{ promocao.militar.nome_completo }}</div>
+                                                    <small class="text-muted">{{ promocao.militar.matricula }}</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <span class="badge bg-secondary me-2">{{ promocao.get_posto_anterior_display }}</span>
+                                                <i class="fas fa-arrow-right text-muted me-2"></i>
+                                                <span class="badge bg-success">{{ promocao.get_posto_novo_display }}</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            {% if promocao.criterio == 'ANTIGUIDADE' %}
+                                                <span class="badge bg-info">Antiguidade</span>
+                                            {% elif promocao.criterio == 'MERECIMENTO' %}
+                                                <span class="badge bg-warning">Merecimento</span>
+                                            {% elif promocao.criterio == 'POST_MORTEM' %}
+                                                <span class="badge bg-danger">Post Mortem</span>
+                                            {% elif promocao.criterio == 'RESSARCIMENTO' %}
+                                                <span class="badge bg-secondary">Ressarcimento</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <i class="fas fa-calendar-alt text-muted me-1"></i>
+                                            {{ promocao.data_promocao|date:"d/m/Y" }}
+                                        </td>
+                                        <td>
+                                            <i class="fas fa-calendar-check text-muted me-1"></i>
+                                            {{ promocao.data_publicacao|date:"d/m/Y" }}
+                                        </td>
+                                        <td>
+                                            <code class="small">{{ promocao.numero_ato }}</code>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <a href="{% url 'militares:promocao_detail' promocao.pk %}" 
+                                                   class="btn btn-sm btn-outline-primary" title="Ver detalhes">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                <a href="#" class="btn btn-sm btn-outline-secondary" title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <a href="{% url 'militares:promocao_delete' promocao.pk %}" class="btn btn-sm btn-outline-danger" title="Excluir">
+                                                    <i class="fas fa-trash"></i> del
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Paginação -->
+                        {% if is_paginated %}
+                        <div class="card-footer bg-light">
+                            <nav aria-label="Paginação">
+                                <ul class="pagination justify-content-center mb-0">
+                                    {% if page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.criterio %}&criterio={{ request.GET.criterio }}{% endif %}{% if request.GET.data_inicio %}&data_inicio={{ request.GET.data_inicio }}{% endif %}{% if request.GET.data_fim %}&data_fim={{ request.GET.data_fim }}{% endif %}">
+                                                <i class="fas fa-angle-double-left"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.criterio %}&criterio={{ request.GET.criterio }}{% endif %}{% if request.GET.data_inicio %}&data_inicio={{ request.GET.data_inicio }}{% endif %}{% if request.GET.data_fim %}&data_fim={{ request.GET.data_fim }}{% endif %}">
+                                                <i class="fas fa-angle-left"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+
+                                    {% for num in page_obj.paginator.page_range %}
+                                        {% if page_obj.number == num %}
+                                            <li class="page-item active">
+                                                <span class="page-link">{{ num }}</span>
+                                            </li>
+                                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                            <li class="page-item">
+                                                <a class="page-link" href="?page={{ num }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.criterio %}&criterio={{ request.GET.criterio }}{% endif %}{% if request.GET.data_inicio %}&data_inicio={{ request.GET.data_inicio }}{% endif %}{% if request.GET.data_fim %}&data_fim={{ request.GET.data_fim }}{% endif %}">{{ num }}</a>
+                                            </li>
+                                        {% endif %}
+                                    {% endfor %}
+
+                                    {% if page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.criterio %}&criterio={{ request.GET.criterio }}{% endif %}{% if request.GET.data_inicio %}&data_inicio={{ request.GET.data_inicio }}{% endif %}{% if request.GET.data_fim %}&data_fim={{ request.GET.data_fim }}{% endif %}">
+                                                <i class="fas fa-angle-right"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.criterio %}&criterio={{ request.GET.criterio }}{% endif %}{% if request.GET.data_inicio %}&data_inicio={{ request.GET.data_inicio }}{% endif %}{% if request.GET.data_fim %}&data_fim={{ request.GET.data_fim }}{% endif %}">
+                                                <i class="fas fa-angle-double-right"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-medal fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Nenhuma promoção encontrada</h5>
+                            <p class="text-muted">Não há promoções registradas no sistema.</p>
+                            <a href="{% url 'militares:promocao_create' %}" class="btn btn-primary">
+                                <i class="fas fa-plus me-2"></i>Registrar Primeira Promoção
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Estatísticas -->
+            {% if promocoes %}
+            <div class="row mt-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body text-center">
+                            <i class="fas fa-chart-line fa-2x mb-2"></i>
+                            <h5 class="mb-0">{{ total_promocoes }}</h5>
+                            <small>Total de Promoções</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body text-center">
+                            <i class="fas fa-calendar-check fa-2x mb-2"></i>
+                            <h5 class="mb-0">{{ promocoes_este_ano }}</h5>
+                            <small>Este Ano</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body text-center">
+                            <i class="fas fa-users fa-2x mb-2"></i>
+                            <h5 class="mb-0">{{ militares_promovidos }}</h5>
+                            <small>Militares Promovidos</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body text-center">
+                            <i class="fas fa-star fa-2x mb-2"></i>
+                            <h5 class="mb-0">{{ promocoes_merecimento }}</h5>
+                            <small>Por Merecimento</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Melhorar UX dos filtros
+    $('.form-control, .form-select').on('change', function() {
+        $(this).addClass('is-valid');
+    });
+    
+    // Auto-submit do formulário quando mudar critério
+    $('select[name="criterio"]').change(function() {
+        if ($(this).val()) {
+            $('form').submit();
+        }
+    });
+    
+    // Tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+{% endblock %} 

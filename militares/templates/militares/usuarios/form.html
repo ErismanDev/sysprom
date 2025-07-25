@@ -1,0 +1,712 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - SysProm - CBMEPI{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Autocomplete para busca de militares */
+    .autocomplete-container {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        z-index: 9999 !important;
+        max-height: 300px;
+        overflow-y: auto;
+        display: none;
+        margin-top: 2px;
+    }
+    
+    .autocomplete-item {
+        padding: 12px 15px;
+        cursor: pointer;
+        border-bottom: 1px solid #f8f9fa;
+        transition: background-color 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .autocomplete-item:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .autocomplete-item.selected {
+        background-color: #0d6efd;
+        color: white;
+    }
+    
+    .autocomplete-item:last-child {
+        border-bottom: none;
+    }
+    
+    .autocomplete-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        color: #6c757d;
+        font-weight: 600;
+    }
+    
+    .autocomplete-info {
+        flex: 1;
+    }
+    
+    .autocomplete-name {
+        font-weight: 500;
+        font-size: 14px;
+        margin-bottom: 2px;
+    }
+    
+    .autocomplete-details {
+        font-size: 12px;
+        color: #6c757d;
+    }
+    
+    .militar-selecionado {
+        background: #d1ecf1;
+        border: 1px solid #bee5eb;
+        border-radius: 8px;
+        padding: 12px;
+        margin-top: 10px;
+    }
+    
+    .militar-selecionado .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+    
+    /* Debug visual */
+    .autocomplete-container.debug {
+        border: 2px solid red !important;
+        background: yellow !important;
+    }
+    
+    .position-relative {
+        position: relative;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-user-plus me-2"></i>
+        {{ title }}
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'militares:usuarios_custom_list' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i>
+            Voltar
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-edit me-2"></i>
+                    Dados do Usuário
+                </h5>
+            </div>
+            <div class="card-body">
+                <!-- Exibir mensagens de erro gerais -->
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Erros encontrados:</strong>
+                        <ul class="mb-0 mt-2">
+                            {% for error in form.non_field_errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+
+                <form method="post" novalidate class="needs-validation">
+                    {% csrf_token %}
+                    
+                    <!-- Dados Básicos -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.username.id_for_label }}" class="form-label">
+                                <i class="fas fa-id-card me-1"></i>
+                                Username/CPF <span class="text-danger">*</span>
+                            </label>
+                            {{ form.username }}
+                            {% if form.username.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.username.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% if form.username.help_text %}
+                                <div class="form-text">{{ form.username.help_text }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.email.id_for_label }}" class="form-label">
+                                <i class="fas fa-envelope me-1"></i>
+                                E-mail
+                            </label>
+                            {{ form.email }}
+                            {% if form.email.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.email.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Nome com Autocomplete -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.first_name.id_for_label }}" class="form-label">
+                                <i class="fas fa-user me-1"></i>
+                                Nome <span class="text-danger">*</span>
+                            </label>
+                            <div class="position-relative">
+                                {{ form.first_name }}
+                                {{ form.militar_id }}
+                                <div id="militarAutocomplete" class="autocomplete-container">
+                                    <!-- Resultados do autocomplete serão inseridos aqui -->
+                                </div>
+                            </div>
+                            {% if form.first_name.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.first_name.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Digite o nome do militar para buscar e preencher automaticamente os dados
+                            </div>
+                            
+                            <!-- Indicador de militar selecionado -->
+                            <div id="militarSelecionado" class="militar-selecionado" style="display: none;">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    <span id="militarSelecionadoText" class="flex-grow-1"></span>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" id="limparMilitar">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.last_name.id_for_label }}" class="form-label">
+                                <i class="fas fa-user me-1"></i>
+                                Sobrenome <span class="text-danger">*</span>
+                            </label>
+                            {{ form.last_name }}
+                            {% if form.last_name.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.last_name.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Senha -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.password.id_for_label }}" class="form-label">
+                                <i class="fas fa-key me-1"></i>
+                                Senha
+                            </label>
+                            {{ form.password }}
+                            {% if form.password.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.password.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% if form.password.help_text %}
+                                <div class="form-text">{{ form.password.help_text }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.confirm_password.id_for_label }}" class="form-label">
+                                <i class="fas fa-key me-1"></i>
+                                Confirmar Senha
+                            </label>
+                            {{ form.confirm_password }}
+                            {% if form.confirm_password.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.confirm_password.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% if form.confirm_password.help_text %}
+                                <div class="form-text">{{ form.confirm_password.help_text }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Campo de Função/Cargo -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.cargo_funcao.id_for_label }}" class="form-label">
+                                <i class="fas fa-briefcase me-1"></i>
+                                Função/Cargo <span class="text-danger">*</span>
+                            </label>
+                            {{ form.cargo_funcao }}
+                            {% if form.cargo_funcao.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.cargo_funcao.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Status do Usuário -->
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <div class="form-check form-switch">
+                                {{ form.is_active }}
+                                <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                    <i class="fas fa-check-circle me-1"></i>
+                                    Usuário Ativo
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <div class="form-check form-switch">
+                                {{ form.is_staff }}
+                                <label class="form-check-label" for="{{ form.is_staff.id_for_label }}">
+                                    <i class="fas fa-user-shield me-1"></i>
+                                    Acesso ao Admin
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <div class="form-check form-switch">
+                                {{ form.is_superuser }}
+                                <label class="form-check-label" for="{{ form.is_superuser.id_for_label }}">
+                                    <i class="fas fa-crown me-1"></i>
+                                    Super Usuário
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% url 'militares:usuarios_custom_list' %}" class="btn btn-secondary me-md-2">
+                            <i class="fas fa-times me-1"></i>
+                            Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i>
+                            {{ submit_text }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Informações
+                </h5>
+            </div>
+            <div class="card-body">
+                <h6><i class="fas fa-user-plus me-2"></i>Criação de Usuários</h6>
+                <p class="small">Crie usuários do sistema vinculados aos militares cadastrados.</p>
+                
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-lightbulb me-2"></i>Dicas</h6>
+                    <ul class="list-unstyled small mb-0">
+                        <li>• Digite o nome do militar no campo "Nome" para buscar automaticamente</li>
+                        <li>• O CPF será usado como username automaticamente</li>
+                        <li>• Os dados do militar serão preenchidos automaticamente</li>
+                        <li>• Defina as permissões conforme necessário</li>
+                    </ul>
+                </div>
+                
+                <div class="alert alert-warning">
+                    <h6><i class="fas fa-exclamation-triangle me-2"></i>Importante</h6>
+                    <ul class="list-unstyled small mb-0">
+                        <li>• Usuários com acesso ao Admin podem gerenciar o sistema</li>
+                        <li>• Super usuários têm acesso total ao sistema</li>
+                        <li>• Grupos definem as permissões específicas</li>
+                        <li>• Mantenha as senhas seguras</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts para validação e autocomplete -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Validação de senha
+    const passwordField = document.getElementById('{{ form.password.id_for_label }}');
+    const confirmPasswordField = document.getElementById('{{ form.confirm_password.id_for_label }}');
+    
+    function validatePassword() {
+        if (passwordField.value !== confirmPasswordField.value) {
+            confirmPasswordField.setCustomValidity('As senhas não coincidem');
+        } else {
+            confirmPasswordField.setCustomValidity('');
+        }
+    }
+    
+    passwordField.addEventListener('input', validatePassword);
+    confirmPasswordField.addEventListener('input', validatePassword);
+    
+    // Validação de formulário
+    const form = document.querySelector('.needs-validation');
+    form.addEventListener('submit', function(event) {
+        if (!form.checkValidity()) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        form.classList.add('was-validated');
+    });
+    
+    // Autocomplete para busca de militares
+    const firstNameField = document.getElementById('{{ form.first_name.id_for_label }}');
+    const lastNameField = document.getElementById('{{ form.last_name.id_for_label }}');
+    const emailField = document.getElementById('{{ form.email.id_for_label }}');
+    const usernameField = document.getElementById('{{ form.username.id_for_label }}');
+    const militarIdField = document.getElementById('{{ form.militar_id.id_for_label }}');
+    const militarAutocomplete = document.getElementById('militarAutocomplete');
+    const militarSelecionado = document.getElementById('militarSelecionado');
+    const militarSelecionadoText = document.getElementById('militarSelecionadoText');
+    const limparMilitar = document.getElementById('limparMilitar');
+    
+    let searchTimeout;
+    let selectedIndex = -1;
+    
+    // Função para buscar militares via AJAX
+    async function buscarMilitaresAJAX(termo) {
+        try {
+            console.log('🔍 Buscando militares para:', termo);
+            const url = `{% url 'militares:militar_search_ajax' %}?q=${encodeURIComponent(termo)}`;
+            console.log('🌐 URL da busca:', url);
+            
+            // Adicionar CSRF token
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            console.log('🔑 CSRF Token:', csrfToken ? 'Presente' : 'Ausente');
+            
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/json',
+                },
+            });
+            
+            console.log('📡 Response status:', response.status);
+            console.log('📡 Response headers:', response.headers);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log('📦 Resposta da busca:', data);
+            return data.results || [];
+        } catch (error) {
+            console.error('❌ Erro ao buscar militares:', error);
+            console.error('❌ Stack trace:', error.stack);
+            return [];
+        }
+    }
+    
+    // Função para mostrar o autocomplete
+    function showAutocomplete(results) {
+        console.log('🎨 showAutocomplete chamado com resultados:', results);
+        console.log('🎨 Elemento militarAutocomplete:', militarAutocomplete);
+        console.log('🎨 Display atual:', militarAutocomplete.style.display);
+        
+        militarAutocomplete.innerHTML = '';
+        
+        if (!firstNameField.value.trim()) {
+            console.log('🚫 Campo vazio, ocultando autocomplete');
+            militarAutocomplete.style.display = 'none';
+            return;
+        }
+        
+        if (results.length === 0) {
+            console.log('📝 Mostrando mensagem de "nenhum resultado"');
+            militarAutocomplete.style.display = 'block';
+            const noResultsItem = document.createElement('div');
+            noResultsItem.classList.add('autocomplete-item');
+            noResultsItem.style.textAlign = 'center';
+            noResultsItem.style.color = '#6c757d';
+            noResultsItem.style.fontStyle = 'italic';
+            noResultsItem.innerHTML = '<i class="fas fa-search me-2"></i>Nenhum militar encontrado';
+            militarAutocomplete.appendChild(noResultsItem);
+            console.log('✅ Mensagem de "nenhum resultado" adicionada');
+            return;
+        }
+        
+        // Limitar a 8 resultados para melhor UX
+        const limitedResults = results.slice(0, 8);
+        
+        console.log('🎨 Definindo display como block');
+        militarAutocomplete.style.display = 'block';
+        console.log('📊 Mostrando', limitedResults.length, 'resultados no autocomplete');
+        
+        limitedResults.forEach((result, index) => {
+            console.log('👤 Criando item para:', result);
+            const autocompleteItem = document.createElement('div');
+            autocompleteItem.classList.add('autocomplete-item');
+            autocompleteItem.setAttribute('data-index', index);
+            
+            // Avatar
+            const avatar = document.createElement('div');
+            avatar.classList.add('autocomplete-avatar');
+            avatar.textContent = result.nome.charAt(0).toUpperCase();
+            autocompleteItem.appendChild(avatar);
+            
+            // Informações
+            const info = document.createElement('div');
+            info.classList.add('autocomplete-info');
+            
+            const name = document.createElement('div');
+            name.classList.add('autocomplete-name');
+            name.textContent = result.nome;
+            info.appendChild(name);
+            
+            const details = document.createElement('div');
+            details.classList.add('autocomplete-details');
+            details.textContent = `${result.posto} • ${result.matricula}`;
+            info.appendChild(details);
+            
+            autocompleteItem.appendChild(info);
+            militarAutocomplete.appendChild(autocompleteItem);
+            
+            console.log('✅ Item criado e adicionado:', result.nome);
+            
+            // Adicionar evento de clique
+            autocompleteItem.addEventListener('click', function() {
+                console.log('🖱️ Item clicado:', result.nome);
+                console.log('🆔 ID do militar:', result.id);
+                
+                // Preencher automaticamente os campos
+                const nomeCompleto = result.nome.split(' ');
+                const primeiroNome = nomeCompleto[0] || '';
+                const sobrenome = nomeCompleto.slice(1).join(' ') || '';
+                
+                firstNameField.value = primeiroNome;
+                lastNameField.value = sobrenome;
+                militarIdField.value = result.id;
+                
+                // Preencher username com CPF se disponível
+                if (result.cpf) {
+                    usernameField.value = result.cpf;
+                }
+                
+                // Preencher email se disponível (simulado)
+                if (result.nome) {
+                    const emailBase = result.nome.toLowerCase().replace(/\s+/g, '.');
+                    emailField.value = `${emailBase}@cbmepi.gov.br`;
+                }
+                
+                console.log('✅ Campos preenchidos automaticamente');
+                hideAutocomplete();
+                
+                // Mostrar indicador de militar selecionado
+                militarSelecionadoText.textContent = `${result.posto} ${result.nome} - ${result.matricula}`;
+                militarSelecionado.style.display = 'block';
+                
+                // Feedback visual
+                firstNameField.style.backgroundColor = '#d4edda';
+                firstNameField.style.borderColor = '#28a745';
+                setTimeout(() => {
+                    firstNameField.style.backgroundColor = '';
+                    firstNameField.style.borderColor = '';
+                }, 2000);
+            });
+        });
+        
+        console.log('✅ Autocomplete configurado com sucesso');
+    }
+    
+    // Função para esconder o autocomplete
+    function hideAutocomplete() {
+        console.log('🚫 hideAutocomplete chamado');
+        console.log('🎨 Display antes de ocultar:', militarAutocomplete.style.display);
+        militarAutocomplete.style.display = 'none';
+        console.log('🎨 Display após ocultar:', militarAutocomplete.style.display);
+        selectedIndex = -1;
+    }
+    
+    // Teste inicial para verificar se o CSS está funcionando
+    console.log('🧪 Teste inicial do autocomplete');
+    console.log('🎨 Elemento militarAutocomplete existe:', !!militarAutocomplete);
+    console.log('🎨 Classes do elemento:', militarAutocomplete.className);
+    console.log('🎨 CSS computed:', window.getComputedStyle(militarAutocomplete));
+    
+    // Teste visual - mostrar o autocomplete por 3 segundos
+    setTimeout(() => {
+        console.log('🧪 Teste visual - mostrando autocomplete por 3 segundos');
+        militarAutocomplete.style.display = 'block';
+        militarAutocomplete.classList.add('debug'); // Adicionar classe de debug
+        militarAutocomplete.innerHTML = '<div class="autocomplete-item" style="text-align: center; color: #6c757d; font-style: italic;"><i class="fas fa-info-circle me-2"></i>Teste do autocomplete - deve aparecer por 3 segundos</div>';
+        
+        setTimeout(() => {
+            console.log('🧪 Teste visual - ocultando autocomplete');
+            militarAutocomplete.classList.remove('debug'); // Remover classe de debug
+            hideAutocomplete();
+        }, 3000);
+    }, 1000);
+    
+    // Função para realizar a busca
+    async function performSearch() {
+        const termo = firstNameField.value.trim();
+        
+        console.log('🔍 performSearch chamado com termo:', termo);
+        console.log('🔍 Comprimento do termo:', termo.length);
+        
+        if (termo && termo.length >= 2) {
+            try {
+                console.log('🚀 Fazendo busca AJAX para:', termo);
+                const results = await buscarMilitaresAJAX(termo);
+                console.log('📦 Resultados AJAX recebidos:', results);
+                console.log('📦 Tipo dos resultados:', typeof results);
+                console.log('📦 É array?', Array.isArray(results));
+                
+                if (results && Array.isArray(results) && results.length > 0) {
+                    console.log('✅ Mostrando autocomplete com resultados');
+                    showAutocomplete(results);
+                } else {
+                    console.log('⚠️ Nenhum resultado encontrado, mostrando mensagem');
+                    showAutocomplete([]);
+                }
+            } catch (error) {
+                console.error('❌ Erro na busca AJAX:', error);
+                console.error('❌ Stack trace:', error.stack);
+                showAutocomplete([]);
+            }
+        } else {
+            console.log('🚫 Termo muito curto, ocultando autocomplete');
+            hideAutocomplete();
+        }
+    }
+    
+    // Event listeners
+    firstNameField.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => performSearch(), 200);
+        
+        // Mostrar dica se o usuário digitou apenas 1 caractere
+        if (this.value.length === 1) {
+            const hintItem = document.createElement('div');
+            hintItem.classList.add('autocomplete-item');
+            hintItem.style.textAlign = 'center';
+            hintItem.style.color = '#6c757d';
+            hintItem.style.fontSize = '12px';
+            hintItem.innerHTML = '<i class="fas fa-info-circle me-2"></i>Continue digitando para buscar...';
+            militarAutocomplete.innerHTML = '';
+            militarAutocomplete.appendChild(hintItem);
+            militarAutocomplete.style.display = 'block';
+        }
+    });
+    
+    firstNameField.addEventListener('focus', async function() {
+        if (this.value.trim()) {
+            await performSearch();
+        }
+    });
+    
+    // Navegação com teclado no autocomplete
+    firstNameField.addEventListener('keydown', async function(e) {
+        const autocompleteItems = militarAutocomplete.querySelectorAll('.autocomplete-item');
+        
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            selectedIndex = Math.min(selectedIndex + 1, autocompleteItems.length - 1);
+            updateSelectedItem(autocompleteItems);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            selectedIndex = Math.max(selectedIndex - 1, -1);
+            updateSelectedItem(autocompleteItems);
+        } else if (e.key === 'Enter' && selectedIndex >= 0) {
+            e.preventDefault();
+            if (autocompleteItems[selectedIndex]) {
+                autocompleteItems[selectedIndex].click();
+            }
+        } else if (e.key === 'Escape') {
+            this.value = '';
+            militarIdField.value = '';
+            hideAutocomplete();
+        }
+    });
+    
+    function updateSelectedItem(items) {
+        items.forEach((item, index) => {
+            if (index === selectedIndex) {
+                item.classList.add('selected');
+            } else {
+                item.classList.remove('selected');
+            }
+        });
+    }
+    
+    // Quando o usuário clica fora, esconde o autocomplete
+    document.addEventListener('click', function(event) {
+        if (!firstNameField.contains(event.target) && !militarAutocomplete.contains(event.target)) {
+            hideAutocomplete();
+        }
+    });
+    
+    // Botão para limpar militar selecionado
+    if (limparMilitar) {
+        limparMilitar.addEventListener('click', function() {
+            firstNameField.value = '';
+            lastNameField.value = '';
+            emailField.value = '';
+            usernameField.value = '';
+            militarIdField.value = '';
+            militarSelecionado.style.display = 'none';
+            console.log('Militar limpo');
+        });
+    }
+    
+    console.log('JavaScript de autocomplete carregado com sucesso!');
+    
+    // Verificar se já há um militar selecionado (para edição)
+    if (firstNameField.value && militarIdField.value) {
+        militarSelecionadoText.textContent = `${firstNameField.value} ${lastNameField.value}`;
+        militarSelecionado.style.display = 'block';
+    }
+});
+</script>
+{% endblock %} 

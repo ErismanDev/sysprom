@@ -1,0 +1,254 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Militares Inativos{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Cabeçalho -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0 text-gray-800">
+                        <i class="fas fa-user-times me-2"></i>Militares Inativos
+                    </h1>
+                    <p class="text-muted mb-0">Gerenciamento de militares transferidos, aposentados e exonerados</p>
+                </div>
+                <div>
+                    <a href="{% url 'militares:militar_list' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-users me-2"></i>Militares Ativos
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estatísticas -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-primary">{{ estatisticas.total }}</h4>
+                                <small class="text-muted">Total de Inativos</small>
+                            </div>
+                        </div>
+                        {% for situacao in estatisticas.por_situacao %}
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-info">{{ situacao.count }}</h4>
+                                <small class="text-muted">{{ situacao.situacao }}</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-filter me-2"></i>Filtros</h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label for="busca" class="form-label">Buscar</label>
+                            <input type="text" class="form-control" id="busca" name="busca" 
+                                   value="{{ filtros.busca }}" placeholder="Nome, matrícula...">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="situacao" class="form-label">Situação</label>
+                            <select class="form-select" id="situacao" name="situacao">
+                                <option value="">Todas</option>
+                                {% for codigo, nome in situacoes %}
+                                    {% if codigo in 'IN,TR,AP,EX' %}
+                                    <option value="{{ codigo }}" {% if filtros.situacao == codigo %}selected{% endif %}>
+                                        {{ nome }}
+                                    </option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="posto" class="form-label">Posto</label>
+                            <select class="form-select" id="posto" name="posto">
+                                <option value="">Todos</option>
+                                {% for codigo, nome in postos %}
+                                <option value="{{ codigo }}" {% if filtros.posto == codigo %}selected{% endif %}>
+                                    {{ nome }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="quadro" class="form-label">Quadro</label>
+                            <select class="form-select" id="quadro" name="quadro">
+                                <option value="">Todos</option>
+                                {% for codigo, nome in quadros %}
+                                <option value="{{ codigo }}" {% if filtros.quadro == codigo %}selected{% endif %}>
+                                    {{ nome }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">&nbsp;</label>
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-search me-2"></i>Filtrar
+                                </button>
+                                <a href="{% url 'militares:militar_inativo_list' %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times me-2"></i>Limpar
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de Militares -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-list me-2"></i>Militares Inativos
+                        <span class="badge bg-secondary ms-2">{{ page_obj.paginator.count }}</span>
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if militares %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Foto</th>
+                                    <th>Nome</th>
+                                    <th>Posto/Graduação</th>
+                                    <th>Quadro</th>
+                                    <th>Situação</th>
+                                    <th>Matrícula</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for militar in militares %}
+                                <tr>
+                                    <td>
+                                        {% if militar.foto %}
+                                            <img src="{{ militar.foto.url }}" alt="Foto" class="rounded-circle" width="40" height="40">
+                                        {% else %}
+                                            <div class="bg-secondary rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                                <i class="fas fa-user text-white"></i>
+                                            </div>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div>
+                                            <strong>{{ militar.nome_completo }}</strong>
+                                            {% if militar.nome_guerra %}
+                                            <br><small class="text-muted">{{ militar.nome_guerra }}</small>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ militar.get_posto_graduacao_display }}</span>
+                                    </td>
+                                    <td>{{ militar.get_quadro_display }}</td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if militar.situacao == 'IN' %}bg-warning
+                                            {% elif militar.situacao == 'TR' %}bg-info
+                                            {% elif militar.situacao == 'AP' %}bg-success
+                                            {% elif militar.situacao == 'EX' %}bg-danger
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ militar.get_situacao_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ militar.matricula }}</td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <a href="{% url 'militares:militar_inativo_detail' militar.pk %}" 
+                                               class="btn btn-sm btn-outline-primary" title="Ver Detalhes">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="{% url 'militares:militar_reativar' militar.pk %}" 
+                                               class="btn btn-sm btn-outline-success" title="Reativar">
+                                                <i class="fas fa-undo"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Paginação -->
+                    {% if page_obj.has_other_pages %}
+                    <nav aria-label="Paginação">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1{% if filtros.situacao %}&situacao={{ filtros.situacao }}{% endif %}{% if filtros.posto %}&posto={{ filtros.posto }}{% endif %}{% if filtros.quadro %}&quadro={{ filtros.quadro }}{% endif %}{% if filtros.busca %}&busca={{ filtros.busca }}{% endif %}">
+                                        <i class="fas fa-angle-double-left"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if filtros.situacao %}&situacao={{ filtros.situacao }}{% endif %}{% if filtros.posto %}&posto={{ filtros.posto }}{% endif %}{% if filtros.quadro %}&quadro={{ filtros.quadro }}{% endif %}{% if filtros.busca %}&busca={{ filtros.busca }}{% endif %}">
+                                        <i class="fas fa-angle-left"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}{% if filtros.situacao %}&situacao={{ filtros.situacao }}{% endif %}{% if filtros.posto %}&posto={{ filtros.posto }}{% endif %}{% if filtros.quadro %}&quadro={{ filtros.quadro }}{% endif %}{% if filtros.busca %}&busca={{ filtros.busca }}{% endif %}">{{ num }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if filtros.situacao %}&situacao={{ filtros.situacao }}{% endif %}{% if filtros.posto %}&posto={{ filtros.posto }}{% endif %}{% if filtros.quadro %}&quadro={{ filtros.quadro }}{% endif %}{% if filtros.busca %}&busca={{ filtros.busca }}{% endif %}">
+                                        <i class="fas fa-angle-right"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if filtros.situacao %}&situacao={{ filtros.situacao }}{% endif %}{% if filtros.posto %}&posto={{ filtros.posto }}{% endif %}{% if filtros.quadro %}&quadro={{ filtros.quadro }}{% endif %}{% if filtros.busca %}&busca={{ filtros.busca }}{% endif %}">
+                                        <i class="fas fa-angle-double-right"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-user-times fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">Nenhum militar inativo encontrado</h5>
+                        <p class="text-muted">Não há militares inativos com os filtros aplicados.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+
+{% block title %}Assinar Documento - {{ militar.nome_completo }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-file-signature me-2"></i>Assinar Documento
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Informações do Militar -->
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-user"></i> Militar</h6>
+                        <p class="mb-1">{{ militar.get_posto_graduacao_display }} {{ militar.nome_completo }}</p>
+                        <small class="text-muted">Matrícula: {{ militar.matricula }}</small>
+                    </div>
+
+                    <!-- Informações do Documento -->
+                    <div class="alert alert-warning">
+                        <h6><i class="fas fa-file"></i> Documento a ser Assinado</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Título:</strong> {{ documento.titulo }}</p>
+                                <p><strong>Tipo:</strong> {{ documento.get_tipo_display }}</p>
+                                <p><strong>Status:</strong> 
+                                    <span class="badge bg-{% if documento.status == 'APROVADO' %}success{% elif documento.status == 'REJEITADO' %}danger{% elif documento.status == 'ARQUIVADO' %}secondary{% elif documento.status == 'ASSINADO' %}primary{% else %}warning{% endif %}">
+                                        {{ documento.get_status_display }}
+                                    </span>
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Arquivo:</strong> {{ documento.filename }}</p>
+                                <p><strong>Upload:</strong> {{ documento.data_upload|date:"d/m/Y H:i" }}</p>
+                                <p><strong>Tamanho:</strong> {{ documento.arquivo.size|filesizeformat }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Observações do Documento -->
+                    {% if documento.observacoes %}
+                    <div class="mb-3">
+                        <h6><i class="fas fa-sticky-note"></i> Observações do Documento</h6>
+                        <div class="alert alert-light">
+                            {{ documento.observacoes|linebreaks }}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Formulário de Assinatura -->
+                    <form method="post" id="formAssinarDoc">
+                        {% csrf_token %}
+                        
+                        <!-- Campo para selecionar função -->
+                        <div class="mb-3">
+                            <label for="funcao_assinatura" class="form-label"><strong>Função para Assinatura *</strong></label>
+                            <select class="form-select" id="funcao_assinatura" name="funcao_assinatura" required>
+                                <option value="">Selecione uma função...</option>
+                                {% for funcao in funcoes_usuario %}
+                                    <option value="{{ funcao.cargo_funcao.nome }}" {% if funcao.cargo_funcao.nome == funcao_atual %}selected{% endif %}>
+                                        {{ funcao.cargo_funcao.nome }} ({{ funcao.get_tipo_funcao_display }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Selecione a função que será exibida na assinatura do documento.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="senha" class="form-label">
+                                <strong>Confirme sua Senha *</strong>
+                            </label>
+                            <input type="password" class="form-control" id="senha" name="senha" placeholder="Digite sua senha para confirmar a assinatura" required>
+                            <div class="form-text">
+                                <i class="fas fa-info-circle"></i>
+                                Sua senha é necessária para confirmar a assinatura digital do documento.
+                            </div>
+                            <div class="invalid-feedback" id="senhaError" style="display:none;">
+                                Por favor, digite sua senha para confirmar a assinatura.
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="observacoes_assinatura" class="form-label">
+                                <strong>Observações da Assinatura</strong>
+                            </label>
+                            <textarea class="form-control" id="observacoes_assinatura" name="observacoes_assinatura" rows="3" placeholder="Observações adicionais sobre a assinatura (opcional)"></textarea>
+                            <div class="form-text">
+                                Informações complementares sobre a assinatura ou justificativa.
+                            </div>
+                        </div>
+
+                        <!-- Aviso de Assinatura -->
+                        <div class="alert alert-primary">
+                            <h6><i class="fas fa-exclamation-triangle"></i> Importante!</h6>
+                            <p class="mb-0">
+                                Ao assinar este documento, você confirma que:
+                            </p>
+                            <ul class="mb-0 mt-2">
+                                <li>O documento foi analisado e está correto</li>
+                                <li>Você assume a responsabilidade pela assinatura</li>
+                                <li>A assinatura será registrada com seu nome e data/hora</li>
+                                <li>Esta ação não pode ser desfeita facilmente</li>
+                            </ul>
+                        </div>
+
+                        <!-- Botões de Ação -->
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'militares:militar_detail' militar.pk %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-signature me-1"></i>Assinar Documento
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const senhaInput = document.getElementById('senha');
+    const senhaError = document.getElementById('senhaError');
+    const formAssinarDoc = document.getElementById('formAssinarDoc');
+    if (senhaInput) {
+        senhaInput.focus();
+    }
+    formAssinarDoc.addEventListener('submit', function(e) {
+        const senha = senhaInput.value.trim();
+        if (!senha) {
+            e.preventDefault();
+            senhaInput.classList.add('is-invalid');
+            senhaError.style.display = 'block';
+            senhaInput.focus();
+            return false;
+        }
+    });
+    senhaInput.addEventListener('input', function() {
+        if (this.value.trim()) {
+            this.classList.remove('is-invalid');
+            senhaError.style.display = 'none';
+        }
+    });
+    senhaInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            formAssinarDoc.requestSubmit();
+        }
+    });
+});
+</script>
+{% endblock %} 

@@ -1,0 +1,439 @@
+{% extends 'base.html' %}
+
+{% block title %}Resultado das Deliberações - Sessão {{ sessao.numero }} - SysProm - CBMEPI{% endblock %}
+
+{% block extra_css %}
+<style>
+    .bg-gradient-info {
+        background: linear-gradient(135deg, #17a2b8 0%, #20c997 100%);
+    }
+    
+    .card.shadow-lg {
+        box-shadow: 0 1rem 3rem rgba(0,0,0,.175) !important;
+    }
+    
+    .vote-badge {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .vote-favor {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+    
+    .vote-contra {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+    
+    .vote-abstencao {
+        background-color: #e2e3e5;
+        color: #383d41;
+        border: 1px solid #d6d8db;
+    }
+    
+    .member-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        color: white;
+    }
+    
+    .resultado-card {
+        border-left: 4px solid #28a745;
+    }
+    
+    .resultado-card.reprovada {
+        border-left-color: #dc3545;
+    }
+    
+    .stats-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border: 1px solid #dee2e6;
+    }
+    
+    .progress-custom {
+        height: 8px;
+        border-radius: 4px;
+    }
+    
+    .table-hover tbody tr:hover {
+        background-color: rgba(0,0,0,.075);
+    }
+    
+
+    
+    .btn-view-vote {
+        transition: all 0.2s ease;
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .btn-view-vote:hover {
+        transform: scale(1.05);
+    }
+    
+    /* Forçar cor preta no texto dos cards */
+    .card,
+    .card-body,
+    .card-header,
+    .stats-card,
+    .resultado-card {
+        color: #000 !important;
+    }
+    
+    .text-muted {
+        color: #000 !important;
+    }
+    
+    /* Garantir que o texto dos cards seja preto */
+    .card-body,
+    .card-header,
+    .stats-card {
+        color: #000 !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-lg">
+                <div class="card-header bg-gradient-info text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0">
+                                <i class="fas fa-chart-pie me-2"></i>
+                                Resultado das Deliberações
+                            </h4>
+                            <small class="opacity-75">
+                                Sessão {{ sessao.numero }} - {{ sessao.comissao.nome }}
+                            </small>
+                        </div>
+                        <div>
+                            <a href="{% url 'militares:sessao_comissao_detail' sessao.pk %}" class="btn btn-light btn-sm me-2">
+                                <i class="fas fa-arrow-left me-1"></i>
+                                Voltar à Sessão
+                            </a>
+                            <a href="{% url 'militares:deliberacao_comissao_create' %}?sessao={{ sessao.pk }}" class="btn btn-success btn-sm">
+                                <i class="fas fa-plus me-1"></i>
+                                Nova Deliberação
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    <!-- Informações da Sessão -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="stats-card p-3 rounded">
+                                <h6 class="text-muted mb-2">
+                                    <i class="fas fa-calendar me-2"></i>Informações da Sessão
+                                </h6>
+                                <p class="mb-1"><strong>Comissão:</strong> {{ sessao.comissao.nome }}</p>
+                                <p class="mb-1"><strong>Sessão:</strong> {{ sessao.numero }}</p>
+                                <p class="mb-1"><strong>Data:</strong> {{ sessao.data_sessao|date:"d/m/Y" }}</p>
+                                <p class="mb-0"><strong>Status:</strong> 
+                                    <span class="badge {% if sessao.status == 'ENCERRADA' %}bg-success{% else %}bg-warning{% endif %}">
+                                        {{ sessao.get_status_display }}
+                                    </span>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="stats-card p-3 rounded">
+                                <h6 class="text-muted mb-2">
+                                    <i class="fas fa-users me-2"></i>Estatísticas
+                                </h6>
+                                <p class="mb-1"><strong>Membros Presentes:</strong> {{ membros_presentes|length }}</p>
+                                <p class="mb-1"><strong>Total de Deliberações:</strong> {{ deliberacoes|length }}</p>
+                                <p class="mb-1"><strong>Deliberações Aprovadas:</strong> 
+                                    <span class="text-success">{{ deliberacoes|dictsort:"aprovada"|length }}</span>
+                                </p>
+                                <p class="mb-0"><strong>Deliberações Reprovadas:</strong> 
+                                    <span class="text-danger">{{ deliberacoes|dictsort:"aprovada"|length }}</span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if deliberacoes %}
+                        <!-- Resultado das Deliberações -->
+                        <div class="mb-4">
+                            <h5 class="mb-3">
+                                <i class="fas fa-gavel me-2"></i>
+                                Resultado das Deliberações
+                            </h5>
+                            
+                            {% for deliberacao in deliberacoes %}
+                            <div class="card mb-4 resultado-card {% if not deliberacao.aprovada %}reprovada{% endif %}">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-0">
+                                            Deliberação {{ deliberacao.numero }} - {{ deliberacao.get_tipo_display }}
+                                        </h6>
+                                        <small class="text-muted">{{ deliberacao.assunto }}</small>
+                                    </div>
+                                    <div class="text-end">
+                                        {% if deliberacao.aprovada %}
+                                            <span class="badge bg-success fs-6">APROVADA</span>
+                                        {% else %}
+                                            <span class="badge bg-danger fs-6">REPROVADA</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="card-body">
+                                    <!-- Descrição da Deliberação -->
+                                    {% if deliberacao.descricao %}
+                                    <div class="mb-3">
+                                        <h6 class="text-muted">Descrição:</h6>
+                                        <p class="text-justify">{{ deliberacao.descricao|linebreaks }}</p>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <!-- Resultado da Deliberação -->
+                                    {% if deliberacao.resultado %}
+                                    <div class="mb-3">
+                                        <h6 class="text-muted">Resultado:</h6>
+                                        <p class="text-justify">{{ deliberacao.resultado|linebreaks }}</p>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <!-- Estatísticas da Votação -->
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <h6 class="text-muted">Resumo da Votação:</h6>
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <span><i class="fas fa-thumbs-up text-success me-2"></i>Favoráveis:</span>
+                                                <span class="badge bg-success">{{ deliberacao.votos_favor }}</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <span><i class="fas fa-thumbs-down text-danger me-2"></i>Contrários:</span>
+                                                <span class="badge bg-danger">{{ deliberacao.votos_contra }}</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span><i class="fas fa-minus text-warning me-2"></i>Abstenções:</span>
+                                                <span class="badge bg-warning">{{ deliberacao.votos_abstencao }}</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6 class="text-muted">Progresso da Votação:</h6>
+                                            <div class="progress progress-custom mb-2">
+                                                {% widthratio deliberacao.total_votos membros_presentes|length 100 as progresso %}
+                                                <div class="progress-bar bg-success" style="width: {{ progresso }}%"></div>
+                                            </div>
+                                            <small class="text-muted">{{ deliberacao.total_votos }}/{{ membros_presentes|length }} membros votaram</small>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Votos Individuais -->
+                                    <div class="mt-4">
+                                        <h6 class="text-muted mb-3">
+                                            <i class="fas fa-user-check me-2"></i>Votos Individuais dos Membros
+                                        </h6>
+                                        
+                                        <div class="table-responsive">
+                                            <table class="table table-hover">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>Membro</th>
+                                                        <th>Cargo</th>
+                                                        <th>Voto</th>
+                                                        <th>Justificativa</th>
+                                                        <th>Data/Hora</th>
+                                                        <th>Ações</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for membro in membros_presentes %}
+                                                    <tr>
+                                                        <td>
+                                                            <div class="d-flex align-items-center">
+                                                                <div class="member-avatar bg-primary me-2">
+                                                                    {{ membro.militar.nome_completo|first|upper }}
+                                                                </div>
+                                                                <div>
+                                                                    <strong>{{ membro.militar.nome_completo }}</strong><br>
+                                                                    <small class="text-muted">{{ membro.get_tipo_display }}</small>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <span class="badge bg-secondary">{{ membro.cargo.nome }}</span>
+                                                        </td>
+                                                        <td>
+                                                            {% for voto in deliberacao.votos.all %}
+                                                                {% if voto.membro.pk == membro.pk %}
+                                                                    {% if voto.voto == 'FAVOR' %}
+                                                                        <span class="vote-badge vote-favor">
+                                                                            <i class="fas fa-thumbs-up me-1"></i>Favorável
+                                                                        </span>
+                                                                    {% elif voto.voto == 'CONTRA' %}
+                                                                        <span class="vote-badge vote-contra">
+                                                                            <i class="fas fa-thumbs-down me-1"></i>Contrário
+                                                                        </span>
+                                                                    {% else %}
+                                                                        <span class="vote-badge vote-abstencao">
+                                                                            <i class="fas fa-minus me-1"></i>Abstenção
+                                                                        </span>
+                                                                    {% endif %}
+                                                                {% endif %}
+                                                            {% empty %}
+                                                                <span class="text-muted">
+                                                                    <i class="fas fa-clock me-1"></i>Não votou
+                                                                </span>
+                                                            {% endfor %}
+                                                        </td>
+                                                        <td>
+                                                            {% for voto in deliberacao.votos.all %}
+                                                                {% if voto.membro.pk == membro.pk %}
+                                                                    {% if voto.justificativa %}
+                                                                        <small>{{ voto.justificativa }}</small>
+                                                                    {% else %}
+                                                                        <small class="text-muted">-</small>
+                                                                    {% endif %}
+                                                                {% endif %}
+                                                            {% empty %}
+                                                                <small class="text-muted">-</small>
+                                                            {% endfor %}
+                                                        </td>
+                                                        <td>
+                                                            {% for voto in deliberacao.votos.all %}
+                                                                {% if voto.membro.pk == membro.pk %}
+                                                                    <small>{{ voto.data_registro|date:"d/m/Y H:i" }}</small>
+                                                                {% endif %}
+                                                            {% empty %}
+                                                                <small class="text-muted">-</small>
+                                                            {% endfor %}
+                                                        </td>
+                                                        <td>
+                                                            {% for voto in deliberacao.votos.all %}
+                                                                {% if voto.membro.pk == membro.pk %}
+                                                                    <button class="btn btn-outline-info btn-sm btn-view-vote" type="button" data-bs-toggle="modal" data-bs-target="#votoModal-{{ voto.pk }}">
+                                                                        <i class="fas fa-eye me-1"></i>Ver Voto
+                                                                    </button>
+                                                                {% endif %}
+                                                            {% empty %}
+                                                                <span class="text-muted">
+                                                                    <i class="fas fa-clock me-1"></i>Não votou
+                                                                </span>
+                                                            {% endfor %}
+                                                        </td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                                                                        </table>
+                                        </div>
+                                    </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <!-- Nenhuma Deliberação -->
+                        <div class="text-center py-5">
+                            <i class="fas fa-gavel fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Nenhuma Deliberação Registrada</h5>
+                            <p class="text-muted">Esta sessão ainda não possui deliberações registradas.</p>
+                            <a href="{% url 'militares:deliberacao_comissao_create' %}?sessao={{ sessao.pk }}" class="btn btn-success">
+                                <i class="fas fa-plus me-1"></i>
+                                Criar Primeira Deliberação
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modais para Visualizar Votos Individuais -->
+{% for deliberacao in deliberacoes %}
+    {% for voto in deliberacao.votos.all %}
+    <div class="modal fade" id="votoModal-{{ voto.pk }}" tabindex="-1" aria-labelledby="votoModalLabel-{{ voto.pk }}" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="votoModalLabel-{{ voto.pk }}">
+                        <i class="fas fa-user-check me-2"></i>Detalhes do Voto
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Informações do Membro:</h6>
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="member-avatar bg-primary me-3">
+                                    {{ voto.membro.militar.nome_completo|first|upper }}
+                                </div>
+                                <div>
+                                    <strong>{{ voto.membro.militar.nome_completo }}</strong><br>
+                                    <small class="text-muted">{{ voto.membro.get_tipo_display }}</small><br>
+                                    <span class="badge bg-secondary">{{ voto.membro.cargo.nome }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Informações da Deliberação:</h6>
+                            <p class="mb-1"><strong>Deliberação:</strong> {{ voto.deliberacao.numero }}</p>
+                            <p class="mb-1"><strong>Assunto:</strong> {{ voto.deliberacao.assunto }}</p>
+                            <p class="mb-0"><strong>Tipo:</strong> {{ voto.deliberacao.get_tipo_display }}</p>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Voto Registrado:</h6>
+                            {% if voto.voto == 'FAVOR' %}
+                                <span class="vote-badge vote-favor fs-6">
+                                    <i class="fas fa-thumbs-up me-2"></i>Favorável
+                                </span>
+                            {% elif voto.voto == 'CONTRA' %}
+                                <span class="vote-badge vote-contra fs-6">
+                                    <i class="fas fa-thumbs-down me-2"></i>Contrário
+                                </span>
+                            {% else %}
+                                <span class="vote-badge vote-abstencao fs-6">
+                                    <i class="fas fa-minus me-2"></i>Abstenção
+                                </span>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Data/Hora do Voto:</h6>
+                            <p class="mb-0">{{ voto.data_registro|date:"d/m/Y H:i" }}</p>
+                        </div>
+                    </div>
+                    
+                    {% if voto.voto_proferido %}
+                    <hr>
+                    <div class="row">
+                        <div class="col-12">
+                            <h6 class="text-muted">Voto Proferido:</h6>
+                            <div class="border rounded p-3 bg-light">
+                                {{ voto.voto_proferido|safe }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+{% endfor %}
+{% endblock %} 

@@ -1,0 +1,300 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load militares_extras %}
+
+{% block title %}Gerar Novo Almanaque{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">
+                    <i class="fas fa-book me-2"></i>{{ title }}
+                </h1>
+                <div class="btn-group">
+                    <a href="{% url 'militares:militar_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Voltar à Lista
+                    </a>
+                    <a href="{% url 'militares:almanaque_list' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-list me-2"></i>Ver Almanaques
+                    </a>
+                </div>
+            </div>
+
+            <!-- Formulário de Criação -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cog me-2"></i>Configurações do Almanaque
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="almanaqueForm" action="{% url 'militares:almanaque_create' %}">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="tipo" class="form-label">Tipo de Almanaque</label>
+                                    <select class="form-select" id="tipo" name="tipo" required>
+                                        <option value="GERAL">Geral (Oficiais e Praças)</option>
+                                        <option value="OFICIAIS">Apenas Oficiais</option>
+                                        <option value="PRACAS">Apenas Praças</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="titulo" class="form-label">Título Personalizado</label>
+                                    <input type="text" class="form-control" id="titulo" name="titulo" 
+                                           placeholder="Deixe em branco para título automático">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="observacoes" class="form-label">Observações</label>
+                            <textarea class="form-control" id="observacoes" name="observacoes" rows="3" 
+                                      placeholder="Observações adicionais sobre o almanaque..."></textarea>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <button type="button" class="btn btn-info" onclick="previewAlmanaque()">
+                                <i class="fas fa-eye me-2"></i>Visualizar HTML
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Gerar Almanaque (HTML → PDF)
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Preview do Almanaque em HTML -->
+            <div class="card" id="previewCard" style="display: none;">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-eye me-2"></i>Preview do Almanaque
+                    </h5>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-success btn-sm" onclick="assinarAlmanaque()">
+                            <i class="fas fa-signature me-2"></i>Assinar
+                        </button>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="gerarPDF()">
+                            <i class="fas fa-file-pdf me-2"></i>Gerar PDF
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="fecharPreview()">
+                            <i class="fas fa-times me-2"></i>Fechar
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body" id="previewContent">
+                    <!-- Conteúdo do preview será carregado aqui -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Assinatura -->
+<div class="modal fade" id="assinaturaModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-signature me-2"></i>Assinar Almanaque
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Você está prestes a assinar o almanaque. Esta ação não pode ser desfeita.</p>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Assinatura:</strong> {{ request.user.get_full_name|default:request.user.username }}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="confirmarAssinatura()">
+                    <i class="fas fa-signature me-2"></i>Confirmar Assinatura
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function previewAlmanaque() {
+    const tipo = document.getElementById('tipo').value;
+    const titulo = document.getElementById('titulo').value;
+    const observacoes = document.getElementById('observacoes').value;
+    
+    // Mostrar loading
+    const previewContent = document.getElementById('previewContent');
+    previewContent.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">Carregando preview...</p></div>';
+    document.getElementById('previewCard').style.display = 'block';
+    
+    // Fazer requisição AJAX para obter dados do almanaque
+    fetch(`/militares/almanaque/preview/?tipo=${tipo}&titulo=${encodeURIComponent(titulo)}&observacoes=${encodeURIComponent(observacoes)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                previewContent.innerHTML = data.html;
+            } else {
+                previewContent.innerHTML = '<div class="alert alert-danger">Erro ao carregar preview: ' + data.error + '</div>';
+            }
+        })
+        .catch(error => {
+            previewContent.innerHTML = '<div class="alert alert-danger">Erro ao carregar preview: ' + error.message + '</div>';
+        });
+}
+
+function fecharPreview() {
+    document.getElementById('previewCard').style.display = 'none';
+}
+
+function assinarAlmanaque() {
+    const modal = new bootstrap.Modal(document.getElementById('assinaturaModal'));
+    modal.show();
+}
+
+function confirmarAssinatura() {
+    // Implementar lógica de assinatura
+    alert('Funcionalidade de assinatura será implementada em breve!');
+    bootstrap.Modal.getInstance(document.getElementById('assinaturaModal')).hide();
+}
+
+function gerarPDF() {
+    const tipo = document.getElementById('tipo').value;
+    const titulo = document.getElementById('titulo').value;
+    const observacoes = document.getElementById('observacoes').value;
+    
+    // Abrir PDF em nova aba
+    const url = `/militares/almanaque/gerar-pdf/?tipo=${tipo}&titulo=${encodeURIComponent(titulo)}&observacoes=${encodeURIComponent(observacoes)}`;
+    window.open(url, '_blank');
+}
+
+function showGenerationProcess() {
+    // Mostrar processo de geração
+    const button = event.target;
+    const originalText = button.innerHTML;
+    
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Gerando HTML...';
+    
+    setTimeout(() => {
+        button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Convertendo para PDF...';
+        
+        setTimeout(() => {
+            button.innerHTML = '<i class="fas fa-check me-2"></i>Almanaque Gerado!';
+            button.classList.remove('btn-primary');
+            button.classList.add('btn-success');
+            
+            setTimeout(() => {
+                button.disabled = false;
+                button.innerHTML = originalText;
+                button.classList.remove('btn-success');
+                button.classList.add('btn-primary');
+            }, 2000);
+        }, 1500);
+    }, 1000);
+}
+
+// Auto-gerar título quando tipo mudar
+document.getElementById('tipo').addEventListener('change', function() {
+    const titulo = document.getElementById('titulo');
+    if (!titulo.value) {
+        const tipo = this.value;
+        const data = new Date().toLocaleDateString('pt-BR');
+        titulo.value = `Almanaque ${tipo.toLowerCase().replace('_', ' ')} - ${data}`;
+    }
+});
+
+// Mostrar processo de geração quando formulário for enviado
+document.getElementById('almanaqueForm').addEventListener('submit', function(e) {
+    const button = this.querySelector('button[type="submit"]');
+    const originalText = button.innerHTML;
+    
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Gerando HTML...';
+    
+    // O formulário será enviado normalmente
+    // A animação será mostrada durante o envio
+});
+</script>
+
+<style>
+/* Estilos para o preview do almanaque */
+.almanaque-preview {
+    font-family: 'Times New Roman', serif;
+    line-height: 1.6;
+}
+
+.almanaque-preview h1 {
+    text-align: center;
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 20px;
+    text-decoration: underline;
+}
+
+.almanaque-preview h2 {
+    font-size: 14px;
+    font-weight: bold;
+    margin-top: 15px;
+    margin-bottom: 10px;
+    color: #2c3e50;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 5px;
+}
+
+.almanaque-preview table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 15px;
+    font-size: 12px;
+}
+
+.almanaque-preview th {
+    background-color: #ecf0f1;
+    border: 1px solid #bdc3c7;
+    padding: 8px;
+    text-align: center;
+    font-weight: bold;
+}
+
+.almanaque-preview td {
+    border: 1px solid #ecf0f1;
+    padding: 6px 8px;
+    text-align: left;
+}
+
+.almanaque-preview .ordem {
+    text-align: center;
+    font-weight: bold;
+}
+
+.almanaque-preview .cpf {
+    font-family: monospace;
+}
+
+.almanaque-preview .posto {
+    font-weight: bold;
+    text-align: center;
+}
+
+.almanaque-preview .nome {
+    text-align: left;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .almanaque-preview table {
+        font-size: 10px;
+    }
+    
+    .almanaque-preview th,
+    .almanaque-preview td {
+        padding: 4px 6px;
+    }
+}
+</style>
+{% endblock %} 

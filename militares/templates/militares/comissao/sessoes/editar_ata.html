@@ -1,0 +1,1710 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Editar Ata - Sessão {{ sessao.numero }}{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Estilo SEI para o editor customizado */
+.sei-editor {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.sei-editor .toolbar {
+    background: linear-gradient(135deg, #2c5aa0 0%, #1e3a6b 100%);
+    padding: 8px 12px;
+    border-bottom: 1px solid #1e3a6b;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+}
+
+.sei-editor .toolbar-group {
+    display: flex;
+    gap: 2px;
+    padding: 0 8px;
+    border-right: 1px solid #4a6fa5;
+}
+
+.sei-editor .toolbar-group:last-child {
+    border-right: none;
+}
+
+.sei-editor .btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: #ffffff;
+    padding: 4px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.sei-editor .btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.sei-editor .btn.active {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.sei-editor .btn i {
+    font-size: 14px;
+}
+
+.sei-editor .content {
+    min-height: 400px;
+    padding: 16px;
+    outline: none;
+    line-height: 1.6;
+    font-size: 14px;
+    color: #2c3e50;
+}
+
+.sei-editor .content:focus {
+    background: #fafbfc;
+}
+
+.sei-editor .content h1 {
+    color: #2c5aa0;
+    border-bottom: 3px solid #2c5aa0;
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+    text-align: center;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.sei-editor .content h2 {
+    color: #2c5aa0;
+    border-bottom: 2px solid #2c5aa0;
+    padding-bottom: 6px;
+    margin: 20px 0 12px 0;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.sei-editor .content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    border: 1px solid #d1d5db;
+}
+
+.sei-editor .content table th {
+    background: #2c5aa0;
+    color: #ffffff;
+    padding: 10px;
+    text-align: center;
+    font-weight: 600;
+    border: 1px solid #1e3a6b;
+}
+
+.sei-editor .content table td {
+    padding: 10px;
+    border: 1px solid #d1d5db;
+    text-align: left;
+}
+
+.sei-editor .content blockquote {
+    background: #f8f9fa;
+    border-left: 4px solid #2c5aa0;
+    padding: 12px;
+    margin: 12px 0;
+    border-radius: 4px;
+}
+
+.sei-editor .content ul, .sei-editor .content ol {
+    margin: 8px 0;
+    padding-left: 20px;
+}
+
+.sei-editor .content li {
+    margin: 4px 0;
+}
+
+.sei-editor .status-bar {
+    background: #f8f9fa;
+    border-top: 1px solid #d1d5db;
+    padding: 8px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.sei-editor .status-bar .word-count {
+    font-weight: 600;
+    color: #2c5aa0;
+}
+
+.sei-editor .status-bar .last-save {
+    font-style: italic;
+}
+
+/* Modal do editor */
+.modal-sei-editor .modal-content {
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.modal-sei-editor .modal-header {
+    background: linear-gradient(135deg, #2c5aa0 0%, #1e3a6b 100%);
+    color: #ffffff;
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+}
+
+.modal-sei-editor .modal-body {
+    padding: 0;
+}
+
+.modal-sei-editor .modal-footer {
+    background: #f8f9fa;
+    border-top: 1px solid #d1d5db;
+    border-radius: 0 0 8px 8px;
+}
+
+/* Templates */
+.template-buttons {
+    background: #f8f9fa;
+    padding: 12px;
+    border-bottom: 1px solid #d1d5db;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.template-btn {
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    color: #2c5aa0;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+}
+
+.template-btn:hover {
+    background: #2c5aa0;
+    color: #ffffff;
+    border-color: #2c5aa0;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .sei-editor .toolbar {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .sei-editor .toolbar-group {
+        border-right: none;
+        border-bottom: 1px solid #4a6fa5;
+        padding-bottom: 8px;
+    }
+    
+    .template-buttons {
+        flex-direction: column;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-edit me-2"></i>Editar Ata - Sessão {{ sessao.numero }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Informações da Sessão -->
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-calendar"></i> Informações da Sessão</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Número:</strong> {{ sessao.numero }}</p>
+                                <p><strong>Data:</strong> {{ sessao.data_sessao|date:"d/m/Y" }}</p>
+                                <p><strong>Horário:</strong> {{ sessao.hora_inicio|time:"H:i" }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Local:</strong> {{ sessao.local }}</p>
+                                <p><strong>Status:</strong> 
+                                    <span class="badge bg-{% if sessao.status == 'CONCLUIDA' %}success{% elif sessao.status == 'CANCELADA' %}danger{% else %}warning{% endif %}">
+                                        {{ sessao.get_status_display }}
+                                    </span>
+                                </p>
+                                <p><strong>Comissão:</strong> {{ sessao.comissao.nome }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Conteúdo atual da ata -->
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Conteúdo Atual da Ata</strong></label>
+                        <div class="alert alert-light" style="max-height: 200px; overflow-y: auto;">
+                            {% if sessao.ata_editada and sessao.ata_editada.conteudo %}
+                                {{ sessao.ata_editada.conteudo|linebreaks }}
+                            {% else %}
+                                <em class="text-muted">Nenhum conteúdo registrado ainda.</em>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Botão para abrir editor -->
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% url 'militares:sessao_comissao_detail' sessao.pk %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Voltar
+                        </a>
+                        <button type="button" class="btn btn-primary" onclick="abrirEditorAta()">
+                            <i class="fas fa-edit"></i> Abrir Editor
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal do Editor SEI -->
+<div class="modal fade modal-sei-editor" id="editorModal" tabindex="-1" aria-labelledby="editorModalLabel">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editorModalLabel">
+                    <i class="fas fa-edit"></i> Editor de Ata - Sessão {{ sessao.numero }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <!-- Templates -->
+                <div class="template-buttons">
+                    <button type="button" class="template-btn" onclick="insertTemplate('header')">
+                        <i class="fas fa-heading"></i> Cabeçalho
+                    </button>
+                    <button type="button" class="template-btn" onclick="insertTemplate('presenca')">
+                        <i class="fas fa-users"></i> Lista de Presença
+                    </button>
+                    <button type="button" class="template-btn" onclick="insertTemplate('pauta')">
+                        <i class="fas fa-list"></i> Pauta
+                    </button>
+                    <button type="button" class="template-btn" onclick="insertTemplate('deliberacao')">
+                        <i class="fas fa-gavel"></i> Deliberação
+                    </button>
+                    <button type="button" class="template-btn" onclick="insertTemplate('assinatura')">
+                        <i class="fas fa-signature"></i> Assinaturas
+                    </button>
+                    <button type="button" class="template-btn" onclick="insertTemplate('encerramento')">
+                        <i class="fas fa-door-closed"></i> Encerramento
+                    </button>
+                    
+                    <!-- Separador -->
+                    <div style="width: 1px; height: 30px; background-color: #d1d5db; margin: 0 8px;"></div>
+                    
+                    <!-- Botões de Modelos -->
+                    <button type="button" class="template-btn btn-success" onclick="salvarComoModelo()" title="Salvar conteúdo atual como modelo">
+                        <i class="fas fa-save"></i> Salvar Modelo
+                    </button>
+                    <button type="button" class="template-btn btn-info" onclick="abrirModalModelos()" title="Aplicar modelo salvo">
+                        <i class="fas fa-folder-open"></i> Aplicar Modelo
+                    </button>
+                </div>
+
+                <!-- Editor SEI -->
+                <div class="sei-editor">
+                    <div class="toolbar">
+                        <div class="toolbar-group">
+                            <button type="button" class="btn" onclick="execCommand('bold')" title="Negrito">
+                                <i class="fas fa-bold"></i>
+                            </button>
+                            <button type="button" class="btn" onclick="execCommand('italic')" title="Itálico">
+                                <i class="fas fa-italic"></i>
+                            </button>
+                            <button type="button" class="btn" onclick="execCommand('underline')" title="Sublinhado">
+                                <i class="fas fa-underline"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="toolbar-group">
+                            <button type="button" class="btn" onclick="execCommand('justifyLeft')" title="Alinhar à Esquerda">
+                                <i class="fas fa-align-left"></i>
+                            </button>
+                            <button type="button" class="btn" onclick="execCommand('justifyCenter')" title="Centralizar">
+                                <i class="fas fa-align-center"></i>
+                            </button>
+                            <button type="button" class="btn" onclick="execCommand('justifyRight')" title="Alinhar à Direita">
+                                <i class="fas fa-align-right"></i>
+                            </button>
+                            <button type="button" class="btn" onclick="execCommand('justifyFull')" title="Justificar">
+                                <i class="fas fa-align-justify"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="toolbar-group">
+                            <button type="button" class="btn" onclick="execCommand('insertUnorderedList')" title="Lista com Marcadores">
+                                <i class="fas fa-list-ul"></i>
+                            </button>
+                            <button type="button" class="btn" onclick="execCommand('insertOrderedList')" title="Lista Numerada">
+                                <i class="fas fa-list-ol"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="toolbar-group">
+                            <button type="button" class="btn" onclick="insertTable()" title="Inserir Tabela">
+                                <i class="fas fa-table"></i>
+                            </button>
+                            <button type="button" class="btn" onclick="insertLink()" title="Inserir Link">
+                                <i class="fas fa-link"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="toolbar-group">
+                            <button type="button" class="btn" onclick="execCommand('formatBlock', 'h1')" title="Título 1">
+                                <i class="fas fa-heading"></i>1
+                            </button>
+                            <button type="button" class="btn" onclick="execCommand('formatBlock', 'h2')" title="Título 2">
+                                <i class="fas fa-heading"></i>2
+                            </button>
+                            <button type="button" class="btn" onclick="execCommand('formatBlock', 'p')" title="Parágrafo">
+                                <i class="fas fa-paragraph"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="toolbar-group">
+                            <button type="button" class="btn" onclick="execCommand('undo')" title="Desfazer">
+                                <i class="fas fa-undo"></i>
+                            </button>
+                            <button type="button" class="btn" onclick="execCommand('redo')" title="Refazer">
+                                <i class="fas fa-redo"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="content" id="editorContent" contenteditable="true">
+                        {% if sessao.ata_editada and sessao.ata_editada.conteudo %}
+                            {{ sessao.ata_editada.conteudo|safe }}
+                        {% endif %}
+                    </div>
+                    
+                    <div class="status-bar">
+                        <span class="word-count" id="wordCount">0 palavras</span>
+                        <span class="last-save" id="lastSaved">Último save: --:--</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="fecharEditor()">
+                    <i class="fas fa-times"></i> Cancelar
+                </button>
+                <button type="button" class="btn btn-info" onclick="previewAta()">
+                    <i class="fas fa-eye"></i> Visualizar
+                </button>
+                <button type="button" class="btn btn-success" onclick="salvarAta()">
+                    <i class="fas fa-save"></i> Salvar Ata
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Preview -->
+<div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalLabel">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="previewModalLabel">
+                    <i class="fas fa-eye"></i> Visualização da Ata - Sessão {{ sessao.numero }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" style="background-color: #f8f9fa; padding: 30px;">
+                <div class="bg-white p-4 rounded shadow-sm" style="min-height: 80vh;">
+                    <div id="previewContent"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-info" onclick="imprimirPreview()">
+                    <i class="fas fa-print"></i> Imprimir
+                </button>
+                <button type="button" class="btn btn-success" onclick="salvarAta()">
+                    <i class="fas fa-save"></i> Salvar Ata
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Salvar Modelo -->
+<div class="modal fade" id="salvarModeloModal" tabindex="-1" aria-labelledby="salvarModeloModalLabel">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="salvarModeloModalLabel">
+                    <i class="fas fa-save"></i> Salvar como Modelo
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formSalvarModelo">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="nome_modelo" class="form-label">Nome do Modelo *</label>
+                        <input type="text" class="form-control" id="nome_modelo" name="nome" required 
+                               placeholder="Ex: Modelo de Ata Ordinária">
+                    </div>
+                    <div class="mb-3">
+                        <label for="descricao_modelo" class="form-label">Descrição</label>
+                        <textarea class="form-control" id="descricao_modelo" name="descricao" rows="3"
+                                  placeholder="Descreva o conteúdo e uso deste modelo"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="tipo_comissao_modelo" class="form-label">Tipo de Comissão</label>
+                        <select class="form-control" id="tipo_comissao_modelo" name="tipo_comissao">
+                            <option value="GERAL">Geral (Ambos os tipos)</option>
+                            <option value="CPO">Comissão de Promoções de Oficiais</option>
+                            <option value="CPP">Comissão de Promoções de Praças</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="tipo_sessao_modelo" class="form-label">Tipo de Sessão</label>
+                        <select class="form-control" id="tipo_sessao_modelo" name="tipo_sessao">
+                            <option value="GERAL">Geral (Todos os tipos)</option>
+                            <option value="ORDINARIA">Ordinária</option>
+                            <option value="EXTRAORDINARIA">Extraordinária</option>
+                            <option value="ESPECIAL">Especial</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Conteúdo do Modelo</label>
+                        <div class="alert alert-info">
+                            <small>O conteúdo atual do editor será salvo como modelo.</small>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> Cancelar
+                </button>
+                <button type="button" class="btn btn-success" onclick="confirmarSalvarModelo()">
+                    <i class="fas fa-save"></i> Salvar Modelo
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Aplicar Modelos -->
+<div class="modal fade" id="aplicarModeloModal" tabindex="-1" aria-labelledby="aplicarModeloModalLabel">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="aplicarModeloModalLabel">
+                    <i class="fas fa-folder-open"></i> Aplicar Modelo
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="filtro_tipo_comissao" class="form-label">Filtrar por Tipo de Comissão</label>
+                    <select class="form-control" id="filtro_tipo_comissao" onchange="filtrarModelos()">
+                        <option value="">Todos</option>
+                        <option value="CPO">Comissão de Promoções de Oficiais</option>
+                        <option value="CPP">Comissão de Promoções de Praças</option>
+                        <option value="GERAL">Geral</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="filtro_tipo_sessao" class="form-label">Filtrar por Tipo de Sessão</label>
+                    <select class="form-control" id="filtro_tipo_sessao" onchange="filtrarModelos()">
+                        <option value="">Todos</option>
+                        <option value="ORDINARIA">Ordinária</option>
+                        <option value="EXTRAORDINARIA">Extraordinária</option>
+                        <option value="ESPECIAL">Especial</option>
+                        <option value="GERAL">Geral</option>
+                    </select>
+                </div>
+                <div id="lista_modelos" class="row">
+                    <!-- Modelos serão carregados aqui via AJAX -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+                    <!-- Formulário para salvar a ata -->
+                    <form id="formAta" method="post" style="display: none;">
+                        {% csrf_token %}
+                        <input type="hidden" id="conteudo_oculto" name="conteudo" value="{% if sessao.ata_editada %}{{ sessao.ata_editada.conteudo|default:'' }}{% endif %}">
+                    </form>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/sei_editor.js' %}"></script>
+<script>
+let editorInstance = null;
+let autoSaveInterval = null;
+
+// Função para abrir o editor
+function abrirEditorAta() {
+    const modal = new bootstrap.Modal(document.getElementById('editorModal'));
+    modal.show();
+    
+    // Inicializar editor após o modal abrir
+    setTimeout(() => {
+        inicializarEditor();
+    }, 300);
+}
+
+// Função para inicializar o editor
+function inicializarEditor() {
+    const editorContent = document.getElementById('editorContent');
+    const conteudoOculto = document.getElementById('conteudo_oculto');
+    
+    if (conteudoOculto.value) {
+        editorContent.innerHTML = conteudoOculto.value;
+    }
+    
+    editorInstance = editorContent;
+    
+    // Focar no editor
+    editorContent.focus();
+    
+    // Atualizar contador de palavras
+    atualizarContadorPalavras();
+    
+    // Iniciar auto-save
+    iniciarAutoSave();
+    
+    // Adicionar eventos
+    editorContent.addEventListener('input', atualizarContadorPalavras);
+    editorContent.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.key === 's') {
+            e.preventDefault();
+            salvarAta();
+        }
+    });
+}
+
+// Função para executar comandos do editor
+function execCommand(command, value = null) {
+    document.execCommand(command, false, value);
+    document.getElementById('editorContent').focus();
+}
+
+// Função para inserir tabela
+function insertTable() {
+    const rows = prompt('Número de linhas:', '3');
+    const cols = prompt('Número de colunas:', '3');
+    
+    if (rows && cols) {
+        let table = '<table style="width: 100%; border-collapse: collapse; margin: 12px 0; border: 1px solid #d1d5db;">';
+        table += '<thead><tr style="background-color: #2c5aa0; color: #ffffff;">';
+        
+        for (let i = 0; i < cols; i++) {
+            table += '<th style="border: 1px solid #1e3a6b; padding: 10px; text-align: center; font-weight: 600;">Cabeçalho ' + (i + 1) + '</th>';
+        }
+        table += '</tr></thead><tbody>';
+        
+        for (let i = 0; i < rows - 1; i++) {
+            table += '<tr>';
+            for (let j = 0; j < cols; j++) {
+                table += '<td style="border: 1px solid #d1d5db; padding: 10px;"></td>';
+            }
+            table += '</tr>';
+        }
+        table += '</tbody></table>';
+        
+        document.execCommand('insertHTML', false, table);
+    }
+}
+
+// Função para inserir link
+function insertLink() {
+    const url = prompt('URL do link:', 'https://');
+    if (url) {
+        document.execCommand('createLink', false, url);
+    }
+}
+
+// Função para inserir templates
+function insertTemplate(type) {
+    let template = '';
+    
+    switch(type) {
+        case 'header':
+            template = '<h1 style="text-align: center; color: #2c5aa0; margin-bottom: 20px; border-bottom: 3px solid #2c5aa0; padding-bottom: 10px;"><strong>ATA DA SESSÃO Nº {{ sessao.numero }}</strong></h1><p style="text-align: center; color: #6c757d; margin-bottom: 30px; font-size: 16px;"><strong>Data:</strong> {{ sessao.data_sessao|date:"d/m/Y" }} | <strong>Horário:</strong> {{ sessao.hora_inicio|time:"H:i" }} | <strong>Local:</strong> {{ sessao.local }}</p>';
+            break;
+        case 'presenca':
+            template = '<h2 style="color: #2c5aa0; margin-top: 30px; margin-bottom: 15px; border-bottom: 2px solid #2c5aa0; padding-bottom: 8px;"><i class="fas fa-users"></i> LISTA DE PRESENÇA</h2><table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; border: 1px solid #d1d5db;"><thead><tr style="background-color: #2c5aa0; color: #ffffff;"><th style="border: 1px solid #1e3a6b; padding: 10px; text-align: center; font-weight: 600;">Nº</th><th style="border: 1px solid #1e3a6b; padding: 10px; font-weight: 600;">Nome</th><th style="border: 1px solid #1e3a6b; padding: 10px; font-weight: 600;">Cargo</th><th style="border: 1px solid #1e3a6b; padding: 10px; text-align: center; font-weight: 600;">Assinatura</th></tr></thead><tbody><tr><td style="border: 1px solid #d1d5db; padding: 10px; text-align: center;">1</td><td style="border: 1px solid #d1d5db; padding: 10px;"></td><td style="border: 1px solid #d1d5db; padding: 10px;"></td><td style="border: 1px solid #d1d5db; padding: 10px; text-align: center;"></td></tr></tbody></table>';
+            break;
+        case 'deliberacao':
+            template = '<h2 style="color: #2c5aa0; margin-top: 30px; margin-bottom: 15px; border-bottom: 2px solid #2c5aa0; padding-bottom: 8px;"><i class="fas fa-gavel"></i> DELIBERAÇÕES</h2><div style="background-color: #f8f9fa; padding: 15px; border-left: 4px solid #2c5aa0; margin-bottom: 20px; border-radius: 4px;"><h3 style="color: #1e3a6b; margin-bottom: 10px; font-weight: 600;">Deliberação 1</h3><p style="margin-bottom: 10px; color: #2c3e50;"><strong>Assunto:</strong> [Inserir assunto da deliberação]</p><p style="margin-bottom: 10px; color: #2c3e50;"><strong>Votação:</strong> [Inserir resultado da votação]</p><p style="color: #2c3e50;"><strong>Decisão:</strong> [Inserir decisão tomada]</p></div>';
+            break;
+        case 'assinatura':
+            template = '<h2 style="color: #2c5aa0; margin-top: 30px; margin-bottom: 15px; border-bottom: 2px solid #2c5aa0; padding-bottom: 8px;"><i class="fas fa-signature"></i> ASSINATURAS</h2><div style="display: flex; justify-content: space-between; margin-top: 30px;"><div style="text-align: center; width: 30%;"><div style="border-bottom: 2px solid #2c5aa0; height: 60px; margin-bottom: 10px;"></div><p style="font-weight: bold; margin-bottom: 5px; color: #2c5aa0;">Presidente</p><p style="font-size: 0.9em; color: #6c757d;">Nome e Posto/Graduação</p></div><div style="text-align: center; width: 30%;"><div style="border-bottom: 2px solid #2c5aa0; height: 60px; margin-bottom: 10px;"></div><p style="font-weight: bold; margin-bottom: 5px; color: #2c5aa0;">Secretário</p><p style="font-size: 0.9em; color: #6c757d;">Nome e Posto/Graduação</p></div><div style="text-align: center; width: 30%;"><div style="border-bottom: 2px solid #2c5aa0; height: 60px; margin-bottom: 10px;"></div><p style="font-weight: bold; margin-bottom: 5px; color: #2c5aa0;">Membro</p><p style="font-size: 0.9em; color: #6c757d;">Nome e Posto/Graduação</p></div></div>';
+            break;
+        case 'pauta':
+            template = '<h2 style="color: #2c5aa0; margin-top: 30px; margin-bottom: 15px; border-bottom: 2px solid #2c5aa0; padding-bottom: 8px;"><i class="fas fa-list"></i> PAUTA DA SESSÃO</h2><div style="background-color: #f8f9fa; padding: 15px; border-left: 4px solid #f39c12; margin-bottom: 20px; border-radius: 4px;"><h3 style="color: #e67e22; margin-bottom: 10px; font-weight: 600;">Itens da Pauta</h3><ol style="margin-bottom: 0; color: #2c3e50;"><li style="margin-bottom: 8px;">[Item 1 da pauta]</li><li style="margin-bottom: 8px;">[Item 2 da pauta]</li><li style="margin-bottom: 8px;">[Item 3 da pauta]</li></ol></div>';
+            break;
+        case 'encerramento':
+            template = '<h2 style="color: #2c5aa0; margin-top: 30px; margin-bottom: 15px; border-bottom: 2px solid #2c5aa0; padding-bottom: 8px;"><i class="fas fa-door-closed"></i> ENCERRAMENTO</h2><div style="background-color: #f8f9fa; padding: 15px; border-left: 4px solid #e74c3c; margin-bottom: 20px; border-radius: 4px;"><p style="margin-bottom: 10px; color: #2c3e50;"><strong>Hora de Encerramento:</strong> [Inserir hora]</p><p style="margin-bottom: 10px; color: #2c3e50;"><strong>Justificativa:</strong> [Inserir justificativa se necessário]</p><p style="color: #2c3e50;"><strong>Próxima Sessão:</strong> [Data e horário da próxima sessão]</p></div>';
+            break;
+    }
+    
+    if (template) {
+        document.execCommand('insertHTML', false, template);
+        document.getElementById('editorContent').focus();
+    }
+}
+
+// Função para atualizar contador de palavras
+function atualizarContadorPalavras() {
+    const content = document.getElementById('editorContent').innerText;
+    const wordCount = content.trim().split(/\s+/).filter(word => word.length > 0).length;
+    document.getElementById('wordCount').textContent = `${wordCount} palavras`;
+}
+
+// Função para iniciar auto-save
+function iniciarAutoSave() {
+    autoSaveInterval = setInterval(() => {
+        const content = document.getElementById('editorContent').innerHTML;
+        if (content.trim()) {
+            document.getElementById('conteudo_oculto').value = content;
+            
+            // Auto-save silencioso via AJAX
+            const form = document.getElementById('formAta');
+            const formData = new FormData(form);
+            
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const now = new Date();
+                    const timeString = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                    document.getElementById('lastSaved').textContent = `Auto-save: ${timeString}`;
+                }
+            })
+            .catch(error => {
+                console.error('Erro no auto-save:', error);
+            });
+        }
+    }, 30000); // Auto-save a cada 30 segundos
+}
+
+// Função para preview
+function previewAta() {
+    const content = document.getElementById('editorContent').innerHTML;
+    
+    if (!content.trim()) {
+        alert('Não há conteúdo para visualizar. Digite algo no editor primeiro.');
+        return;
+    }
+    
+    // Formatar o conteúdo para preview
+    const formattedContent = `
+        <div style="font-family: 'Times New Roman', serif; line-height: 1.6; color: #333;">
+            <div style="text-align: center; margin-bottom: 30px;">
+                <h1 style="color: #2c5aa0; margin-bottom: 10px; border-bottom: 3px solid #2c5aa0; padding-bottom: 10px;">
+                    <strong>ATA DA SESSÃO Nº {{ sessao.numero }}</strong>
+                </h1>
+                <p style="color: #6c757d; font-size: 16px;">
+                    <strong>Data:</strong> {{ sessao.data_sessao|date:"d/m/Y" }} | 
+                    <strong>Horário:</strong> {{ sessao.hora_inicio|time:"H:i" }} | 
+                    <strong>Local:</strong> {{ sessao.local }}
+                </p>
+            </div>
+            <div style="margin-top: 30px;">
+                ${content}
+            </div>
+            <div style="margin-top: 50px; text-align: center; font-size: 14px; color: #6c757d;">
+                <p>Documento gerado em: ${new Date().toLocaleString('pt-BR')}</p>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('previewContent').innerHTML = formattedContent;
+    new bootstrap.Modal(document.getElementById('previewModal')).show();
+}
+
+// Função para imprimir preview
+function imprimirPreview() {
+    const printWindow = window.open('', '_blank');
+    const content = document.getElementById('previewContent').innerHTML;
+    
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Ata da Sessão {{ sessao.numero }}</title>
+            <style>
+                body {
+                    font-family: 'Times New Roman', serif;
+                    line-height: 1.6;
+                    color: #333;
+                    margin: 20px;
+                    background: white;
+                }
+                @media print {
+                    body { margin: 0; }
+                    .no-print { display: none; }
+                }
+                h1 {
+                    color: #2c5aa0;
+                    text-align: center;
+                    border-bottom: 3px solid #2c5aa0;
+                    padding-bottom: 10px;
+                    margin-bottom: 20px;
+                }
+                .header-info {
+                    text-align: center;
+                    color: #6c757d;
+                    font-size: 16px;
+                    margin-bottom: 30px;
+                }
+                .content {
+                    margin-top: 30px;
+                }
+                .footer {
+                    margin-top: 50px;
+                    text-align: center;
+                    font-size: 14px;
+                    color: #6c757d;
+                }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 12px 0;
+                }
+                th, td {
+                    border: 1px solid #d1d5db;
+                    padding: 10px;
+                    text-align: left;
+                }
+                th {
+                    background-color: #2c5aa0;
+                    color: white;
+                    font-weight: 600;
+                }
+            </style>
+        </head>
+        <body>
+            ${content}
+            <div class="no-print" style="margin-top: 30px; text-align: center;">
+                <button onclick="window.print()">Imprimir</button>
+                <button onclick="window.close()">Fechar</button>
+            </div>
+        </body>
+        </html>
+    `);
+    
+    printWindow.document.close();
+}
+
+// Função para salvar ata
+function salvarAta() {
+    const content = document.getElementById('editorContent').innerHTML;
+    document.getElementById('conteudo_oculto').value = content;
+    
+    // Mostrar indicador de salvamento
+    const lastSavedElement = document.getElementById('lastSaved');
+    lastSavedElement.textContent = 'Salvando...';
+    lastSavedElement.style.color = '#f39c12';
+    
+    // Enviar formulário via AJAX
+    const form = document.getElementById('formAta');
+    const formData = new FormData(form);
+    
+    fetch(window.location.href, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers);
+        return response.json();
+    })
+    .then(data => {
+        console.log('Response data:', data);
+        if (data.success) {
+            lastSavedElement.textContent = `Salvo com sucesso! Versão ${data.versao}`;
+            lastSavedElement.style.color = '#27ae60';
+            
+            // Atualizar contador de palavras
+            atualizarContadorPalavras();
+            
+            // Mostrar mensagem de sucesso
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editorModal'));
+            if (modal) {
+                // Criar toast de sucesso
+                const toastHtml = `
+                    <div class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                        <div class="d-flex">
+                            <div class="toast-body">
+                                <i class="fas fa-check-circle me-2"></i>${data.message}
+                            </div>
+                            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                        </div>
+                    </div>
+                `;
+                document.body.insertAdjacentHTML('beforeend', toastHtml);
+                const toast = new bootstrap.Toast(document.querySelector('.toast'));
+                toast.show();
+                
+                // Remover toast após ser fechado
+                setTimeout(() => {
+                    const toastElement = document.querySelector('.toast');
+                    if (toastElement) {
+                        toastElement.remove();
+                    }
+                }, 5000);
+            }
+        } else {
+            lastSavedElement.textContent = 'Erro ao salvar';
+            lastSavedElement.style.color = '#e74c3c';
+            
+            // Mostrar erro detalhado
+            const errorMessage = data.errors ? Object.values(data.errors).flat().join(', ') : 'Erro desconhecido';
+            console.error('Erro detalhado:', data);
+            alert('Erro ao salvar: ' + errorMessage);
+        }
+    })
+    .catch(error => {
+        console.error('Erro ao salvar:', error);
+        lastSavedElement.textContent = 'Erro ao salvar. Tente novamente.';
+        lastSavedElement.style.color = '#e74c3c';
+        
+        alert('Erro ao salvar. Tente novamente. Erro: ' + error.message);
+    });
+}
+
+// Função para fechar editor
+function fecharEditor() {
+    if (autoSaveInterval) {
+        clearInterval(autoSaveInterval);
+    }
+    
+    const modal = bootstrap.Modal.getInstance(document.getElementById('editorModal'));
+    if (modal) {
+        modal.hide();
+    }
+}
+
+// Event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    // Adicionar eventos aos botões da toolbar
+    const toolbarButtons = document.querySelectorAll('.sei-editor .btn');
+    toolbarButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            // Remover classe active de todos os botões
+            toolbarButtons.forEach(btn => btn.classList.remove('active'));
+            // Adicionar classe active ao botão clicado
+            this.classList.add('active');
+        });
+    });
+});
+
+// ===== FUNÇÕES PARA GERENCIAR MODELOS =====
+
+// Função para abrir modal de salvar modelo
+function salvarComoModelo() {
+    const content = document.getElementById('editorContent').innerHTML;
+    if (!content.trim()) {
+        alert('O editor está vazio. Adicione conteúdo antes de salvar como modelo.');
+        return;
+    }
+    
+    // Abrir modal
+    const modal = new bootstrap.Modal(document.getElementById('salvarModeloModal'));
+    modal.show();
+}
+
+// Função para confirmar salvamento do modelo
+function confirmarSalvarModelo() {
+    const nome = document.getElementById('nome_modelo').value.trim();
+    const descricao = document.getElementById('descricao_modelo').value.trim();
+    const tipoComissao = document.getElementById('tipo_comissao_modelo').value;
+    const tipoSessao = document.getElementById('tipo_sessao_modelo').value;
+    const content = document.getElementById('editorContent').innerHTML;
+    
+    if (!nome) {
+        alert('Por favor, informe o nome do modelo.');
+        return;
+    }
+    
+    if (!content.trim()) {
+        alert('O editor está vazio. Adicione conteúdo antes de salvar como modelo.');
+        return;
+    }
+    
+    // Preparar dados
+    const formData = new FormData();
+    formData.append('nome', nome);
+    formData.append('descricao', descricao);
+    formData.append('tipo_comissao', tipoComissao);
+    formData.append('tipo_sessao', tipoSessao);
+    formData.append('conteudo', content);
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    // Enviar via AJAX
+    fetch('{% url "militares:modelo_ata_salvar_atual" sessao.pk %}', {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            alert('Modelo salvo com sucesso!');
+            bootstrap.Modal.getInstance(document.getElementById('salvarModeloModal')).hide();
+            // Limpar formulário
+            document.getElementById('formSalvarModelo').reset();
+        } else {
+            alert('Erro ao salvar modelo: ' + (data.error || 'Erro desconhecido'));
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro ao salvar modelo. Tente novamente.');
+    });
+}
+
+// Função para abrir modal de aplicar modelos
+function abrirModalModelos() {
+    const modal = new bootstrap.Modal(document.getElementById('aplicarModeloModal'));
+    modal.show();
+    
+    // Carregar modelos
+    carregarModelos();
+}
+
+// Função para carregar modelos via AJAX
+function carregarModelos() {
+    console.log('=== INÍCIO carregarModelos ===');
+    
+    const listaModelos = document.getElementById('lista_modelos');
+    listaModelos.innerHTML = '<div class="col-12 text-center"><i class="fas fa-spinner fa-spin"></i> Carregando modelos...</div>';
+    
+    const url = '{% url "militares:modelo_ata_list" %}?ajax=1&format=json';
+    console.log('URL para carregar modelos:', url);
+    
+    // Verificar se o CSRF token existe
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!csrfToken) {
+        console.error('CSRF token não encontrado!');
+        listaModelos.innerHTML = '<div class="col-12 text-center text-danger">Erro: CSRF token não encontrado.</div>';
+        return;
+    }
+    
+    // Criar form data com CSRF token
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', csrfToken.value);
+    
+    // Usar uma URL simples que retorna JSON
+    fetch(url, {
+        method: 'POST',  // Mudar para POST para incluir CSRF
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+    })
+    .then(response => {
+        console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        // Verificar o tipo de conteúdo
+        const contentType = response.headers.get('content-type');
+        console.log('Content-Type:', contentType);
+        
+        if (contentType && contentType.includes('text/html')) {
+            console.error('Resposta é HTML, não JSON!');
+            throw new Error('Resposta é HTML, não JSON');
+        }
+        
+        return response.json();
+    })
+    .then(data => {
+        console.log('Dados recebidos:', data);
+        
+        if (data.success && data.modelos) {
+            console.log('Modelos encontrados:', data.modelos.length);
+            exibirModelos(data.modelos);
+        } else {
+            console.log('Nenhum modelo encontrado');
+            listaModelos.innerHTML = '<div class="col-12 text-center text-muted">Nenhum modelo encontrado.</div>';
+        }
+    })
+    .catch(error => {
+        console.error('Erro ao carregar modelos:', error);
+        listaModelos.innerHTML = '<div class="col-12 text-center text-danger">Erro ao carregar modelos.</div>';
+    });
+}
+
+// Função para exibir modelos
+function exibirModelos(modelos) {
+    const listaModelos = document.getElementById('lista_modelos');
+    listaModelos.innerHTML = '';
+    
+    if (modelos.length === 0) {
+        listaModelos.innerHTML = '<div class="col-12 text-center text-muted">Nenhum modelo encontrado.</div>';
+        return;
+    }
+    
+    modelos.forEach(modelo => {
+        const card = `
+            <div class="col-md-6 mb-3">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">${modelo.nome}</h6>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text small text-muted">${modelo.descricao || 'Sem descrição'}</p>
+                        <div class="row">
+                            <div class="col-6">
+                                <small class="text-muted">
+                                    <i class="fas fa-users"></i> ${modelo.tipo_comissao_display}
+                                </small>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted">
+                                    <i class="fas fa-calendar"></i> ${modelo.tipo_sessao_display}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <button type="button" class="btn btn-sm btn-primary" onclick="aplicarModelo(${modelo.id})">
+                            <i class="fas fa-magic"></i> Aplicar
+                        </button>
+                        <button type="button" class="btn btn-sm btn-info" onclick="visualizarModelo(${modelo.id})">
+                            <i class="fas fa-eye"></i> Visualizar
+                        </button>
+                        <button type="button" class="btn btn-sm btn-warning" onclick="editarModelo(${modelo.id})">
+                            <i class="fas fa-edit"></i> Editar
+                        </button>
+                        <button type="button" class="btn btn-sm btn-danger" onclick="deletarModelo(${modelo.id}, '${modelo.nome}')" style="background-color: red; color: white;">
+                            <i class="fas fa-trash"></i> Excluir
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        listaModelos.insertAdjacentHTML('beforeend', card);
+    });
+}
+
+// Função para aplicar modelo
+function aplicarModelo(modeloId) {
+    console.log('=== INÍCIO aplicarModelo ===');
+    console.log('Modelo ID:', modeloId);
+    
+    if (!confirm('Deseja aplicar este modelo? O conteúdo atual será substituído.')) {
+        console.log('Usuário cancelou a aplicação');
+        return;
+    }
+    
+    // Verificar se o CSRF token existe
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!csrfToken) {
+        console.error('CSRF token não encontrado!');
+        alert('Erro: CSRF token não encontrado. Recarregue a página e tente novamente.');
+        return;
+    }
+    
+    // Criar form data
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', csrfToken.value);
+    formData.append('modelo_id', modeloId);
+    
+    const url = `{% url "militares:modelo_ata_aplicar" sessao.pk %}`;
+    console.log('URL para aplicar modelo:', url);
+    
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+    })
+    .then(response => {
+        console.log('Response status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Response data:', data);
+        
+        if (data.success) {
+            // Aplicar conteúdo no editor
+            document.getElementById('editorContent').innerHTML = data.conteudo;
+            document.getElementById('conteudo_oculto').value = data.conteudo;
+            
+            // Atualizar contador
+            atualizarContadorPalavras();
+            
+            // Fechar modal
+            bootstrap.Modal.getInstance(document.getElementById('aplicarModeloModal')).hide();
+            
+            // Mostrar mensagem de sucesso
+            alert('Modelo aplicado com sucesso!');
+        } else {
+            alert('Erro ao aplicar modelo: ' + (data.error || 'Erro desconhecido'));
+        }
+    })
+    .catch(error => {
+        console.error('Erro completo:', error);
+        alert('Erro ao aplicar modelo. Tente novamente.');
+    });
+}
+
+// Função para visualizar modelo
+function visualizarModelo(modeloId) {
+    fetch(`{% url "militares:modelo_ata_detail" 0 %}`.replace('0', modeloId), {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            // Criar modal de visualização
+            const modalHtml = `
+                <div class="modal fade" id="visualizarModeloModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">${data.modelo.nome}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <strong>Descrição:</strong> ${data.modelo.descricao || 'Sem descrição'}
+                                </div>
+                                <div class="mb-3">
+                                    <strong>Tipo de Comissão:</strong> ${data.modelo.tipo_comissao_display}
+                                </div>
+                                <div class="mb-3">
+                                    <strong>Tipo de Sessão:</strong> ${data.modelo.tipo_sessao_display}
+                                </div>
+                                <hr>
+                                <div style="max-height: 400px; overflow-y: auto; border: 1px solid #dee2e6; padding: 15px; background: #f8f9fa;">
+                                    ${data.modelo.conteudo}
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-primary" onclick="aplicarModelo(${modeloId})">
+                                    <i class="fas fa-magic"></i> Aplicar Modelo
+                                </button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                    <i class="fas fa-times"></i> Fechar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Remover modal anterior se existir
+            const modalAnterior = document.getElementById('visualizarModeloModal');
+            if (modalAnterior) {
+                modalAnterior.remove();
+            }
+            
+            // Adicionar novo modal
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            // Mostrar modal
+            const modal = new bootstrap.Modal(document.getElementById('visualizarModeloModal'));
+            modal.show();
+        } else {
+            alert('Erro ao carregar modelo: ' + (data.error || 'Erro desconhecido'));
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro ao carregar modelo. Tente novamente.');
+    });
+}
+
+// Função para editar modelo
+function editarModelo(modeloId) {
+    console.log('=== INÍCIO editarModelo ===');
+    console.log('Modelo ID:', modeloId);
+    
+    // Primeiro carregar os dados do modelo
+    fetch(`{% url "militares:modelo_ata_detail" 0 %}`.replace('0', modeloId), {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            console.log('Dados do modelo carregados:', data.modelo);
+            
+            // Criar modal de edição
+            const modalHtml = `
+                <div class="modal fade modal-sei-editor" id="editarModeloModal" tabindex="-1">
+                    <div class="modal-dialog modal-xl">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Editar Modelo: ${data.modelo.nome}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="formEditarModelo">
+                                    <input type="hidden" name="modelo_id" value="${modeloId}">
+                                    <div class="mb-3">
+                                        <label for="nome_modelo_edit" class="form-label">Nome do Modelo</label>
+                                        <input type="text" class="form-control" id="nome_modelo_edit" name="nome" value="${data.modelo.nome}" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="descricao_modelo_edit" class="form-label">Descrição</label>
+                                        <textarea class="form-control" id="descricao_modelo_edit" name="descricao" rows="3">${data.modelo.descricao || ''}</textarea>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="tipo_comissao_modelo_edit" class="form-label">Tipo de Comissão</label>
+                                                <select class="form-control" id="tipo_comissao_modelo_edit" name="tipo_comissao">
+                                                    <option value="GERAL" ${data.modelo.tipo_comissao === 'GERAL' ? 'selected' : ''}>Geral</option>
+                                                    <option value="CPO" ${data.modelo.tipo_comissao === 'CPO' ? 'selected' : ''}>CPO</option>
+                                                    <option value="CPP" ${data.modelo.tipo_comissao === 'CPP' ? 'selected' : ''}>CPP</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="tipo_sessao_modelo_edit" class="form-label">Tipo de Sessão</label>
+                                                <select class="form-control" id="tipo_sessao_modelo_edit" name="tipo_sessao">
+                                                    <option value="GERAL" ${data.modelo.tipo_sessao === 'GERAL' ? 'selected' : ''}>Geral</option>
+                                                    <option value="ORDINARIA" ${data.modelo.tipo_sessao === 'ORDINARIA' ? 'selected' : ''}>Ordinária</option>
+                                                    <option value="EXTRAORDINARIA" ${data.modelo.tipo_sessao === 'EXTRAORDINARIA' ? 'selected' : ''}>Extraordinária</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Conteúdo do Modelo</label>
+                                        <div class="sei-editor">
+                                            <div class="toolbar">
+                                                <div class="toolbar-group">
+                                                    <button type="button" class="btn" onclick="document.execCommand('bold')" title="Negrito">
+                                                        <strong>B</strong>
+                                                    </button>
+                                                    <button type="button" class="btn" onclick="document.execCommand('italic')" title="Itálico">
+                                                        <em>I</em>
+                                                    </button>
+                                                    <button type="button" class="btn" onclick="document.execCommand('underline')" title="Sublinhado">
+                                                        <u>U</u>
+                                                    </button>
+                                                </div>
+                                                <div class="toolbar-group">
+                                                    <button type="button" class="btn" onclick="document.execCommand('justifyLeft')" title="Alinhar à Esquerda">
+                                                        ←
+                                                    </button>
+                                                    <button type="button" class="btn" onclick="document.execCommand('justifyCenter')" title="Centralizar">
+                                                        ↔
+                                                    </button>
+                                                    <button type="button" class="btn" onclick="document.execCommand('justifyRight')" title="Alinhar à Direita">
+                                                        →
+                                                    </button>
+                                                    <button type="button" class="btn" onclick="document.execCommand('justifyFull')" title="Justificar">
+                                                        ⇔
+                                                    </button>
+                                                </div>
+                                                <div class="toolbar-group">
+                                                    <button type="button" class="btn" onclick="document.execCommand('insertUnorderedList')" title="Lista com Marcadores">
+                                                        •
+                                                    </button>
+                                                    <button type="button" class="btn" onclick="document.execCommand('insertOrderedList')" title="Lista Numerada">
+                                                        1.
+                                                    </button>
+                                                    <button type="button" class="btn" onclick="insertQuote()" title="Citação">
+                                                        "
+                                                    </button>
+                                                </div>
+                                                <div class="toolbar-group">
+                                                    <button type="button" class="btn" onclick="insertTable()" title="Inserir Tabela">
+                                                        ⊞
+                                                    </button>
+                                                    <button type="button" class="btn" onclick="insertLink()" title="Inserir Link">
+                                                        🔗
+                                                    </button>
+                                                    <button type="button" class="btn" onclick="insertImage()" title="Inserir Imagem">
+                                                        🖼️
+                                                    </button>
+                                                </div>
+                                                <div class="toolbar-group">
+                                                    <button type="button" class="btn" onclick="insertAutoText()" title="Texto Automático">
+                                                        ✨
+                                                    </button>
+                                                    <button type="button" class="btn" onclick="voiceInput()" title="Entrada por Voz">
+                                                        🎤
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="content" id="editorModeloEdit" contenteditable="true">${data.modelo.conteudo}</div>
+                                            <div class="status-bar">
+                                                <span class="word-count">0 palavras</span>
+                                                <span class="last-save">Último salvamento: Nunca</span>
+                                            </div>
+                                        </div>
+                                        <input type="hidden" id="conteudo_modelo_edit" name="conteudo" value="${data.modelo.conteudo}">
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-primary" onclick="salvarEdicaoModelo()">
+                                    <i class="fas fa-save"></i> Salvar Alterações
+                                </button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                    <i class="fas fa-times"></i> Cancelar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Remover modal anterior se existir
+            const modalAnterior = document.getElementById('editarModeloModal');
+            if (modalAnterior) {
+                modalAnterior.remove();
+            }
+            
+            // Adicionar novo modal
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            // Mostrar modal
+            const modalEl = document.getElementById('editarModeloModal');
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+            
+            // Inicializar SEI Editor APÓS o modal estar visível
+            setTimeout(() => {
+                const editorElement = document.getElementById('editorModeloEdit');
+                if (editorElement) {
+                    // Configurar o editor
+                    editorElement.addEventListener('input', function() {
+                        // Atualizar contador de palavras
+                        const text = this.textContent || this.innerText;
+                        const wordCount = text.trim().split(/\s+/).filter(word => word.length > 0).length;
+                        document.querySelector('.word-count').textContent = `${wordCount} palavras`;
+                        
+                        // Atualizar campo hidden
+                        document.getElementById('conteudo_modelo_edit').value = this.innerHTML;
+                    });
+                    
+                    // Focar no editor
+                    editorElement.focus();
+                }
+            }, 400);
+        } else {
+            alert('Erro ao carregar modelo para edição: ' + (data.error || 'Erro desconhecido'));
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro ao carregar modelo para edição. Tente novamente.');
+    });
+}
+
+// Função para salvar edição do modelo
+function salvarEdicaoModelo() {
+    console.log('=== INÍCIO salvarEdicaoModelo ===');
+    
+    const form = document.getElementById('formEditarModelo');
+    const formData = new FormData(form);
+    
+    // Adicionar CSRF token
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (csrfToken) {
+        formData.append('csrfmiddlewaretoken', csrfToken.value);
+    }
+    
+    // Obter conteúdo do editor SEI
+    const editorElement = document.getElementById('editorModeloEdit');
+    if (editorElement) {
+        formData.set('conteudo', editorElement.innerHTML);
+    }
+    
+    const modeloId = formData.get('modelo_id');
+    const url = `{% url "militares:modelo_ata_update" 0 %}`.replace('0', modeloId);
+    
+    console.log('URL para atualizar modelo:', url);
+    
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+    })
+    .then(response => {
+        console.log('Response status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Response data:', data);
+        
+        if (data.success) {
+            alert('Modelo atualizado com sucesso!');
+            
+            // Fechar modal
+            bootstrap.Modal.getInstance(document.getElementById('editarModeloModal')).hide();
+            
+            // Recarregar lista de modelos
+            carregarModelos();
+        } else {
+            alert('Erro ao atualizar modelo: ' + (data.error || 'Erro desconhecido'));
+        }
+    })
+    .catch(error => {
+        console.error('Erro completo:', error);
+        alert('Erro ao atualizar modelo. Tente novamente.');
+    });
+}
+
+// Função para deletar modelo
+function deletarModelo(modeloId, modeloNome) {
+    if (!confirm(`Deseja realmente excluir o modelo "${modeloNome}"? Esta ação não pode ser desfeita.`)) {
+        return;
+    }
+    
+    // Verificar se o CSRF token existe
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!csrfToken) {
+        console.error('CSRF token não encontrado!');
+        alert('Erro: CSRF token não encontrado. Recarregue a página e tente novamente.');
+        return;
+    }
+    
+    // Criar form data
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', csrfToken.value);
+    
+    // Construir URL
+    const url = `{% url "militares:modelo_ata_delete" 0 %}`.replace('0', modeloId);
+    
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            alert('Modelo excluído com sucesso!');
+            // Recarregar lista de modelos
+            carregarModelos();
+        } else {
+            alert('Erro ao excluir modelo: ' + (data.error || 'Erro desconhecido'));
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro ao excluir modelo. Tente novamente.');
+    });
+}
+
+// Função para filtrar modelos
+function filtrarModelos() {
+    const tipoComissao = document.getElementById('filtro_tipo_comissao').value;
+    const tipoSessao = document.getElementById('filtro_tipo_sessao').value;
+    
+    // Recarregar modelos com filtros
+    const params = new URLSearchParams();
+    if (tipoComissao) params.append('tipo_comissao', tipoComissao);
+    if (tipoSessao) params.append('tipo_sessao', tipoSessao);
+    params.append('ajax', '1');
+    
+    fetch(`{% url "militares:modelo_ata_list" %}?${params.toString()}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success && data.modelos) {
+            exibirModelos(data.modelos);
+        } else {
+            document.getElementById('lista_modelos').innerHTML = '<div class="col-12 text-center text-muted">Nenhum modelo encontrado com os filtros selecionados.</div>';
+        }
+    })
+    .catch(error => {
+        console.error('Erro ao filtrar modelos:', error);
+        document.getElementById('lista_modelos').innerHTML = '<div class="col-12 text-center text-danger">Erro ao filtrar modelos.</div>';
+    });
+}
+
+// Funções do editor
+function insertQuote() {
+    const editor = document.getElementById('editorModeloEdit');
+    if (editor) {
+        editor.focus();
+        document.execCommand('insertHTML', false, '<blockquote>Citação aqui</blockquote>');
+    }
+}
+
+function insertTable() {
+    const editor = document.getElementById('editorModeloEdit');
+    if (editor) {
+        editor.focus();
+        const tableHTML = `
+            <table border="1" style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;">Célula 1</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">Célula 2</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;">Célula 3</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">Célula 4</td>
+                </tr>
+            </table>
+        `;
+        document.execCommand('insertHTML', false, tableHTML);
+    }
+}
+
+function insertLink() {
+    const url = prompt('Digite a URL:');
+    if (url) {
+        const editor = document.getElementById('editorModeloEdit');
+        if (editor) {
+            editor.focus();
+            document.execCommand('createLink', false, url);
+        }
+    }
+}
+
+function insertImage() {
+    const url = prompt('Digite a URL da imagem:');
+    if (url) {
+        const editor = document.getElementById('editorModeloEdit');
+        if (editor) {
+            editor.focus();
+            document.execCommand('insertImage', false, url);
+        }
+    }
+}
+
+function insertAutoText() {
+    const autoTexts = [
+        'Aos [[dia]] dias do mês de [[mês]] do ano de [[ano]], às [[horário]] horas',
+        'Compareceram os seguintes membros:',
+        'Foi aprovada por unanimidade',
+        'Nada mais havendo a tratar',
+        'Lavrei a presente ata que vai por todos assinada'
+    ];
+    
+    const selected = prompt('Selecione o texto automático:\n1. Data e hora\n2. Membros presentes\n3. Aprovação\n4. Encerramento\n5. Assinatura');
+    
+    if (selected) {
+        const editor = document.getElementById('editorModeloEdit');
+        if (editor) {
+            editor.focus();
+            const index = parseInt(selected) - 1;
+            if (index >= 0 && index < autoTexts.length) {
+                document.execCommand('insertHTML', false, autoTexts[index]);
+            }
+        }
+    }
+}
+
+function voiceInput() {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.lang = 'pt-BR';
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        
+        recognition.onresult = function(event) {
+            const transcript = event.results[0][0].transcript;
+            const editor = document.getElementById('editorModeloEdit');
+            if (editor) {
+                editor.focus();
+                document.execCommand('insertText', false, transcript);
+            }
+        };
+        
+        recognition.start();
+        alert('Fale agora...');
+    } else {
+        alert('Reconhecimento de voz não suportado neste navegador.');
+    }
+}
+</script>
+{% endblock %} 

@@ -1,0 +1,257 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load militares_extras %}
+
+{% block title %}Almanaque - {{ almanaque.numero }}{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 900px;">
+
+    <h4 class="text-center"><u>{{ almanaque.titulo|upper }}</u></h4>
+    
+    <!-- Cabeçalho Institucional -->
+    <div style="border: 1px solid #888; border-radius: 6px; margin-bottom: 15px; background: #fafafa;">
+        <div style="padding: 15px;">
+            <h5 class="mt-2 mb-3" style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 8px;">CORPO DE BOMBEIROS MILITAR DO ESTADO DO PIAUÍ</h5>
+            <h6 class="mt-3 mb-3" style="color: #34495e; font-weight: 600;">DIRETORIA DE GESTÃO DE PESSOAS</h6>
+            
+            <!-- Texto introdutório -->
+            <div class="mt-4 mb-4">
+                <p>O DIRETOR DE GESTÃO DE PESSOAS DO CORPO DE BOMBEIROS MILITAR DO ESTADO DO PIAUÍ, no uso de suas atribuições que lhe confere o Art. 18, da lei 5.949, de 17 de dezembro de 2009, alterado pelo Art. 1° da lei 7.772, de 04 de abril de 2022;</p>
+                <p><strong>RESOLVE:</strong></p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Botões de Ação -->
+    <div class="text-center mt-4">
+        <button class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#modalAssinatura">
+            <i class="fas fa-signature"></i> Assinar Documento
+        </button>
+                    <a href="{% url 'militares:almanaque_gerar_pdf' almanaque.pk %}" class="btn btn-warning me-2" target="_blank">
+                <i class="fas fa-file-pdf"></i> Gerar PDF
+            </a>
+        <a href="{% url 'militares:almanaque_detail' almanaque.pk %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Voltar aos Detalhes
+        </a>
+    </div>
+
+    <!-- Artigo 1º -->
+    <div class="mt-4 mb-4">
+        <p><strong>Art. 1º</strong> Fica fixada a antiguidade dos 
+        {% if almanaque.tipo == 'OFICIAIS' %}
+            <span style="background-color: #ffff00; font-weight: bold; padding: 2px 4px; border-radius: 3px;">OFICIAIS</span>
+        {% elif almanaque.tipo == 'PRACAS' %}
+            <span style="background-color: #ffff00; font-weight: bold; padding: 2px 4px; border-radius: 3px;">PRAÇAS</span>
+        {% else %}
+            Militares
+        {% endif %}
+        do Corpo de Bombeiros Militar do Estado do Piauí, após as promoções ocorridas em 
+        {% if almanaque.tipo == 'OFICIAIS' %}
+            {% if almanaque.data_geracao.month == 7 and almanaque.data_geracao.day >= 18 or almanaque.data_geracao.month > 7 and almanaque.data_geracao.month < 12 or almanaque.data_geracao.month == 12 and almanaque.data_geracao.day < 23 %}
+                18/07/2025
+            {% else %}
+                23/12/2025
+            {% endif %}
+        {% elif almanaque.tipo == 'PRACAS' %}
+            {% if almanaque.data_geracao.month == 7 and almanaque.data_geracao.day >= 18 or almanaque.data_geracao.month > 7 and almanaque.data_geracao.month < 12 or almanaque.data_geracao.month == 12 and almanaque.data_geracao.day < 25 %}
+                18/07/2025
+            {% else %}
+                25/12/2025
+            {% endif %}
+        {% else %}
+            {% if almanaque.data_geracao.month == 7 and almanaque.data_geracao.day >= 18 or almanaque.data_geracao.month > 7 %}
+                18/07/2025
+            {% else %}
+                18/07/2025
+            {% endif %}
+        {% endif %}, conforme segue:</p>
+    </div>
+
+    <!-- Conteúdo do Almanaque -->
+    <div style="border: 1px solid #888; border-radius: 6px; margin-bottom: 15px; background: #fafafa;">
+        <div style="padding: 15px;">
+            {% if almanaque.conteudo_html %}
+                {{ almanaque.conteudo_html|safe }}
+            {% else %}
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Conteúdo do almanaque não disponível.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Estatísticas -->
+    <div class="mt-4 mb-4">
+        <div style="background: #fff; border-radius: 4px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <table class="table table-bordered table-sm mb-0">
+                <thead style="background: #ecf0f1;">
+                    <tr>
+                        <th style="border-color: #bdc3c7;">CATEGORIA</th>
+                        <th style="border-color: #bdc3c7;">TOTAL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="border-color: #ecf0f1;">Oficiais</td>
+                        <td style="border-color: #ecf0f1;">{{ almanaque.total_oficiais }}</td>
+                    </tr>
+                    <tr>
+                        <td style="border-color: #ecf0f1;">Praças</td>
+                        <td style="border-color: #ecf0f1;">{{ almanaque.total_pracas }}</td>
+                    </tr>
+                    <tr style="background: #f8f9fa;">
+                        <td style="border-color: #ecf0f1;"><strong>TOTAL GERAL</strong></td>
+                        <td style="border-color: #ecf0f1;"><strong>{{ almanaque.total_geral }}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Observações -->
+    {% if almanaque.observacoes %}
+        <div class="mt-4 mb-4">
+            <h6 style="color: #34495e; font-weight: 600;">Observações:</h6>
+            <p>{{ almanaque.observacoes }}</p>
+        </div>
+    {% endif %}
+
+    <!-- Cidade, UF e Data -->
+    <div class="mt-5" style="text-align: center; margin: 30px 0;">
+        <p style="font-size: 14px; color: #666; margin-bottom: 5px;">
+            Teresina - PI, {{ almanaque.data_geracao|date:"d" }} de 
+            {% if almanaque.data_geracao.month == 1 %}janeiro
+            {% elif almanaque.data_geracao.month == 2 %}fevereiro
+            {% elif almanaque.data_geracao.month == 3 %}março
+            {% elif almanaque.data_geracao.month == 4 %}abril
+            {% elif almanaque.data_geracao.month == 5 %}maio
+            {% elif almanaque.data_geracao.month == 6 %}junho
+            {% elif almanaque.data_geracao.month == 7 %}julho
+            {% elif almanaque.data_geracao.month == 8 %}agosto
+            {% elif almanaque.data_geracao.month == 9 %}setembro
+            {% elif almanaque.data_geracao.month == 10 %}outubro
+            {% elif almanaque.data_geracao.month == 11 %}novembro
+            {% elif almanaque.data_geracao.month == 12 %}dezembro
+            {% endif %} de {{ almanaque.data_geracao|date:"Y" }}.
+        </p>
+    </div>
+
+    <!-- Assinaturas Visuais (Local de Assinatura Física) -->
+    {% if assinaturas %}
+        <div class="mt-5">
+            {% for assinatura in assinaturas %}
+            <div style="text-align: center; margin-bottom: 20px;">
+                {% if assinatura.assinado_por.militar %}
+                    <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">
+                        {{ assinatura.assinado_por.militar|nome_completo_militar }}
+                    </div>
+                    <div style="font-size: 12px; color: #888; margin-bottom: 3px;">
+                        {{ assinatura.cargo_funcao|default:"Função não registrada" }}
+                    </div>
+                    <div style="font-size: 10px; font-weight: bold; color: #666;">
+                        {{ assinatura.get_tipo_assinatura_display }}
+                    </div>
+                {% else %}
+                    <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">
+                        {{ assinatura.assinado_por.get_full_name|default:assinatura.assinado_por.username }}
+                    </div>
+                    <div style="font-size: 12px; color: #888; margin-bottom: 3px;">
+                        {{ assinatura.cargo_funcao|default:"Função não registrada" }}
+                    </div>
+                    <div style="font-size: 10px; font-weight: bold; color: #666;">
+                        {{ assinatura.get_tipo_assinatura_display }}
+                    </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- Assinaturas Eletrônicas -->
+    {% if assinaturas %}
+        <div class="mt-5">
+            {% for assinatura in assinaturas %}
+            <div style="display: flex; align-items: flex-start; border: 1px solid #888; border-radius: 6px; margin-bottom: 10px; background: #fafafa;">
+                <div style="padding: 8px;">
+                    <img src="{% static 'logo_cbmepi.png' %}" width="60" height="60" alt="Logo CBMEPI" style="border: 2px solid #bbb; border-radius: 50%; background: #fff; object-fit: cover; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                </div>
+                <div style="padding: 8px; font-size: 15px; text-align: justify; flex-grow: 1;">
+                    Documento assinado eletronicamente por <b>{% if assinatura.assinado_por.militar %}{{ assinatura.assinado_por.militar|nome_completo_militar }}{% else %}{{ assinatura.assinado_por.get_full_name|default:assinatura.assinado_por.username }}{% endif %}</b> <b>- {{ assinatura.cargo_funcao|default:"Função não registrada" }}</b>, em {{ assinatura.data_assinatura|date:"d/m/Y" }}, às {{ assinatura.data_assinatura|date:"H:i" }}, conforme horário oficial de Brasília, com fundamento na Portaria XXX/2025 Gab. Cmdo. Geral/CBMEPI de XX de XXXXX de 2025.
+                </div>
+                {% if almanaque.status != 'HOMOLOGADO' and assinatura.assinado_por == user or user.is_superuser or user.is_staff %}
+                <div style="padding: 8px; display: flex; align-items: center;">
+                    <a href="{% url 'militares:almanaque_assinatura_delete' almanaque.pk assinatura.pk %}" 
+                       class="btn btn-sm btn-outline-warning" 
+                       title="Retirar assinatura"
+                       onclick="return confirm('Tem certeza que deseja retirar esta assinatura?')">
+                        <i class="fas fa-trash"></i>
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="mt-5">
+            <p class="text-muted">Nenhuma assinatura eletrônica registrada.</p>
+        </div>
+    {% endif %}
+
+    <!-- Modal de Assinatura -->
+    <div class="modal fade" id="modalAssinatura" tabindex="-1" aria-labelledby="modalAssinaturaLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="post" action="{% url 'militares:almanaque_assinatura_create' almanaque.pk %}">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalAssinaturaLabel">Assinar Documento</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Campo para selecionar função -->
+                        <div class="mb-3">
+                            <label for="cargo_funcao" class="form-label">Função para Assinatura:</label>
+                            <select class="form-control" id="cargo_funcao" name="cargo_funcao" required>
+                                <option value="">Selecione uma função...</option>
+                                {% for funcao in funcoes_usuario %}
+                                    <option value="{{ funcao.cargo_funcao.nome }}">
+                                        {{ funcao.cargo_funcao.nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="tipo_assinatura" class="form-label">Tipo de Assinatura:</label>
+                            <select class="form-control" id="tipo_assinatura" name="tipo_assinatura">
+                                <option value="APROVACAO">Aprovação</option>
+                                <option value="HOMOLOGACAO">Homologação</option>
+                                <option value="REVISAO">Revisão</option>
+                                <option value="CONFERENCIA">Conferência</option>
+                                <option value="ELETRONICA">Eletrônica</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="observacoes" class="form-label">Observações:</label>
+                            <textarea class="form-control" id="observacoes" name="observacoes" rows="3"></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="senha" class="form-label">Senha:</label>
+                            <input type="password" class="form-control" id="senha" name="senha" placeholder="Digite sua senha para confirmar a assinatura" required>
+                            <div class="form-text">Digite sua senha para confirmar a assinatura eletrônica.</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-success">Assinar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

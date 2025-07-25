@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Transferir {{ militar.nome_completo }} para Inativo{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Cabeçalho -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0 text-gray-800">
+                        <i class="fas fa-user-times me-2"></i>Transferir Militar para Inativo
+                    </h1>
+                    <p class="text-muted mb-0">{{ militar.get_posto_graduacao_display }} {{ militar.nome_completo }}</p>
+                </div>
+                <div>
+                    <a href="{% url 'militares:militar_detail' militar.pk %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Voltar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2 text-warning"></i>
+                        Confirmação de Transferência
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <!-- Informações do Militar -->
+                    <div class="alert alert-info">
+                        <h6 class="alert-heading">Informações do Militar</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Nome:</strong> {{ militar.nome_completo }}<br>
+                                <strong>Posto/Graduação:</strong> {{ militar.get_posto_graduacao_display }}<br>
+                                <strong>Quadro:</strong> {{ militar.get_quadro_display }}
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Matrícula:</strong> {{ militar.matricula }}<br>
+                                <strong>Situação Atual:</strong> 
+                                <span class="badge bg-success">{{ militar.get_situacao_display }}</span><br>
+                                <strong>Data de Ingresso:</strong> {{ militar.data_ingresso|date:"d/m/Y" }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Formulário de Transferência -->
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="nova_situacao" class="form-label">
+                                        <strong>Nova Situação *</strong>
+                                    </label>
+                                    <select class="form-select" id="nova_situacao" name="nova_situacao" required>
+                                        <option value="">Selecione a nova situação</option>
+                                        {% for codigo, nome in situacoes_inativas %}
+                                        <option value="{{ codigo }}">{{ nome }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text">
+                                        Escolha a nova situação do militar
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="data_transferencia" class="form-label">
+                                        <strong>Data da Transferência *</strong>
+                                    </label>
+                                    <input type="date" class="form-control" id="data_transferencia" 
+                                           name="data_transferencia" required>
+                                    <div class="form-text">
+                                        Data em que o militar foi transferido
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="motivo" class="form-label">
+                                <strong>Motivo da Transferência *</strong>
+                            </label>
+                            <textarea class="form-control" id="motivo" name="motivo" rows="4" 
+                                      placeholder="Descreva o motivo da transferência..." required></textarea>
+                            <div class="form-text">
+                                Ex: Transferência para reserva, aposentadoria, exoneração, etc.
+                            </div>
+                        </div>
+
+                        <!-- Avisos Importantes -->
+                        <div class="alert alert-warning">
+                            <h6 class="alert-heading">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Atenção!
+                            </h6>
+                            <ul class="mb-0">
+                                <li>O militar será removido da lista de militares ativos</li>
+                                <li>Não será mais considerado para promoções</li>
+                                <li>Não ocupará mais vaga no efetivo</li>
+                                <li>Todo o histórico será preservado</li>
+                                <li>Esta ação pode ser revertida posteriormente</li>
+                            </ul>
+                        </div>
+
+                        <!-- Botões -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'militares:militar_detail' militar.pk %}" class="btn btn-secondary">
+                                <i class="fas fa-times me-2"></i>Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-warning">
+                                <i class="fas fa-user-times me-2"></i>Confirmar Transferência
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Definir data atual como padrão
+    const hoje = new Date().toISOString().split('T')[0];
+    document.getElementById('data_transferencia').value = hoje;
+    
+    // Validação do formulário
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        const novaSituacao = document.getElementById('nova_situacao').value;
+        const dataTransferencia = document.getElementById('data_transferencia').value;
+        const motivo = document.getElementById('motivo').value;
+        
+        if (!novaSituacao || !dataTransferencia || !motivo.trim()) {
+            e.preventDefault();
+            alert('Por favor, preencha todos os campos obrigatórios.');
+            return false;
+        }
+        
+        // Confirmação final
+        if (!confirm('Tem certeza que deseja transferir este militar para situação inativa? Esta ação não pode ser desfeita automaticamente.')) {
+            e.preventDefault();
+            return false;
+        }
+    });
+});
+</script>
+{% endblock %} 

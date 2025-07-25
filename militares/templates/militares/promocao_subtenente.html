@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Promoção de Subtenente - {{ militar.nome_completo }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-star"></i> Promoção de Subtenente para 2º Tenente
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <h5><i class="fas fa-info-circle"></i> Informações da Promoção</h5>
+                        <p><strong>Militar:</strong> {{ militar.nome_completo }}</p>
+                        <p><strong>Posto Atual:</strong> {{ militar.get_posto_graduacao_display }} ({{ militar.get_quadro_display }})</p>
+                        <p><strong>Posto Destino:</strong> 2º Tenente (Complementar)</p>
+                        <p><strong>Data da Promoção:</strong> {{ proxima_data|date:"d/m/Y" }}</p>
+                    </div>
+
+                    {% if apto_promocao %}
+                        <div class="alert alert-success">
+                            <h5><i class="fas fa-check-circle"></i> Militar Apto para Promoção</h5>
+                            <p>O militar atende todos os requisitos para promoção:</p>
+                            <ul>
+                                <li>✓ Situação ativa</li>
+                                <li>✓ Inspeção de saúde válida</li>
+                                <li>✓ Interstício mínimo atendido</li>
+                                <li>✓ Curso CHO obrigatório</li>
+                            </ul>
+                        </div>
+
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="militar_id" value="{{ militar.id }}">
+                            <input type="hidden" name="data_promocao" value="{{ proxima_data|date:'Y-m-d' }}">
+                            
+                            <div class="alert alert-warning">
+                                <h5><i class="fas fa-exclamation-triangle"></i> Confirmação da Promoção</h5>
+                                <p><strong>Atenção!</strong> Esta ação irá:</p>
+                                <ul>
+                                    <li>Promover o militar de <strong>Subtenente (Praças)</strong> para <strong>2º Tenente (Complementar)</strong></li>
+                                    <li>Atualizar a data de promoção para <strong>{{ proxima_data|date:"d/m/Y" }}</strong></li>
+                                    <li>Atribuir a próxima numeração de antiguidade disponível no novo posto</li>
+                                    <li>Reordenar os militares do posto anterior</li>
+                                    <li>Converter a ficha de conceito de praças para oficiais (se existir)</li>
+                                    <li>Registrar a promoção no histórico</li>
+                                </ul>
+                            </div>
+
+                            <div class="text-center">
+                                <button type="submit" class="btn btn-success btn-lg">
+                                    <i class="fas fa-star"></i> Confirmar Promoção
+                                </button>
+                                <a href="{% url 'militares:militar_detail' militar.id %}" class="btn btn-secondary btn-lg ml-2">
+                                    <i class="fas fa-times"></i> Cancelar
+                                </a>
+                            </div>
+                        </form>
+                    {% else %}
+                        <div class="alert alert-danger">
+                            <h5><i class="fas fa-times-circle"></i> Militar Não Apto para Promoção</h5>
+                            <p>O militar não atende todos os requisitos para promoção. Verifique:</p>
+                            <ul>
+                                <li>❌ Situação ativa</li>
+                                <li>❌ Inspeção de saúde válida</li>
+                                <li>❌ Interstício mínimo atendido</li>
+                                <li>❌ Curso CHO obrigatório</li>
+                            </ul>
+                        </div>
+
+                        <div class="text-center">
+                            <a href="{% url 'militares:militar_detail' militar.id %}" class="btn btn-primary">
+                                <i class="fas fa-arrow-left"></i> Voltar ao Militar
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if apto_promocao %}
+                <div class="card mt-4">
+                    <div class="card-header bg-light">
+                        <h5><i class="fas fa-list"></i> Detalhes da Promoção</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Dados Atuais:</h6>
+                                <ul class="list-unstyled">
+                                    <li><strong>Posto:</strong> {{ militar.get_posto_graduacao_display }}</li>
+                                    <li><strong>Quadro:</strong> {{ militar.get_quadro_display }}</li>
+                                    <li><strong>Numeração:</strong> {{ militar.numeracao_antiguidade|default:"Não informada" }}</li>
+                                    <li><strong>Data da Última Promoção:</strong> {{ militar.data_promocao_atual|date:"d/m/Y"|default:"Não informada" }}</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Dados Após Promoção:</h6>
+                                <ul class="list-unstyled">
+                                    <li><strong>Posto:</strong> 2º Tenente</li>
+                                    <li><strong>Quadro:</strong> Complementar</li>
+                                    <li><strong>Numeração:</strong> Próxima disponível</li>
+                                    <li><strong>Data da Promoção:</strong> {{ proxima_data|date:"d/m/Y" }}</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Confirmação adicional antes de submeter
+    $('form').submit(function(e) {
+        if (!confirm('Tem certeza que deseja realizar esta promoção? Esta ação não pode ser desfeita.')) {
+            e.preventDefault();
+            return false;
+        }
+    });
+});
+</script>
+{% endblock %} 

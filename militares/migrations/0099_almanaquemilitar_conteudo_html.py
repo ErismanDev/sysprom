@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("militares", "0098_add_cargo_funcao_to_assinaturaalmanaque"),
+        ("militares", "0097_almanaquemilitar_assinaturaalmanaque"),
     ]
 
     operations = [

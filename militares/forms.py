@@ -947,6 +947,266 @@ class UsuarioForm(forms.ModelForm):
 class CargoFuncaoForm(forms.ModelForm):
     """Formulário para Cargo/Função com permissões"""
     
+
+    ALMANAQUES_CHOICES = [
+        ('VISUALIZAR', 'Visualizar'),
+        ('CRIAR', 'Criar'),
+        ('EDITAR', 'Editar'),
+        ('EXCLUIR', 'Excluir'),
+        ('APROVAR', 'Aprovar'),
+        ('HOMOLOGAR', 'Homologar'),
+        ('GERAR_PDF', 'Gerar PDF'),
+        ('IMPRIMIR', 'Imprimir'),
+        ('ASSINAR', 'Assinar'),
+        ('ADMINISTRAR', 'Administrar'),
+    ]
+
+    CALENDARIOS_CHOICES = [
+        ('VISUALIZAR', 'Visualizar'),
+        ('CRIAR', 'Criar'),
+        ('EDITAR', 'Editar'),
+        ('EXCLUIR', 'Excluir'),
+        ('APROVAR', 'Aprovar'),
+        ('HOMOLOGAR', 'Homologar'),
+        ('GERAR_PDF', 'Gerar PDF'),
+        ('IMPRIMIR', 'Imprimir'),
+        ('ASSINAR', 'Assinar'),
+        ('ADMINISTRAR', 'Administrar'),
+    ]
+
+    NOTIFICACOES_CHOICES = [
+        ('VISUALIZAR', 'Visualizar'),
+        ('CRIAR', 'Criar'),
+        ('EDITAR', 'Editar'),
+        ('EXCLUIR', 'Excluir'),
+        ('APROVAR', 'Aprovar'),
+        ('HOMOLOGAR', 'Homologar'),
+        ('GERAR_PDF', 'Gerar PDF'),
+        ('IMPRIMIR', 'Imprimir'),
+        ('ASSINAR', 'Assinar'),
+        ('ADMINISTRAR', 'Administrar'),
+    ]
+
+    MODELOS_ATA_CHOICES = [
+        ('VISUALIZAR', 'Visualizar'),
+        ('CRIAR', 'Criar'),
+        ('EDITAR', 'Editar'),
+        ('EXCLUIR', 'Excluir'),
+        ('APROVAR', 'Aprovar'),
+        ('HOMOLOGAR', 'Homologar'),
+        ('GERAR_PDF', 'Gerar PDF'),
+        ('IMPRIMIR', 'Imprimir'),
+        ('ASSINAR', 'Assinar'),
+        ('ADMINISTRAR', 'Administrar'),
+    ]
+
+    CARGOS_COMISSAO_CHOICES = [
+        ('VISUALIZAR', 'Visualizar'),
+        ('CRIAR', 'Criar'),
+        ('EDITAR', 'Editar'),
+        ('EXCLUIR', 'Excluir'),
+        ('APROVAR', 'Aprovar'),
+        ('HOMOLOGAR', 'Homologar'),
+        ('GERAR_PDF', 'Gerar PDF'),
+        ('IMPRIMIR', 'Imprimir'),
+        ('ASSINAR', 'Assinar'),
+        ('ADMINISTRAR', 'Administrar'),
+    ]
+
+    QUADROS_FIXACAO_CHOICES = [
+        ('VISUALIZAR', 'Visualizar'),
+        ('CRIAR', 'Criar'),
+        ('EDITAR', 'Editar'),
+        ('EXCLUIR', 'Excluir'),
+        ('APROVAR', 'Aprovar'),
+        ('HOMOLOGAR', 'Homologar'),
+        ('GERAR_PDF', 'Gerar PDF'),
+        ('IMPRIMIR', 'Imprimir'),
+        ('ASSINAR', 'Assinar'),
+        ('ADMINISTRAR', 'Administrar'),
+    ]
+
+    ASSINATURAS_CHOICES = [
+        ('VISUALIZAR', 'Visualizar'),
+        ('CRIAR', 'Criar'),
+        ('EDITAR', 'Editar'),
+        ('EXCLUIR', 'Excluir'),
+        ('APROVAR', 'Aprovar'),
+        ('HOMOLOGAR', 'Homologar'),
+        ('GERAR_PDF', 'Gerar PDF'),
+        ('IMPRIMIR', 'Imprimir'),
+        ('ASSINAR', 'Assinar'),
+        ('ADMINISTRAR', 'Administrar'),
+    ]
+
+    ESTATISTICAS_CHOICES = [
+        ('VISUALIZAR', 'Visualizar'),
+        ('CRIAR', 'Criar'),
+        ('EDITAR', 'Editar'),
+        ('EXCLUIR', 'Excluir'),
+        ('APROVAR', 'Aprovar'),
+        ('HOMOLOGAR', 'Homologar'),
+        ('GERAR_PDF', 'Gerar PDF'),
+        ('IMPRIMIR', 'Imprimir'),
+        ('ASSINAR', 'Assinar'),
+        ('ADMINISTRAR', 'Administrar'),
+    ]
+
+    EXPORTACAO_CHOICES = [
+        ('VISUALIZAR', 'Visualizar'),
+        ('CRIAR', 'Criar'),
+        ('EDITAR', 'Editar'),
+        ('EXCLUIR', 'Excluir'),
+        ('APROVAR', 'Aprovar'),
+        ('HOMOLOGAR', 'Homologar'),
+        ('GERAR_PDF', 'Gerar PDF'),
+        ('IMPRIMIR', 'Imprimir'),
+        ('ASSINAR', 'Assinar'),
+        ('ADMINISTRAR', 'Administrar'),
+    ]
+
+    IMPORTACAO_CHOICES = [
+        ('VISUALIZAR', 'Visualizar'),
+        ('CRIAR', 'Criar'),
+        ('EDITAR', 'Editar'),
+        ('EXCLUIR', 'Excluir'),
+        ('APROVAR', 'Aprovar'),
+        ('HOMOLOGAR', 'Homologar'),
+        ('GERAR_PDF', 'Gerar PDF'),
+        ('IMPRIMIR', 'Imprimir'),
+        ('ASSINAR', 'Assinar'),
+        ('ADMINISTRAR', 'Administrar'),
+    ]
+
+    BACKUP_CHOICES = [
+        ('VISUALIZAR', 'Visualizar'),
+        ('CRIAR', 'Criar'),
+        ('EDITAR', 'Editar'),
+        ('EXCLUIR', 'Excluir'),
+        ('APROVAR', 'Aprovar'),
+        ('HOMOLOGAR', 'Homologar'),
+        ('GERAR_PDF', 'Gerar PDF'),
+        ('IMPRIMIR', 'Imprimir'),
+        ('ASSINAR', 'Assinar'),
+        ('ADMINISTRAR', 'Administrar'),
+    ]
+
+    AUDITORIA_CHOICES = [
+        ('VISUALIZAR', 'Visualizar'),
+        ('CRIAR', 'Criar'),
+        ('EDITAR', 'Editar'),
+        ('EXCLUIR', 'Excluir'),
+        ('APROVAR', 'Aprovar'),
+        ('HOMOLOGAR', 'Homologar'),
+        ('GERAR_PDF', 'Gerar PDF'),
+        ('IMPRIMIR', 'Imprimir'),
+        ('ASSINAR', 'Assinar'),
+        ('ADMINISTRAR', 'Administrar'),
+    ]
+
+    DASHBOARD_CHOICES = [
+        ('VISUALIZAR', 'Visualizar'),
+        ('CRIAR', 'Criar'),
+        ('EDITAR', 'Editar'),
+        ('EXCLUIR', 'Excluir'),
+        ('APROVAR', 'Aprovar'),
+        ('HOMOLOGAR', 'Homologar'),
+        ('GERAR_PDF', 'Gerar PDF'),
+        ('IMPRIMIR', 'Imprimir'),
+        ('ASSINAR', 'Assinar'),
+        ('ADMINISTRAR', 'Administrar'),
+    ]
+
+    BUSCA_CHOICES = [
+        ('VISUALIZAR', 'Visualizar'),
+        ('CRIAR', 'Criar'),
+        ('EDITAR', 'Editar'),
+        ('EXCLUIR', 'Excluir'),
+        ('APROVAR', 'Aprovar'),
+        ('HOMOLOGAR', 'Homologar'),
+        ('GERAR_PDF', 'Gerar PDF'),
+        ('IMPRIMIR', 'Imprimir'),
+        ('ASSINAR', 'Assinar'),
+        ('ADMINISTRAR', 'Administrar'),
+    ]
+
+    AJAX_CHOICES = [
+        ('VISUALIZAR', 'Visualizar'),
+        ('CRIAR', 'Criar'),
+        ('EDITAR', 'Editar'),
+        ('EXCLUIR', 'Excluir'),
+        ('APROVAR', 'Aprovar'),
+        ('HOMOLOGAR', 'Homologar'),
+        ('GERAR_PDF', 'Gerar PDF'),
+        ('IMPRIMIR', 'Imprimir'),
+        ('ASSINAR', 'Assinar'),
+        ('ADMINISTRAR', 'Administrar'),
+    ]
+
+    API_CHOICES = [
+        ('VISUALIZAR', 'Visualizar'),
+        ('CRIAR', 'Criar'),
+        ('EDITAR', 'Editar'),
+        ('EXCLUIR', 'Excluir'),
+        ('APROVAR', 'Aprovar'),
+        ('HOMOLOGAR', 'Homologar'),
+        ('GERAR_PDF', 'Gerar PDF'),
+        ('IMPRIMIR', 'Imprimir'),
+        ('ASSINAR', 'Assinar'),
+        ('ADMINISTRAR', 'Administrar'),
+    ]
+
+    SESSAO_CHOICES = [
+        ('VISUALIZAR', 'Visualizar'),
+        ('CRIAR', 'Criar'),
+        ('EDITAR', 'Editar'),
+        ('EXCLUIR', 'Excluir'),
+        ('APROVAR', 'Aprovar'),
+        ('HOMOLOGAR', 'Homologar'),
+        ('GERAR_PDF', 'Gerar PDF'),
+        ('IMPRIMIR', 'Imprimir'),
+        ('ASSINAR', 'Assinar'),
+        ('ADMINISTRAR', 'Administrar'),
+    ]
+
+    FUNCAO_CHOICES = [
+        ('VISUALIZAR', 'Visualizar'),
+        ('CRIAR', 'Criar'),
+        ('EDITAR', 'Editar'),
+        ('EXCLUIR', 'Excluir'),
+        ('APROVAR', 'Aprovar'),
+        ('HOMOLOGAR', 'Homologar'),
+        ('GERAR_PDF', 'Gerar PDF'),
+        ('IMPRIMIR', 'Imprimir'),
+        ('ASSINAR', 'Assinar'),
+        ('ADMINISTRAR', 'Administrar'),
+    ]
+
+    PERFIL_CHOICES = [
+        ('VISUALIZAR', 'Visualizar'),
+        ('CRIAR', 'Criar'),
+        ('EDITAR', 'Editar'),
+        ('EXCLUIR', 'Excluir'),
+        ('APROVAR', 'Aprovar'),
+        ('HOMOLOGAR', 'Homologar'),
+        ('GERAR_PDF', 'Gerar PDF'),
+        ('IMPRIMIR', 'Imprimir'),
+        ('ASSINAR', 'Assinar'),
+        ('ADMINISTRAR', 'Administrar'),
+    ]
+
+    SISTEMA_CHOICES = [
+        ('VISUALIZAR', 'Visualizar'),
+        ('CRIAR', 'Criar'),
+        ('EDITAR', 'Editar'),
+        ('EXCLUIR', 'Excluir'),
+        ('APROVAR', 'Aprovar'),
+        ('HOMOLOGAR', 'Homologar'),
+        ('GERAR_PDF', 'Gerar PDF'),
+        ('IMPRIMIR', 'Imprimir'),
+        ('ASSINAR', 'Assinar'),
+        ('ADMINISTRAR', 'Administrar'),
+    ]
     # Campos de permissões por módulo
     MILITARES_CHOICES = [
         ('VISUALIZAR', 'Visualizar'),
@@ -1102,6 +1362,147 @@ class CargoFuncaoForm(forms.ModelForm):
         label='Permissões - Configurações do Sistema'
     )
     
+    # Campos de permissões para novos módulos
+    permissoes_almanaques = forms.MultipleChoiceField(
+        choices=ALMANAQUES_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='Permissões - Almanaques'
+    )
+    
+    permissoes_calendarios = forms.MultipleChoiceField(
+        choices=CALENDARIOS_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='Permissões - Calendários'
+    )
+    
+    permissoes_notificacoes = forms.MultipleChoiceField(
+        choices=NOTIFICACOES_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='Permissões - Notificações'
+    )
+    
+    permissoes_modelos_ata = forms.MultipleChoiceField(
+        choices=MODELOS_ATA_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='Permissões - Modelos de Ata'
+    )
+    
+    permissoes_cargos_comissao = forms.MultipleChoiceField(
+        choices=CARGOS_COMISSAO_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='Permissões - Cargos da Comissão'
+    )
+    
+    permissoes_quadros_fixacao = forms.MultipleChoiceField(
+        choices=QUADROS_FIXACAO_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='Permissões - Quadros de Fixação'
+    )
+    
+    permissoes_assinaturas = forms.MultipleChoiceField(
+        choices=ASSINATURAS_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='Permissões - Assinaturas'
+    )
+    
+    permissoes_estatisticas = forms.MultipleChoiceField(
+        choices=ESTATISTICAS_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='Permissões - Estatísticas'
+    )
+    
+    permissoes_exportacao = forms.MultipleChoiceField(
+        choices=EXPORTACAO_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='Permissões - Exportação'
+    )
+    
+    permissoes_importacao = forms.MultipleChoiceField(
+        choices=IMPORTACAO_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='Permissões - Importação'
+    )
+    
+    permissoes_backup = forms.MultipleChoiceField(
+        choices=BACKUP_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='Permissões - Backup'
+    )
+    
+    permissoes_auditoria = forms.MultipleChoiceField(
+        choices=AUDITORIA_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='Permissões - Auditoria'
+    )
+    
+    permissoes_dashboard = forms.MultipleChoiceField(
+        choices=DASHBOARD_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='Permissões - Dashboard'
+    )
+    
+    permissoes_busca = forms.MultipleChoiceField(
+        choices=BUSCA_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='Permissões - Busca'
+    )
+    
+    permissoes_ajax = forms.MultipleChoiceField(
+        choices=AJAX_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='Permissões - AJAX'
+    )
+    
+    permissoes_api = forms.MultipleChoiceField(
+        choices=API_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='Permissões - API'
+    )
+    
+    permissoes_sessao = forms.MultipleChoiceField(
+        choices=SESSAO_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='Permissões - Sessão'
+    )
+    
+    permissoes_funcao = forms.MultipleChoiceField(
+        choices=FUNCAO_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='Permissões - Função'
+    )
+    
+    permissoes_perfil = forms.MultipleChoiceField(
+        choices=PERFIL_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='Permissões - Perfil'
+    )
+    
+    permissoes_sistema = forms.MultipleChoiceField(
+        choices=SISTEMA_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='Permissões - Sistema'
+    )
+    
     class Meta:
         model = CargoFuncao
         fields = ['nome', 'descricao', 'ativo', 'ordem']
@@ -1153,6 +1554,27 @@ class CargoFuncaoForm(forms.ModelForm):
             'USUARIOS': 'permissoes_usuarios',
             'RELATORIOS': 'permissoes_relatorios',
             'CONFIGURACOES': 'permissoes_configuracoes',
+            # Novos módulos
+            'ALMANAQUES': 'permissoes_almanaques',
+            'CALENDARIOS': 'permissoes_calendarios',
+            'NOTIFICACOES': 'permissoes_notificacoes',
+            'MODELOS_ATA': 'permissoes_modelos_ata',
+            'CARGOS_COMISSAO': 'permissoes_cargos_comissao',
+            'QUADROS_FIXACAO': 'permissoes_quadros_fixacao',
+            'ASSINATURAS': 'permissoes_assinaturas',
+            'ESTATISTICAS': 'permissoes_estatisticas',
+            'EXPORTACAO': 'permissoes_exportacao',
+            'IMPORTACAO': 'permissoes_importacao',
+            'BACKUP': 'permissoes_backup',
+            'AUDITORIA': 'permissoes_auditoria',
+            'DASHBOARD': 'permissoes_dashboard',
+            'BUSCA': 'permissoes_busca',
+            'AJAX': 'permissoes_ajax',
+            'API': 'permissoes_api',
+            'SESSAO': 'permissoes_sessao',
+            'FUNCAO': 'permissoes_funcao',
+            'PERFIL': 'permissoes_perfil',
+            'SISTEMA': 'permissoes_sistema',
         }
         
         for modulo, campo in mapeamento_campos.items():
@@ -1173,7 +1595,7 @@ class CargoFuncaoForm(forms.ModelForm):
         """Salva as permissões selecionadas para o cargo/função"""
         from .models import PermissaoFuncao
         
-        # Mapeamento de campos para módulos
+        # Mapeamento de campos para módulos (incluindo todos os módulos)
         mapeamento_campos = {
             'permissoes_militares': 'MILITARES',
             'permissoes_fichas_conceito': 'FICHAS_CONCEITO',
@@ -1185,6 +1607,27 @@ class CargoFuncaoForm(forms.ModelForm):
             'permissoes_usuarios': 'USUARIOS',
             'permissoes_relatorios': 'RELATORIOS',
             'permissoes_configuracoes': 'CONFIGURACOES',
+            # Novos módulos
+            'permissoes_almanaques': 'ALMANAQUES',
+            'permissoes_calendarios': 'CALENDARIOS',
+            'permissoes_notificacoes': 'NOTIFICACOES',
+            'permissoes_modelos_ata': 'MODELOS_ATA',
+            'permissoes_cargos_comissao': 'CARGOS_COMISSAO',
+            'permissoes_quadros_fixacao': 'QUADROS_FIXACAO',
+            'permissoes_assinaturas': 'ASSINATURAS',
+            'permissoes_estatisticas': 'ESTATISTICAS',
+            'permissoes_exportacao': 'EXPORTACAO',
+            'permissoes_importacao': 'IMPORTACAO',
+            'permissoes_backup': 'BACKUP',
+            'permissoes_auditoria': 'AUDITORIA',
+            'permissoes_dashboard': 'DASHBOARD',
+            'permissoes_busca': 'BUSCA',
+            'permissoes_ajax': 'AJAX',
+            'permissoes_api': 'API',
+            'permissoes_sessao': 'SESSAO',
+            'permissoes_funcao': 'FUNCAO',
+            'permissoes_perfil': 'PERFIL',
+            'permissoes_sistema': 'SISTEMA',
         }
         
         # Limpar permissões existentes

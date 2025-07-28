@@ -4,6 +4,20 @@ from militares.permissoes_simples import (
     requer_gerenciamento_usuarios, requer_assinatura_documentos,
     requer_funcao_especial, apenas_visualizacao_comissao
 )
+# Imports para sistema de permissões
+from .permissoes_sistema import (
+    requer_perm_militares_visualizar, requer_perm_militares_criar, requer_perm_militares_editar, requer_perm_militares_excluir, requer_perm_militares_admin,
+    requer_perm_fichas_visualizar, requer_perm_fichas_criar, requer_perm_fichas_editar, requer_perm_fichas_aprovar, requer_perm_fichas_admin,
+    requer_perm_quadros_visualizar, requer_perm_quadros_criar, requer_perm_quadros_editar, requer_perm_quadros_excluir, requer_perm_quadros_admin,
+    requer_perm_promocoes_visualizar, requer_perm_promocoes_criar, requer_perm_promocoes_editar, requer_perm_promocoes_aprovar, requer_perm_promocoes_homologar, requer_perm_promocoes_admin,
+    requer_perm_vagas_visualizar, requer_perm_vagas_criar, requer_perm_vagas_editar, requer_perm_vagas_excluir, requer_perm_vagas_admin,
+    requer_perm_comissao_visualizar, requer_perm_comissao_criar, requer_perm_comissao_editar, requer_perm_comissao_excluir, requer_perm_comissao_assinar, requer_perm_comissao_admin,
+    requer_perm_documentos_visualizar, requer_perm_documentos_criar, requer_perm_documentos_editar, requer_perm_documentos_excluir, requer_perm_documentos_gerar_pdf, requer_perm_documentos_imprimir, requer_perm_documentos_assinar, requer_perm_documentos_admin,
+    requer_perm_usuarios_visualizar, requer_perm_usuarios_criar, requer_perm_usuarios_editar, requer_perm_usuarios_excluir, requer_perm_usuarios_admin,
+    requer_perm_relatorios_visualizar, requer_perm_relatorios_gerar_pdf, requer_perm_relatorios_imprimir, requer_perm_relatorios_admin,
+    requer_perm_configuracoes_visualizar, requer_perm_configuracoes_editar, requer_perm_configuracoes_admin,
+)
+
 
 
 from django.shortcuts import render, get_object_or_404, redirect
@@ -133,6 +147,7 @@ def teste_modal_simples(request):
     return render(request, 'teste_modal_simples.html')
 
 @login_required
+@requer_perm_militares_visualizar
 def militar_list(request):
     """Lista todos os militares ativos com paginação e busca"""
     militares = Militar.objects.filter(situacao='AT')
@@ -240,6 +255,7 @@ def militar_list(request):
     return render(request, 'militares/militar_list.html', context)
 
 @login_required
+@requer_perm_militares_visualizar
 def militar_detail(request, pk):
     """Exibe os detalhes de um militar"""
     militar = get_object_or_404(Militar, pk=pk)
@@ -264,6 +280,42 @@ def militar_detail(request, pk):
     }
     
     return render(request, 'militares/militar_detail.html', context)
+
+@login_required
+def militar_detail_pessoal(request):
+    """Exibe os detalhes do próprio militar do usuário logado"""
+    if not request.user.is_authenticated:
+        return redirect('login')
+    
+    # Verificar se o usuário tem militar associado
+    try:
+        militar = request.user.militar
+    except Militar.DoesNotExist:
+        messages.error(request, 'Você não possui militar associado.')
+        return redirect('militares:militar_dashboard')
+    
+    # Busca ficha de conceito
+    fichas_oficiais = list(militar.fichaconceitooficiais_set.all())
+    fichas_pracas = list(militar.fichaconceitopracas_set.all())
+    ficha_conceito = fichas_oficiais + fichas_pracas
+    ficha_conceito.sort(key=lambda x: x.data_registro, reverse=True)
+    
+    # Busca promoções
+    promocoes = militar.promocao_set.all().order_by('-data_promocao')
+    
+    # Busca documentos
+    documentos = Documento.objects.filter(militar=militar).order_by('-data_upload')
+    
+    context = {
+        'militar': militar,
+        'ficha_conceito': ficha_conceito,
+        'promocoes': promocoes,
+        'documentos': documentos,
+        'is_own_ficha': True,  # Flag para indicar que é a própria ficha
+    }
+    
+    return render(request, 'militares/militar_detail.html', context)
+
 
 @login_required
 @admin_bypass
@@ -783,6 +835,7 @@ def teste_modal_simples(request):
     return render(request, 'teste_modal_simples.html')
 
 @login_required
+@requer_perm_militares_visualizar
 def militar_list(request):
     """Lista todos os militares ativos com paginação e busca"""
     militares = Militar.objects.filter(situacao='AT')
@@ -867,6 +920,7 @@ def militar_list(request):
     return render(request, 'militares/militar_list.html', context)
 
 @login_required
+@requer_perm_militares_visualizar
 def militar_detail(request, pk):
     """Exibe os detalhes de um militar"""
     militar = get_object_or_404(Militar, pk=pk)
@@ -1261,6 +1315,7 @@ def documento_upload(request, ficha_pk):
 
 # Views para Quadros de Acesso
 @login_required
+@requer_perm_quadros_visualizar
 def quadro_acesso_list(request):
     """Lista todos os quadros de acesso"""
     # Superusuários e staff têm acesso total
@@ -1365,6 +1420,7 @@ def quadro_acesso_list(request):
     return render(request, 'militares/quadro_acesso_list.html', context)
 
 @login_required
+@requer_perm_militares_visualizar
 def militar_list(request):
     """Lista todos os militares ativos com paginação e busca"""
     militares = Militar.objects.filter(situacao='AT')
@@ -1448,6 +1504,7 @@ def militar_list(request):
     return render(request, 'militares/militar_list.html', context)
 
 @login_required
+@requer_perm_militares_visualizar
 def militar_detail(request, pk):
     """Exibe os detalhes de um militar"""
     militar = get_object_or_404(Militar, pk=pk)
@@ -1767,6 +1824,7 @@ def documento_upload(request, ficha_pk):
 
 # Views para Quadros de Acesso
 @login_required
+@requer_perm_quadros_visualizar
 def quadro_acesso_list(request):
     """Lista todos os quadros de acesso"""
         # Permissão especial para Diretor de Gestão de Pessoas ou Chefe da Seção de Promoções
@@ -1867,6 +1925,7 @@ def quadro_acesso_list(request):
     return render(request, 'militares/quadro_acesso_list.html', context)
 
 @login_required
+@requer_perm_quadros_visualizar
 def quadro_acesso_detail(request, pk):
     """Exibe detalhes de um quadro de acesso"""
     try:
@@ -3440,6 +3499,7 @@ def quadro_acesso_pdf(request, pk):
     return FileResponse(buffer, content_type='application/pdf', filename=f'quadro_acesso_{quadro.pk}.pdf')
 
 @login_required
+@requer_perm_militares_visualizar
 def militar_list(request):
     """Lista todos os militares ativos com paginação e busca"""
     militares = Militar.objects.filter(situacao='AT')
@@ -3523,6 +3583,7 @@ def militar_list(request):
     return render(request, 'militares/militar_list.html', context)
 
 @login_required
+@requer_perm_militares_visualizar
 def militar_detail(request, pk):
     """Exibe os detalhes de um militar"""
     militar = get_object_or_404(Militar, pk=pk)
@@ -3899,6 +3960,7 @@ def documento_upload(request, ficha_pk):
 
 # Views para Quadros de Acesso
 @login_required
+@requer_perm_quadros_visualizar
 def quadro_acesso_list(request):
     """Lista todos os quadros de acesso"""
         # Permissão especial para Diretor de Gestão de Pessoas ou Chefe da Seção de Promoções
@@ -3999,6 +4061,7 @@ def quadro_acesso_list(request):
     return render(request, 'militares/quadro_acesso_list.html', context)
 
 @login_required
+@requer_perm_quadros_visualizar
 def quadro_acesso_detail(request, pk):
     """Exibe detalhes de um quadro de acesso"""
     try:
@@ -4799,6 +4862,7 @@ def quadro_acesso_edit(request, pk):
     return FileResponse(buffer, as_attachment=True, filename=f'quadro_acesso_{quadro.pk}.pdf')
 
 @login_required
+@requer_perm_militares_visualizar
 def militar_list(request):
     """Lista todos os militares ativos com paginação e busca"""
     militares = Militar.objects.filter(situacao='AT')
@@ -4906,6 +4970,7 @@ def militar_list(request):
     return render(request, 'militares/militar_list.html', context)
 
 @login_required
+@requer_perm_militares_visualizar
 def militar_detail(request, pk):
     """Exibe os detalhes de um militar"""
     militar = get_object_or_404(Militar, pk=pk)
@@ -5399,6 +5464,7 @@ def documento_upload(request, ficha_pk):
 
 # Views para Quadros de Acesso
 @login_required
+@requer_perm_quadros_visualizar
 def quadro_acesso_list(request):
     """Lista todos os quadros de acesso"""
         # Permissão especial para Diretor de Gestão de Pessoas ou Chefe da Seção de Promoções
@@ -5499,6 +5565,7 @@ def quadro_acesso_list(request):
     return render(request, 'militares/quadro_acesso_list.html', context)
 
 @login_required
+@requer_perm_quadros_visualizar
 def quadro_acesso_detail(request, pk):
     """Exibe detalhes de um quadro de acesso"""
     try:
@@ -6339,6 +6406,7 @@ def marcar_nao_elaborado(request, pk):
 
 # Views para Promoções
 @login_required
+@requer_perm_promocoes_visualizar
 def promocao_list(request):
     """Lista promoções"""
     # Filtros
@@ -6391,6 +6459,7 @@ def promocao_list(request):
     return render(request, 'militares/promocao_list.html', context)
 
 @login_required
+@requer_perm_promocoes_criar
 def promocao_create(request):
     """Registra nova promoção"""
     if request.method == 'POST':
@@ -6510,6 +6579,7 @@ def promocao_historica_create(request):
     return render(request, 'militares/promocao_form.html', context)
 
 @login_required
+@requer_perm_promocoes_admin
 def promocao_delete(request, pk):
     promocao = get_object_or_404(Promocao, pk=pk)
     if request.method == 'POST':
@@ -6520,6 +6590,7 @@ def promocao_delete(request, pk):
 
 # Views para Vagas
 @login_required
+@requer_perm_vagas_visualizar
 def vaga_list(request):
     """Quadro de Fixação de Vagas: mostra vagas do sistema separadas por quadro e permite inserir vagas manuais"""
     # Processa o formulário de vaga manual
@@ -6614,6 +6685,7 @@ def vaga_list(request):
     return render(request, 'militares/vaga_list.html', context)
 
 @login_required
+@requer_perm_vagas_editar
 def vaga_update(request, pk):
     """Atualiza vaga"""
     vaga = get_object_or_404(Vaga, pk=pk)
@@ -7035,6 +7107,7 @@ def conferir_documento(request, pk):
     return render(request, 'militares/conferir_documento.html', context)
 
 @login_required
+@requer_perm_promocoes_visualizar
 def promocao_detail(request, pk):
     """Detalhes da promoção"""
     promocao = get_object_or_404(Promocao, pk=pk)
@@ -7789,6 +7862,7 @@ def limpar_pontos_fichas_conceito(request):
     return redirect('militares:ficha_conceito_list')
 
 @login_required
+@requer_perm_vagas_criar
 def vaga_create(request):
     """Cria uma nova vaga"""
     if request.method == 'POST':
@@ -8013,6 +8087,7 @@ def previsao_vaga_delete_ajax(request, pk):
     return JsonResponse({'success': False, 'error': 'Método não permitido'})
 
 @login_required
+@requer_perm_documentos_excluir
 def documento_delete(request, pk):
     """Excluir documento"""
     try:
@@ -8276,6 +8351,7 @@ def retirar_assinatura_quadro_acesso(request, pk, assinatura_pk):
 # ============================================================================
 
 @login_required
+@requer_perm_comissao_visualizar
 def comissao_list(request):
     """Lista todas as comissões de promoção de oficiais"""
     # Permissão especial para funções administrativas
@@ -8326,6 +8402,7 @@ def comissao_list(request):
     return render(request, 'militares/comissao/list.html', context)
 
 @login_required
+@requer_perm_comissao_visualizar
 def comissao_detail(request, pk):
     """Detalhes de uma comissão de promoção de oficiais"""
     try:
@@ -8441,6 +8518,7 @@ def comissao_create(request):
     return render(request, 'militares/comissao/form.html', context)
 
 @login_required
+@requer_perm_comissao_editar
 def comissao_update(request, pk):
     """Editar comissão de promoção de oficiais"""
     try:
@@ -8467,6 +8545,7 @@ def comissao_update(request, pk):
 
 @login_required
 @login_required
+@requer_perm_comissao_excluir
 def comissao_delete(request, pk):
     """Excluir comissão de promoção de oficiais"""
     try:
@@ -11211,13 +11290,15 @@ def cargo_comissao_delete(request, pk):
 @login_required
 def quadro_fixacao_vagas_list(request):
     """Lista todos os quadros de fixação de vagas de oficiais"""
-    # Permissão especial para Diretor de Gestão de Pessoas ou Chefe da Seção de Promoções
-    cargos_especiais = ['Diretor de Gestão de Pessoas', 'Chefe da Seção de Promoções']
+    # Permissão especial para superusuários, staff e funções administrativas
+    cargos_especiais = ['Diretor de Gestão de Pessoas', 'Chefe da Seção de Promoções', 'Administrador do Sistema', 'Administrador']
     funcoes_ativas = request.user.funcoes.filter(
         cargo_funcao__nome__in=cargos_especiais,
         status='ATIVO',
     )
-    if funcoes_ativas.exists():
+    
+    # Superusuários e staff podem ver todos os quadros
+    if request.user.is_superuser or request.user.is_staff or funcoes_ativas.exists():
         quadros = QuadroFixacaoVagas.objects.all().order_by('-data_criacao')
     else:
         # Verificar se o usuário é membro de alguma comissão e aplicar filtro
@@ -16259,13 +16340,15 @@ def almanaque_militares(request):
 @login_required
 def almanaque_list(request):
     """Lista todos os almanaques seguindo o padrão dos quadros de fixação de vagas"""
-    # Permissão especial para Diretor de Gestão de Pessoas ou Chefe da Seção de Promoções
-    cargos_especiais = ['Diretor de Gestão de Pessoas', 'Chefe da Seção de Promoções']
+    # Permissão especial para superusuários, staff e funções administrativas
+    cargos_especiais = ['Diretor de Gestão de Pessoas', 'Chefe da Seção de Promoções', 'Administrador do Sistema', 'Administrador']
     funcoes_ativas = request.user.funcoes.filter(
         cargo_funcao__nome__in=cargos_especiais,
         status='ATIVO',
     )
-    if funcoes_ativas.exists():
+    
+    # Superusuários e staff podem ver todos os almanaques
+    if request.user.is_superuser or request.user.is_staff or funcoes_ativas.exists():
         almanaques = AlmanaqueMilitar.objects.filter(ativo=True).order_by('-data_geracao')
     else:
         # Verificar se o usuário é membro de alguma comissão e aplicar filtro
@@ -17225,6 +17308,7 @@ def gerenciar_usuarios_admin(request):
     return render(request, 'militares/usuarios/gerenciar_usuarios_admin.html', context)
 
 @login_required
+@requer_perm_militares_visualizar
 def militar_list_paginada(request):
     """Lista todos os militares ativos com paginação simples"""
     # Buscar todos os militares ativos

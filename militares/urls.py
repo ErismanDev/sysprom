@@ -75,6 +75,7 @@ urlpatterns = [
     path('militares/<int:pk>/', views.militar_detail, name='militar_detail'),
     path('militares/<int:pk>/editar/', views.militar_update, name='militar_edit'),
     path('militares/<int:pk>/excluir/', views.militar_delete, name='militar_delete'),
+    path('minha-ficha/', views.militar_detail_pessoal, name='militar_detail_pessoal'),
 
     
     # Militares Inativos

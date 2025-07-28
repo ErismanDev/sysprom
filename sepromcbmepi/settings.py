@@ -79,6 +79,7 @@ TEMPLATES = [
                 "militares.context_processors.funcao_atual_processor",
                 "militares.context_processors.menu_permissions_processor",
                 "militares.permissoes_simples.permissoes_simples_processor",
+                "militares.permissoes_sistema.permissoes_context",
             ],
         },
     },

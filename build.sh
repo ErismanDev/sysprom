@@ -7,12 +7,12 @@ echo "🚀 Iniciando build no Render..."
 echo "📦 Instalando dependências..."
 pip install -r requirements.txt
 
-# Coletar arquivos estáticos
-echo "📁 Coletando arquivos estáticos..."
-python manage.py collectstatic --noinput
-
 # Executar migrações
 echo "🗄️ Executando migrações..."
 python manage.py migrate
+
+# Coletar arquivos estáticos
+echo "📁 Coletando arquivos estáticos..."
+python manage.py collectstatic --noinput --clear
 
 echo "✅ Build concluído com sucesso!" 

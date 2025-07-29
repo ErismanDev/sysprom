@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Ponto de entrada da aplicação para AWS Amplify
+Ponto de entrada da aplicação para Render
 """
 
 import os
@@ -11,7 +11,7 @@ import django
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Configurar o Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'sepromcbmepi.settings_production')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'sepromcbmepi.settings_render')
 django.setup()
 
 # Importar a aplicação WSGI

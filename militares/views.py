@@ -30,7 +30,7 @@ from django.contrib.auth import update_session_auth_hash
 from django.core.exceptions import ValidationError
 from django.contrib.auth.password_validation import validate_password
 from django.core.paginator import Paginator
-from django.db.models import Q, Sum, Count
+from django.db.models import Q, Sum, Count, Case, When, IntegerField, Case, When, IntegerField, Case, When, IntegerField, Case, When, IntegerField
 from django.db.models.deletion import ProtectedError
 from django.http import JsonResponse, HttpResponse
 from django.utils import timezone
@@ -102,7 +102,7 @@ from .models import (
     VagaManual, QuadroFixacaoVagas, ItemQuadroFixacaoVagas, UsuarioFuncao,
     CargoFuncao, PermissaoFuncao, PerfilAcesso, CalendarioPromocao, ItemCalendarioPromocao,
     AssinaturaCalendarioPromocao, AlmanaqueMilitar, AssinaturaAlmanaque
-, Case, When, IntegerField)
+)
 from .forms import MilitarForm, DocumentoForm, UserRegistrationForm, ConfirmarSenhaForm, ComissaoPromocaoForm, MembroComissaoForm, SessaoComissaoForm, DeliberacaoComissaoForm, DocumentoSessaoForm, AtaSessaoForm, ModeloAtaForm, CargoComissaoForm, FichaConceitoPracasForm, FichaConceitoOficiaisForm, UsuarioFuncaoForm, UsuarioForm, CargoFuncaoForm
 from .decorators import usuario_comissao_required, usuario_cpo_required, usuario_cpp_required, apenas_visualizacao_comissao, administracao_required, militar_edit_permission, comissao_acesso_total, cargos_especiais_required, can_edit_ficha_conceito, can_edit_militar
 from .admin_decorators import admin_bypass, admin_or_permission_required

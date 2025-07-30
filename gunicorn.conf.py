@@ -9,12 +9,12 @@ import multiprocessing
 
 # Configurações básicas
 bind = f"0.0.0.0:{os.environ.get('PORT', '8000')}"
-workers = 2  # Reduzido para evitar sobrecarga de memória
+workers = 1  # Reduzido para 1 worker para evitar sobrecarga
 worker_class = "sync"
 worker_connections = 1000
-max_requests = 1000
-max_requests_jitter = 100
-timeout = 120  # Aumentado para 2 minutos
+max_requests = 500  # Reduzido para evitar vazamentos de memória
+max_requests_jitter = 50
+timeout = 300  # Aumentado para 5 minutos
 keepalive = 2
 preload_app = True
 
@@ -34,16 +34,20 @@ worker_tmp_dir = "/dev/shm"  # Usar memória compartilhada
 worker_abort_on_app_exit = True
 
 # Configurações de graceful shutdown
-graceful_timeout = 30
+graceful_timeout = 60  # Aumentado para 1 minuto
 preload_app = True
 
 # Configurações de debug
 reload = False
 reload_engine = "auto"
 
+# Configurações de memória
+max_requests_jitter = 50
+worker_abort_on_app_exit = True
+
 def when_ready(server):
     """Chamado quando o servidor está pronto"""
-    server.log.info("🚀 Gunicorn iniciado com configurações otimizadas")
+    server.log.info("🚀 Gunicorn iniciado com configurações otimizadas para performance")
 
 def worker_int(worker):
     """Chamado quando um worker é interrompido"""

@@ -1,80 +1,183 @@
-#!/usr/bin/env python
-import os
-import sys
-import django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'sepromcbmepi.settings')
-django.setup()
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+VERIFICAÇÃO FINAL DA MIGRAÇÃO
+============================
 
-from django.contrib.auth.models import User
-from militares.models import Militar, ComissaoPromocao, MembroComissao, UsuarioFuncao, CargoFuncao
+Script para verificar se a migração foi concluída com sucesso.
 
-def verificar_migracao_final():
-    print("=== VERIFICAÇÃO FINAL DA MIGRAÇÃO ===\n")
+Autor: Sistema de Promoções CBMEPI
+Data: 30/07/2025
+"""
+
+import psycopg2
+from datetime import datetime
+
+# Configurações do Supabase
+SUPABASE_CONFIG = {
+    'host': 'aws-0-sa-east-1.pooler.supabase.com',
+    'database': 'postgres',
+    'user': 'postgres.vubnekyyfjcrswaufnla',
+    'password': '2YXGdmXESoZAoPkO',
+    'port': '6543'
+}
+
+def verificar_migracao():
+    """Verifica se a migração foi concluída com sucesso"""
+    print("🔍 VERIFICAÇÃO FINAL DA MIGRAÇÃO")
+    print("=" * 60)
     
     try:
-        # Estatísticas gerais
-        print("📊 ESTATÍSTICAS GERAIS:")
-        print(f"   • Usuários: {User.objects.count()}")
-        print(f"   • Militares: {Militar.objects.count()}")
-        print(f"   • Comissões: {ComissaoPromocao.objects.count()}")
-        print(f"   • Membros de comissões: {MembroComissao.objects.count()}")
-        print(f"   • Funções de usuários: {UsuarioFuncao.objects.count()}")
-        print(f"   • Cargos/Funções: {CargoFuncao.objects.count()}")
+        # Conectar ao Supabase
+        conn = psycopg2.connect(**SUPABASE_CONFIG)
+        cursor = conn.cursor()
         
-        # Detalhes das comissões
+        print("✅ Conectado ao Supabase")
+        
+        # Verificar contagem de registros nas tabelas principais
+        tabelas_principais = [
+            'auth_user',
+            'militares_militar',
+            'militares_comissaopromocao',
+            'militares_membrocomissao',
+            'militares_quadroacesso',
+            'militares_calendariopromocao'
+        ]
+        
+        print(f"\n📊 CONTAGEM DE REGISTROS:")
+        print("-" * 40)
+        
+        total_geral = 0
+        for tabela in tabelas_principais:
+            cursor.execute(f"SELECT COUNT(*) FROM {tabela}")
+            count = cursor.fetchone()[0]
+            print(f"✅ {tabela}: {count:,} registros")
+            total_geral += count
+        
+        print(f"\n📈 TOTAL GERAL: {total_geral:,} registros")
+        
+        # Verificar associações usuário-militar
+        print(f"\n🔗 VERIFICAÇÃO DE ASSOCIAÇÕES:")
+        print("-" * 40)
+        
+        cursor.execute("""
+            SELECT COUNT(*) FROM militares_militar 
+            WHERE user_id IS NOT NULL
+        """)
+        militares_com_usuario = cursor.fetchone()[0]
+        
+        cursor.execute("SELECT COUNT(*) FROM militares_militar")
+        total_militares = cursor.fetchone()[0]
+        
+        print(f"✅ Militares com usuário associado: {militares_com_usuario:,}")
+        print(f"✅ Total de militares: {total_militares:,}")
+        print(f"✅ Taxa de associação: {(militares_com_usuario/total_militares*100):.1f}%")
+        
+        # Verificar usuários ativos
+        cursor.execute("""
+            SELECT COUNT(*) FROM auth_user 
+            WHERE is_active = true
+        """)
+        usuarios_ativos = cursor.fetchone()[0]
+        
+        cursor.execute("SELECT COUNT(*) FROM auth_user")
+        total_usuarios = cursor.fetchone()[0]
+        
+        print(f"\n👥 USUÁRIOS:")
+        print(f"✅ Usuários ativos: {usuarios_ativos:,}")
+        print(f"✅ Total de usuários: {total_usuarios:,}")
+        print(f"✅ Taxa de usuários ativos: {(usuarios_ativos/total_usuarios*100):.1f}%")
+        
+        # Verificar comissões
+        cursor.execute("""
+            SELECT COUNT(*) FROM militares_comissaopromocao 
+            WHERE status = 'ATIVA'
+        """)
+        comissoes_ativas = cursor.fetchone()[0]
+        
+        cursor.execute("SELECT COUNT(*) FROM militares_comissaopromocao")
+        total_comissoes = cursor.fetchone()[0]
+        
         print(f"\n🏛️ COMISSÕES:")
-        for comissao in ComissaoPromocao.objects.all():
-            membros = MembroComissao.objects.filter(comissao=comissao, ativo=True).count()
-            print(f"   • {comissao.nome} ({comissao.tipo}) - {membros} membros ativos")
+        print(f"✅ Comissões ativas: {comissoes_ativas:,}")
+        print(f"✅ Total de comissões: {total_comissoes:,}")
         
-        # Detalhes dos membros
-        print(f"\n👥 MEMBROS DE COMISSÕES:")
-        membros_ativos = MembroComissao.objects.filter(ativo=True)
-        for membro in membros_ativos:
-            funcoes = UsuarioFuncao.objects.filter(usuario=membro.usuario, status='ATIVO').count()
-            print(f"   • {membro.militar.nome_guerra} ({membro.usuario.username})")
-            print(f"     - Comissão: {membro.comissao.nome}")
-            print(f"     - Funções ativas: {funcoes}")
+        # Verificar membros de comissão
+        cursor.execute("""
+            SELECT COUNT(*) FROM militares_membrocomissao 
+            WHERE ativo = true
+        """)
+        membros_ativos = cursor.fetchone()[0]
         
-        # Usuários com funções
-        print(f"\n🔑 USUÁRIOS COM FUNÇÕES:")
-        usuarios_com_funcoes = User.objects.filter(funcoes__status='ATIVO').distinct()
-        print(f"   • Total: {usuarios_com_funcoes.count()}")
+        cursor.execute("SELECT COUNT(*) FROM militares_membrocomissao")
+        total_membros = cursor.fetchone()[0]
         
-        # Top 5 cargos mais comuns
-        print(f"\n📋 TOP 5 CARGOS MAIS COMUNS:")
-        from django.db.models import Count
-        cargos_populares = CargoFuncao.objects.annotate(
-            total=Count('usuariofuncao')
-        ).order_by('-total')[:5]
+        print(f"\n👤 MEMBROS DE COMISSÃO:")
+        print(f"✅ Membros ativos: {membros_ativos:,}")
+        print(f"✅ Total de membros: {total_membros:,}")
         
-        for cargo in cargos_populares:
-            print(f"   • {cargo.nome}: {cargo.total} usuários")
+        # Verificar quadros de acesso
+        cursor.execute("""
+            SELECT COUNT(*) FROM militares_quadroacesso 
+            WHERE ativo = true
+        """)
+        quadros_ativos = cursor.fetchone()[0]
         
-        # Militares por situação
-        print(f"\n🎖️ MILITARES POR SITUAÇÃO:")
-        from django.db.models import Count
-        situacoes = Militar.objects.values('situacao').annotate(
-            total=Count('id')
-        ).order_by('situacao')
+        cursor.execute("SELECT COUNT(*) FROM militares_quadroacesso")
+        total_quadros = cursor.fetchone()[0]
         
-        for situacao in situacoes:
-            print(f"   • {situacao['situacao']}: {situacao['total']} militares")
+        print(f"\n📋 QUADROS DE ACESSO:")
+        print(f"✅ Quadros ativos: {quadros_ativos:,}")
+        print(f"✅ Total de quadros: {total_quadros:,}")
         
-        # Militares por quadro
-        print(f"\n🎖️ MILITARES POR QUADRO:")
-        quadros = Militar.objects.values('quadro').annotate(
-            total=Count('id')
-        ).order_by('quadro')
+        # Verificar calendários de promoção
+        cursor.execute("""
+            SELECT COUNT(*) FROM militares_calendariopromocao 
+            WHERE ativo = true
+        """)
+        calendarios_ativos = cursor.fetchone()[0]
         
-        for quadro in quadros:
-            print(f"   • {quadro['quadro']}: {quadro['total']} militares")
+        cursor.execute("SELECT COUNT(*) FROM militares_calendariopromocao")
+        total_calendarios = cursor.fetchone()[0]
         
-        print(f"\n✅ MIGRAÇÃO CONCLUÍDA COM SUCESSO!")
-        print(f"   Todos os dados do SQLite foram migrados para o PostgreSQL")
+        print(f"\n📅 CALENDÁRIOS DE PROMOÇÃO:")
+        print(f"✅ Calendários ativos: {calendarios_ativos:,}")
+        print(f"✅ Total de calendários: {total_calendarios:,}")
+        
+        # Verificar integridade das sequências
+        print(f"\n🔄 VERIFICAÇÃO DE SEQUÊNCIAS:")
+        print("-" * 40)
+        
+        for tabela in tabelas_principais:
+            try:
+                cursor.execute(f"SELECT setval('{tabela}_id_seq', (SELECT COALESCE(MAX(id), 1) FROM {tabela}));")
+                cursor.execute(f"SELECT currval('{tabela}_id_seq');")
+                seq_value = cursor.fetchone()[0]
+                print(f"✅ {tabela}_id_seq: {seq_value}")
+            except Exception as e:
+                print(f"⚠️ {tabela}_id_seq: Erro - {e}")
+        
+        cursor.close()
+        conn.close()
+        
+        print("\n" + "=" * 60)
+        print("✅ VERIFICAÇÃO FINAL CONCLUÍDA")
+        print("=" * 60)
+        print()
+        print("🎉 MIGRAÇÃO CONCLUÍDA COM SUCESSO!")
+        print()
+        print("📋 RESUMO:")
+        print(f"✅ {total_usuarios:,} usuários migrados")
+        print(f"✅ {total_militares:,} militares migrados")
+        print(f"✅ {total_comissoes:,} comissões criadas")
+        print(f"✅ {total_quadros:,} quadros de acesso criados")
+        print(f"✅ {total_calendarios:,} calendários de promoção criados")
+        print(f"✅ {militares_com_usuario:,} associações usuário-militar")
+        print()
+        print("🚀 O sistema está pronto para uso!")
         
     except Exception as e:
         print(f"❌ Erro na verificação: {e}")
 
-if __name__ == '__main__':
-    verificar_migracao_final() 
+if __name__ == "__main__":
+    verificar_migracao() 

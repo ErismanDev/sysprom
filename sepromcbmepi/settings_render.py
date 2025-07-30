@@ -66,7 +66,7 @@ X_FRAME_OPTIONS = 'DENY'
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
-# Configurações do WhiteNoise para arquivos estáticos
+# Configurações do WhiteNoise para arquivos estáticos - Configuração simples
 STATICFILES_STORAGE = 'whitenoise.storage.StaticFilesStorage'
 
 # Configurações de logging para o Render
@@ -159,8 +159,8 @@ SESSION_SAVE_EVERY_REQUEST = False
 
 # Configurações de middleware otimizadas
 MIDDLEWARE = [
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # WhiteNoise deve vir primeiro
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # Mover para cima
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -183,7 +183,9 @@ STATICFILES_FINDERS = [
     'django.contrib.staticfiles.finders.AppDirectoriesFinder',
 ]
 
-# Configurações de WhiteNoise otimizadas
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Configurações de WhiteNoise otimizadas - Configuração simples para evitar problemas
+STATICFILES_STORAGE = 'whitenoise.storage.StaticFilesStorage'
 WHITENOISE_USE_FINDERS = True
-WHITENOISE_AUTOREFRESH = False 
+WHITENOISE_AUTOREFRESH = False
+WHITENOISE_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+WHITENOISE_INDEX_FILE = True 

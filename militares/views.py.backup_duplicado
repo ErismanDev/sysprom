@@ -30,7 +30,7 @@ from django.contrib.auth import update_session_auth_hash
 from django.core.exceptions import ValidationError
 from django.contrib.auth.password_validation import validate_password
 from django.core.paginator import Paginator
-from django.db.models import Q, Sum, Count
+from django.db.models import Q, Sum, Count, Case, When, IntegerField, Case, When, IntegerField, Case, When, IntegerField, Case, When, IntegerField
 from django.db.models.deletion import ProtectedError
 from django.http import JsonResponse, HttpResponse
 from django.utils import timezone
@@ -178,8 +178,34 @@ def militar_list(request):
         # Ordenar por hierarquia de postos e depois por antiguidade
         # Para Subtenentes, ordenar primeiro os que têm CHO, depois os que não têm
         # Cada grupo de Subtenentes (com CHO e sem CHO) terá sua própria numeração de antiguidade
-        # OTIMIZAÇÃO: Usar order_by simples em vez de sorted() em Python
-        militares = militares.order_by('posto_graduacao', 'numeracao_antiguidade', 'nome_completo')
+        # OTIMIZAÇÃO: Usar ordenação no banco em vez de Python
+        militares = militares.annotate(
+            hierarquia=Case(
+                When(posto_graduacao='CB', then=1),
+                When(posto_graduacao='TC', then=2),
+                When(posto_graduacao='MJ', then=3),
+                When(posto_graduacao='CP', then=4),
+                When(posto_graduacao='1T', then=5),
+                When(posto_graduacao='2T', then=6),
+                When(posto_graduacao='AS', then=7),
+                When(posto_graduacao='AA', then=8),
+                When(posto_graduacao='ST', then=9),
+                When(posto_graduacao='1S', then=10),
+                When(posto_graduacao='2S', then=11),
+                When(posto_graduacao='3S', then=12),
+                When(posto_graduacao='CAB', then=13),
+                When(posto_graduacao='SD', then=14),
+                When(posto_graduacao='NVRR', then=15),
+                default=999,
+                output_field=IntegerField(),
+            )
+        ).order_by('hierarquia', 'numeracao_antiguidade', 'nome_completo')
+            hierarquia_postos.get(x.posto_graduacao, 999),
+            # Para Subtenentes (ST), ordenar por CHO primeiro (True vem antes de False)
+            (x.posto_graduacao == 'ST' and not x.curso_cho, x.posto_graduacao == 'ST' and x.curso_cho),
+            x.numeracao_antiguidade or 999999,  # Militares sem antiguidade vão para o final
+            x.nome_completo
+        ))
         
         # Reordenar numeração de antiguidade para Subtenentes separadamente por CHO
         if militares:
@@ -861,8 +887,34 @@ def militar_list(request):
         # Ordenar por hierarquia de postos e depois por antiguidade
         # Para Subtenentes, ordenar primeiro os que têm CHO, depois os que não têm
         # Cada grupo de Subtenentes (com CHO e sem CHO) terá sua própria numeração de antiguidade
-        # OTIMIZAÇÃO: Usar order_by simples em vez de sorted() em Python
-        militares = militares.order_by('posto_graduacao', 'numeracao_antiguidade', 'nome_completo')
+        # OTIMIZAÇÃO: Usar ordenação no banco em vez de Python
+        militares = militares.annotate(
+            hierarquia=Case(
+                When(posto_graduacao='CB', then=1),
+                When(posto_graduacao='TC', then=2),
+                When(posto_graduacao='MJ', then=3),
+                When(posto_graduacao='CP', then=4),
+                When(posto_graduacao='1T', then=5),
+                When(posto_graduacao='2T', then=6),
+                When(posto_graduacao='AS', then=7),
+                When(posto_graduacao='AA', then=8),
+                When(posto_graduacao='ST', then=9),
+                When(posto_graduacao='1S', then=10),
+                When(posto_graduacao='2S', then=11),
+                When(posto_graduacao='3S', then=12),
+                When(posto_graduacao='CAB', then=13),
+                When(posto_graduacao='SD', then=14),
+                When(posto_graduacao='NVRR', then=15),
+                default=999,
+                output_field=IntegerField(),
+            )
+        ).order_by('hierarquia', 'numeracao_antiguidade', 'nome_completo')
+            hierarquia_postos.get(x.posto_graduacao, 999),
+            # Para Subtenentes (ST), ordenar por CHO primeiro (True vem antes de False)
+            (x.posto_graduacao == 'ST' and not x.curso_cho, x.posto_graduacao == 'ST' and x.curso_cho),
+            x.numeracao_antiguidade or 999999,  # Militares sem antiguidade vão para o final
+            x.nome_completo
+        ))
         
         # Reordenar numeração de antiguidade para Subtenentes separadamente por CHO
         if militares:
@@ -902,9 +954,62 @@ def militar_list(request):
     else:
         militares = militares.order_by('nome_completo')
 
-    # Sem paginação - mostrar todos os militares
-    context = {
-        'militares': militares,
+    # PAGINAÇÃO OBRIGATÓRIA para evitar timeout
+
+
+        itens_por_pagina = request.GET.get('itens_por_pagina', 50)
+
+
+        try:
+
+
+            itens_por_pagina = int(itens_por_pagina)
+
+
+            if itens_por_pagina not in [20, 50, 100]:
+
+
+                itens_por_pagina = 50  # Padrão mais conservador
+
+
+        except (ValueError, TypeError):
+
+
+            itens_por_pagina = 50
+
+
+        
+
+
+        # Contar total antes da paginação
+
+
+        total_militares = militares.count()
+
+
+        
+
+
+        # Aplicar paginação
+
+
+        paginator = Paginator(militares, itens_por_pagina)
+
+
+        page_number = request.GET.get('page')
+
+
+        page_obj = paginator.get_page(page_number)
+
+
+        
+
+
+        context = {
+        'militares': page_obj,
+        'page_obj': page_obj,
+        'itens_por_pagina': itens_por_pagina,
+        'total_militares': total_militares,
     }
     
     return render(request, 'militares/militar_list.html', context)
@@ -1440,8 +1545,34 @@ def militar_list(request):
         # Ordenar por hierarquia de postos e depois por antiguidade
         # Para Subtenentes, ordenar primeiro os que têm CHO, depois os que não têm
         # Cada grupo de Subtenentes (com CHO e sem CHO) terá sua própria numeração de antiguidade
-        # OTIMIZAÇÃO: Usar order_by simples em vez de sorted() em Python
-        militares = militares.order_by('posto_graduacao', 'numeracao_antiguidade', 'nome_completo')
+        # OTIMIZAÇÃO: Usar ordenação no banco em vez de Python
+        militares = militares.annotate(
+            hierarquia=Case(
+                When(posto_graduacao='CB', then=1),
+                When(posto_graduacao='TC', then=2),
+                When(posto_graduacao='MJ', then=3),
+                When(posto_graduacao='CP', then=4),
+                When(posto_graduacao='1T', then=5),
+                When(posto_graduacao='2T', then=6),
+                When(posto_graduacao='AS', then=7),
+                When(posto_graduacao='AA', then=8),
+                When(posto_graduacao='ST', then=9),
+                When(posto_graduacao='1S', then=10),
+                When(posto_graduacao='2S', then=11),
+                When(posto_graduacao='3S', then=12),
+                When(posto_graduacao='CAB', then=13),
+                When(posto_graduacao='SD', then=14),
+                When(posto_graduacao='NVRR', then=15),
+                default=999,
+                output_field=IntegerField(),
+            )
+        ).order_by('hierarquia', 'numeracao_antiguidade', 'nome_completo')
+            hierarquia_postos.get(x.posto_graduacao, 999),
+            # Para Subtenentes (ST), ordenar por CHO primeiro (True vem antes de False)
+            (x.posto_graduacao == 'ST' and not x.curso_cho, x.posto_graduacao == 'ST' and x.curso_cho),
+            x.numeracao_antiguidade or 999999,  # Militares sem antiguidade vão para o final
+            x.nome_completo
+        ))
         
         # Reordenar numeração de antiguidade para Subtenentes separadamente por CHO
         if militares:
@@ -1481,9 +1612,62 @@ def militar_list(request):
     else:
         militares = militares.order_by('nome_completo')
 
-    # Sem paginação - mostrar todos os militares
-    context = {
-        'militares': militares,
+    # PAGINAÇÃO OBRIGATÓRIA para evitar timeout
+
+
+        itens_por_pagina = request.GET.get('itens_por_pagina', 50)
+
+
+        try:
+
+
+            itens_por_pagina = int(itens_por_pagina)
+
+
+            if itens_por_pagina not in [20, 50, 100]:
+
+
+                itens_por_pagina = 50  # Padrão mais conservador
+
+
+        except (ValueError, TypeError):
+
+
+            itens_por_pagina = 50
+
+
+        
+
+
+        # Contar total antes da paginação
+
+
+        total_militares = militares.count()
+
+
+        
+
+
+        # Aplicar paginação
+
+
+        paginator = Paginator(militares, itens_por_pagina)
+
+
+        page_number = request.GET.get('page')
+
+
+        page_obj = paginator.get_page(page_number)
+
+
+        
+
+
+        context = {
+        'militares': page_obj,
+        'page_obj': page_obj,
+        'itens_por_pagina': itens_por_pagina,
+        'total_militares': total_militares,
     }
     
     return render(request, 'militares/militar_list.html', context)
@@ -3514,8 +3698,34 @@ def militar_list(request):
         # Ordenar por hierarquia de postos e depois por antiguidade
         # Para Subtenentes, ordenar primeiro os que têm CHO, depois os que não têm
         # Cada grupo de Subtenentes (com CHO e sem CHO) terá sua própria numeração de antiguidade
-        # OTIMIZAÇÃO: Usar order_by simples em vez de sorted() em Python
-        militares = militares.order_by('posto_graduacao', 'numeracao_antiguidade', 'nome_completo')
+        # OTIMIZAÇÃO: Usar ordenação no banco em vez de Python
+        militares = militares.annotate(
+            hierarquia=Case(
+                When(posto_graduacao='CB', then=1),
+                When(posto_graduacao='TC', then=2),
+                When(posto_graduacao='MJ', then=3),
+                When(posto_graduacao='CP', then=4),
+                When(posto_graduacao='1T', then=5),
+                When(posto_graduacao='2T', then=6),
+                When(posto_graduacao='AS', then=7),
+                When(posto_graduacao='AA', then=8),
+                When(posto_graduacao='ST', then=9),
+                When(posto_graduacao='1S', then=10),
+                When(posto_graduacao='2S', then=11),
+                When(posto_graduacao='3S', then=12),
+                When(posto_graduacao='CAB', then=13),
+                When(posto_graduacao='SD', then=14),
+                When(posto_graduacao='NVRR', then=15),
+                default=999,
+                output_field=IntegerField(),
+            )
+        ).order_by('hierarquia', 'numeracao_antiguidade', 'nome_completo')
+            hierarquia_postos.get(x.posto_graduacao, 999),
+            # Para Subtenentes (ST), ordenar por CHO primeiro (True vem antes de False)
+            (x.posto_graduacao == 'ST' and not x.curso_cho, x.posto_graduacao == 'ST' and x.curso_cho),
+            x.numeracao_antiguidade or 999999,  # Militares sem antiguidade vão para o final
+            x.nome_completo
+        ))
         
         # Reordenar numeração de antiguidade para Subtenentes separadamente por CHO
         if militares:
@@ -3555,9 +3765,62 @@ def militar_list(request):
     else:
         militares = militares.order_by('nome_completo')
 
-    # Sem paginação - mostrar todos os militares
-    context = {
-        'militares': militares,
+    # PAGINAÇÃO OBRIGATÓRIA para evitar timeout
+
+
+        itens_por_pagina = request.GET.get('itens_por_pagina', 50)
+
+
+        try:
+
+
+            itens_por_pagina = int(itens_por_pagina)
+
+
+            if itens_por_pagina not in [20, 50, 100]:
+
+
+                itens_por_pagina = 50  # Padrão mais conservador
+
+
+        except (ValueError, TypeError):
+
+
+            itens_por_pagina = 50
+
+
+        
+
+
+        # Contar total antes da paginação
+
+
+        total_militares = militares.count()
+
+
+        
+
+
+        # Aplicar paginação
+
+
+        paginator = Paginator(militares, itens_por_pagina)
+
+
+        page_number = request.GET.get('page')
+
+
+        page_obj = paginator.get_page(page_number)
+
+
+        
+
+
+        context = {
+        'militares': page_obj,
+        'page_obj': page_obj,
+        'itens_por_pagina': itens_por_pagina,
+        'total_militares': total_militares,
     }
     
     return render(request, 'militares/militar_list.html', context)
@@ -4920,7 +5183,28 @@ def militar_list(request):
     if ordenacao == 'hierarquia_antiguidade':
         # Ordenar por hierarquia de postos e depois por antiguidade
         # NVRR é tratado separadamente - sem numeração de antiguidade
-        militares = sorted(militares, key=lambda x: (
+        # OTIMIZAÇÃO: Usar ordenação no banco em vez de Python
+        militares = militares.annotate(
+            hierarquia=Case(
+                When(posto_graduacao='CB', then=1),
+                When(posto_graduacao='TC', then=2),
+                When(posto_graduacao='MJ', then=3),
+                When(posto_graduacao='CP', then=4),
+                When(posto_graduacao='1T', then=5),
+                When(posto_graduacao='2T', then=6),
+                When(posto_graduacao='AS', then=7),
+                When(posto_graduacao='AA', then=8),
+                When(posto_graduacao='ST', then=9),
+                When(posto_graduacao='1S', then=10),
+                When(posto_graduacao='2S', then=11),
+                When(posto_graduacao='3S', then=12),
+                When(posto_graduacao='CAB', then=13),
+                When(posto_graduacao='SD', then=14),
+                When(posto_graduacao='NVRR', then=15),
+                default=999,
+                output_field=IntegerField(),
+            )
+        ).order_by('hierarquia', 'numeracao_antiguidade', 'nome_completo')
             hierarquia_postos.get(x.posto_graduacao, 999),
             # Para NVRR, não usar numeração de antiguidade
             0 if (x.posto_graduacao == 'NVRR' or x.quadro == 'NVRR') else (x.numeracao_antiguidade or 999999),
@@ -4942,9 +5226,62 @@ def militar_list(request):
     else:
         militares = militares.order_by('nome_completo')
 
-    # Sem paginação - mostrar todos os militares
-    context = {
-        'militares': militares,
+    # PAGINAÇÃO OBRIGATÓRIA para evitar timeout
+
+
+        itens_por_pagina = request.GET.get('itens_por_pagina', 50)
+
+
+        try:
+
+
+            itens_por_pagina = int(itens_por_pagina)
+
+
+            if itens_por_pagina not in [20, 50, 100]:
+
+
+                itens_por_pagina = 50  # Padrão mais conservador
+
+
+        except (ValueError, TypeError):
+
+
+            itens_por_pagina = 50
+
+
+        
+
+
+        # Contar total antes da paginação
+
+
+        total_militares = militares.count()
+
+
+        
+
+
+        # Aplicar paginação
+
+
+        paginator = Paginator(militares, itens_por_pagina)
+
+
+        page_number = request.GET.get('page')
+
+
+        page_obj = paginator.get_page(page_number)
+
+
+        
+
+
+        context = {
+        'militares': page_obj,
+        'page_obj': page_obj,
+        'itens_por_pagina': itens_por_pagina,
+        'total_militares': total_militares,
     }
     
     return render(request, 'militares/militar_list.html', context)
@@ -17648,7 +17985,28 @@ def exportar_militares_excel(request):
         'ST': 9, '1S': 10, '2S': 11, '3S': 12, 'CAB': 13, 'SD': 14, 'NVRR': 15
     }
     
-    militares = sorted(militares, key=lambda x: (
+    # OTIMIZAÇÃO: Usar ordenação no banco em vez de Python
+        militares = militares.annotate(
+            hierarquia=Case(
+                When(posto_graduacao='CB', then=1),
+                When(posto_graduacao='TC', then=2),
+                When(posto_graduacao='MJ', then=3),
+                When(posto_graduacao='CP', then=4),
+                When(posto_graduacao='1T', then=5),
+                When(posto_graduacao='2T', then=6),
+                When(posto_graduacao='AS', then=7),
+                When(posto_graduacao='AA', then=8),
+                When(posto_graduacao='ST', then=9),
+                When(posto_graduacao='1S', then=10),
+                When(posto_graduacao='2S', then=11),
+                When(posto_graduacao='3S', then=12),
+                When(posto_graduacao='CAB', then=13),
+                When(posto_graduacao='SD', then=14),
+                When(posto_graduacao='NVRR', then=15),
+                default=999,
+                output_field=IntegerField(),
+            )
+        ).order_by('hierarquia', 'numeracao_antiguidade', 'nome_completo')
         hierarquia_postos.get(x.posto_graduacao, 999),
         0 if (x.posto_graduacao == 'NVRR' or x.quadro == 'NVRR') else (x.numeracao_antiguidade or 999999),
         x.nome_completo

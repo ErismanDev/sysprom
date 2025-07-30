@@ -53,7 +53,7 @@ DATABASES = {
 # Configurações de arquivos estáticos para AWS
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATIC_URL = '/static/'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STATICFILES_STORAGE = 'whitenoise.storage.StaticFilesStorage'
 
 # Configurações de mídia para AWS S3 (opcional)
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

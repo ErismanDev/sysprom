@@ -30,7 +30,7 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,*').split('
 
 # Configuração de arquivos estáticos
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STATICFILES_STORAGE = 'whitenoise.storage.StaticFilesStorage'
 
 # Configurações de segurança (desabilitadas para desenvolvimento)
 SECURE_SSL_REDIRECT = False  # Desabilitado para desenvolvimento

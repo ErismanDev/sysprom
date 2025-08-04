@@ -7,7 +7,7 @@ from datetime import date
 from django.contrib.auth.models import User
 from .models import (
     NotificacaoSessao, SessaoComissao, DeliberacaoComissao, 
-    MembroComissao, PresencaSessao, VotoDeliberacao, Militar, Vaga, PrevisaoVaga, UsuarioFuncao
+    MembroComissao, PresencaSessao, VotoDeliberacao, Militar, Vaga, PrevisaoVaga, UsuarioFuncao, Promocao, FichaConceitoOficiais, FichaConceitoPracas
 )
 from collections import defaultdict
 
@@ -426,3 +426,134 @@ def associar_usuario_a_militar(sender, instance, created, **kwargs):
                         except Militar.DoesNotExist:
                             print(f"[SINAL] Não foi possível associar automaticamente o usuário {instance.username} a nenhum militar")
                             pass 
+
+@receiver(post_save, sender=User)
+def criar_militar_para_usuario(sender, instance, created, **kwargs):
+    """Cria um militar automaticamente quando um usuário é criado"""
+    if created and not hasattr(instance, 'militar'):
+        # Verificar se o usuário tem dados suficientes para criar um militar
+        if instance.first_name and instance.last_name:
+            try:
+                # Criar militar básico
+                militar = Militar.objects.create(
+                    user=instance,
+                    matricula=f"USER_{instance.id}",
+                    nome_completo=f"{instance.first_name} {instance.last_name}",
+                    nome_guerra=instance.first_name,
+                    cpf="000.000.000-00",  # CPF temporário
+                    rg="0000000",
+                    orgao_expedidor="SSP",
+                    data_nascimento=timezone.now().date(),
+                    sexo='M',
+                    quadro='COMB',
+                    posto_graduacao='SD',
+                    data_ingresso=timezone.now().date(),
+                    data_promocao_atual=timezone.now().date(),
+                    situacao='AT',
+                    email=instance.email or f"user{instance.id}@example.com",
+                    telefone="(00) 00000-0000",
+                    celular="(00) 00000-0000"
+                )
+                print(f"Militar criado automaticamente para usuário {instance.username}")
+            except Exception as e:
+                print(f"Erro ao criar militar para usuário {instance.username}: {e}")
+
+@receiver(post_save, sender=Militar)
+def atualizar_fichas_conceito_militar(sender, instance, **kwargs):
+    """Atualiza fichas de conceito quando militar é salvo"""
+    try:
+        ficha_oficiais = instance.fichaconceitooficiais_set.first()
+        if ficha_oficiais:
+            ficha_oficiais.save()
+        
+        ficha_pracas = instance.fichaconceitopracas_set.first()
+        if ficha_pracas:
+            ficha_pracas.save()
+            
+    except Exception as e:
+        print(f"Erro ao atualizar fichas de conceito para militar {instance.matricula}: {e}")
+
+@receiver(post_save, sender=Promocao)
+def atualizar_data_promocao_atual_militar(sender, instance, created, **kwargs):
+    """Atualiza automaticamente a data_promocao_atual do militar quando uma promoção é criada"""
+    if created:
+        try:
+            militar = instance.militar
+            
+            # Atualizar a data_promocao_atual para a data da promoção mais recente
+            promocao_recente = Promocao.objects.filter(
+                militar=militar
+            ).order_by('-data_promocao').first()
+            
+            if promocao_recente and militar.data_promocao_atual != promocao_recente.data_promocao:
+                militar.data_promocao_atual = promocao_recente.data_promocao
+                militar.save(update_fields=['data_promocao_atual'])
+                print(f"Data de promoção atualizada automaticamente para {militar.nome_completo}: {promocao_recente.data_promocao}")
+            
+            # Atualizar o posto/graduação se não for promoção histórica
+            # (isso já é feito na view, mas garantimos aqui também)
+            if not hasattr(instance, '_is_historica') or not instance._is_historica:
+                if militar.posto_graduacao != instance.posto_novo:
+                    militar.posto_graduacao = instance.posto_novo
+                    militar.save(update_fields=['posto_graduacao'])
+                    print(f"Posto atualizado automaticamente para {militar.nome_completo}: {instance.posto_novo}")
+                    
+        except Exception as e:
+            print(f"Erro ao atualizar militar após promoção: {e}")
+
+@receiver(post_delete, sender=Promocao)
+def reverter_data_promocao_atual_militar(sender, instance, **kwargs):
+    """Reverte a data_promocao_atual do militar quando uma promoção é excluída"""
+    try:
+        militar = instance.militar
+        
+        # Buscar a promoção mais recente restante
+        promocao_recente = Promocao.objects.filter(
+            militar=militar
+        ).order_by('-data_promocao').first()
+        
+        if promocao_recente:
+            # Atualizar para a promoção mais recente restante
+            if militar.data_promocao_atual != promocao_recente.data_promocao:
+                militar.data_promocao_atual = promocao_recente.data_promocao
+                militar.save(update_fields=['data_promocao_atual'])
+                print(f"Data de promoção revertida para {militar.nome_completo}: {promocao_recente.data_promocao}")
+        else:
+            # Se não há mais promoções, usar uma data padrão (5 anos após ingresso)
+            from datetime import timedelta
+            data_padrao = militar.data_ingresso + timedelta(days=5*365)
+            if data_padrao > timezone.now().date():
+                data_padrao = timezone.now().date() - timedelta(days=5*365)
+            
+            militar.data_promocao_atual = data_padrao
+            militar.save(update_fields=['data_promocao_atual'])
+            print(f"Data de promoção definida como padrão para {militar.nome_completo}: {data_padrao}")
+            
+    except Exception as e:
+        print(f"Erro ao reverter militar após exclusão de promoção: {e}")
+
+@receiver(post_save, sender=FichaConceitoOficiais)
+def atualizar_pontos_ficha_oficiais(sender, instance, **kwargs):
+    """Atualiza automaticamente os pontos da ficha de oficiais"""
+    try:
+        # Recalcular pontos
+        pontos_calculados = instance.calcular_pontos()
+        if instance.pontos != pontos_calculados:
+            instance.pontos = pontos_calculados
+            instance.save(update_fields=['pontos'])
+            print(f"Pontos atualizados para ficha de oficiais de {instance.militar.nome_completo}: {pontos_calculados}")
+    except Exception as e:
+        print(f"Erro ao atualizar pontos da ficha de oficiais: {e}")
+
+@receiver(post_save, sender=FichaConceitoPracas)
+def atualizar_pontos_ficha_pracas(sender, instance, **kwargs):
+    """Atualiza automaticamente os pontos da ficha de praças"""
+    try:
+        # Recalcular pontos
+        pontos_calculados = instance.calcular_pontos()
+        if instance.pontos != pontos_calculados:
+            instance.pontos = pontos_calculados
+            instance.save(update_fields=['pontos'])
+            print(f"Pontos atualizados para ficha de praças de {instance.militar.nome_completo}: {pontos_calculados}")
+    except Exception as e:
+        print(f"Erro ao atualizar pontos da ficha de praças: {e}") 

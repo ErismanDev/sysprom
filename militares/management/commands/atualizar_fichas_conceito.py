@@ -1,107 +1,91 @@
+#!/usr/bin/env python3
+"""
+Comando de management para automatizar atualização de fichas de conceito.
+Executar: python manage.py atualizar_fichas_conceito
+"""
+
 from django.core.management.base import BaseCommand
-from django.db import transaction
-from militares.models import FichaConceitoOficiais, FichaConceitoPracas, Militar
+from django.utils import timezone
+from datetime import timedelta
+from militares.models import Militar, FichaConceitoOficiais, FichaConceitoPracas
 
 
 class Command(BaseCommand):
-    help = 'Atualiza todas as fichas de conceito existentes, recalculando tempo no posto e pontos'
+    help = 'Atualiza automaticamente todas as fichas de conceito'
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--tipo',
-            choices=['oficiais', 'pracas', 'todos'],
-            default='todos',
-            help='Tipo de ficha a ser atualizada (oficiais, pracas, todos)'
-        )
-        parser.add_argument(
             '--forcar',
             action='store_true',
-            help='Força a atualização mesmo se não houver mudanças'
+            help='Força atualização de todas as fichas',
+        )
+        parser.add_argument(
+            '--recentes',
+            action='store_true',
+            help='Atualiza apenas militares promovidos recentemente',
         )
 
     def handle(self, *args, **options):
-        tipo = options['tipo']
-        forcar = options['forcar']
+        self.stdout.write(self.style.SUCCESS('🔄 Iniciando atualização automática de fichas de conceito...'))
         
-        self.stdout.write('Iniciando atualização das fichas de conceito...')
+        if options['forcar']:
+            self.atualizar_todas_fichas()
+        elif options['recentes']:
+            self.atualizar_militares_recentes()
+        else:
+            self.atualizar_todas_fichas()
         
-        with transaction.atomic():
-            if tipo in ['oficiais', 'todos']:
-                self.atualizar_fichas_oficiais(forcar)
+        self.stdout.write(self.style.SUCCESS('✅ Atualização concluída!'))
+
+    def atualizar_todas_fichas(self):
+        """Atualiza todas as fichas de conceito"""
+        self.stdout.write('📋 Atualizando todas as fichas de conceito...')
+        
+        # Atualizar fichas de oficiais
+        fichas_oficiais = FichaConceitoOficiais.objects.all()
+        self.stdout.write(f'   Atualizando {fichas_oficiais.count()} fichas de oficiais...')
+        
+        for ficha in fichas_oficiais:
+            try:
+                ficha.save()
+                self.stdout.write(f'      ✅ Ficha de oficiais {ficha.id} atualizada')
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f'      ❌ Erro na ficha {ficha.id}: {e}'))
+        
+        # Atualizar fichas de praças
+        fichas_pracas = FichaConceitoPracas.objects.all()
+        self.stdout.write(f'   Atualizando {fichas_pracas.count()} fichas de praças...')
+        
+        for ficha in fichas_pracas:
+            try:
+                ficha.save()
+                self.stdout.write(f'      ✅ Ficha de praças {ficha.id} atualizada')
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f'      ❌ Erro na ficha {ficha.id}: {e}'))
+
+    def atualizar_militares_recentes(self):
+        """Atualiza apenas militares promovidos recentemente"""
+        self.stdout.write('📋 Atualizando militares promovidos recentemente...')
+        
+        data_limite = timezone.now().date() - timedelta(days=30)
+        militares_recentes = Militar.objects.filter(
+            data_promocao_atual__gte=data_limite,
+            situacao='AT'
+        )
+        
+        self.stdout.write(f'   Encontrados {militares_recentes.count()} militares promovidos recentemente')
+        
+        for militar in militares_recentes:
+            self.stdout.write(f'   📋 Militar: {militar.nome_completo}')
             
-            if tipo in ['pracas', 'todos']:
-                self.atualizar_fichas_pracas(forcar)
-        
-        self.stdout.write(
-            self.style.SUCCESS('Atualização das fichas de conceito concluída com sucesso!')
-        )
-
-    def atualizar_fichas_oficiais(self, forcar=False):
-        """Atualiza fichas de conceito de oficiais"""
-        fichas = FichaConceitoOficiais.objects.all()
-        total = fichas.count()
-        
-        self.stdout.write(f'Atualizando {total} fichas de conceito de oficiais...')
-        
-        atualizadas = 0
-        for ficha in fichas:
-            try:
-                # Força o recálculo do tempo no posto e pontos
-                tempo_anterior = ficha.tempo_posto
-                pontos_anterior = ficha.pontos
-                
-                ficha.save()  # Isso vai recalcular tempo_posto e pontos
-                
-                if forcar or tempo_anterior != ficha.tempo_posto or pontos_anterior != ficha.pontos:
-                    atualizadas += 1
-                    self.stdout.write(
-                        f'  ✓ Militar: {ficha.militar.nome_completo} - '
-                        f'Tempo: {tempo_anterior} → {ficha.tempo_posto}, '
-                        f'Pontos: {pontos_anterior} → {ficha.pontos}'
-                    )
-                
-            except Exception as e:
-                self.stdout.write(
-                    self.style.ERROR(
-                        f'  ✗ Erro ao atualizar ficha do militar {ficha.militar.nome_completo}: {e}'
-                    )
-                )
-        
-        self.stdout.write(
-            self.style.SUCCESS(f'Fichas de oficiais atualizadas: {atualizadas}/{total}')
-        )
-
-    def atualizar_fichas_pracas(self, forcar=False):
-        """Atualiza fichas de conceito de praças"""
-        fichas = FichaConceitoPracas.objects.all()
-        total = fichas.count()
-        
-        self.stdout.write(f'Atualizando {total} fichas de conceito de praças...')
-        
-        atualizadas = 0
-        for ficha in fichas:
-            try:
-                # Força o recálculo do tempo no posto e pontos
-                tempo_anterior = ficha.tempo_posto
-                pontos_anterior = ficha.pontos
-                
-                ficha.save()  # Isso vai recalcular tempo_posto e pontos
-                
-                if forcar or tempo_anterior != ficha.tempo_posto or pontos_anterior != ficha.pontos:
-                    atualizadas += 1
-                    self.stdout.write(
-                        f'  ✓ Militar: {ficha.militar.nome_completo} - '
-                        f'Tempo: {tempo_anterior} → {ficha.tempo_posto}, '
-                        f'Pontos: {pontos_anterior} → {ficha.pontos}'
-                    )
-                
-            except Exception as e:
-                self.stdout.write(
-                    self.style.ERROR(
-                        f'  ✗ Erro ao atualizar ficha do militar {ficha.militar.nome_completo}: {e}'
-                    )
-                )
-        
-        self.stdout.write(
-            self.style.SUCCESS(f'Fichas de praças atualizadas: {atualizadas}/{total}')
-        ) 
+            # Atualizar fichas do militar
+            ficha_oficiais = militar.fichaconceitooficiais_set.first()
+            ficha_pracas = militar.fichaconceitopracas_set.first()
+            
+            if ficha_oficiais:
+                ficha_oficiais.save()
+                self.stdout.write(f'      ✅ Ficha de oficiais atualizada')
+            
+            if ficha_pracas:
+                ficha_pracas.save()
+                self.stdout.write(f'      ✅ Ficha de praças atualizada')

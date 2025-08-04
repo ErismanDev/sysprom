@@ -1,35 +1,29 @@
-# SEPROM CBMEPI
+# SEPROM CBMEPI - Sistema de Promoções
 
-Sistema de Promoções do Corpo de Bombeiros Militar do Estado do Piauí (CBMEPI).
-
-## Descrição
-
-Sistema web desenvolvido em Django para gerenciar promoções, efetivos e processos administrativos do CBMEPI.
+Sistema de gerenciamento de promoções para o Corpo de Bombeiros Militar do Estado do Piauí.
 
 ## Funcionalidades
 
 - Gestão de militares
 - Controle de promoções
-- Geração de almanaques
-- Gestão de comissões
-- Controle de vagas e efetivos
-- Geração de documentação
-- Sistema de assinaturas digitais
+- Fichas de conceito
+- Comissões de promoção
+- Quadros de fixação
+- Relatórios e estatísticas
 
-## Tecnologias Utilizadas
+## Tecnologias
 
-- **Backend:** Django 5.2.3
-- **Frontend:** HTML, CSS, JavaScript
-- **Editor de Texto:** CKEditor 5
-- **Banco de Dados:** PostgreSQL
-- **Autenticação:** Django Auth
+- Django 5.2.3
+- PostgreSQL
+- Bootstrap
+- JavaScript
 
 ## Instalação
 
 1. Clone o repositório:
 ```bash
-git clone https://github.com/ErismanDev/sysprom.git
-cd sysprom
+git clone https://github.com/seu-usuario/sepromcbmepi.git
+cd sepromcbmepi
 ```
 
 2. Crie um ambiente virtual:
@@ -37,7 +31,7 @@ cd sysprom
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
 # ou
-venv\Scripts\activate     # Windows
+venv\Scripts\activate  # Windows
 ```
 
 3. Instale as dependências:
@@ -45,46 +39,61 @@ venv\Scripts\activate     # Windows
 pip install -r requirements.txt
 ```
 
-4. Configure o banco de dados:
+4. Configure as variáveis de ambiente:
+```bash
+cp .env.example .env
+# Edite o arquivo .env com suas configurações
+```
+
+5. Execute as migrações:
 ```bash
 python manage.py migrate
 ```
 
-5. Crie um superusuário:
+6. Crie um superusuário:
 ```bash
 python manage.py createsuperuser
 ```
 
-6. Execute o servidor:
+7. Execute o servidor:
 ```bash
 python manage.py runserver
 ```
+
+## Deploy
+
+### Render.com
+
+1. Conecte seu repositório ao Render
+2. Configure as variáveis de ambiente
+3. Deploy automático
+
+### Railway
+
+1. Conecte seu repositório ao Railway
+2. Configure as variáveis de ambiente
+3. Deploy automático
 
 ## Estrutura do Projeto
 
 ```
 sepromcbmepi/
-├── militares/           # App principal
-├── sepromcbmepi/        # Configurações do projeto
-├── media/              # Arquivos de mídia
-├── static/             # Arquivos estáticos
-├── templates/          # Templates HTML
-└── docs/              # Documentação
+├── militares/          # App principal
+├── sepromcbmepi/       # Configurações do projeto
+├── static/            # Arquivos estáticos
+├── templates/         # Templates HTML
+├── media/            # Arquivos de mídia
+└── manage.py         # Script de gerenciamento Django
 ```
 
 ## Contribuição
 
-Para contribuir com o projeto:
-
-1. Faça um fork do repositório
+1. Fork o projeto
 2. Crie uma branch para sua feature
-3. Faça commit das suas mudanças
-4. Abra um Pull Request
+3. Commit suas mudanças
+4. Push para a branch
+5. Abra um Pull Request
 
 ## Licença
 
-Este projeto é de uso interno do CBMEPI.
-
-## Autor
-
-Desenvolvido para o Corpo de Bombeiros Militar do Estado do Piauí. 
+Este projeto está sob a licença MIT.

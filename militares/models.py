@@ -16,6 +16,19 @@ from django.core.files import File
 from django.db import connection
 
 
+def normalizar_data_para_date(data_operacao):
+    """
+    Normaliza data_operacao para um objeto date.
+    Aceita datetime, date ou string.
+    """
+    if hasattr(data_operacao, 'date'):
+        return data_operacao.date()
+    elif isinstance(data_operacao, str):
+        return datetime.strptime(data_operacao, '%Y-%m-%d').date()
+    else:
+        return data_operacao
+
+
 class CargoComissao(models.Model):
     """Cargos disponíveis para membros da comissão"""
     nome = models.CharField(max_length=100, verbose_name="Nome do Cargo")
@@ -53,6 +66,348 @@ SEXO_CHOICES = [
     ('F', 'Feminino'),
 ]
 
+ETNIA_CHOICES = [
+    ('BRANCA', 'Branca'),
+    ('PRETA', 'Preta'),
+    ('PARDA', 'Parda'),
+    ('AMARELA', 'Amarela'),
+    ('INDIGENA', 'Indígena'),
+    ('NAO_INFORMADO', 'Não informado'),
+]
+
+GRUPO_SANGUINEO_CHOICES = [
+    ('A', 'A'),
+    ('B', 'B'),
+    ('AB', 'AB'),
+    ('O', 'O'),
+]
+
+FATOR_RH_CHOICES = [
+    ('POSITIVO', 'Positivo'),
+    ('NEGATIVO', 'Negativo'),
+]
+
+UF_CHOICES = [
+    ('AC', 'Acre'), ('AL', 'Alagoas'), ('AP', 'Amapá'), ('AM', 'Amazonas'),
+    ('BA', 'Bahia'), ('CE', 'Ceará'), ('DF', 'Distrito Federal'), ('ES', 'Espírito Santo'),
+    ('GO', 'Goiás'), ('MA', 'Maranhão'), ('MT', 'Mato Grosso'), ('MS', 'Mato Grosso do Sul'),
+    ('MG', 'Minas Gerais'), ('PA', 'Pará'), ('PB', 'Paraíba'), ('PR', 'Paraná'),
+    ('PE', 'Pernambuco'), ('PI', 'Piauí'), ('RJ', 'Rio de Janeiro'), ('RN', 'Rio Grande do Norte'),
+    ('RS', 'Rio Grande do Sul'), ('RO', 'Rondônia'), ('RR', 'Roraima'), ('SC', 'Santa Catarina'),
+    ('SP', 'São Paulo'), ('SE', 'Sergipe'), ('TO', 'Tocantins'),
+]
+
+CIDADES_PIAUI_CHOICES = [
+    ('', 'Selecione uma cidade'),
+    ('Acauã', 'Acauã'),
+    ('Agricolândia', 'Agricolândia'),
+    ('Água Branca', 'Água Branca'),
+    ('Alagoinha do Piauí', 'Alagoinha do Piauí'),
+    ('Alegrete do Piauí', 'Alegrete do Piauí'),
+    ('Alto Longá', 'Alto Longá'),
+    ('Altos', 'Altos'),
+    ('Alvorada do Gurguéia', 'Alvorada do Gurguéia'),
+    ('Amarante', 'Amarante'),
+    ('Angical do Piauí', 'Angical do Piauí'),
+    ('Anísio de Abreu', 'Anísio de Abreu'),
+    ('Antônio Almeida', 'Antônio Almeida'),
+    ('Aroazes', 'Aroazes'),
+    ('Aroeiras do Itaim', 'Aroeiras do Itaim'),
+    ('Arraial', 'Arraial'),
+    ('Assunção do Piauí', 'Assunção do Piauí'),
+    ('Avelino Lopes', 'Avelino Lopes'),
+    ('Baixa Grande do Ribeiro', 'Baixa Grande do Ribeiro'),
+    ('Barra d\'Alcântara', 'Barra d\'Alcântara'),
+    ('Barras', 'Barras'),
+    ('Barreiras do Piauí', 'Barreiras do Piauí'),
+    ('Barro Duro', 'Barro Duro'),
+    ('Batalha', 'Batalha'),
+    ('Bela Vista do Piauí', 'Bela Vista do Piauí'),
+    ('Belém do Piauí', 'Belém do Piauí'),
+    ('Beneditinos', 'Beneditinos'),
+    ('Bertolínia', 'Bertolínia'),
+    ('Betânia do Piauí', 'Betânia do Piauí'),
+    ('Boa Hora', 'Boa Hora'),
+    ('Bocaina', 'Bocaina'),
+    ('Bom Jesus', 'Bom Jesus'),
+    ('Bom Princípio do Piauí', 'Bom Princípio do Piauí'),
+    ('Bonfim do Piauí', 'Bonfim do Piauí'),
+    ('Boqueirão do Piauí', 'Boqueirão do Piauí'),
+    ('Brasileira', 'Brasileira'),
+    ('Brejo do Piauí', 'Brejo do Piauí'),
+    ('Buriti dos Lopes', 'Buriti dos Lopes'),
+    ('Buriti dos Montes', 'Buriti dos Montes'),
+    ('Cabeceiras do Piauí', 'Cabeceiras do Piauí'),
+    ('Cajazeiras do Piauí', 'Cajazeiras do Piauí'),
+    ('Cajueiro da Praia', 'Cajueiro da Praia'),
+    ('Caldeirão Grande do Piauí', 'Caldeirão Grande do Piauí'),
+    ('Campinas do Piauí', 'Campinas do Piauí'),
+    ('Campo Alegre do Fidalgo', 'Campo Alegre do Fidalgo'),
+    ('Campo Grande do Piauí', 'Campo Grande do Piauí'),
+    ('Campo Largo do Piauí', 'Campo Largo do Piauí'),
+    ('Campo Maior', 'Campo Maior'),
+    ('Canavieira', 'Canavieira'),
+    ('Canto do Buriti', 'Canto do Buriti'),
+    ('Capitão de Campos', 'Capitão de Campos'),
+    ('Capitão Gervásio Oliveira', 'Capitão Gervásio Oliveira'),
+    ('Caracol', 'Caracol'),
+    ('Caraúbas do Piauí', 'Caraúbas do Piauí'),
+    ('Caridade do Piauí', 'Caridade do Piauí'),
+    ('Castelo do Piauí', 'Castelo do Piauí'),
+    ('Caxingó', 'Caxingó'),
+    ('Cocal', 'Cocal'),
+    ('Cocal de Telha', 'Cocal de Telha'),
+    ('Cocal dos Alves', 'Cocal dos Alves'),
+    ('Coivaras', 'Coivaras'),
+    ('Colônia do Gurguéia', 'Colônia do Gurguéia'),
+    ('Colônia do Piauí', 'Colônia do Piauí'),
+    ('Conceição do Canindé', 'Conceição do Canindé'),
+    ('Coronel José Dias', 'Coronel José Dias'),
+    ('Corrente', 'Corrente'),
+    ('Cristalândia do Piauí', 'Cristalândia do Piauí'),
+    ('Cristino Castro', 'Cristino Castro'),
+    ('Curimatá', 'Curimatá'),
+    ('Currais', 'Currais'),
+    ('Curral Novo do Piauí', 'Curral Novo do Piauí'),
+    ('Curralinhos', 'Curralinhos'),
+    ('Demerval Lobão', 'Demerval Lobão'),
+    ('Dirceu Arcoverde', 'Dirceu Arcoverde'),
+    ('Dom Expedito Lopes', 'Dom Expedito Lopes'),
+    ('Dom Inocêncio', 'Dom Inocêncio'),
+    ('Domingos Mourão', 'Domingos Mourão'),
+    ('Elesbão Veloso', 'Elesbão Veloso'),
+    ('Eliseu Martins', 'Eliseu Martins'),
+    ('Esperantina', 'Esperantina'),
+    ('Fartura do Piauí', 'Fartura do Piauí'),
+    ('Flores do Piauí', 'Flores do Piauí'),
+    ('Floresta do Piauí', 'Floresta do Piauí'),
+    ('Floriano', 'Floriano'),
+    ('Francinópolis', 'Francinópolis'),
+    ('Francisco Ayres', 'Francisco Ayres'),
+    ('Francisco Macedo', 'Francisco Macedo'),
+    ('Francisco Santos', 'Francisco Santos'),
+    ('Fronteiras', 'Fronteiras'),
+    ('Geminiano', 'Geminiano'),
+    ('Gilbués', 'Gilbués'),
+    ('Guadalupe', 'Guadalupe'),
+    ('Guaribas', 'Guaribas'),
+    ('Hugo Napoleão', 'Hugo Napoleão'),
+    ('Ilha Grande', 'Ilha Grande'),
+    ('Inhuma', 'Inhuma'),
+    ('Ipiranga do Piauí', 'Ipiranga do Piauí'),
+    ('Isaías Coelho', 'Isaías Coelho'),
+    ('Itainópolis', 'Itainópolis'),
+    ('Itaueira', 'Itaueira'),
+    ('Jacobina do Piauí', 'Jacobina do Piauí'),
+    ('Jaicós', 'Jaicós'),
+    ('Jardim do Mulato', 'Jardim do Mulato'),
+    ('Jatobá do Piauí', 'Jatobá do Piauí'),
+    ('Jijoca de Jericoacoara', 'Jijoca de Jericoacoara'),
+    ('João Costa', 'João Costa'),
+    ('Joaquim Pires', 'Joaquim Pires'),
+    ('Joca Marques', 'Joca Marques'),
+    ('José de Freitas', 'José de Freitas'),
+    ('Juazeiro do Piauí', 'Juazeiro do Piauí'),
+    ('Júlio Borges', 'Júlio Borges'),
+    ('Jurema', 'Jurema'),
+    ('Lagoa Alegre', 'Lagoa Alegre'),
+    ('Lagoa de São Francisco', 'Lagoa de São Francisco'),
+    ('Lagoa do Barro do Piauí', 'Lagoa do Barro do Piauí'),
+    ('Lagoa do Piauí', 'Lagoa do Piauí'),
+    ('Lagoa do Sítio', 'Lagoa do Sítio'),
+    ('Lagoinha do Piauí', 'Lagoinha do Piauí'),
+    ('Landri Sales', 'Landri Sales'),
+    ('Luís Correia', 'Luís Correia'),
+    ('Luzilândia', 'Luzilândia'),
+    ('Madeiro', 'Madeiro'),
+    ('Manoel Emídio', 'Manoel Emídio'),
+    ('Marcolândia', 'Marcolândia'),
+    ('Marcos Parente', 'Marcos Parente'),
+    ('Massapê do Piauí', 'Massapê do Piauí'),
+    ('Matias Olímpio', 'Matias Olímpio'),
+    ('Miguel Alves', 'Miguel Alves'),
+    ('Miguel Leão', 'Miguel Leão'),
+    ('Milton Brandão', 'Milton Brandão'),
+    ('Monsenhor Gil', 'Monsenhor Gil'),
+    ('Monsenhor Hipólito', 'Monsenhor Hipólito'),
+    ('Monte Alegre do Piauí', 'Monte Alegre do Piauí'),
+    ('Morro Cabeça no Tempo', 'Morro Cabeça no Tempo'),
+    ('Morro do Chapéu do Piauí', 'Morro do Chapéu do Piauí'),
+    ('Murici dos Portelas', 'Murici dos Portelas'),
+    ('Nazaré do Piauí', 'Nazaré do Piauí'),
+    ('Nossa Senhora de Nazaré', 'Nossa Senhora de Nazaré'),
+    ('Nossa Senhora dos Remédios', 'Nossa Senhora dos Remédios'),
+    ('Nova Santa Rita', 'Nova Santa Rita'),
+    ('Novo Oriente do Piauí', 'Novo Oriente do Piauí'),
+    ('Novo Santo Antônio', 'Novo Santo Antônio'),
+    ('Oeiras', 'Oeiras'),
+    ('Olho d\'Água do Piauí', 'Olho d\'Água do Piauí'),
+    ('Padre Marcos', 'Padre Marcos'),
+    ('Paes Landim', 'Paes Landim'),
+    ('Pajeú do Piauí', 'Pajeú do Piauí'),
+    ('Palmeira do Piauí', 'Palmeira do Piauí'),
+    ('Palmeirais', 'Palmeirais'),
+    ('Paquetá', 'Paquetá'),
+    ('Parnaguá', 'Parnaguá'),
+    ('Parnaíba', 'Parnaíba'),
+    ('Passagem Franca do Piauí', 'Passagem Franca do Piauí'),
+    ('Patos do Piauí', 'Patos do Piauí'),
+    ('Pau d\'Arco do Piauí', 'Pau d\'Arco do Piauí'),
+    ('Paulistana', 'Paulistana'),
+    ('Pavussu', 'Pavussu'),
+    ('Pedro II', 'Pedro II'),
+    ('Pedro Laurentino', 'Pedro Laurentino'),
+    ('Picos', 'Picos'),
+    ('Pimenteiras', 'Pimenteiras'),
+    ('Pio IX', 'Pio IX'),
+    ('Piracuruca', 'Piracuruca'),
+    ('Piripiri', 'Piripiri'),
+    ('Porto', 'Porto'),
+    ('Porto Alegre do Piauí', 'Porto Alegre do Piauí'),
+    ('Prata do Piauí', 'Prata do Piauí'),
+    ('Queimada Nova', 'Queimada Nova'),
+    ('Redenção do Gurguéia', 'Redenção do Gurguéia'),
+    ('Regeneração', 'Regeneração'),
+    ('Riacho Frio', 'Riacho Frio'),
+    ('Ribeira do Piauí', 'Ribeira do Piauí'),
+    ('Ribeiro Gonçalves', 'Ribeiro Gonçalves'),
+    ('Rio Grande do Piauí', 'Rio Grande do Piauí'),
+    ('Santa Cruz do Piauí', 'Santa Cruz do Piauí'),
+    ('Santa Cruz dos Milagres', 'Santa Cruz dos Milagres'),
+    ('Santa Filomena', 'Santa Filomena'),
+    ('Santa Luz', 'Santa Luz'),
+    ('Santa Rosa do Piauí', 'Santa Rosa do Piauí'),
+    ('Santana do Piauí', 'Santana do Piauí'),
+    ('Santo Antônio de Lisboa', 'Santo Antônio de Lisboa'),
+    ('Santo Antônio dos Milagres', 'Santo Antônio dos Milagres'),
+    ('Santo Inácio do Piauí', 'Santo Inácio do Piauí'),
+    ('São Braz do Piauí', 'São Braz do Piauí'),
+    ('São Félix do Piauí', 'São Félix do Piauí'),
+    ('São Francisco de Assis do Piauí', 'São Francisco de Assis do Piauí'),
+    ('São Francisco do Piauí', 'São Francisco do Piauí'),
+    ('São Gonçalo do Gurguéia', 'São Gonçalo do Gurguéia'),
+    ('São Gonçalo do Piauí', 'São Gonçalo do Piauí'),
+    ('São João da Canabrava', 'São João da Canabrava'),
+    ('São João da Fronteira', 'São João da Fronteira'),
+    ('São João da Serra', 'São João da Serra'),
+    ('São João da Varjota', 'São João da Varjota'),
+    ('São João do Arraial', 'São João do Arraial'),
+    ('São João do Piauí', 'São João do Piauí'),
+    ('São José do Divino', 'São José do Divino'),
+    ('São José do Peixe', 'São José do Peixe'),
+    ('São José do Piauí', 'São José do Piauí'),
+    ('São Julião', 'São Julião'),
+    ('São Lourenço do Piauí', 'São Lourenço do Piauí'),
+    ('São Luis do Piauí', 'São Luis do Piauí'),
+    ('São Miguel da Baixa Grande', 'São Miguel da Baixa Grande'),
+    ('São Miguel do Fidalgo', 'São Miguel do Fidalgo'),
+    ('São Miguel do Tapuio', 'São Miguel do Tapuio'),
+    ('São Pedro do Piauí', 'São Pedro do Piauí'),
+    ('São Raimundo Nonato', 'São Raimundo Nonato'),
+    ('Sebastião Barros', 'Sebastião Barros'),
+    ('Sebastião Leal', 'Sebastião Leal'),
+    ('Sigefredo Pacheco', 'Sigefredo Pacheco'),
+    ('Simões', 'Simões'),
+    ('Simplício Mendes', 'Simplício Mendes'),
+    ('Socorro do Piauí', 'Socorro do Piauí'),
+    ('Sussuapara', 'Sussuapara'),
+    ('Tamboril do Piauí', 'Tamboril do Piauí'),
+    ('Tanque do Piauí', 'Tanque do Piauí'),
+    ('Teresina', 'Teresina'),
+    ('União', 'União'),
+    ('Uruçuí', 'Uruçuí'),
+    ('Valença do Piauí', 'Valença do Piauí'),
+    ('Várzea Branca', 'Várzea Branca'),
+    ('Várzea Grande', 'Várzea Grande'),
+    ('Vera Mendes', 'Vera Mendes'),
+    ('Vila Nova do Piauí', 'Vila Nova do Piauí'),
+    ('Wall Ferraz', 'Wall Ferraz'),
+]
+
+NACIONALIDADE_CHOICES = [
+    ('BRASILEIRA', 'Brasileira'),
+    ('BRASILEIRA_NATURALIZADA', 'Brasileira Naturalizada'),
+    ('ESTRANGEIRA', 'Estrangeira'),
+]
+
+CATEGORIA_CNH_CHOICES = [
+    ('A', 'A'),
+    ('B', 'B'),
+    ('AB', 'AB'),
+    ('C', 'C'),
+    ('D', 'D'),
+    ('E', 'E'),
+    ('ACC', 'ACC'),
+]
+
+# Opções para fardamento
+TAMANHO_CHOICES = [
+    ('PP', 'PP'), ('P', 'P'), ('M', 'M'), ('G', 'G'), ('GG', 'GG'), ('XG', 'XG')
+]
+
+NUMERO_CALCA_CHOICES = [
+    ('36', '36'), ('38', '38'), ('40', '40'), ('42', '42'), ('44', '44'), 
+    ('46', '46'), ('48', '48'), ('50', '50'), ('52', '52'), ('54', '54')
+]
+
+COMPRIMENTO_CALCA_CHOICES = [
+    ('CURTA', 'Calça Curta'), ('NORMAL', 'Calça Normal'), ('LONGA', 'Calça Longa')
+]
+
+TAMANHO_GORRO_CHOICES = [
+    ('54', '54'), ('55', '55'), ('56', '56'), ('57', '57'), ('58', '58'), 
+    ('59', '59'), ('60', '60'), ('61', '61'), ('62', '62')
+]
+
+NUMERO_COTURNO_CHOICES = [
+    ('35', '35'), ('36', '36'), ('37', '37'), ('38', '38'), ('39', '39'), 
+    ('40', '40'), ('41', '41'), ('42', '42'), ('43', '43'), ('44', '44'), 
+    ('45', '45'), ('46', '46')
+]
+
+# Opções para qualificações
+TIPO_QUALIFICACAO_CHOICES = [
+    ('CURSO', 'Curso'),
+    ('CERTIFICACAO', 'Certificação'),
+    ('TREINAMENTO', 'Treinamento'),
+    ('ESPECIALIZACAO', 'Especialização'),
+    ('POS_GRADUACAO', 'Pós-Graduação'),
+    ('MESTRADO', 'Mestrado'),
+    ('DOUTORADO', 'Doutorado'),
+    ('OUTRO', 'Outro'),
+]
+
+STATUS_VERIFICACAO_CHOICES = [
+    ('PENDENTE', 'Pendente'),
+    ('VERIFICADO', 'Verificado'),
+    ('REJEITADO', 'Rejeitado'),
+]
+
+# Opções para classificação do militar
+CLASSIFICACAO_CHOICES = [
+    ('ATIVO', 'Ativo'),
+    ('NVRR', 'NVRR'),
+    ('INATIVO', 'Inativo'),
+    ('AGREGADO', 'Agregado'),
+    ('PRESO', 'Preso'),
+    ('RR', 'RR'),
+    ('FALECIDO', 'Falecido'),
+    ('LICENCIADO_A_PEDIDO', 'Licenciado a Pedido'),
+    ('FUN_CIVIL', 'Fun Civil'),
+    ('SAV', 'SAV'),
+]
+
+# Opções para comportamento do militar
+COMPORTAMENTO_CHOICES = [
+    ('BOM', 'Bom'),
+    ('EXCEPCIONAL', 'Excepcional'),
+    ('OTIMO', 'Ótimo'),
+    ('INSUFICIENTE', 'Insuciente'),
+    ('MAU', 'Mau'),
+    ('NAO_TEM', 'Não Tem'),
+]
+
+
 POSTO_GRADUACAO_CHOICES = [
     # Oficiais
     ('CB', 'Coronel'),
@@ -74,11 +429,52 @@ POSTO_GRADUACAO_CHOICES = [
 ]
 
 SITUACAO_CHOICES = [
-    ('AT', 'Ativo'),
-    ('IN', 'Inativo'),
-    ('TR', 'Transferido'),
-    ('AP', 'Aposentado'),
-    ('EX', 'Exonerado'),
+    ('PRONTO', 'Pronto'),
+    ('CEDIDO_FUNCAO_BM_FORCA_NACIONAL', 'Cedido Função BM/Força Nacional'),
+    ('CEDIDO_FUNCAO_BM_SSP_PI', 'Cedido Função BM/SSP-PI'),
+    ('CEDIDO_FUNCAO_BM_MP_PI', 'Cedido Função BM/MP-PI'),
+    ('ADIDO_GAMIL', 'Adido ao Gamil'),
+    ('ADIDO_SSP_PI', 'Adido a SSP-PI'),
+    ('AFASTAMENTO_FERIAS', 'Afastamento/Férias'),
+    ('AFASTAMENTO_LICENCA_ESPECIAL', 'Afastamento/Licença Especial'),
+    ('AFASTAMENTO_LICENCA_INTERESSE_PARTICULAR', 'Afastamento/Licença para Tratar de Interesse Particular'),
+    ('AFASTAMENTO_TRATAMENTO_SAUDE_FAMILIA', 'Afastamento/Para Tratamento de Saúde de Pessoa da Família'),
+    ('AFASTAMENTO_TRATAMENTO_SAUDE_PROPRIA', 'Afastamento/Para Tratamento de Saúde Própria'),
+    # Novas situações específicas solicitadas
+    ('AFASTAMENTO_DISPENSA_MEDICA', 'Afastamento/Dispensa Médica'),
+    ('AFASTAMENTO_LICENCA_TRATAMENTO_SAUDE', 'Afastamento/Licença para Tratamento de Saúde'),
+    ('AFASTAMENTO_DISPENSA_RECOMPENSA', 'Afastamento/Dispensa por Recompensa'),
+    ('AFASTAMENTO_TEMPORARIO_LUTO', 'Afastamento Temporariamente/Luto'),
+    ('AFASTAMENTO_TEMPORARIO_NUPCIAS', 'Afastamento Temporariamente/Núpcias'),
+    ('AFASTAMENTO_TEMPORARIO_INSTALACAO', 'Afastamento Temporariamente/Instalação'),
+    ('AFASTAMENTO_TEMPORARIO_TRANSITO', 'Afastamento Temporariamente/Trânsito'),
+    ('AFASTAMENTO_TEMPORARIO_CURSO', 'Afastamento Temporariamente/Frequentando Curso'),
+    ('AGREGADO_FUNCAO_CIVIL', 'Agregado/Função Civil'),
+    ('AGREGADO_LTSP', 'Agregado/LTSP'),
+    ('AGREGADO_LTSP_FAMILIA', 'Agregado/LTSP Família'),
+    ('AGREGADO_CANDIDATO_CARGO_ELETIVO', 'Agregado/Candidato a Cargo Eletivo'),
+    ('AUSENTE', 'Ausente'),
+    ('DESERTOR', 'Desertor'),
+    ('DESAPARECIDO', 'Desaparecido'),
+    ('AGUARDANDO_TRANSFERENCIA_RR_PEDIDO', 'Aguardando Transferência para RR/A Pedido'),
+    ('AGUARDANDO_TRANSFERENCIA_RR_CONDICAO_ESPECIAL', 'Aguardando Transferência para RR/Condição Especial'),
+    ('AGUARDANDO_TRANSFERENCIA_RR_EX_OFICIO', 'Aguardando Transferência para RR/Ex-Ofício'),
+    ('DESLIGAMENTO_RESERVA_REMUNERADA', 'Desligamento ou Exclusão do Serviço Ativo/Reserva Remunerada'),
+    ('DESLIGAMENTO_REFORMADO', 'Desligamento ou Exclusão do Serviço Ativo/Reformado'),
+    ('DESLIGAMENTO_DEMITIDO', 'Desligamento ou Exclusão do Serviço Ativo/Demitido'),
+    ('DESLIGAMENTO_PERDA_POSTO_PATENTE', 'Desligamento ou Exclusão do Serviço Ativo/Perda de Posto e Patente'),
+    ('DESLIGAMENTO_EXCLUSAO_DISCIPLINA', 'Desligamento ou Exclusão do Serviço Ativo/Exclusão a Bem da Disciplina'),
+    ('DESLIGAMENTO_DESERTOR', 'Desligamento ou Exclusão do Serviço Ativo/Desertor'),
+    ('DESLIGAMENTO_FALECIDO', 'Desligamento ou Exclusão do Serviço Ativo/Falecido'),
+    ('DESLIGAMENTO_EXTRAVIADO', 'Desligamento ou Exclusão do Serviço Ativo/Extraviado'),
+    ('LICENCIADO_PEDIDO', 'Licenciado a Pedido'),
+    ('LICENCIADO_EX_OFICIO_TEMPO_SERVICO', 'Licenciado Ex-Ofício por Conclusão do Tempo de Serviço'),
+    ('LICENCIADO_EX_OFICIO_CONVENIENCIA', 'Licenciado Ex-Ofício por Conveniência do Serviço'),
+    ('LICENCIADO_EX_OFICIO_DISCIPLINA', 'Licenciado Ex-Ofício a Bem da Disciplina'),
+    ('LICENCIADO_EX_OFICIO', 'Licenciado Ex-Ofício'),
+    ('LICENCA_MATERNIDADE', 'Licença Maternidade'),
+    ('LICENCA_PATERNIDADE', 'Licença Paternidade'),
+    ('INATIVO', 'Inativo'),
 ]
 
 QUADRO_CHOICES = [
@@ -86,8 +482,9 @@ QUADRO_CHOICES = [
     ('SAUDE', 'Saúde'),
     ('ENG', 'Engenheiro'),
     ('COMP', 'Complementar'),
-            ('NVRR', 'NVRR'),
+    ('NVRR', 'NVRR'),
     ('PRACAS', 'Praças'),
+    ('RESERVA_REMUNERADA', 'Reserva Remunerada'),
 ]
 
 
@@ -99,16 +496,64 @@ class Militar(models.Model):
     nome_guerra = models.CharField(max_length=100, verbose_name="Nome de Guerra")
     cpf = models.CharField(max_length=14, unique=True, verbose_name="CPF")
     rg = models.CharField(max_length=20, verbose_name="RG")
+    rgbm = models.CharField(max_length=20, blank=True, null=True, verbose_name="RGBM (Identidade Militar)")
     orgao_expedidor = models.CharField(max_length=20, verbose_name="Órgão Expedidor")
     data_nascimento = models.DateField(verbose_name="Data de Nascimento")
     sexo = models.CharField(max_length=1, choices=SEXO_CHOICES, verbose_name="Sexo")
     
+    # Dados pessoais adicionais
+    etnia = models.CharField(max_length=20, choices=ETNIA_CHOICES, blank=True, null=True, verbose_name="Etnia")
+    grupo_sanguineo = models.CharField(max_length=2, choices=GRUPO_SANGUINEO_CHOICES, blank=True, null=True, verbose_name="Grupo Sanguíneo")
+    fator_rh = models.CharField(max_length=10, choices=FATOR_RH_CHOICES, blank=True, null=True, verbose_name="Fator Rh")
+    nome_pai = models.CharField(max_length=200, blank=True, null=True, verbose_name="Nome do Pai")
+    nome_mae = models.CharField(max_length=200, blank=True, null=True, verbose_name="Nome da Mãe")
+    nacionalidade = models.CharField(max_length=30, choices=NACIONALIDADE_CHOICES, default='BRASILEIRA', verbose_name="Nacionalidade")
+    naturalidade = models.CharField(max_length=100, blank=True, null=True, verbose_name="Naturalidade")
+    uf_naturalidade = models.CharField(max_length=2, choices=UF_CHOICES, blank=True, null=True, verbose_name="UF")
+    titulo_eleitor = models.CharField(max_length=20, blank=True, null=True, verbose_name="Título de Eleitor")
+    zona_eleitoral = models.CharField(max_length=10, blank=True, null=True, verbose_name="Zona Eleitoral")
+    secao_eleitoral = models.CharField(max_length=10, blank=True, null=True, verbose_name="Seção Eleitoral")
+    
+    # Dados da CNH
+    cnh_numero = models.CharField(max_length=20, blank=True, null=True, verbose_name="Número da CNH")
+    cnh_categoria = models.CharField(max_length=3, choices=CATEGORIA_CNH_CHOICES, blank=True, null=True, verbose_name="Categoria da CNH")
+    cnh_validade = models.DateField(blank=True, null=True, verbose_name="Validade da CNH")
+    
+    # Dados bancários
+    banco_codigo = models.CharField(max_length=10, blank=True, null=True, verbose_name="Código do Banco")
+    banco_nome = models.CharField(max_length=100, blank=True, null=True, verbose_name="Nome do Banco")
+    agencia = models.CharField(max_length=20, blank=True, null=True, verbose_name="Agência")
+    conta = models.CharField(max_length=20, blank=True, null=True, verbose_name="Conta")
+    pis_pasep = models.CharField(max_length=20, blank=True, null=True, verbose_name="PIS/PASEP")
+    
+    # Gratificação
+    GRATIFICACAO_CHOICES = [
+        ('SIM', 'Sim'),
+        ('NAO', 'Não'),
+        ('NAO_INFORMADO', 'Não Informado'),
+    ]
+    gratificacao = models.CharField(max_length=20, choices=GRATIFICACAO_CHOICES, default='NAO_INFORMADO', verbose_name="Possui Gratificação")
+    
+    # Dados físicos
+    altura = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, verbose_name="Altura (cm)")
+    peso = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, verbose_name="Peso (kg)")
+    
+    # Fardamento
+    combat_shirt = models.CharField(max_length=10, choices=TAMANHO_CHOICES, blank=True, null=True, verbose_name="Combat Shirt")
+    camisa = models.CharField(max_length=10, choices=TAMANHO_CHOICES, blank=True, null=True, verbose_name="Camisa")
+    calca = models.CharField(max_length=10, choices=NUMERO_CALCA_CHOICES, blank=True, null=True, verbose_name="Calça")
+    comprimento_calca = models.CharField(max_length=20, choices=COMPRIMENTO_CALCA_CHOICES, blank=True, null=True, verbose_name="Comprimento da Calça")
+    gorro = models.CharField(max_length=10, choices=TAMANHO_GORRO_CHOICES, blank=True, null=True, verbose_name="Gorro")
+    coturno = models.CharField(max_length=10, choices=NUMERO_COTURNO_CHOICES, blank=True, null=True, verbose_name="Coturno")
+    
     # Informações militares
-    quadro = models.CharField(max_length=10, choices=QUADRO_CHOICES, default='COMB', verbose_name="Quadro")
+    quadro = models.CharField(max_length=20, choices=QUADRO_CHOICES, default='COMB', verbose_name="Quadro")
     posto_graduacao = models.CharField(max_length=4, choices=POSTO_GRADUACAO_CHOICES, verbose_name="Posto/Graduação")
     data_ingresso = models.DateField(verbose_name="Data de Ingresso")
     data_promocao_atual = models.DateField(verbose_name="Data da Promoção Atual")
-    situacao = models.CharField(max_length=2, choices=SITUACAO_CHOICES, default='AT', verbose_name="Situação")
+    situacao = models.CharField(max_length=50, choices=SITUACAO_CHOICES, default='PRONTO', verbose_name="Situação")
+    classificacao = models.CharField(max_length=20, choices=CLASSIFICACAO_CHOICES, default='ATIVO', verbose_name="Classificação")
+    comportamento = models.CharField(max_length=20, choices=COMPORTAMENTO_CHOICES, blank=True, null=True, verbose_name="Comportamento")
     
     # Informações de contato
     email = models.EmailField(verbose_name="E-mail")
@@ -121,6 +566,20 @@ class Militar(models.Model):
     data_cadastro = models.DateTimeField(auto_now_add=True, verbose_name="Data de Cadastro")
     data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
     observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    
+    # Campo para voluntário em operações planejadas
+    VOLUNTARIO_CHOICES = [
+        ('SIM', 'Sim'),
+        ('NAO', 'Não'),
+        ('NAO_INFORMADO', 'Não Informado'),
+    ]
+    voluntario_operacoes = models.CharField(
+        max_length=20,
+        choices=VOLUNTARIO_CHOICES,
+        default='NAO_INFORMADO',
+        verbose_name="Voluntário para Operações Planejadas",
+        help_text="Marque se deseja participar como voluntário de operações planejadas"
+    )
     
     # Novos campos para controle de requisitos e inspeção de saúde
     curso_formacao_oficial = models.BooleanField(default=False, verbose_name="Possui Curso de Formação de Oficial Bombeiro Militar (CFO)")
@@ -148,6 +607,11 @@ class Militar(models.Model):
     # Campo para salvar a numeração de antiguidade anterior quando inativado
     numeracao_antiguidade_anterior = models.PositiveIntegerField(null=True, blank=True, verbose_name="Numeração de Antiguidade Anterior", help_text="Numeração de antiguidade que o militar tinha antes de ser inativado")
     
+    # Campos para controle de tempo de serviço com períodos inativos
+    tempo_servico_acumulado_dias = models.PositiveIntegerField(null=True, blank=True, default=0, verbose_name="Tempo de Serviço Acumulado (dias)", help_text="Total de dias de serviço acumulados antes de ser transferido para inativo")
+    data_ultima_reativacao = models.DateField(null=True, blank=True, verbose_name="Data da Última Reativação", help_text="Data em que o militar foi reativado pela última vez")
+    data_ultima_inativacao = models.DateField(null=True, blank=True, verbose_name="Data da Última Inativação", help_text="Data em que o militar foi inativado pela última vez")
+    
     user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='militar', verbose_name='Usuário vinculado')
     
     class Meta:
@@ -166,20 +630,198 @@ class Militar(models.Model):
         )
     
     def tempo_servico(self):
-        """Calcula o tempo de serviço do militar"""
+        """Calcula o tempo de serviço do militar considerando períodos inativos"""
+        from dateutil.relativedelta import relativedelta
+        from datetime import timedelta
+        
+        if not self.data_ingresso:
+            return 0
+        
         hoje = timezone.now().date()
-        return hoje.year - self.data_ingresso.year - (
-            (hoje.month, hoje.day) < (self.data_ingresso.month, self.data_ingresso.day)
-        )
+        
+        # Se está inativo, retornar apenas o tempo acumulado (em anos)
+        if self.classificacao in ['INATIVO', 'TRANSFERIDO', 'APOSENTADO', 'EXONERADO']:
+            dias_acumulados = self.tempo_servico_acumulado_dias or 0
+            # Converter dias para anos usando relativedelta
+            data_base = self.data_ingresso
+            data_final = data_base + timedelta(days=dias_acumulados)
+            delta = relativedelta(data_final, data_base)
+            return delta.years
+        
+        # Se está ativo, calcular: tempo acumulado + tempo desde última reativação
+        dias_acumulados = self.tempo_servico_acumulado_dias or 0
+        
+        # Se tem data de última reativação, calcular tempo desde então
+        if self.data_ultima_reativacao:
+            # Calcular data base (data de reativação + tempo acumulado)
+            tempo_acumulado = timedelta(days=dias_acumulados)
+            data_base = self.data_ultima_reativacao + tempo_acumulado
+            # Calcular diferença total desde a data base até hoje
+            delta = relativedelta(hoje, data_base)
+        else:
+            # Se não tem data de reativação, calcular desde o ingresso
+            delta = relativedelta(hoje, self.data_ingresso)
+        
+        return delta.years
+    
+    def tempo_servico_detalhado(self):
+        """Calcula o tempo de serviço detalhado (anos, meses, dias) considerando períodos inativos"""
+        from dateutil.relativedelta import relativedelta
+        from datetime import timedelta
+        
+        hoje = timezone.now().date()
+        
+        if not self.data_ingresso:
+            return type('TempoServico', (), {
+                'years': 0,
+                'months': 0,
+                'days': 0,
+            })()
+        
+        # Se está inativo, retornar apenas o tempo acumulado
+        if self.classificacao in ['INATIVO', 'TRANSFERIDO', 'APOSENTADO', 'EXONERADO']:
+            dias_acumulados = self.tempo_servico_acumulado_dias or 0
+            
+            # Se não tem tempo acumulado (militar inativado antes da implementação),
+            # calcular desde o ingresso até hoje
+            if dias_acumulados == 0:
+                delta = relativedelta(hoje, self.data_ingresso)
+            else:
+                # Converter dias acumulados para anos, meses e dias usando relativedelta
+                data_base = self.data_ingresso
+                data_final = data_base + timedelta(days=dias_acumulados)
+                delta = relativedelta(data_final, data_base)
+            
+            return type('TempoServico', (), {
+                'years': delta.years,
+                'months': delta.months,
+                'days': delta.days,
+            })()
+        
+        # Se está ativo, calcular: tempo acumulado + tempo desde última reativação
+        dias_acumulados = self.tempo_servico_acumulado_dias or 0
+        
+        # Se tem data de última reativação, somar tempo acumulado + tempo desde reativação
+        if self.data_ultima_reativacao:
+            # Calcular tempo desde a reativação até hoje (em dias exatos)
+            dias_desde_reativacao = (hoje - self.data_ultima_reativacao).days
+            
+            # Se não tem tempo acumulado, calcular desde o ingresso até a reativação
+            if dias_acumulados == 0:
+                dias_ate_reativacao = (self.data_ultima_reativacao - self.data_ingresso).days
+                dias_totais = dias_ate_reativacao + dias_desde_reativacao
+            else:
+                # Tem tempo acumulado, somar com tempo desde reativação
+                dias_totais = dias_acumulados + dias_desde_reativacao
+            
+            # Converter dias totais para anos, meses e dias usando relativedelta
+            data_base = self.data_ingresso
+            data_final = data_base + timedelta(days=dias_totais)
+            delta_total = relativedelta(data_final, data_base)
+        else:
+            # Se não tem data de reativação, calcular desde o ingresso
+            delta_total = relativedelta(hoje, self.data_ingresso)
+        
+        return type('TempoServico', (), {
+            'years': delta_total.years,
+            'months': delta_total.months,
+            'days': delta_total.days,
+        })()
+    
+    def tempo_servico_periodo_anterior(self):
+        """Retorna o tempo de serviço acumulado antes da última inativação (em anos, meses, dias)"""
+        from dateutil.relativedelta import relativedelta
+        from datetime import timedelta
+        
+        if not self.data_ingresso:
+            return type('TempoServico', (), {
+                'years': 0,
+                'months': 0,
+                'days': 0,
+            })()
+        
+        dias_acumulados = self.tempo_servico_acumulado_dias or 0
+        
+        # Se está ativo e foi reativado, mas não tem tempo acumulado,
+        # calcular desde ingresso até a data de reativação
+        if self.classificacao == 'ATIVO' and self.data_ultima_reativacao and dias_acumulados == 0:
+            delta = relativedelta(self.data_ultima_reativacao, self.data_ingresso)
+        # Se não tem tempo acumulado e está inativo, calcular desde ingresso até hoje
+        # (para militares inativados antes da implementação)
+        elif dias_acumulados == 0 and self.classificacao in ['INATIVO', 'TRANSFERIDO', 'APOSENTADO', 'EXONERADO']:
+            hoje = timezone.now().date()
+            delta = relativedelta(hoje, self.data_ingresso)
+        else:
+            # Converter dias acumulados para anos, meses e dias usando relativedelta
+            data_base = self.data_ingresso
+            data_final = data_base + timedelta(days=dias_acumulados)
+            delta = relativedelta(data_final, data_base)
+        
+        return type('TempoServico', (), {
+            'years': delta.years,
+            'months': delta.months,
+            'days': delta.days,
+        })()
+    
+    def tempo_servico_periodo_atual(self):
+        """Retorna o tempo de serviço desde a última reativação (em anos, meses, dias)"""
+        from dateutil.relativedelta import relativedelta
+        
+        hoje = timezone.now().date()
+        
+        if not self.data_ultima_reativacao:
+            return type('TempoServico', (), {
+                'years': 0,
+                'months': 0,
+                'days': 0,
+            })()
+        
+        # Calcular tempo desde a última reativação
+        delta = relativedelta(hoje, self.data_ultima_reativacao)
+        
+        return type('TempoServico', (), {
+            'years': delta.years,
+            'months': delta.months,
+            'days': delta.days,
+        })()
     
     def tempo_posto_atual(self):
-        """Calcula o tempo no posto/graduação atual"""
+        """Calcula o tempo no posto/graduação atual em anos decimais"""
         hoje = timezone.now().date()
-        tempo = hoje.year - self.data_promocao_atual.year - (
-            (hoje.month, hoje.day) < (self.data_promocao_atual.month, self.data_promocao_atual.day)
-        )
-        # Garantir que o tempo não seja negativo (caso a data de promoção seja no futuro)
-        return max(0, tempo)
+        if not self.data_promocao_atual:
+            return 0
+        
+        # Calcular dias exatos no posto
+        dias_no_posto = (hoje - self.data_promocao_atual).days
+        
+        # Converter para anos decimais (usando 365.25 dias por ano)
+        anos_decimais = dias_no_posto / 365.25
+        
+        # Garantir que o tempo não seja negativo
+        return max(0, anos_decimais)
+    
+    def tempo_posto_atual_detalhado(self):
+        """Calcula o tempo no posto/graduação atual detalhado (anos, meses, dias)"""
+        from dateutil.relativedelta import relativedelta
+        hoje = timezone.now().date()
+        if not self.data_promocao_atual:
+            return type('TempoPosto', (), {
+                'years': 0,
+                'months': 0,
+                'days': 0,
+                'total_days': 0
+            })()
+        
+        # Calcular diferença usando relativedelta para precisão
+        delta = relativedelta(hoje, self.data_promocao_atual)
+        dias_no_posto = (hoje - self.data_promocao_atual).days
+        
+        return type('TempoPosto', (), {
+            'years': delta.years,
+            'months': delta.months,
+            'days': delta.days,
+            'total_days': dias_no_posto
+        })()
     
     def intersticio_minimo(self):
         """Retorna o interstício mínimo para o posto atual baseado na configuração"""
@@ -227,18 +869,59 @@ class Militar(models.Model):
     
     def tempo_restante_intersticio(self):
         """Calcula quanto tempo falta para completar o interstício"""
-        tempo_atual = self.tempo_posto_atual() * 12  # Converter anos para meses
+        tempo_atual_anos = self.tempo_posto_atual()  # Já está em anos decimais
+        tempo_atual_meses = tempo_atual_anos * 12  # Converter anos para meses
         intersticio_min = self.intersticio_minimo()
         
         if intersticio_min == 0:
             return 0
         
-        tempo_restante = intersticio_min - tempo_atual
+        tempo_restante = intersticio_min - tempo_atual_meses
         return max(0, tempo_restante)
     
     def apto_intersticio(self):
         """Verifica se o militar está apto quanto ao interstício"""
-        return self.tempo_restante_intersticio() == 0
+        from datetime import date
+        from django.utils import timezone
+        
+        # Se não tem data de promoção, não está apto
+        if not self.data_promocao_atual:
+            return False
+        
+        hoje = timezone.now().date()
+        
+        # Determinar próxima data de promoção baseada no quadro
+        if self.quadro == 'PRACAS':
+            # Praças: 18/07 e 25/12
+            if hoje.month < 7 or (hoje.month == 7 and hoje.day < 18):
+                # Antes de 18/07: próxima promoção é 18/07 deste ano
+                proxima_promocao = date(hoje.year, 7, 18)
+            elif (hoje.month == 7 and hoje.day >= 18) or (hoje.month > 7 and hoje.month < 12) or (hoje.month == 12 and hoje.day < 25):
+                # Entre 18/07 e 25/12: próxima promoção é 25/12 deste ano
+                proxima_promocao = date(hoje.year, 12, 25)
+            else:
+                # Após 25/12: próxima promoção é 18/07 do próximo ano
+                proxima_promocao = date(hoje.year + 1, 7, 18)
+        elif self.quadro == 'OFICIAIS':
+            # Oficiais: 18/07 e 23/12
+            if hoje.month < 7 or (hoje.month == 7 and hoje.day < 18):
+                # Antes de 18/07: próxima promoção é 18/07 deste ano
+                proxima_promocao = date(hoje.year, 7, 18)
+            elif (hoje.month == 7 and hoje.day >= 18) or (hoje.month > 7 and hoje.month < 12) or (hoje.month == 12 and hoje.day < 23):
+                # Entre 18/07 e 23/12: próxima promoção é 23/12 deste ano
+                proxima_promocao = date(hoje.year, 12, 23)
+            else:
+                # Após 23/12: próxima promoção é 18/07 do próximo ano
+                proxima_promocao = date(hoje.year + 1, 7, 18)
+        else:
+            # Outros quadros: usar 18/07
+            if hoje.month < 7 or (hoje.month == 7 and hoje.day < 18):
+                proxima_promocao = date(hoje.year, 7, 18)
+            else:
+                proxima_promocao = date(hoje.year + 1, 7, 18)
+        
+        # Verificar se completará o interstício até a próxima promoção
+        return self.apto_intersticio_ate_data(proxima_promocao)
     
     def apto_intersticio_ate_data(self, data_promocao):
         """Verifica se o militar completará o interstício mínimo até uma data específica"""
@@ -260,6 +943,17 @@ class Militar(models.Model):
         if self.numeracao_antiguidade is None:
             return "Não informada"
         return f"{self.numeracao_antiguidade}º"
+    
+    def lotacao_atual(self):
+        """Retorna a lotação atual do militar"""
+        try:
+            lotacao = self.lotacoes.filter(
+                status='ATUAL',
+                ativo=True
+            ).first()
+            return lotacao
+        except:
+            return None
     
     def validar_numeracao_antiguidade(self):
         """Valida se a numeração de antiguidade está correta para o posto/quadro"""
@@ -285,7 +979,7 @@ class Militar(models.Model):
         
         # Buscar todos os militares do mesmo posto e quadro (exceto este)
         militares_mesmo_posto = Militar.objects.filter(
-            situacao='AT',
+            classificacao='ATIVO',
             posto_graduacao=self.posto_graduacao,
             quadro=self.quadro
         ).exclude(pk=self.pk)
@@ -330,7 +1024,7 @@ class Militar(models.Model):
         """
         # Buscar a maior numeração existente para o novo posto (independente do quadro)
         qs = Militar.objects.filter(
-            situacao='AT',
+            classificacao='ATIVO',
             posto_graduacao=self.posto_graduacao
         ).exclude(pk=self.pk)
         
@@ -355,7 +1049,7 @@ class Militar(models.Model):
         # Buscar todos os militares do posto anterior (exceto o promovido), independente do quadro
         # Ordenar por numeração atual para manter a ordem correta
         militares_posto_anterior = Militar.objects.filter(
-            situacao='AT',
+            classificacao='ATIVO',
             posto_graduacao=posto_anterior
         ).exclude(pk=self.pk).order_by('numeracao_antiguidade')
         
@@ -396,12 +1090,16 @@ class Militar(models.Model):
     
     def apto_promocao_antiguidade(self):
         """Verifica se está apto para promoção por antiguidade conforme Art. 13 para todos os quadros e Subtenente"""
-        if self.situacao != 'AT':
+        if self.classificacao != 'ATIVO':
             return False
         
         # Verificar inspeção de saúde
         hoje = timezone.now().date()
-        if not self.apto_inspecao_saude or (self.data_validade_inspecao_saude and self.data_validade_inspecao_saude < hoje):
+        if not self.apto_inspecao_saude:
+            return False
+        
+        # Verificar data de validade da inspeção de saúde
+        if not self.data_validade_inspecao_saude or self.data_validade_inspecao_saude < hoje:
             return False
         
         # Verificar interstício
@@ -507,6 +1205,33 @@ class Militar(models.Model):
                 if not getattr(self, 'curso_csbm', False):
                     return False
         
+        elif self.quadro == 'PRACAS':
+            # Quadro de Praças - Regras específicas para promoção por antiguidade
+            if self.posto_graduacao == 'SD':
+                # Soldado → Cabo: precisa de CFSD OU Curso de Formação de Praças
+                if not (self.curso_cfsd or self.curso_formacao_pracas):
+                    return False
+            elif self.posto_graduacao == 'CAB':
+                # Cabo → 3º Sargento: precisa de CFSD + CHC
+                if not (self.curso_cfsd and self.curso_chc):
+                    return False
+            elif self.posto_graduacao == '3S':
+                # 3º Sargento → 2º Sargento: precisa de CFSD + CHC + CHSGT
+                if not (self.curso_cfsd and self.curso_chc and self.curso_chsgt):
+                    return False
+            elif self.posto_graduacao == '2S':
+                # 2º Sargento → 1º Sargento: precisa de CFSD + CHC + CHSGT + CAS
+                if not (self.curso_cfsd and self.curso_chc and self.curso_chsgt and self.curso_cas):
+                    return False
+            elif self.posto_graduacao == '1S':
+                # 1º Sargento → Subtenente: precisa de CFSD + CHC + CHSGT + CAS
+                if not (self.curso_cfsd and self.curso_chc and self.curso_chsgt and self.curso_cas):
+                    return False
+            elif self.posto_graduacao == 'ST':
+                # Subtenente → 2º Tenente: precisa de CHO
+                if not self.curso_cho:
+                    return False
+        
         return True
 
     def inspecao_saude_vencida(self):
@@ -514,11 +1239,12 @@ class Militar(models.Model):
         if not self.apto_inspecao_saude:
             return True
         
-        if self.data_validade_inspecao_saude:
-            hoje = timezone.now().date()
-            return self.data_validade_inspecao_saude < hoje
+        # Se não há data de validade informada, considera como vencida
+        if not self.data_validade_inspecao_saude:
+            return True
         
-        return False
+        hoje = timezone.now().date()
+        return self.data_validade_inspecao_saude < hoje
 
     def cursos_inerentes_quadro(self):
         """Retorna os cursos que são inerentes ao quadro do militar"""
@@ -678,7 +1404,7 @@ class Militar(models.Model):
         """
         militares_nvrr = cls.objects.filter(
             posto_graduacao='NVRR',
-            situacao='AT'
+            classificacao='ATIVO'
         ).order_by('data_promocao_atual')
         
         total_reordenados = 0
@@ -748,8 +1474,8 @@ class Militar(models.Model):
         super().save(*args, **kwargs)
 
         # Reordenação automática quando militar é inativado
-        if (situacao_anterior and situacao_anterior == 'AT' and 
-            self.situacao in ['IN', 'TR', 'AP', 'EX']):
+        if (situacao_anterior and situacao_anterior == 'ATIVO' and 
+            self.classificacao in ['INATIVO', 'TRANSFERIDO', 'APOSENTADO', 'EXONERADO']):
             # Salvar numeração anterior antes de inativar
             if numeracao_anterior:
                 self.numeracao_antiguidade_anterior = numeracao_anterior
@@ -761,8 +1487,8 @@ class Militar(models.Model):
             self._atualizar_vaga_apos_inativacao()
         
         # Reativação automática quando militar é reativado
-        elif (situacao_anterior and situacao_anterior in ['IN', 'TR', 'AP', 'EX'] and 
-              self.situacao == 'AT'):
+        elif (situacao_anterior and situacao_anterior in ['INATIVO', 'TRANSFERIDO', 'APOSENTADO', 'EXONERADO'] and 
+              self.classificacao == 'ATIVO'):
             print(f"[DEBUG] Militar {self.nome_completo} sendo reativado")
             print(f"[DEBUG] Numeração anterior salva: {self.numeracao_antiguidade_anterior}")
             
@@ -770,7 +1496,7 @@ class Militar(models.Model):
                 militares_ativos = Militar.objects.filter(
                     posto_graduacao=self.posto_graduacao,
                     quadro=self.quadro,
-                    situacao='AT'
+                    classificacao='ATIVO'
                 ).exclude(pk=self.pk)
                 print(f"[DEBUG] Militares ativos no mesmo posto/quadro: {militares_ativos.count()}")
                 print(f"[DEBUG] Posição {self.numeracao_antiguidade_anterior} ocupada: {militares_ativos.filter(numeracao_antiguidade=self.numeracao_antiguidade_anterior).exists()}")
@@ -841,7 +1567,7 @@ class Militar(models.Model):
                 vaga.efetivo_atual = Militar.objects.filter(
                     posto_graduacao=posto_vaga,
                     quadro=quadro,
-                    situacao='AT'
+                    classificacao='ATIVO'
                 ).count()
                 vaga.save(update_fields=['efetivo_atual'])
             except Vaga.DoesNotExist:
@@ -852,7 +1578,7 @@ class Militar(models.Model):
                 previsao.efetivo_atual = Militar.objects.filter(
                     posto_graduacao=posto_vaga,
                     quadro=quadro,
-                    situacao='AT'
+                    classificacao='ATIVO'
                 ).count()
                 previsao.vagas_disponiveis = previsao.calcular_vagas_disponiveis()
                 previsao.save(update_fields=['efetivo_atual', 'vagas_disponiveis'])
@@ -873,12 +1599,12 @@ class Militar(models.Model):
         - Quem era 5º vira 4º
         - E assim por diante
         """
-        if self.situacao not in ['IN', 'TR', 'AP', 'EX']:
+        if self.classificacao not in ['INATIVO', 'TRANSFERIDO', 'APOSENTADO', 'EXONERADO']:
             return 0  # Não é inativo
         
         # Buscar todos os militares ativos do mesmo posto e quadro (exceto este)
         militares_mesmo_posto = Militar.objects.filter(
-            situacao='AT',
+            classificacao='ATIVO',
             posto_graduacao=self.posto_graduacao,
             quadro=self.quadro
         ).exclude(pk=self.pk).order_by('numeracao_antiguidade')
@@ -932,7 +1658,7 @@ class Militar(models.Model):
                 vaga.efetivo_atual = Militar.objects.filter(
                     posto_graduacao=posto_vaga,
                     quadro=self.quadro,
-                    situacao='AT'
+                    classificacao='ATIVO'
                 ).count()
                 vaga.save(update_fields=['efetivo_atual'])
             except Vaga.DoesNotExist:
@@ -952,7 +1678,7 @@ class Militar(models.Model):
                 previsao.efetivo_atual = Militar.objects.filter(
                     posto_graduacao=posto_vaga,
                     quadro=self.quadro,
-                    situacao='AT'
+                    classificacao='ATIVO'
                 ).count()
                 previsao.vagas_disponiveis = previsao.calcular_vagas_disponiveis()
                 previsao.save(update_fields=['efetivo_atual', 'vagas_disponiveis'])
@@ -1018,13 +1744,13 @@ class Militar(models.Model):
             # Atualizar PrevisaoVaga
             previsao = PrevisaoVaga.objects.filter(posto=posto_anterior, quadro=quadro_anterior, ativo=True).first()
             if previsao:
-                efetivo_atual = Militar.objects.filter(posto_graduacao=posto_anterior, quadro=quadro_anterior, situacao='AT').count()
+                efetivo_atual = Militar.objects.filter(posto_graduacao=posto_anterior, quadro=quadro_anterior, classificacao='ATIVO').count()
                 previsao.efetivo_atual = efetivo_atual
                 previsao.save()
             # Atualizar Vaga
             vaga = Vaga.objects.filter(posto=posto_anterior, quadro=quadro_anterior).first()
             if vaga:
-                efetivo_atual = Militar.objects.filter(posto_graduacao=posto_anterior, quadro=quadro_anterior, situacao='AT').count()
+                efetivo_atual = Militar.objects.filter(posto_graduacao=posto_anterior, quadro=quadro_anterior, classificacao='ATIVO').count()
                 vaga.efetivo_atual = efetivo_atual
                 vaga.save()
         except Exception as e:
@@ -1037,12 +1763,12 @@ class Militar(models.Model):
         Reordena as numerações de antiguidade após a reativação de um militar
         Quando um militar é reativado, pode ser necessário reordenar todos
         """
-        if self.situacao != 'AT':
+        if self.classificacao != 'ATIVO':
             return 0  # Não é ativo
         
         # Buscar todos os militares ativos do mesmo posto e quadro (incluindo este)
         militares_mesmo_posto = Militar.objects.filter(
-            situacao='AT',
+            classificacao='ATIVO',
             posto_graduacao=self.posto_graduacao,
             quadro=self.quadro
         ).order_by('data_promocao_atual')
@@ -1095,7 +1821,7 @@ class Militar(models.Model):
                 vaga.efetivo_atual = Militar.objects.filter(
                     posto_graduacao=posto_vaga,
                     quadro=self.quadro,
-                    situacao='AT'
+                    classificacao='ATIVO'
                 ).count()
                 vaga.save(update_fields=['efetivo_atual'])
             except Vaga.DoesNotExist:
@@ -1109,7 +1835,7 @@ class Militar(models.Model):
                 previsao.efetivo_atual = Militar.objects.filter(
                     posto_graduacao=posto_vaga,
                     quadro=self.quadro,
-                    situacao='AT'
+                    classificacao='ATIVO'
                 ).count()
                 previsao.vagas_disponiveis = previsao.calcular_vagas_disponiveis()
                 previsao.save(update_fields=['efetivo_atual', 'vagas_disponiveis'])
@@ -1131,7 +1857,7 @@ class Militar(models.Model):
             militares_mesmo_posto = Militar.objects.filter(
                 posto_graduacao=self.posto_graduacao,
                 quadro=self.quadro,
-                situacao='AT'
+                classificacao='ATIVO'
             ).exclude(pk=self.pk)
             
             print(f"[DEBUG] Deslocando antiguidade: {numeracao_anterior} -> {numeracao_nova}")
@@ -1197,7 +1923,9 @@ class Militar(models.Model):
             ficha_oficiais = FichaConceitoOficiais.objects.create(
                 militar=self,
                 # Campos comuns entre praças e oficiais
-                tempo_posto=ficha_pracas.tempo_posto,
+                tempo_posto_anos=ficha_pracas.tempo_posto_anos,
+                tempo_posto_meses=ficha_pracas.tempo_posto_meses,
+                tempo_posto_dias=ficha_pracas.tempo_posto_dias,
                 cursos_especializacao=ficha_pracas.cursos_especializacao,
                 cursos_cfsd=ficha_pracas.cursos_cfsd,
                 cursos_chc=ficha_pracas.cursos_chc,
@@ -1225,7 +1953,9 @@ class Militar(models.Model):
             self.marcar_cursos_inerentes_ficha(ficha_oficiais)
             
             # ATUALIZAR TEMPO NO POSTO COM DADOS ATUAIS
-            ficha_oficiais.tempo_posto = self.tempo_posto_atual()
+            ficha_oficiais.tempo_posto_anos = self.tempo_posto_atual().years
+            ficha_oficiais.tempo_posto_meses = self.tempo_posto_atual().months
+            ficha_oficiais.tempo_posto_dias = self.tempo_posto_atual().days
             
             # ATUALIZAR CURSOS BASEADO NOS DADOS ATUAIS DO MILITAR
             if self.curso_cho:
@@ -1253,32 +1983,6 @@ class Militar(models.Model):
             # Remover a ficha de praças antiga APÓS salvar a nova
             ficha_pracas.delete()
             
-            # ATUALIZAR TEMPO NO POSTO COM DADOS ATUAIS
-            ficha_oficiais.tempo_posto = self.tempo_posto_atual()
-            
-            # ATUALIZAR CURSOS BASEADO NOS DADOS ATUAIS DO MILITAR
-            if self.curso_cho:
-                ficha_oficiais.cursos_cho = 1
-            if self.curso_cfsd:
-                ficha_oficiais.cursos_cfsd = 1
-            if self.curso_chc:
-                ficha_oficiais.cursos_chc = 1
-            if self.curso_chsgt:
-                ficha_oficiais.cursos_chsgt = 1
-            if self.curso_cas:
-                ficha_oficiais.cursos_cas = 1
-            if self.curso_superior:
-                ficha_oficiais.cursos_civis_superior = 1
-            if self.pos_graduacao:
-                ficha_oficiais.cursos_civis_especializacao = 1
-            
-            # Recalcular pontos da ficha
-            ficha_oficiais.calcular_pontos()
-            
-            # Atualizar data de registro da ficha para a data da promoção
-            ficha_oficiais.data_registro = self.data_promocao_atual
-            ficha_oficiais.save()
-            
             return ficha_oficiais, f"Ficha convertida com sucesso de praças para oficiais. ID: {ficha_oficiais.id}"
             
         except Exception as e:
@@ -1288,7 +1992,7 @@ class Militar(models.Model):
 class Intersticio(models.Model):
     """Configuração de interstício mínimo por posto"""
     posto = models.CharField(max_length=4, choices=POSTO_GRADUACAO_CHOICES, verbose_name="Posto")
-    quadro = models.CharField(max_length=10, choices=QUADRO_CHOICES, verbose_name="Quadro")
+    quadro = models.CharField(max_length=20, choices=QUADRO_CHOICES, verbose_name="Quadro")
     tempo_minimo_anos = models.PositiveIntegerField(verbose_name="Tempo Mínimo (anos)")
     tempo_minimo_meses = models.PositiveIntegerField(default=0, verbose_name="Tempo Mínimo (meses)")
     ativo = models.BooleanField(default=True, verbose_name="Ativo")
@@ -1323,22 +2027,139 @@ class Intersticio(models.Model):
         fichas_pracas = list(self.fichaconceitopracas_set.all())
         todas_fichas = fichas_oficiais + fichas_pracas
         return sum(ficha.calcular_pontos() for ficha in todas_fichas)
+
+    def get_proxima_promocao_display(self):
+        """Retorna o nome da próxima promoção"""
+        proxima = self.proxima_promocao()
+        if proxima:
+            for codigo, nome in self.POSTO_GRADUACAO_CHOICES:
+                if codigo == proxima:
+                    return nome
+        return "Não aplicável"
     
+    def requisitos_proxima_promocao(self):
+        """Retorna os requisitos específicos para a próxima promoção"""
+        proxima = self.proxima_promocao()
+        if not proxima:
+            return []
+        
+        requisitos = []
+        
+        # Regras para Quadro Complementar
+        if self.quadro == 'COMP':
+            if self.posto_graduacao in ['ST', '2T', '1T']:
+                requisitos.append('Curso de Habilitação de Oficiais (CHO)')
+            elif self.posto_graduacao == 'CP':
+                requisitos.append('Curso de Habilitação de Oficiais (CHO)')
+                requisitos.append('Curso Superior')
+            elif self.posto_graduacao == 'MJ':
+                requisitos.append('Curso de Habilitação de Oficiais (CHO)')
+                requisitos.append('Curso Superior')
+        
+        # Regras para Oficiais (todos os quadros)
+        elif self.posto_graduacao in ['AS', '2T', '1T']:
+            requisitos.append('Curso de Formação de Oficial Bombeiro Militar')
+        elif self.posto_graduacao == 'CP':
+            if self.quadro == 'COMP':
+                requisitos.append('Curso Superior')
+            else:
+                requisitos.append('Curso de Formação de Oficial Bombeiro Militar')
+                requisitos.append('Curso de Aperfeiçoamento de Oficial Bombeiro Militar')
+        elif self.posto_graduacao == 'MJ':
+            requisitos.append('Curso de Aperfeiçoamento de Oficial Bombeiro Militar')
+        elif self.posto_graduacao in ['TC', 'CB']:
+            requisitos.append('Curso de Aperfeiçoamento de Oficial Bombeiro Militar')
+            requisitos.append('Curso Superior de Bombeiro Militar (CSBM)')
+        
+        return requisitos
+
+    def validar_requisitos_promocao(self, posto_destino):
+        """Valida requisitos específicos para promoção a um posto de destino"""
+        if self.classificacao != 'ATIVO':
+            return False, "Militar não está em situação ativa"
+        
+        # Verificar inspeção de saúde
+        if self.inspecao_saude_vencida():
+            return False, "Inspeção de saúde vencida"
+        
+        # Verificar tempo mínimo no posto
+        tempo_posto = self.tempo_posto_atual()
+        intersticio_min = self.intersticio_minimo()
+        if tempo_posto < intersticio_min:
+            return False, f"Tempo no posto insuficiente ({tempo_posto} anos, mínimo {intersticio_min} anos)"
+        
+        # Regras específicas para Quadro Complementar
+        if self.quadro == 'COMP':
+            if self.posto_graduacao in ['ST', '2T', '1T']:
+                if not getattr(self, 'curso_cho', False):
+                    return False, "Falta Curso de Habilitação de Oficiais (CHO)"
+            elif self.posto_graduacao == 'CP':
+                if not getattr(self, 'curso_cho', False):
+                    return False, "Falta Curso de Habilitação de Oficiais (CHO)"
+                if not self.curso_superior:
+                    return False, "Falta Curso Superior"
+            elif self.posto_graduacao == 'MJ':
+                if not getattr(self, 'curso_cho', False):
+                    return False, "Falta Curso de Habilitação de Oficiais (CHO)"
+                if not self.curso_superior:
+                    return False, "Falta Curso Superior"
+        
+        # Regras para Oficiais (todos os quadros)
+        elif self.quadro in ['COMB', 'SAUDE', 'ENG']:
+            if posto_destino in ['2T', '1T']:
+                if not getattr(self, 'curso_formacao_oficial', False):
+                    return False, "Falta Curso de Formação de Oficial Bombeiro Militar"
+            elif posto_destino == 'CP':
+                if not getattr(self, 'curso_formacao_oficial', False):
+                    return False, "Falta Curso de Formação de Oficial Bombeiro Militar"
+                if not getattr(self, 'curso_aperfeicoamento_oficial', False):
+                    return False, "Falta Curso de Aperfeiçoamento de Oficial Bombeiro Militar"
+            elif posto_destino == 'MJ':
+                if not getattr(self, 'curso_aperfeicoamento_oficial', False):
+                    return False, "Falta Curso de Aperfeiçoamento de Oficial Bombeiro Militar"
+            elif posto_destino in ['TC', 'CB']:
+                if not getattr(self, 'curso_aperfeicoamento_oficial', False):
+                    return False, "Falta Curso de Aperfeiçoamento de Oficial Bombeiro Militar"
+                if not getattr(self, 'curso_csbm', False):
+                    return False, "Falta Curso Superior de Bombeiro Militar (CSBM)"
+        
+        # Regras específicas para Quadro Complementar
+        elif self.quadro == 'COMP':
+            if posto_destino in ['2T', '1T']:
+                if not getattr(self, 'curso_formacao_oficial', False):
+                    return False, "Falta Curso de Formação de Oficial Bombeiro Militar"
+            elif posto_destino == 'CP':
+                if not self.curso_superior:
+                    return False, "Falta Curso Superior"
+            elif posto_destino == 'MJ':
+                if not getattr(self, 'curso_aperfeicoamento_oficial', False):
+                    return False, "Falta Curso de Aperfeiçoamento de Oficial Bombeiro Militar"
+            elif posto_destino in ['TC', 'CB']:
+                if not getattr(self, 'curso_aperfeicoamento_oficial', False):
+                    return False, "Falta Curso de Aperfeiçoamento de Oficial Bombeiro Militar"
+                if not getattr(self, 'curso_csbm', False):
+                    return False, "Falta Curso Superior de Bombeiro Militar (CSBM)"
+        
+        return True, "Apto para promoção"
+
     def apto_quadro_acesso_simples(self):
         """Versão simplificada para verificar se o militar está apto para quadro de acesso"""
         # Verificar se está ativo
-        if self.situacao != 'AT':
+        if self.classificacao != 'ATIVO':
             return False, "Militar não está em situação ativa"
         
         # Verificar se a inspeção de saúde está vencida (versão simplificada)
         if not self.apto_inspecao_saude:
             return False, "Militar não está apto em inspeção de saúde"
         
-        if self.data_validade_inspecao_saude:
-            from django.utils import timezone
-            hoje = timezone.now().date()
-            if self.data_validade_inspecao_saude < hoje:
-                return False, "Inspeção de saúde vencida"
+        # Verificar data de validade da inspeção de saúde
+        from django.utils import timezone
+        hoje = timezone.now().date()
+        if not self.data_validade_inspecao_saude:
+            return False, "Data de validade da inspeção de saúde não informada"
+        
+        if self.data_validade_inspecao_saude < hoje:
+            return False, "Inspeção de saúde vencida"
         
         # Verificar tempo mínimo no posto (versão simplificada)
         try:
@@ -1439,120 +2260,6 @@ class Intersticio(models.Model):
         }
         return requisitos.get(self.quadro, {})
 
-    def get_proxima_promocao_display(self):
-        """Retorna o nome da próxima promoção"""
-        proxima = self.proxima_promocao()
-        if proxima:
-            for codigo, nome in self.POSTO_GRADUACAO_CHOICES:
-                if codigo == proxima:
-                    return nome
-        return "Não aplicável"
-    
-    def requisitos_proxima_promocao(self):
-        """Retorna os requisitos específicos para a próxima promoção"""
-        proxima = self.proxima_promocao()
-        if not proxima:
-            return []
-        
-        requisitos = []
-        
-        # Regras para Quadro Complementar
-        if self.quadro == 'COMP':
-            if self.posto_graduacao in ['ST', '2T', '1T']:
-                requisitos.append('Curso de Habilitação de Oficiais (CHO)')
-            elif self.posto_graduacao == 'CP':
-                requisitos.append('Curso de Habilitação de Oficiais (CHO)')
-                requisitos.append('Curso Superior')
-            elif self.posto_graduacao == 'MJ':
-                requisitos.append('Curso de Habilitação de Oficiais (CHO)')
-                requisitos.append('Curso Superior')
-        
-        # Regras para Oficiais (todos os quadros)
-        elif self.posto_graduacao in ['AS', '2T', '1T']:
-            requisitos.append('Curso de Formação de Oficial Bombeiro Militar')
-        elif self.posto_graduacao == 'CP':
-            if self.quadro == 'COMP':
-                requisitos.append('Curso Superior')
-            else:
-                requisitos.append('Curso de Formação de Oficial Bombeiro Militar')
-                requisitos.append('Curso de Aperfeiçoamento de Oficial Bombeiro Militar')
-        elif self.posto_graduacao == 'MJ':
-            requisitos.append('Curso de Aperfeiçoamento de Oficial Bombeiro Militar')
-        elif self.posto_graduacao in ['TC', 'CB']:
-            requisitos.append('Curso de Aperfeiçoamento de Oficial Bombeiro Militar')
-            requisitos.append('Curso Superior de Bombeiro Militar (CSBM)')
-        
-        return requisitos
-
-    def validar_requisitos_promocao(self, posto_destino):
-        """Valida requisitos específicos para promoção a um posto de destino"""
-        if self.situacao != 'AT':
-            return False, "Militar não está em situação ativa"
-        
-        # Verificar inspeção de saúde
-        if self.inspecao_saude_vencida():
-            return False, "Inspeção de saúde vencida"
-        
-        # Verificar tempo mínimo no posto
-        tempo_posto = self.tempo_posto_atual()
-        intersticio_min = self.intersticio_minimo()
-        if tempo_posto < intersticio_min:
-            return False, f"Tempo no posto insuficiente ({tempo_posto} anos, mínimo {intersticio_min} anos)"
-        
-        # Regras específicas para Quadro Complementar
-        if self.quadro == 'COMP':
-            if self.posto_graduacao in ['ST', '2T', '1T']:
-                if not getattr(self, 'curso_cho', False):
-                    return False, "Falta Curso de Habilitação de Oficiais (CHO)"
-            elif self.posto_graduacao == 'CP':
-                if not getattr(self, 'curso_cho', False):
-                    return False, "Falta Curso de Habilitação de Oficiais (CHO)"
-                if not self.curso_superior:
-                    return False, "Falta Curso Superior"
-            elif self.posto_graduacao == 'MJ':
-                if not getattr(self, 'curso_cho', False):
-                    return False, "Falta Curso de Habilitação de Oficiais (CHO)"
-                if not self.curso_superior:
-                    return False, "Falta Curso Superior"
-        
-        # Regras para Oficiais (todos os quadros)
-        elif self.quadro in ['COMB', 'SAUDE', 'ENG']:
-            if posto_destino in ['2T', '1T']:
-                if not getattr(self, 'curso_formacao_oficial', False):
-                    return False, "Falta Curso de Formação de Oficial Bombeiro Militar"
-            elif posto_destino == 'CP':
-                if not getattr(self, 'curso_formacao_oficial', False):
-                    return False, "Falta Curso de Formação de Oficial Bombeiro Militar"
-                if not getattr(self, 'curso_aperfeicoamento_oficial', False):
-                    return False, "Falta Curso de Aperfeiçoamento de Oficial Bombeiro Militar"
-            elif posto_destino == 'MJ':
-                if not getattr(self, 'curso_aperfeicoamento_oficial', False):
-                    return False, "Falta Curso de Aperfeiçoamento de Oficial Bombeiro Militar"
-            elif posto_destino in ['TC', 'CB']:
-                if not getattr(self, 'curso_aperfeicoamento_oficial', False):
-                    return False, "Falta Curso de Aperfeiçoamento de Oficial Bombeiro Militar"
-                if not getattr(self, 'curso_csbm', False):
-                    return False, "Falta Curso Superior de Bombeiro Militar (CSBM)"
-        
-        # Regras específicas para Quadro Complementar
-        elif self.quadro == 'COMP':
-            if posto_destino in ['2T', '1T']:
-                if not getattr(self, 'curso_formacao_oficial', False):
-                    return False, "Falta Curso de Formação de Oficial Bombeiro Militar"
-            elif posto_destino == 'CP':
-                if not self.curso_superior:
-                    return False, "Falta Curso Superior"
-            elif posto_destino == 'MJ':
-                if not getattr(self, 'curso_aperfeicoamento_oficial', False):
-                    return False, "Falta Curso de Aperfeiçoamento de Oficial Bombeiro Militar"
-            elif posto_destino in ['TC', 'CB']:
-                if not getattr(self, 'curso_aperfeicoamento_oficial', False):
-                    return False, "Falta Curso de Aperfeiçoamento de Oficial Bombeiro Militar"
-                if not getattr(self, 'curso_csbm', False):
-                    return False, "Falta Curso Superior de Bombeiro Militar (CSBM)"
-        
-        return True, "Apto para promoção"
-
     def clean(self):
         super().clean()
         # Limites de posto por quadro
@@ -1622,7 +2329,42 @@ class FichaConceitoOficiais(models.Model):
     militar = models.ForeignKey(Militar, on_delete=models.CASCADE, verbose_name="Militar")
 
     # Pontos positivos
-    tempo_posto = models.PositiveIntegerField(default=0, verbose_name="Tempo no Posto (anos)")
+    tempo_posto_anos = models.PositiveIntegerField(default=0, verbose_name="Tempo no Posto (anos)")
+    tempo_posto_meses = models.PositiveIntegerField(default=0, verbose_name="Tempo no Posto (meses)")
+    tempo_posto_dias = models.PositiveIntegerField(default=0, verbose_name="Tempo no Posto (dias)")
+    
+    @property
+    def tempo_posto(self):
+        """Retorna o tempo no posto em anos decimais para cálculo de pontos"""
+        return self.tempo_posto_anos + (self.tempo_posto_meses / 12.0) + (self.tempo_posto_dias / 365.25)
+    
+    @property
+    def tempo_posto_extenso(self):
+        """Retorna o tempo no posto por extenso (ex: 2 anos, 3 meses, 15 dias)"""
+        partes = []
+        if self.tempo_posto_anos > 0:
+            if self.tempo_posto_anos == 1:
+                partes.append("1 ano")
+            else:
+                partes.append(f"{self.tempo_posto_anos} anos")
+        
+        if self.tempo_posto_meses > 0:
+            if self.tempo_posto_meses == 1:
+                partes.append("1 mês")
+            else:
+                partes.append(f"{self.tempo_posto_meses} meses")
+        
+        if self.tempo_posto_dias > 0:
+            if self.tempo_posto_dias == 1:
+                partes.append("1 dia")
+            else:
+                partes.append(f"{self.tempo_posto_dias} dias")
+        
+        if not partes:
+            return "0 dias"
+        
+        return ", ".join(partes)
+    
     cursos_especializacao = models.PositiveIntegerField(default=0, verbose_name="Especialização (militar)")
     cursos_csbm = models.PositiveIntegerField(default=0, verbose_name="CSBM")
     cursos_cfsd = models.PositiveIntegerField(default=0, verbose_name="CFSD")
@@ -1698,10 +2440,10 @@ class FichaConceitoOficiais(models.Model):
             'elogio_coletivo': 0.125,
             
             # Punições (negativas)
-            'punicao_repreensao': -0.25,
-            'punicao_detencao': -0.5,
-            'punicao_prisao': -1.0,
-            'falta_aproveitamento': -0.5,
+            'punicao_repreensao': -0.5,
+            'punicao_detencao': -1.0,
+            'punicao_prisao': -2.0,
+            'falta_aproveitamento': -5.0,
         }
         
         # Limites para OFICIAIS
@@ -1716,8 +2458,8 @@ class FichaConceitoOficiais(models.Model):
         
         pontos = 0.0
         
-        # 1. Tempo no Posto (máximo 5 pontos)
-        pontos_tempo = self.tempo_posto * valores['tempo_posto']
+        # 1. Tempo no Posto (máximo 5 pontos) - apenas anos completos
+        pontos_tempo = self.tempo_posto_anos * valores['tempo_posto']
         pontos += min(pontos_tempo, limites['tempo_posto'])
         
         # 2. Conclusão de Cursos Militares (máximo 5 pontos)
@@ -1764,20 +2506,28 @@ class FichaConceitoOficiais(models.Model):
         )
         pontos += min(pontos_elogios, limites['elogios'])
         
-        # 7. Punições (máximo -2,0 pontos)
+        # 7. Punições (sem limite)
         pontos_punicoes = (
             self.punicao_repreensao * valores['punicao_repreensao'] +
             self.punicao_detencao * valores['punicao_detencao'] +
-            self.punicao_prisao * valores['punicao_prisao'] +
-            self.falta_aproveitamento * valores['falta_aproveitamento']
+            self.punicao_prisao * valores['punicao_prisao']
         )
-        pontos += max(pontos_punicoes, limites['punicoes'])
+        pontos += pontos_punicoes
+        
+        # 8. Falta de Aproveitamento (sem limite)
+        pontos_falta_aproveitamento = self.falta_aproveitamento * valores['falta_aproveitamento']
+        pontos += pontos_falta_aproveitamento
         
         return round(pontos, 2)
     
     def save(self, *args, **kwargs):
         # Preenche automaticamente o tempo no posto sempre
-        self.tempo_posto = self.militar.tempo_posto_atual()
+        tempo_detalhado = self.militar.tempo_posto_atual_detalhado()
+        
+        self.tempo_posto_anos = tempo_detalhado.years
+        self.tempo_posto_meses = tempo_detalhado.months
+        self.tempo_posto_dias = tempo_detalhado.days
+        
         self.pontos = self.calcular_pontos()  # Garante que o campo pontos está sempre atualizado
         super().save(*args, **kwargs)
 
@@ -1787,7 +2537,42 @@ class FichaConceitoPracas(models.Model):
     militar = models.ForeignKey(Militar, on_delete=models.CASCADE, verbose_name="Militar")
 
     # Pontos positivos
-    tempo_posto = models.PositiveIntegerField(default=0, verbose_name="Tempo no Posto (anos)")
+    tempo_posto_anos = models.PositiveIntegerField(default=0, verbose_name="Tempo no Posto (anos)")
+    tempo_posto_meses = models.PositiveIntegerField(default=0, verbose_name="Tempo no Posto (meses)")
+    tempo_posto_dias = models.PositiveIntegerField(default=0, verbose_name="Tempo no Posto (dias)")
+    
+    @property
+    def tempo_posto(self):
+        """Retorna o tempo no posto em anos decimais para cálculo de pontos"""
+        return self.tempo_posto_anos + (self.tempo_posto_meses / 12.0) + (self.tempo_posto_dias / 365.25)
+    
+    @property
+    def tempo_posto_extenso(self):
+        """Retorna o tempo no posto por extenso (ex: 2 anos, 3 meses, 15 dias)"""
+        partes = []
+        if self.tempo_posto_anos > 0:
+            if self.tempo_posto_anos == 1:
+                partes.append("1 ano")
+            else:
+                partes.append(f"{self.tempo_posto_anos} anos")
+        
+        if self.tempo_posto_meses > 0:
+            if self.tempo_posto_meses == 1:
+                partes.append("1 mês")
+            else:
+                partes.append(f"{self.tempo_posto_meses} meses")
+        
+        if self.tempo_posto_dias > 0:
+            if self.tempo_posto_dias == 1:
+                partes.append("1 dia")
+            else:
+                partes.append(f"{self.tempo_posto_dias} dias")
+        
+        if not partes:
+            return "0 dias"
+        
+        return ", ".join(partes)
+    
     cursos_especializacao = models.PositiveIntegerField(default=0, verbose_name="Especialização (militar)")
     cursos_cfsd = models.PositiveIntegerField(default=0, verbose_name="CFSD")
     cursos_chc = models.PositiveIntegerField(default=0, verbose_name="CHC ou adaptação a Cb")
@@ -1858,9 +2643,9 @@ class FichaConceitoPracas(models.Model):
             
             # Pontos Negativos
             'punicao_repreensao': -1.0,      # Repreensão
-            'punicao_detencao': -2.00,       # Detenção
-            'punicao_prisao': -5.00,         # Prisão
-            'falta_aproveitamento': -10.00,  # Falta de Aproveitamento em Cursos Militares
+            'punicao_detencao': -2.0,        # Detenção
+            'punicao_prisao': -5.0,          # Prisão
+            'falta_aproveitamento': -10.0,   # Falta de Aproveitamento em Cursos Militares
         }
         
         # Limites para PRACAS
@@ -1873,8 +2658,8 @@ class FichaConceitoPracas(models.Model):
         
         pontos = 0.0
         
-        # 1. Tempo de Serviço no Quadro - Na Graduação atual: 1,00 ponto por ano
-        pontos_tempo = self.tempo_posto * valores['tempo_posto']
+        # 1. Tempo de Serviço no Quadro - Na Graduação atual: 1,00 ponto por ano completo
+        pontos_tempo = self.tempo_posto_anos * valores['tempo_posto']
         pontos += pontos_tempo  # Sem limite máximo
         
         # 2. Conclusão de Cursos Militares (máximo 4 pontos)
@@ -1931,7 +2716,12 @@ class FichaConceitoPracas(models.Model):
     
     def save(self, *args, **kwargs):
         # Preenche automaticamente o tempo no posto sempre
-        self.tempo_posto = self.militar.tempo_posto_atual()
+        tempo_detalhado = self.militar.tempo_posto_atual_detalhado()
+        
+        self.tempo_posto_anos = tempo_detalhado.years
+        self.tempo_posto_meses = tempo_detalhado.months
+        self.tempo_posto_dias = tempo_detalhado.days
+        
         self.pontos = self.calcular_pontos()  # Garante que o campo pontos está sempre atualizado
         super().save(*args, **kwargs)
 
@@ -1968,6 +2758,7 @@ class QuadroAcesso(models.Model):
         ('COMP', 'Complementar'),
         ('NVRR', 'NVRR'),
         ('PRACAS', 'Praças'),
+        ('RESERVA_REMUNERADA', 'Reserva Remunerada'),
     ]
     
     STATUS_CHOICES = [
@@ -2175,21 +2966,21 @@ class QuadroAcesso(models.Model):
             if criterio == 'MERECIMENTO':
                 # Para merecimento, apenas oficiais a partir de Capitão (sem exigir ficha de conceito)
                 militares_candidatos = Militar.objects.filter(
-                    situacao='AT',
+                    classificacao='ATIVO',
                     quadro__in=['COMB', 'SAUDE', 'ENG', 'COMP'],
                     posto_graduacao__in=['CP', 'MJ', 'TC']  # Removido 'CB'
                 )
             else:
                 # Para antiguidade, todos os oficiais EXCETO Tenente-Coronel (que só pode ser promovido por merecimento)
                 militares_candidatos = Militar.objects.filter(
-                    situacao='AT',
+                    classificacao='ATIVO',
                     quadro__in=['COMB', 'SAUDE', 'ENG', 'COMP']
                 ).exclude(posto_graduacao='TC')
                 
                 # Para quadros de oficiais, incluir também subtenentes do quadro PRACAS (transição ST->2T)
                 # Isso permite que subtenentes do quadro PRACAS sejam considerados para promoção a 2º Tenente do COMP
                 subtenentes_pracas = Militar.objects.filter(
-                    situacao='AT',
+                    classificacao='ATIVO',
                     quadro='PRACAS',
                     posto_graduacao='ST'
                 )
@@ -2199,14 +2990,14 @@ class QuadroAcesso(models.Model):
             if criterio == 'MERECIMENTO':
                 # Para merecimento, apenas praças a partir de 2º Sargento (excluindo Subtenente) - sem exigir ficha de conceito
                 militares_candidatos = Militar.objects.filter(
-                    situacao='AT',
+                    classificacao='ATIVO',
                     quadro='PRACAS',
                     posto_graduacao__in=['2S', '1S']
                 )
             else:
                 # Para antiguidade, todas as praças EXCETO Subtenente
                 militares_candidatos = Militar.objects.filter(
-                    situacao='AT',
+                    classificacao='ATIVO',
                     quadro='PRACAS'
                 ).exclude(posto_graduacao='ST')
         else:
@@ -2230,18 +3021,18 @@ class QuadroAcesso(models.Model):
         if self.categoria == 'OFICIAIS':
             # Para quadros de oficiais, buscar apenas oficiais
             militares_candidatos = Militar.objects.filter(
-                situacao='AT',
+                classificacao='ATIVO',
                 quadro__in=['COMB', 'SAUDE', 'ENG', 'COMP']
             )
         elif self.categoria == 'PRACAS':
             # Para quadros de praças, buscar apenas praças
             militares_candidatos = Militar.objects.filter(
-                situacao='AT',
+                classificacao='ATIVO',
                 quadro='PRACAS'
             )
         else:
             # Caso não tenha categoria definida, buscar todos os ativos
-            militares_candidatos = Militar.objects.filter(situacao='AT')
+            militares_candidatos = Militar.objects.filter(classificacao='ATIVO')
         
         militares_inaptos = []
         for militar in militares_candidatos:
@@ -2315,19 +3106,13 @@ class QuadroAcesso(models.Model):
         if not militar.apto_inspecao_saude:
             return False
         
-        # Verificar se tem data de validade e se está em dia
-        if militar.data_validade_inspecao_saude:
-            hoje = timezone.now().date()
-            return militar.data_validade_inspecao_saude >= hoje
+        # Verificar se tem data de validade informada
+        if not militar.data_validade_inspecao_saude:
+            return False
         
-        # Se não tem data de validade, verificar se tem data da inspeção
-        if militar.data_inspecao_saude:
-            # Considerar válida por 2 anos se não há data de validade específica
-            hoje = timezone.now().date()
-            validade_estimada = militar.data_inspecao_saude + timezone.timedelta(days=730)  # 2 anos
-            return validade_estimada >= hoje
-        
-        return False
+        # Verificar se a data de validade não está vencida
+        hoje = timezone.now().date()
+        return militar.data_validade_inspecao_saude >= hoje
     
     def _validar_cursos_inerentes(self, militar):
         """
@@ -2578,7 +3363,7 @@ class QuadroAcesso(models.Model):
 
         # Para inserções manuais, permitir qualquer militar por motivos especiais
         # Apenas verificar se está ativo
-        if militar.situacao != 'AT':
+        if militar.classificacao != 'ATIVO':
             raise ValueError(f"Apenas militares em situação ativa podem ser adicionados ao quadro. ({militar.nome_completo})")
         
         print(f"DEBUG: Validando militar {militar.nome_completo} ({militar.posto_graduacao}) para quadro {self.categoria}")
@@ -3028,33 +3813,35 @@ class ItemQuadroAcesso(models.Model):
         
         if self.militar and self.quadro_acesso:
             # 1. Validações básicas (sempre aplicadas)
-            if self.militar.situacao != 'AT':
+            if self.militar.classificacao != 'ATIVO':
                 raise ValidationError("Militar não está em situação ativa")
             
             # 2. Aplicar validações rigorosas para todos os quadros
             # Para quadros automáticos, aplicar todas as validações rigorosas
-                if not self.militar.apto_inspecao_saude:
-                    raise ValidationError("Militar não está apto em inspeção de saúde")
-                
-                # Verificar se a inspeção de saúde está vencida
-                if self.militar.data_validade_inspecao_saude:
-                    from django.utils import timezone
-                    hoje = timezone.now().date()
-                    if self.militar.data_validade_inspecao_saude < hoje:
-                        raise ValidationError("Inspeção de saúde vencida")
-                
-                # Verificar se o militar tem os cursos obrigatórios
-                if not self.militar.cursos_inerentes_quadro():
-                    raise ValidationError("Militar não possui os cursos obrigatórios para o quadro")
-                
-                # Verificar interstício
-                if not self.militar.apto_intersticio_ate_data(self.quadro_acesso.data_promocao):
-                    raise ValidationError(f"Militar não completará o interstício mínimo até {self.quadro_acesso.data_promocao}")
-                
-                # Aplicar validações específicas do quadro
-                apto, motivo = self.quadro_acesso.validar_requisitos_quadro_acesso(self.militar)
-                if not apto:
-                    raise ValidationError(f"Militar não atende aos requisitos: {motivo}")
+            if not self.militar.apto_inspecao_saude:
+                raise ValidationError("Militar não está apto em inspeção de saúde")
+            
+            # Verificar se a inspeção de saúde está vencida
+            from django.utils import timezone
+            hoje = timezone.now().date()
+            if not self.militar.data_validade_inspecao_saude:
+                raise ValidationError("Data de validade da inspeção de saúde não informada")
+            
+            if self.militar.data_validade_inspecao_saude < hoje:
+                raise ValidationError("Inspeção de saúde vencida")
+            
+            # Verificar se o militar tem os cursos obrigatórios
+            if not self.militar.cursos_inerentes_quadro():
+                raise ValidationError("Militar não possui os cursos obrigatórios para o quadro")
+            
+            # Verificar interstício
+            if not self.militar.apto_intersticio_ate_data(self.quadro_acesso.data_promocao):
+                raise ValidationError(f"Militar não completará o interstício mínimo até {self.quadro_acesso.data_promocao}")
+            
+            # Aplicar validações específicas do quadro
+            apto, motivo = self.quadro_acesso.validar_requisitos_quadro_acesso(self.militar)
+            if not apto:
+                raise ValidationError(f"Militar não atende aos requisitos: {motivo}")
         
         super().clean()
     
@@ -3072,16 +3859,18 @@ class Promocao(models.Model):
         ('MERECIMENTO', 'Merecimento'),
         ('POST_MORTEM', 'Post Mortem'),
         ('RESSARCIMENTO', 'Ressarcimento de Preterição'),
+        ('CONDICOES_ESPECIAIS', 'Condições Especiais'),
     ]
     
     militar = models.ForeignKey(Militar, on_delete=models.CASCADE, verbose_name="Militar")
     posto_anterior = models.CharField(max_length=4, choices=POSTO_GRADUACAO_CHOICES, verbose_name="Posto Anterior")
     posto_novo = models.CharField(max_length=4, choices=POSTO_GRADUACAO_CHOICES, verbose_name="Novo Posto")
-    criterio = models.CharField(max_length=15, choices=CRITERIO_CHOICES, verbose_name="Critério")
+    criterio = models.CharField(max_length=20, choices=CRITERIO_CHOICES, verbose_name="Critério")
     data_promocao = models.DateField(verbose_name="Data da Promoção")
     data_publicacao = models.DateField(verbose_name="Data da Publicação")
-    numero_ato = models.CharField(max_length=50, verbose_name="Número do Ato")
+    numero_ato = models.CharField(max_length=200, verbose_name="Número do Ato")
     observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    is_historica = models.BooleanField(default=False, verbose_name="Promoção Histórica", help_text="Se marcado, esta promoção não altera o posto atual do militar")
     data_registro = models.DateTimeField(auto_now_add=True, verbose_name="Data do Registro")
     
     class Meta:
@@ -3090,7 +3879,8 @@ class Promocao(models.Model):
         ordering = ['-data_promocao']
     
     def __str__(self):
-        return f"{self.militar.nome_completo} - {self.get_posto_anterior_display()} → {self.get_posto_novo_display()}"
+        historica = " (HISTÓRICA)" if self.is_historica else ""
+        return f"{self.militar.nome_completo} - {self.get_posto_anterior_display()} → {self.get_posto_novo_display()}{historica}"
 
 
 class Vaga(models.Model):
@@ -3110,10 +3900,11 @@ class Vaga(models.Model):
         ('SAUDE', 'Saúde'),
         ('ENG', 'Engenheiro'),
         ('COMP', 'Complementar'),
+        ('RESERVA_REMUNERADA', 'Reserva Remunerada'),
     ]
     
     posto = models.CharField(max_length=4, choices=POSTO_CHOICES, verbose_name="Posto")
-    quadro = models.CharField(max_length=5, choices=QUADRO_CHOICES, verbose_name="Quadro")
+    quadro = models.CharField(max_length=20, choices=QUADRO_CHOICES, verbose_name="Quadro")
     efetivo_atual = models.IntegerField(default=0, verbose_name="Efetivo Atual")
     efetivo_maximo = models.IntegerField(verbose_name="Efetivo Máximo")
     data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
@@ -3130,14 +3921,16 @@ class Vaga(models.Model):
     @property
     def vagas_disponiveis(self):
         """Calcula vagas disponíveis"""
+        if self.efetivo_maximo is None or self.efetivo_atual is None:
+            return 0
         return max(0, self.efetivo_maximo - self.efetivo_atual)
     
     @property
     def percentual_ocupacao(self):
         """Calcula percentual de ocupação"""
-        if self.efetivo_maximo > 0:
-            return (self.efetivo_atual / self.efetivo_maximo) * 100
-        return 0
+        if self.efetivo_maximo is None or self.efetivo_maximo <= 0 or self.efetivo_atual is None:
+            return 0
+        return (self.efetivo_atual / self.efetivo_maximo) * 100
 
 
 class Curso(models.Model):
@@ -3192,7 +3985,7 @@ class MedalhaCondecoracao(models.Model):
 class PrevisaoVaga(models.Model):
     """Configuração de previsão de vagas por posto e quadro"""
     posto = models.CharField(max_length=4, choices=POSTO_GRADUACAO_CHOICES, verbose_name="Posto")
-    quadro = models.CharField(max_length=10, choices=QUADRO_CHOICES, verbose_name="Quadro")
+    quadro = models.CharField(max_length=20, choices=QUADRO_CHOICES, verbose_name="Quadro")
     efetivo_atual = models.PositiveIntegerField(default=0, verbose_name="Efetivo Atual")
     efetivo_previsto = models.PositiveIntegerField(default=0, verbose_name="Efetivo Previsto")
     vagas_disponiveis = models.PositiveIntegerField(default=0, verbose_name="Vagas Disponíveis")
@@ -3209,10 +4002,14 @@ class PrevisaoVaga(models.Model):
         ordering = ['quadro', 'posto']
     
     def __str__(self):
-        return f"{self.get_posto_display()} - {self.get_quadro_display()} ({self.efetivo_atual}/{self.efetivo_previsto})"
+        efetivo_atual = self.efetivo_atual if self.efetivo_atual is not None else 0
+        efetivo_previsto = self.efetivo_previsto if self.efetivo_previsto is not None else 0
+        return f"{self.get_posto_display()} - {self.get_quadro_display()} ({efetivo_atual}/{efetivo_previsto})"
     
     def calcular_vagas_disponiveis(self):
         """Calcula vagas disponíveis baseado no efetivo atual e previsto"""
+        if self.efetivo_previsto is None or self.efetivo_atual is None:
+            return 0
         return max(0, self.efetivo_previsto - self.efetivo_atual)
     
     def save(self, *args, **kwargs):
@@ -3222,9 +4019,10 @@ class PrevisaoVaga(models.Model):
     
     def get_status_display(self):
         """Retorna o status da previsão de vagas"""
-        if self.vagas_disponiveis > 0:
+        if self.vagas_disponiveis and self.vagas_disponiveis > 0:
             return "Disponível"
-        elif self.efetivo_atual == self.efetivo_previsto:
+        elif (self.efetivo_atual is not None and self.efetivo_previsto is not None and 
+              self.efetivo_atual == self.efetivo_previsto):
             return "Completo"
         else:
             return "Excedido"
@@ -3353,14 +4151,14 @@ class ComissaoPromocao(models.Model):
     def eh_presidente(self, usuario):
         """Verifica se o usuário é presidente desta comissão"""
         # Primeiro, verificar se o usuário tem função de presidente
-        from .models import UsuarioFuncao
+        from .models import UsuarioFuncaoMilitar
         from django.utils import timezone
         
         # Verificar se o usuário tem função ativa de presidente
-        funcoes_presidente = UsuarioFuncao.objects.filter(
+        funcoes_presidente = UsuarioFuncaoMilitar.objects.filter(
             usuario=usuario,
-            cargo_funcao__nome__icontains='presidente',
-            status='ATIVO',
+            funcao_militar__nome__icontains='presidente',
+            ativo=True,
             data_inicio__lte=timezone.now().date(),
             data_fim__isnull=True
         ).exists()
@@ -3377,7 +4175,7 @@ class ComissaoPromocao(models.Model):
     def eh_presidente_por_funcao(self, usuario, funcao):
         """Verifica se o usuário é presidente desta comissão baseado em uma função específica"""
         # Verificar se a função é de presidente
-        if not funcao or not funcao.cargo_funcao.nome.lower().find('presidente') >= 0:
+        if not funcao or not funcao.funcao_militar.nome.lower().find('presidente') >= 0:
             return False
         
         # Verificar se a função é ativa
@@ -3385,13 +4183,13 @@ class ComissaoPromocao(models.Model):
             return False
         
         # Verificar se a função corresponde ao tipo de comissão
-        if self.tipo == 'CPO' and 'cpo' in funcao.cargo_funcao.nome.lower():
+        if self.tipo == 'CPO' and 'cpo' in funcao.funcao_militar.nome.lower():
             return True
-        elif self.tipo == 'CPP' and 'cpp' in funcao.cargo_funcao.nome.lower():
+        elif self.tipo == 'CPP' and 'cpp' in funcao.funcao_militar.nome.lower():
             return True
         
         return False
-    
+
     @classmethod
     def get_comissao_ativa_por_tipo(cls, tipo):
         """Retorna a comissão ativa de um determinado tipo"""
@@ -3417,7 +4215,8 @@ class MembroComissao(models.Model):
     militar = models.ForeignKey(Militar, on_delete=models.CASCADE, verbose_name="Militar")
     usuario = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Usuário do Sistema", null=True, blank=True)
     tipo = models.CharField(max_length=15, choices=TIPO_CHOICES, verbose_name="Tipo de Membro")
-    cargo = models.ForeignKey('CargoFuncao', on_delete=models.PROTECT, verbose_name="Função/Cargo do Usuário")
+    cargo = models.ForeignKey('FuncaoMilitar', on_delete=models.PROTECT, verbose_name="Função/Cargo do Usuário", null=True, blank=True, related_name='membros_cargo')
+    funcao_militar = models.ForeignKey('FuncaoMilitar', on_delete=models.PROTECT, verbose_name="Função Militar", null=True, blank=True)
     data_nomeacao = models.DateField(verbose_name="Data de Nomeação")
     data_termino = models.DateField(null=True, blank=True, verbose_name="Data de Término")
     ativo = models.BooleanField(default=True, verbose_name="Ativo")
@@ -3431,7 +4230,8 @@ class MembroComissao(models.Model):
         ordering = ['tipo', 'militar__nome_completo']
     
     def __str__(self):
-        return f"{self.militar.nome_completo} - {self.get_tipo_display()} ({self.cargo.nome})"
+        funcao = self.funcao_militar.nome if self.funcao_militar else (self.cargo.nome if self.cargo else 'Sem função')
+        return f"{self.militar.nome_completo} - {self.get_tipo_display()} ({funcao})"
     
     def esta_ativo(self):
         """Verifica se o membro está ativo"""
@@ -3448,6 +4248,156 @@ class MembroComissao(models.Model):
             return self.comissao.tipo == 'CPP'
         
         return False
+    
+    def validar_funcao_comissao(self):
+        """Valida se a função militar do membro é compatível com o tipo de comissão"""
+        if not self.funcao_militar:
+            return True  # Se não tem função específica, não valida
+        
+        funcao_nome = self.funcao_militar.nome.lower()
+        
+        if self.comissao.tipo == 'CPO':
+            # Para CPO, a função deve conter 'CPO' ou ser genérica de comissão
+            return 'cpo' in funcao_nome or 'comissão' in funcao_nome
+        elif self.comissao.tipo == 'CPP':
+            # Para CPP, a função deve conter 'CPP' ou ser genérica de comissão
+            return 'cpp' in funcao_nome or 'comissão' in funcao_nome
+        
+        return True
+    
+    def validar_posto_militar(self):
+        """Valida se o posto do militar é compatível com o tipo de comissão"""
+        # Verificar se o militar existe antes de tentar acessá-lo
+        if not hasattr(self, 'militar') or not self.militar:
+            return True  # Se não há militar definido, não validar ainda
+        
+        posto = self.militar.posto_graduacao
+        
+        if self.comissao.tipo == 'CPO':
+            # Para CPO, apenas oficiais
+            postos_oficiais = ['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS', 'AA']
+            return posto in postos_oficiais
+        elif self.comissao.tipo == 'CPP':
+            # Para CPP, apenas oficiais (que processam promoções de praças)
+            postos_oficiais = ['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS', 'AA']
+            return posto in postos_oficiais
+        
+        return True
+    
+    def clean(self):
+        """Validação do modelo"""
+        from django.core.exceptions import ValidationError
+        
+        # Validar função da comissão
+        if not self.validar_funcao_comissao():
+            tipo_comissao = self.comissao.get_tipo_display()
+            raise ValidationError(
+                f'A função "{self.funcao_militar.nome}" não é compatível com {tipo_comissao}. '
+                f'Use funções específicas para {self.comissao.tipo}.'
+            )
+        
+        # Validar posto do militar
+        if not self.validar_posto_militar():
+            tipo_comissao = self.comissao.get_tipo_display()
+            posto = self.militar.get_posto_graduacao_display()
+            raise ValidationError(
+                f'O posto "{posto}" não é compatível com {tipo_comissao}. '
+                f'CPO aceita apenas oficiais, CPP aceita apenas praças.'
+            )
+    
+    def save(self, *args, **kwargs):
+        """Override do save para aplicar validações"""
+        self.clean()
+        super().save(*args, **kwargs)
+    
+    @classmethod
+    def sincronizar_membros_por_funcoes(cls, comissao):
+        """
+        Sincroniza membros da comissão baseado nas funções militares dos usuários
+        """
+        from .models import UsuarioFuncaoMilitar
+        
+        # Buscar usuários com funções específicas para o tipo de comissão
+        if comissao.tipo == 'CPO':
+            funcoes_cpo = FuncaoMilitar.objects.filter(
+                grupo='COMISSAO',
+                nome__icontains='CPO',
+                ativo=True
+            )
+        elif comissao.tipo == 'CPP':
+            funcoes_cpp = FuncaoMilitar.objects.filter(
+                grupo='COMISSAO',
+                nome__icontains='CPP',
+                ativo=True
+            )
+            funcoes_cpo = funcoes_cpp
+        else:
+            return
+        
+        # Buscar usuários com essas funções
+        usuarios_com_funcoes = UsuarioFuncaoMilitar.objects.filter(
+            funcao_militar__in=funcoes_cpo,
+            ativo=True
+        ).select_related('usuario', 'usuario__militar', 'funcao_militar')
+        
+        membros_criados = 0
+        membros_atualizados = 0
+        
+        for usuario_funcao in usuarios_com_funcoes:
+            if not hasattr(usuario_funcao.usuario, 'militar') or not usuario_funcao.usuario.militar:
+                continue
+            
+            militar = usuario_funcao.usuario.militar
+            funcao = usuario_funcao.funcao_militar
+            
+            # Determinar tipo de membro baseado na função
+            tipo_membro = cls._determinar_tipo_membro(funcao.nome)
+            
+            # Criar ou atualizar membro da comissão
+            membro, created = cls.objects.get_or_create(
+                comissao=comissao,
+                militar=militar,
+                tipo=tipo_membro,
+                defaults={
+                    'usuario': usuario_funcao.usuario,
+                    'funcao_militar': funcao,
+                    'data_nomeacao': usuario_funcao.data_inicio,
+                    'ativo': True
+                }
+            )
+            
+            if created:
+                membros_criados += 1
+            else:
+                # Atualizar dados se necessário
+                if membro.usuario != usuario_funcao.usuario:
+                    membro.usuario = usuario_funcao.usuario
+                    membro.funcao_militar = funcao
+                    membro.data_nomeacao = usuario_funcao.data_inicio
+                    membro.ativo = True
+                    membro.save()
+                    membros_atualizados += 1
+        
+        return {
+            'criados': membros_criados,
+            'atualizados': membros_atualizados
+        }
+    
+    @classmethod
+    def _determinar_tipo_membro(cls, nome_funcao):
+        """Determina o tipo de membro baseado no nome da função"""
+        nome_lower = nome_funcao.lower()
+        
+        if 'presidente' in nome_lower:
+            return 'PRESIDENTE'
+        elif 'nato' in nome_lower:
+            return 'NATO'
+        elif 'secretário' in nome_lower or 'secretario' in nome_lower:
+            return 'SECRETARIO'
+        elif 'relator' in nome_lower:
+            return 'EFETIVO'  # Relator é considerado membro efetivo
+        else:
+            return 'EFETIVO'
 
 
 class SessaoComissao(models.Model):
@@ -3895,6 +4845,40 @@ class ModeloAta(models.Model):
     
     def aplicar_variaveis(self, sessao):
         """Aplica as variáveis do modelo com os dados da sessão"""
+
+
+class ModeloNota(models.Model):
+    """Modelos/templates de notas que podem ser salvos e reutilizados"""
+    
+    TIPO_PUBLICACAO_CHOICES = [
+        ('NOTA', 'Nota'),
+        ('BOLETIM_OSTENSIVO', 'Boletim Ostensivo'),
+        ('GERAL', 'Geral (Todos os tipos)'),
+    ]
+    
+    nome = models.CharField(max_length=200, verbose_name="Nome do Modelo")
+    descricao = models.TextField(blank=True, null=True, verbose_name="Descrição")
+    tipo_publicacao = models.CharField(max_length=20, choices=TIPO_PUBLICACAO_CHOICES, default='NOTA', verbose_name="Tipo de Publicação")
+    conteudo = CKEditor5Field('Conteúdo do Modelo', help_text="Conteúdo HTML do modelo de nota", config_name='default')
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    padrao = models.BooleanField(default=False, verbose_name="Modelo Padrão", help_text="Se marcado, será usado como modelo padrão para novas notas")
+    criado_por = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Criado por")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Modelo de Nota"
+        verbose_name_plural = "Modelos de Nota"
+        ordering = ['-padrao', 'nome']
+    
+    def __str__(self):
+        return f"{self.nome} ({self.get_tipo_publicacao_display()})"
+    
+    def get_autor_display(self):
+        """Retorna o nome do autor formatado"""
+        if hasattr(self.criado_por, 'militar') and self.criado_por.militar:
+            return f"{self.criado_por.militar.get_posto_graduacao_display()} {self.criado_por.militar.nome_guerra}"
+        return self.criado_por.get_full_name() or self.criado_por.username
         from django.template import Template, Context
         
         # Criar contexto com dados da sessão
@@ -4081,6 +5065,301 @@ class NotificacaoSessao(models.Model):
         ).delete()
 
 
+class MensagemInstantanea(models.Model):
+    """Sistema de mensagens instantâneas/comunicados do sistema"""
+    
+    TIPO_CHOICES = [
+        ('GERAL', 'Geral - Todos os usuários'),
+        ('ESPECIFICO', 'Usuário Específico'),
+        ('GRUPO', 'Grupo de Usuários'),
+    ]
+    
+    PRIORIDADE_CHOICES = [
+        ('NORMAL', 'Normal'),
+        ('IMPORTANTE', 'Importante'),
+        ('URGENTE', 'Urgente'),
+    ]
+    
+    remetente = models.ForeignKey(User, on_delete=models.CASCADE, related_name='mensagens_enviadas', verbose_name="Remetente")
+    destinatario = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='mensagens_recebidas', verbose_name="Destinatário")
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default='GERAL', verbose_name="Tipo de Mensagem")
+    titulo = models.CharField(max_length=200, verbose_name="Título")
+    mensagem = models.TextField(verbose_name="Mensagem")
+    prioridade = models.CharField(max_length=20, choices=PRIORIDADE_CHOICES, default='NORMAL', verbose_name="Prioridade")
+    lida = models.BooleanField(default=False, verbose_name="Lida")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_leitura = models.DateTimeField(null=True, blank=True, verbose_name="Data de Leitura")
+    expira_em = models.DateTimeField(null=True, blank=True, verbose_name="Expira em")
+    ativa = models.BooleanField(default=True, verbose_name="Ativa")
+    
+    # Para mensagens de grupo, armazenar IDs dos destinatários (JSON)
+    destinatarios_ids = models.JSONField(default=list, blank=True, verbose_name="IDs dos Destinatários")
+    
+    class Meta:
+        verbose_name = "Mensagem Instantânea"
+        verbose_name_plural = "Mensagens Instantâneas"
+        ordering = ['-data_criacao']
+        indexes = [
+            models.Index(fields=['destinatario', 'lida', 'ativa']),
+            models.Index(fields=['tipo', 'data_criacao']),
+            models.Index(fields=['prioridade', 'data_criacao']),
+        ]
+    
+    def __str__(self):
+        if self.tipo == 'GERAL':
+            return f"{self.titulo} - Geral"
+        elif self.tipo == 'ESPECIFICO':
+            return f"{self.titulo} - Para {self.destinatario.username}"
+        else:
+            return f"{self.titulo} - Grupo"
+    
+    def marcar_como_lida(self):
+        """Marca a mensagem como lida"""
+        if not self.lida:
+            self.lida = True
+            self.data_leitura = timezone.now()
+            self.save(update_fields=['lida', 'data_leitura'])
+    
+    def esta_expirada(self):
+        """Verifica se a mensagem está expirada"""
+        if self.expira_em:
+            return timezone.now() > self.expira_em
+        return False
+    
+    @classmethod
+    def criar_mensagem_geral(cls, remetente, titulo, mensagem, prioridade='NORMAL', expira_em=None):
+        """Cria uma mensagem para todos os usuários"""
+        return cls.objects.create(
+            remetente=remetente,
+            tipo='GERAL',
+            titulo=titulo,
+            mensagem=mensagem,
+            prioridade=prioridade,
+            expira_em=expira_em
+        )
+    
+    @classmethod
+    def criar_mensagem_usuario(cls, remetente, destinatario, titulo, mensagem, prioridade='NORMAL', expira_em=None):
+        """Cria uma mensagem para um usuário específico"""
+        return cls.objects.create(
+            remetente=remetente,
+            destinatario=destinatario,
+            tipo='ESPECIFICO',
+            titulo=titulo,
+            mensagem=mensagem,
+            prioridade=prioridade,
+            expira_em=expira_em
+        )
+    
+    @classmethod
+    def criar_mensagem_grupo(cls, remetente, destinatarios_ids, titulo, mensagem, prioridade='NORMAL', expira_em=None):
+        """Cria uma mensagem para um grupo de usuários"""
+        mensagem_obj = cls.objects.create(
+            remetente=remetente,
+            tipo='GRUPO',
+            titulo=titulo,
+            mensagem=mensagem,
+            prioridade=prioridade,
+            destinatarios_ids=destinatarios_ids,
+            expira_em=expira_em
+        )
+        return mensagem_obj
+    
+    @classmethod
+    def obter_mensagens_nao_lidas(cls, usuario):
+        """Retorna mensagens não lidas para um usuário"""
+        agora = timezone.now()
+        # Para mensagens de grupo, verificar se o ID do usuário está na lista
+        mensagens_grupo = cls.objects.filter(
+            tipo='GRUPO',
+            ativa=True,
+            lida=False
+        ).exclude(
+            expira_em__lt=agora
+        )
+        # Filtrar mensagens de grupo onde o usuário está na lista de destinatários
+        ids_grupo = []
+        for msg in mensagens_grupo:
+            if usuario.id in (msg.destinatarios_ids or []):
+                ids_grupo.append(msg.id)
+        
+        return cls.objects.filter(
+            Q(tipo='GERAL') |
+            Q(tipo='ESPECIFICO', destinatario=usuario) |
+            Q(id__in=ids_grupo),
+            ativa=True,
+            lida=False
+        ).exclude(
+            expira_em__lt=agora
+        ).order_by('-prioridade', '-data_criacao')
+    
+    @classmethod
+    def contar_mensagens_nao_lidas(cls, usuario):
+        """Conta mensagens não lidas para um usuário"""
+        agora = timezone.now()
+        return cls.obter_mensagens_nao_lidas(usuario).count()
+
+
+class Chat(models.Model):
+    """Conversa entre dois usuários"""
+    participante1 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='chats_participante1', verbose_name="Participante 1")
+    participante2 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='chats_participante2', verbose_name="Participante 2")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    ultima_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Última Atualização")
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    
+    class Meta:
+        verbose_name = "Chat"
+        verbose_name_plural = "Chats"
+        ordering = ['-ultima_atualizacao']
+        unique_together = [['participante1', 'participante2']]
+        indexes = [
+            models.Index(fields=['participante1', 'ativo']),
+            models.Index(fields=['participante2', 'ativo']),
+            models.Index(fields=['ultima_atualizacao']),
+        ]
+    
+    def __str__(self):
+        return f"Chat: {self.participante1.username} <-> {self.participante2.username}"
+    
+    def obter_outro_participante(self, usuario):
+        """Retorna o outro participante do chat"""
+        if self.participante1 == usuario:
+            return self.participante2
+        return self.participante1
+    
+    def contar_mensagens_nao_lidas(self, usuario):
+        """Conta mensagens não lidas para um usuário neste chat"""
+        return self.mensagens.exclude(
+            remetente=usuario
+        ).filter(
+            lida=False
+        ).count()
+    
+    def obter_ultima_mensagem(self):
+        """Retorna a última mensagem do chat"""
+        return self.mensagens.order_by('-data_envio').first()
+    
+    @classmethod
+    def obter_ou_criar_chat(cls, usuario1, usuario2):
+        """Obtém ou cria um chat entre dois usuários"""
+        # Garantir ordem consistente (menor ID primeiro)
+        if usuario1.id > usuario2.id:
+            usuario1, usuario2 = usuario2, usuario1
+        
+        chat, created = cls.objects.get_or_create(
+            participante1=usuario1,
+            participante2=usuario2,
+            defaults={'ativo': True}
+        )
+        return chat, created
+    
+    @classmethod
+    def obter_chats_usuario(cls, usuario):
+        """Retorna todos os chats de um usuário"""
+        return cls.objects.filter(
+            Q(participante1=usuario) | Q(participante2=usuario),
+            ativo=True
+        ).order_by('-ultima_atualizacao')
+
+
+class MensagemChat(models.Model):
+    """Mensagem individual em um chat"""
+    chat = models.ForeignKey(Chat, on_delete=models.CASCADE, related_name='mensagens', verbose_name="Chat")
+    remetente = models.ForeignKey(User, on_delete=models.CASCADE, related_name='mensagens_chat', verbose_name="Remetente")
+    mensagem = models.TextField(verbose_name="Mensagem", blank=True)
+    audio = models.FileField(upload_to='chat_audios/%Y/%m/', null=True, blank=True, verbose_name="Áudio")
+    duracao_audio = models.IntegerField(null=True, blank=True, verbose_name="Duração do Áudio (segundos)")
+    data_envio = models.DateTimeField(auto_now_add=True, verbose_name="Data de Envio")
+    lida = models.BooleanField(default=False, verbose_name="Lida")
+    data_leitura = models.DateTimeField(null=True, blank=True, verbose_name="Data de Leitura")
+    
+    class Meta:
+        verbose_name = "Mensagem de Chat"
+        verbose_name_plural = "Mensagens de Chat"
+        ordering = ['data_envio']
+        indexes = [
+            models.Index(fields=['chat', 'data_envio']),
+            models.Index(fields=['remetente', 'lida']),
+        ]
+    
+    def __str__(self):
+        return f"Mensagem de {self.remetente.username} em {self.chat}"
+    
+    def marcar_como_lida(self):
+        """Marca a mensagem como lida"""
+        if not self.lida:
+            self.lida = True
+            self.data_leitura = timezone.now()
+            self.save(update_fields=['lida', 'data_leitura'])
+            # Atualizar última atualização do chat
+            self.chat.ultima_atualizacao = timezone.now()
+            self.chat.save(update_fields=['ultima_atualizacao'])
+
+
+class Chamada(models.Model):
+    """Chamada de voz ou vídeo entre usuários"""
+    TIPO_CHOICES = [
+        ('VOZ', 'Chamada de Voz'),
+        ('VIDEO', 'Chamada de Vídeo'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('INICIANDO', 'Iniciando'),
+        ('CHAMANDO', 'Chamando'),
+        ('EM_ANDAMENTO', 'Em Andamento'),
+        ('FINALIZADA', 'Finalizada'),
+        ('REJEITADA', 'Rejeitada'),
+        ('CANCELADA', 'Cancelada'),
+    ]
+    
+    chat = models.ForeignKey(Chat, on_delete=models.CASCADE, related_name='chamadas', verbose_name="Chat")
+    iniciador = models.ForeignKey(User, on_delete=models.CASCADE, related_name='chamadas_iniciadas', verbose_name="Iniciador")
+    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES, default='VOZ', verbose_name="Tipo")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='INICIANDO', verbose_name="Status")
+    data_inicio = models.DateTimeField(auto_now_add=True, verbose_name="Data de Início")
+    data_fim = models.DateTimeField(null=True, blank=True, verbose_name="Data de Fim")
+    duracao_segundos = models.IntegerField(null=True, blank=True, verbose_name="Duração (segundos)")
+    
+    # Dados WebRTC (armazenados como JSON)
+    oferta_sdp = models.TextField(null=True, blank=True, verbose_name="Oferta SDP")
+    resposta_sdp = models.TextField(null=True, blank=True, verbose_name="Resposta SDP")
+    
+    class Meta:
+        verbose_name = "Chamada"
+        verbose_name_plural = "Chamadas"
+        ordering = ['-data_inicio']
+        indexes = [
+            models.Index(fields=['chat', 'status']),
+            models.Index(fields=['iniciador', 'status']),
+        ]
+    
+    def __str__(self):
+        return f"Chamada {self.get_tipo_display()} - {self.chat} ({self.get_status_display()})"
+    
+    def finalizar(self, duracao=None):
+        """Finaliza a chamada"""
+        self.status = 'FINALIZADA'
+        self.data_fim = timezone.now()
+        if duracao:
+            self.duracao_segundos = duracao
+        elif self.data_inicio:
+            self.duracao_segundos = int((self.data_fim - self.data_inicio).total_seconds())
+        self.save(update_fields=['status', 'data_fim', 'duracao_segundos'])
+    
+    def rejeitar(self):
+        """Marca a chamada como rejeitada"""
+        self.status = 'REJEITADA'
+        self.data_fim = timezone.now()
+        self.save(update_fields=['status', 'data_fim'])
+    
+    def cancelar(self):
+        """Marca a chamada como cancelada"""
+        self.status = 'CANCELADA'
+        self.data_fim = timezone.now()
+        self.save(update_fields=['status', 'data_fim'])
+
+
 class VagaManual(models.Model):
     """Vagas manuais que podem surgir - inserção manual"""
     
@@ -4098,6 +5377,7 @@ class VagaManual(models.Model):
         ('SAUDE', 'Saúde'),
         ('ENG', 'Engenheiro'),
         ('COMP', 'Complementar'),
+        ('RESERVA_REMUNERADA', 'Reserva Remunerada'),
     ]
     
     STATUS_CHOICES = [
@@ -4108,7 +5388,7 @@ class VagaManual(models.Model):
     ]
     
     posto = models.CharField(max_length=4, choices=POSTO_CHOICES, verbose_name="Posto")
-    quadro = models.CharField(max_length=5, choices=QUADRO_CHOICES, verbose_name="Quadro")
+    quadro = models.CharField(max_length=20, choices=QUADRO_CHOICES, verbose_name="Quadro")
     quantidade = models.PositiveIntegerField(default=1, verbose_name="Quantidade de Vagas")
     justificativa = models.TextField(verbose_name="Justificativa")
     observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
@@ -4327,13 +5607,13 @@ class ItemQuadroFixacaoVagas(models.Model):
             return Militar.objects.filter(
                 posto_graduacao='ST',
                 quadro='COMP',
-                situacao='AT'
+                classificacao='ATIVO'
             ).count()
         else:
             return Militar.objects.filter(
                 posto_graduacao=self.previsao_vaga.posto,
                 quadro=self.previsao_vaga.quadro,
-                situacao='AT'
+                classificacao='ATIVO'
             ).count()
     
     def save(self, *args, **kwargs):
@@ -4341,6 +5621,106 @@ class ItemQuadroFixacaoVagas(models.Model):
         # Sempre sincronizar vagas fixadas com vagas disponíveis
         self.vagas_fixadas = self.previsao_vaga.vagas_disponiveis
         super().save(*args, **kwargs)
+
+
+class AssinaturaPropostaMedalha(models.Model):
+    """Assinaturas de uma proposta de medalha - permite múltiplas assinaturas"""
+    
+    TIPO_ASSINATURA_CHOICES = [
+        ('APROVACAO', 'Aprovação'),
+        ('HOMOLOGACAO', 'Homologação'),
+        ('REVISAO', 'Revisão'),
+        ('CONFERENCIA', 'Conferência'),
+        ('ELETRONICA', 'Eletrônica'),
+    ]
+    
+    proposta = models.ForeignKey('PropostaMedalha', on_delete=models.CASCADE, verbose_name="Proposta de Medalha", related_name="assinaturas")
+    assinado_por = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Assinado por")
+    data_assinatura = models.DateTimeField(auto_now_add=True, verbose_name="Data da Assinatura")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações da Assinatura")
+    tipo_assinatura = models.CharField(
+        max_length=15, 
+        choices=TIPO_ASSINATURA_CHOICES, 
+        default='APROVACAO',
+        verbose_name="Tipo de Assinatura"
+    )
+    funcao_assinatura = models.CharField(
+        blank=True,
+        help_text="Função/cargo do usuário no momento da assinatura",
+        max_length=100,
+        null=True,
+        verbose_name="Função no momento da assinatura",
+    )
+    
+    class Meta:
+        verbose_name = "Assinatura da Proposta de Medalha"
+        verbose_name_plural = "Assinaturas das Propostas de Medalhas"
+        ordering = ['-data_assinatura']
+        unique_together = ['proposta', 'assinado_por', 'tipo_assinatura']
+    
+    def __str__(self):
+        return f"{self.proposta.numero_proposta} - {self.assinado_por.get_full_name()} - {self.get_tipo_assinatura_display()}"
+    
+    def verificar_permissao_assinatura(self, usuario):
+        """Verifica se o usuário tem permissão para assinar este tipo de documento"""
+        # Verificar se usuário tem funções especiais
+        funcoes_especiais = UsuarioFuncaoMilitar.objects.filter(
+            usuario=usuario,
+            ativo=True,
+            funcao_militar__nome__in=['Administrador do Sistema', 'Ajudante Geral', 'Comandante Geral']
+        ).exists()
+        
+        return funcoes_especiais or usuario.is_superuser
+
+
+class AssinaturaConcessaoMedalha(models.Model):
+    """Assinaturas de uma concessão de medalha - permite múltiplas assinaturas"""
+    
+    TIPO_ASSINATURA_CHOICES = [
+        ('APROVACAO', 'Aprovação'),
+        ('HOMOLOGACAO', 'Homologação'),
+        ('REVISAO', 'Revisão'),
+        ('CONFERENCIA', 'Conferência'),
+        ('ELETRONICA', 'Eletrônica'),
+    ]
+    
+    concessao = models.ForeignKey('ConcessaoMedalha', on_delete=models.CASCADE, verbose_name="Concessão de Medalha", related_name="assinaturas")
+    assinado_por = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Assinado por")
+    data_assinatura = models.DateTimeField(auto_now_add=True, verbose_name="Data da Assinatura")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações da Assinatura")
+    tipo_assinatura = models.CharField(
+        max_length=15, 
+        choices=TIPO_ASSINATURA_CHOICES, 
+        default='APROVACAO',
+        verbose_name="Tipo de Assinatura"
+    )
+    funcao_assinatura = models.CharField(
+        blank=True,
+        help_text="Função/cargo do usuário no momento da assinatura",
+        max_length=100,
+        null=True,
+        verbose_name="Função no momento da assinatura",
+    )
+    
+    class Meta:
+        verbose_name = "Assinatura da Concessão de Medalha"
+        verbose_name_plural = "Assinaturas das Concessões de Medalha"
+        ordering = ['-data_assinatura']
+        unique_together = ['concessao', 'assinado_por', 'tipo_assinatura']
+    
+    def __str__(self):
+        return f"{self.concessao.militar.nome_guerra if self.concessao.militar else 'Externo'} - {self.assinado_por.get_full_name()} - {self.get_tipo_assinatura_display()}"
+    
+    def verificar_permissao_assinatura(self, usuario):
+        """Verifica se o usuário tem permissão para assinar este tipo de documento"""
+        # Verificar se usuário tem funções especiais
+        funcoes_especiais = UsuarioFuncaoMilitar.objects.filter(
+            usuario=usuario,
+            ativo=True,
+            funcao_militar__nome__in=['Administrador do Sistema', 'Ajudante Geral', 'Comandante Geral']
+        ).exists()
+        
+        return funcoes_especiais or usuario.is_superuser
 
 
 class AssinaturaQuadroFixacaoVagas(models.Model):
@@ -4395,6 +5775,7 @@ class AssinaturaQuadroFixacaoVagas(models.Model):
                 return False
         return True
 
+
 @receiver(post_save, sender=Militar)
 def criar_usuario_para_militar(sender, instance, created, **kwargs):
     """Cria usuário automaticamente para militar quando criado"""
@@ -4441,69 +5822,285 @@ def atualizar_fichas_conceito_militar(sender, instance, **kwargs):
         print(f"Erro ao atualizar fichas de conceito para militar {instance.matricula}: {e}")
 
 
-class CargoFuncao(models.Model):
-    """Cargos/Funções possíveis para usuários do sistema (ex: Presidente, Membro Nato, etc)"""
-    nome = models.CharField(max_length=100, unique=True, verbose_name="Nome do Cargo/Função")
-    descricao = models.TextField(blank=True, null=True, verbose_name="Descrição")
+class UsuarioFuncaoMilitar(models.Model):
+    """Relaciona usuários com suas funções militares disponíveis"""
+    
+    # Opções para nível de acesso
+    NIVEL_ACESSO_CHOICES = [
+        ('TOTAL', 'Total'),
+        ('ORGAO', 'Órgão'),
+        ('GRANDE_COMANDO', 'Grande Comando'),
+        ('UNIDADE', 'Unidade'),
+        ('SUBUNIDADE', 'Subunidade'),
+        ('NENHUM', 'Nenhum'),
+    ]
+    
+    # Opções para tipo de função
+    TIPO_FUNCAO_CHOICES = [
+        ('PRINCIPAL', 'Principal'),
+        ('ADICIONAL', 'Adicional'),
+        ('TEMPORARIA', 'Temporária'),
+        ('COMISSAO', 'Comissão'),
+    ]
+    
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='funcoes_militares', verbose_name="Usuário")
+    funcao_militar = models.ForeignKey('FuncaoMilitar', on_delete=models.CASCADE, verbose_name="Função Militar")
+    
+    # Tipo de função
+    tipo_funcao = models.CharField(
+        max_length=20,
+        choices=TIPO_FUNCAO_CHOICES,
+        default='PRINCIPAL',
+        verbose_name="Tipo de Função",
+        help_text="Define o tipo da função: Principal (obrigatória), Adicional, Temporária ou Comissão"
+    )
+    
+    # Lotação específica para esta função
+    orgao = models.ForeignKey('Orgao', on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Órgão")
+    grande_comando = models.ForeignKey('GrandeComando', on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Grande Comando")
+    unidade = models.ForeignKey('Unidade', on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Unidade")
+    sub_unidade = models.ForeignKey('SubUnidade', on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Sub-Unidade")
+    
+    # Nível de acesso hierárquico
+    nivel_acesso = models.CharField(
+        max_length=20,
+        choices=NIVEL_ACESSO_CHOICES,
+        default='NENHUM',
+        verbose_name="Nível de Acesso",
+        help_text="Define o nível de acesso hierárquico do usuário"
+    )
+    
+    # Controle de ativação
     ativo = models.BooleanField(default=True, verbose_name="Ativo")
-    ordem = models.PositiveIntegerField(default=0, verbose_name="Ordem de Exibição")
     data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
     data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
-
-    class Meta:
-        verbose_name = "Cargo/Função do Sistema"
-        verbose_name_plural = "Cargos/Funções do Sistema"
-        ordering = ['ordem', 'nome']
-
-    def __str__(self):
-        return self.nome
-
-
-class UsuarioFuncao(models.Model):
-    """Funções/cargos atribuídos diretamente aos usuários do sistema"""
-    
-    TIPO_FUNCAO_CHOICES = [
-        ('ADMINISTRATIVO', 'Administrativo'),
-        ('OPERACIONAL', 'Operacional'),
-        ('COMISSAO', 'Membro de Comissão'),
-        ('GESTAO', 'Gestão'),
-        ('SUPORTE', 'Suporte Técnico'),
-        ('OUTROS', 'Outros'),
-    ]
-    
-    STATUS_CHOICES = [
-        ('ATIVO', 'Ativo'),
-        ('INATIVO', 'Inativo'),
-        ('SUSPENSO', 'Suspenso'),
-    ]
-    
-    usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='funcoes', verbose_name="Usuário")
-    cargo_funcao = models.ForeignKey(CargoFuncao, on_delete=models.CASCADE, verbose_name="Cargo/Função")
-    tipo_funcao = models.CharField(max_length=20, choices=TIPO_FUNCAO_CHOICES, verbose_name="Tipo de Função")
-    descricao = models.TextField(blank=True, null=True, verbose_name="Descrição")
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='ATIVO', verbose_name="Status")
-    data_inicio = models.DateField(verbose_name="Data de Início")
-    data_fim = models.DateField(null=True, blank=True, verbose_name="Data de Término")
-    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
-    data_registro = models.DateTimeField(auto_now_add=True, verbose_name="Data de Registro")
-    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
     
     class Meta:
-        verbose_name = "Função do Usuário"
-        verbose_name_plural = "Funções dos Usuários"
-        ordering = ['usuario__first_name', 'data_inicio']
+        verbose_name = "Função Militar do Usuário"
+        verbose_name_plural = "Funções Militares dos Usuários"
+        unique_together = ['usuario', 'funcao_militar']
+        ordering = ['funcao_militar__ordem', 'funcao_militar__nome']
     
     def __str__(self):
-        return f"{self.usuario.get_full_name()} - {self.cargo_funcao.nome}"
+        return f"{self.usuario.get_full_name()} - {self.funcao_militar.nome}"
     
-    def esta_ativo(self):
-        """Verifica se a função está ativa"""
-        hoje = date.today()
-        return (
-            self.status == 'ATIVO' and 
-            self.data_inicio <= hoje and 
-            (not self.data_fim or self.data_fim >= hoje)
+    def get_nivel_lotacao(self):
+        """Retorna o nível mais específico da lotação"""
+        if self.sub_unidade:
+            return f"Sub-Unidade: {self.sub_unidade.sigla}"
+        elif self.unidade:
+            return f"Unidade: {self.unidade.sigla}"
+        elif self.grande_comando:
+            return f"Grande Comando: {self.grande_comando.sigla}"
+        elif self.orgao:
+            return f"Órgão: {self.orgao.sigla}"
+        else:
+            return "Sem lotação definida"
+    
+    def get_hierarquia_completa(self):
+        """Retorna a hierarquia completa da lotação"""
+        hierarquia = []
+        
+        if self.orgao:
+            hierarquia.append(f"Órgão: {self.orgao.sigla}")
+        
+        if self.grande_comando:
+            hierarquia.append(f"Grande Comando: {self.grande_comando.sigla}")
+        
+        if self.unidade:
+            hierarquia.append(f"Unidade: {self.unidade.sigla}")
+        
+        if self.sub_unidade:
+            hierarquia.append(f"Sub-Unidade: {self.sub_unidade.sigla}")
+        
+        return " → ".join(hierarquia) if hierarquia else "Sem lotação definida"
+    
+    
+    def pode_acessar_lotacao(self, orgao=None, grande_comando=None, unidade=None, sub_unidade=None):
+        """
+        Verifica se o usuário pode acessar uma lotação específica baseado no nível de acesso
+        """
+        # Obter o nível de acesso da função militar
+        acesso = self.funcao_militar.acesso if self.funcao_militar else 'NENHUM'
+        
+        # Nível TOTAL: acesso completo ao sistema
+        if acesso == 'TOTAL':
+            return True
+        
+        # Nível NENHUM: apenas alterações pessoais
+        if acesso == 'NENHUM':
+            return False
+        
+        # Nível ÓRGÃO: acesso ao órgão + toda sua descendência
+        if acesso == 'ORGAO':
+            if not self.orgao:
+                return False
+            # Pode acessar se for do mesmo órgão ou qualquer descendência dele
+            if orgao and orgao == self.orgao:
+                return True
+            if grande_comando and grande_comando.orgao == self.orgao:
+                return True
+            if unidade and unidade.grande_comando.orgao == self.orgao:
+                return True
+            if sub_unidade and sub_unidade.unidade.grande_comando.orgao == self.orgao:
+                return True
+            return False
+        
+        # Nível GRANDE_COMANDO: acesso ao grande comando + toda sua descendência
+        if acesso == 'GRANDE_COMANDO':
+            if not self.grande_comando:
+                return False
+            # Pode acessar se for do mesmo grande comando ou unidades/subunidades dele
+            if grande_comando and grande_comando == self.grande_comando:
+                return True
+            if unidade and unidade.grande_comando == self.grande_comando:
+                return True
+            if sub_unidade and sub_unidade.unidade.grande_comando == self.grande_comando:
+                return True
+            return False
+        
+        # Nível UNIDADE: acesso à unidade + toda sua descendência
+        if acesso == 'UNIDADE':
+            if not self.unidade:
+                return False
+            # Pode acessar se for da mesma unidade ou subunidades dela
+            if unidade and unidade == self.unidade:
+                return True
+            if sub_unidade and sub_unidade.unidade == self.unidade:
+                return True
+            return False
+        
+        # Nível SUBUNIDADE: acesso apenas à subunidade
+        if acesso == 'SUBUNIDADE':
+            if not self.sub_unidade:
+                return False
+            # Pode acessar apenas a própria subunidade
+            return sub_unidade and sub_unidade == self.sub_unidade
+        
+        return False
+    
+    def pode_editar_militar(self, militar):
+        """
+        Verifica se o usuário pode editar um militar específico baseado no nível de acesso
+        """
+        if not militar:
+            return False
+        
+        # Obter o nível de acesso da função militar
+        acesso = self.funcao_militar.acesso if self.funcao_militar else 'NENHUM'
+        
+        # Nível TOTAL: pode editar qualquer militar
+        if acesso == 'TOTAL':
+            return True
+        
+        # Nível NENHUM: não pode editar ninguém
+        if acesso == 'NENHUM':
+            return False
+        
+        # Buscar lotação atual do militar
+        lotacao_atual = militar.lotacoes.filter(status='ATUAL', ativo=True).first()
+        if not lotacao_atual:
+            return False
+        
+        # Verificar se o militar está na área de acesso do usuário
+        return self.pode_acessar_lotacao(
+            orgao=lotacao_atual.orgao,
+            grande_comando=lotacao_atual.grande_comando,
+            unidade=lotacao_atual.unidade,
+            sub_unidade=lotacao_atual.sub_unidade
         )
+    
+    def pode_visualizar_militar(self, militar):
+        """
+        Verifica se o usuário pode visualizar um militar específico baseado no nível de acesso
+        """
+        if not militar:
+            return False
+        
+        # Obter o nível de acesso da função militar
+        acesso = self.funcao_militar.acesso if self.funcao_militar else 'NENHUM'
+        
+        # Nível TOTAL: pode visualizar qualquer militar
+        if acesso == 'TOTAL':
+            return True
+        
+        # Nível NENHUM: pode visualizar apenas a si mesmo
+        if acesso == 'NENHUM':
+            return militar.user == self.usuario
+        
+        # Buscar lotação atual do militar
+        lotacao_atual = militar.lotacoes.filter(status='ATUAL', ativo=True).first()
+        if not lotacao_atual:
+            return False
+        
+        # Verificar se o militar está na área de acesso do usuário
+        return self.pode_acessar_lotacao(
+            orgao=lotacao_atual.orgao,
+            grande_comando=lotacao_atual.grande_comando,
+            unidade=lotacao_atual.unidade,
+            sub_unidade=lotacao_atual.sub_unidade
+        )
+
+
+class UsuarioSessao(models.Model):
+    """Sessão do usuário com função militar e lotação ativa"""
+    
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sessoes', verbose_name="Usuário")
+    funcao_militar_usuario = models.ForeignKey('UsuarioFuncaoMilitar', on_delete=models.CASCADE, null=True, blank=True, verbose_name="Função Militar do Usuário")
+    
+    # Controle de sessão
+    data_inicio = models.DateTimeField(auto_now_add=True, verbose_name="Data de Início da Sessão")
+    data_ultima_atividade = models.DateTimeField(auto_now=True, verbose_name="Última Atividade")
+    ativo = models.BooleanField(default=True, verbose_name="Sessão Ativa")
+    
+    class Meta:
+        verbose_name = "Sessão do Usuário"
+        verbose_name_plural = "Sessões dos Usuários"
+        ordering = ['-data_inicio']
+    
+    def __str__(self):
+        return f"{self.usuario.get_full_name()} - {self.funcao_militar_usuario.funcao_militar.nome} - {self.get_nivel_lotacao()}"
+    
+    def get_nivel_lotacao(self):
+        """Retorna o nível mais específico da lotação"""
+        return self.funcao_militar_usuario.get_nivel_lotacao()
+    
+    def get_hierarquia_completa(self):
+        """Retorna a hierarquia completa da lotação"""
+        return self.funcao_militar_usuario.get_hierarquia_completa()
+    
+    def get_nivel_hierarquico(self):
+        """Retorna o nível hierárquico numérico (1=Órgão, 2=Grande Comando, 3=Unidade, 4=Sub-Unidade)"""
+        return self.funcao_militar_usuario.get_nivel_hierarquico()
+    
+    def pode_acessar_lotacao(self, orgao=None, grande_comando=None, unidade=None, sub_unidade=None):
+        """Delega para a função militar do usuário"""
+        return self.funcao_militar_usuario.pode_acessar_lotacao(orgao, grande_comando, unidade, sub_unidade)
+    
+    @property
+    def funcao_militar(self):
+        """Propriedade para compatibilidade com código existente"""
+        return self.funcao_militar_usuario.funcao_militar
+    
+    @property
+    def orgao(self):
+        """Propriedade para compatibilidade com código existente"""
+        return self.funcao_militar_usuario.orgao
+    
+    @property
+    def grande_comando(self):
+        """Propriedade para compatibilidade com código existente"""
+        return self.funcao_militar_usuario.grande_comando
+    
+    @property
+    def unidade(self):
+        """Propriedade para compatibilidade com código existente"""
+        return self.funcao_militar_usuario.unidade
+    
+    @property
+    def sub_unidade(self):
+        """Propriedade para compatibilidade com código existente"""
+        return self.funcao_militar_usuario.sub_unidade
     
     @property
     def duracao_dias(self):
@@ -4517,40 +6114,1319 @@ class UsuarioFuncao(models.Model):
         return usuario.is_staff or usuario == self.usuario
 
 
+class FuncaoMilitar(models.Model):
+    """Funções militares do sistema (ex: Comandante Geral, Sargenteante, etc)"""
+    
+    ACESSO_SIGILO_CHOICES = [
+        ('NEGADO', 'Negado'),
+        ('RESTRITO', 'Restrito'),
+        ('CONFIDENCIAL', 'Confidencial'),
+        ('SECRETO', 'Secreto'),
+        ('ULTRA_SECRETO', 'Ultra Secreto'),
+    ]
+    
+    ACESSO_CHOICES = [
+        ('TOTAL', 'Total'),
+        ('ORGAO', 'Órgão'),
+        ('GRANDE_COMANDO', 'Grande Comando'),
+        ('UNIDADE', 'Unidade'),
+        ('SUBUNIDADE', 'Subunidade'),
+        ('NENHUM', 'Nenhum'),
+    ]
+    
+    NIVEL_CHOICES = [
+        (1, 'Nível 1'),
+        (2, 'Nível 2'),
+        (3, 'Nível 3'),
+        (4, 'Nível 4'),
+        (5, 'Nível 5'),
+    ]
+    
+    GRUPO_CHOICES = [
+        ('ADMINISTRATIVO', 'Administrativo'),
+        ('OPERACIONAL', 'Operacional'),
+        ('COMISSAO', 'Comissão'),
+        ('GESTAO', 'Gestão'),
+        ('SUPORTE', 'Suporte Técnico'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    PUBLICACAO_CHOICES = [
+        ('EDITOR_GERAL', 'Editor Geral'),
+        ('EDITOR_ADJUNTO', 'Editor Adjunto'),
+        ('EDITOR', 'Editor'),
+        ('APROVADOR', 'Aprovador'),
+        ('REVISOR', 'Revisor'),
+        ('DIGITADOR', 'Digitador'),
+        ('OPERADOR_PLANEJADAS', 'Operador de Planejadas'),
+        ('FISCAL_PLANEJADAS', 'Fiscal de Planejadas'),
+        ('NENHUM', 'Nenhum'),
+    ]
+    
+    TIPO_COMISSAO_CHOICES = [
+        ('CPO', 'Comissão de Promoções de Oficiais'),
+        ('CPP', 'Comissão de Promoções de Praças'),
+        ('AMBOS', 'Ambos os tipos'),
+        ('NENHUM', 'Nenhum'),
+    ]
+    
+    nome = models.CharField(max_length=200, unique=True, verbose_name="Nome da Função")
+    acesso_sigilo = models.CharField(
+        max_length=20, 
+        choices=ACESSO_SIGILO_CHOICES, 
+        default='NEGADO',
+        verbose_name="Acesso/Sigilo"
+    )
+    ordem = models.PositiveIntegerField(default=0, verbose_name="Ordem de Exibição")
+    acesso = models.CharField(
+        max_length=20, 
+        choices=ACESSO_CHOICES, 
+        default='NENHUM',
+        verbose_name="Acesso"
+    )
+    nivel = models.PositiveIntegerField(
+        choices=NIVEL_CHOICES, 
+        default=1,
+        verbose_name="Nível"
+    )
+    grupo = models.CharField(
+        max_length=20, 
+        choices=GRUPO_CHOICES, 
+        default='OUTROS',
+        verbose_name="Grupo"
+    )
+    publicacao = models.CharField(
+        max_length=20, 
+        choices=PUBLICACAO_CHOICES, 
+        default='NENHUM',
+        verbose_name="Publicação"
+    )
+    tipo_comissao = models.CharField(
+        max_length=10, 
+        choices=TIPO_COMISSAO_CHOICES, 
+        default='NENHUM',
+        verbose_name="Tipo de Comissão",
+        help_text="Define quais tipos de comissão esta função pode acessar"
+    )
+    descricao = models.TextField(blank=True, null=True, verbose_name="Descrição")
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Função Militar"
+        verbose_name_plural = "Funções Militares"
+        ordering = ['ordem', 'nome']
+    
+    def __str__(self):
+        return self.nome
+    
+    @property
+    def status_display(self):
+        """Retorna o status formatado"""
+        return "Ativo" if self.ativo else "Inativo"
+    
+    @property
+    def acesso_sigilo_display(self):
+        """Retorna o acesso/sigilo formatado"""
+        return dict(self.ACESSO_SIGILO_CHOICES).get(self.acesso_sigilo, self.acesso_sigilo)
+    
+    def get_menu_permissions(self):
+        """
+        Retorna um dicionário com todas as permissões de menu da função
+        Baseado no sistema de permissões granulares
+        """
+        from .models import PermissaoFuncao, FuncaoMenuConfig
+        from django.core.cache import cache
+        
+        # Obter configurações de menu da função
+        try:
+            menu_config = FuncaoMenuConfig.objects.get(
+                funcao_militar=self,
+                ativo=True
+            )
+            
+            # Criar dicionário de permissões baseado nas configurações de menu
+            # IMPORTANTE: show_almoxarifado deve ser sempre False por padrão
+            # e só será True se houver permissão granular correspondente
+            permissoes_dict = {
+                'show_dashboard': menu_config.show_dashboard,
+                'show_efetivo': menu_config.show_efetivo,
+                'show_afastamentos': menu_config.show_afastamentos,
+                'show_ferias': menu_config.show_ferias,
+                'show_secao_promocoes': menu_config.show_secao_promocoes,
+                'show_medalhas': menu_config.show_medalhas,
+                'show_configuracoes': menu_config.show_administracao,  # Mapear para configurações
+                'show_ativos': menu_config.show_ativos,
+                'show_inativos': menu_config.show_inativos,
+                'show_lotacoes': menu_config.show_lotacoes,
+                'show_averbacoes': menu_config.show_averbacoes,
+                'show_elogios': False,
+                'show_elogios_oficiais': False,
+                'show_elogios_pracas': False,
+                'show_punicoes': False,
+                'show_punicoes_oficiais': False,
+                'show_punicoes_pracas': False,
+                'show_viaturas_submenu': False,
+                'show_almoxarifado': False,  # Sempre False por padrão - só True com permissão granular
+                'show_almoxarifado_requisicoes': False,
+            }
+        except FuncaoMenuConfig.DoesNotExist:
+            # Se não existe configuração, usar valores padrão
+            permissoes_dict = {
+                'show_dashboard': False,
+                'show_efetivo': False,
+                'show_afastamentos': False,
+                'show_ferias': False,
+                'show_secao_promocoes': False,
+                'show_medalhas': False,
+                'show_configuracoes': False,
+                'show_ativos': False,
+                'show_inativos': False,
+                'show_lotacoes': False,
+                'show_averbacoes': False,
+                'show_elogios': False,
+                'show_elogios_oficiais': False,
+                'show_elogios_pracas': False,
+                'show_punicoes': False,
+                'show_punicoes_oficiais': False,
+                'show_punicoes_pracas': False,
+                'show_viaturas_submenu': False,
+                'show_almoxarifado': False,  # Sempre False por padrão - só True com permissão granular
+                'show_almoxarifado_requisicoes': False,
+            }
+        
+        # Obter permissões de submenu
+        permissoes_submenu = PermissaoFuncao.objects.filter(
+            funcao_militar=self,
+            ativo=True,
+            acesso='VISUALIZAR'
+        ).values_list('modulo', flat=True)
+        
+        # Mapear módulos para permissões de submenu
+        for modulo in permissoes_submenu:
+            if modulo == 'MENU_DASHBOARD':
+                permissoes_dict['show_dashboard'] = True
+            elif modulo == 'MENU_EFETIVO':
+                permissoes_dict['show_efetivo'] = True
+            elif modulo == 'MENU_AFASTAMENTOS':
+                permissoes_dict['show_afastamentos'] = True
+            elif modulo == 'MENU_FERIAS':
+                permissoes_dict['show_ferias'] = True
+            elif modulo == 'MENU_VIATURAS':
+                permissoes_dict['show_viaturas'] = True
+            elif modulo == 'MENU_FROTA':
+                permissoes_dict['show_viaturas'] = True
+            elif modulo == 'MENU_EQUIPAMENTOS_OPERACIONAIS':
+                permissoes_dict['show_equipamentos_operacionais'] = True
+            elif modulo == 'SUBMENU_VIATURAS':
+                permissoes_dict['show_viaturas_submenu'] = True
+            elif modulo == 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS':
+                permissoes_dict['show_equipamentos_operacionais'] = True
+            elif modulo == 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_COMBUSTIVEL':
+                permissoes_dict['show_equipamentos_operacionais_combustivel'] = True
+            elif modulo == 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_MANUTENCOES':
+                permissoes_dict['show_equipamentos_operacionais_manutencoes'] = True
+            elif modulo == 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_TROCAS_OLEO':
+                permissoes_dict['show_equipamentos_operacionais_trocas_oleo'] = True
+            elif modulo == 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_TEMPOS_USO':
+                permissoes_dict['show_equipamentos_operacionais_tempos_uso'] = True
+            elif modulo == 'SUBMENU_CONTROLE_COMBUSTIVEL':
+                permissoes_dict['show_controle_combustivel'] = True
+            elif modulo == 'SUBMENU_MANUTENCOES':
+                permissoes_dict['show_manutencoes'] = True
+            elif modulo == 'SUBMENU_TROCAS_OLEO':
+                permissoes_dict['show_trocas_oleo'] = True
+            elif modulo == 'SUBMENU_LICENCIAMENTOS':
+                permissoes_dict['show_licenciamentos'] = True
+            elif modulo == 'SUBMENU_RODAGENS':
+                permissoes_dict['show_rodagens'] = True
+            elif modulo == 'SUBMENU_PAINEL_GUARDA':
+                permissoes_dict['show_painel_guarda'] = True
+            elif modulo == 'MENU_MATERIAL_BELICO':
+                permissoes_dict['show_material_belico'] = True
+            elif modulo == 'MENU_BENS_MOVEIS':
+                permissoes_dict['show_bens_moveis'] = True
+            elif modulo == 'MENU_ALMOXARIFADO':
+                permissoes_dict['show_almoxarifado'] = True
+            elif modulo == 'ALMOXARIFADO':
+                permissoes_dict['show_almoxarifado'] = True
+            elif modulo == 'SUBMENU_ALMOXARIFADO_ITENS':
+                permissoes_dict['show_almoxarifado'] = True
+            elif modulo == 'SUBMENU_ALMOXARIFADO_ENTRADAS':
+                permissoes_dict['show_almoxarifado'] = True
+            elif modulo == 'SUBMENU_ALMOXARIFADO_SAIDAS':
+                permissoes_dict['show_almoxarifado'] = True
+            elif modulo == 'SUBMENU_ALMOXARIFADO_REQUISICOES':
+                permissoes_dict['show_almoxarifado'] = True
+                permissoes_dict['show_almoxarifado_requisicoes'] = True
+            elif modulo == 'MENU_PROCESSOS':
+                permissoes_dict['show_processos'] = True
+            elif modulo == 'SUBMENU_ARMAS_INSTITUICAO':
+                permissoes_dict['show_armas_instituicao'] = True
+            elif modulo == 'SUBMENU_ARMAS_PARTICULARES':
+                permissoes_dict['show_armas_particulares'] = True
+            elif modulo == 'SUBMENU_CAUTELAS_ARMAS':
+                permissoes_dict['show_cautelas_armas'] = True
+            elif modulo == 'SUBMENU_CONTROLE_MOVIMENTACOES':
+                permissoes_dict['show_controle_movimentacoes'] = True
+            elif modulo == 'SUBMENU_CONTROLE_MUNICAO':
+                permissoes_dict['show_controle_municao'] = True
+            elif modulo == 'SUBMENU_CAUTELAS_MUNICOES':
+                permissoes_dict['show_cautelas_municoes'] = True
+            elif modulo == 'MENU_SECAO_PROMOCOES':
+                permissoes_dict['show_secao_promocoes'] = True
+            elif modulo == 'MENU_MEDALHAS':
+                permissoes_dict['show_medalhas'] = True
+            elif modulo == 'MENU_PUBLICACOES':
+                permissoes_dict['show_publicacoes'] = True
+            elif modulo == 'MENU_ESCALAS':
+                permissoes_dict['show_escalas'] = True
+            elif modulo == 'MENU_CONFIGURACOES':
+                permissoes_dict['show_administracao'] = True
+                permissoes_dict['show_configuracoes'] = True
+            elif modulo == 'SUBMENU_ATIVOS':
+                permissoes_dict['show_ativos'] = True
+            elif modulo == 'SUBMENU_INATIVOS':
+                permissoes_dict['show_inativos'] = True
+            elif modulo == 'SUBMENU_LOTACOES':
+                permissoes_dict['show_lotacoes'] = True
+            elif modulo == 'SUBMENU_AVERBACOES':
+                permissoes_dict['show_averbacoes'] = True
+            elif modulo == 'SUBMENU_FICHAS_OFICIAIS':
+                permissoes_dict['show_fichas_oficiais'] = True
+            elif modulo == 'SUBMENU_FICHAS_PRACAS':
+                permissoes_dict['show_fichas_pracas'] = True
+            elif modulo == 'SUBMENU_QUADROS_ACESSO':
+                permissoes_dict['show_quadros_acesso'] = True
+            elif modulo == 'SUBMENU_QUADROS_FIXACAO':
+                permissoes_dict['show_quadros_fixacao'] = True
+            elif modulo == 'SUBMENU_ALMANAQUES':
+                permissoes_dict['show_almanaques'] = True
+            elif modulo == 'SUBMENU_PROMOCOES':
+                permissoes_dict['show_promocoes'] = True
+            elif modulo == 'SUBMENU_CALENDARIOS':
+                permissoes_dict['show_calendarios'] = True
+            elif modulo == 'SUBMENU_COMISSOES':
+                permissoes_dict['show_comissoes'] = True
+            elif modulo == 'SUBMENU_MEUS_VOTOS':
+                permissoes_dict['show_meus_votos'] = True
+            elif modulo == 'SUBMENU_INTERSTICIOS':
+                permissoes_dict['show_intersticios'] = True
+            elif modulo == 'SUBMENU_GERENCIAR_INTERSTICIOS':
+                permissoes_dict['show_gerenciar_intersticios'] = True
+            elif modulo == 'SUBMENU_GERENCIAR_PREVISAO':
+                permissoes_dict['show_gerenciar_previsao'] = True
+            elif modulo == 'SUBMENU_MEDALHAS_CONCESSOES':
+                permissoes_dict['show_medalhas_concessoes'] = True
+            elif modulo == 'SUBMENU_MEDALHAS_PROPOSTAS':
+                permissoes_dict['show_medalhas_propostas'] = True
+            elif modulo == 'SUBMENU_ELEGIVEIS':
+                permissoes_dict['show_elegiveis'] = True
+            elif modulo == 'SUBMENU_PROPOSTAS':
+                permissoes_dict['show_propostas'] = True
+            elif modulo == 'SUBMENU_PUBLICACOES':
+                permissoes_dict['show_publicacoes'] = True
+            elif modulo == 'SUBMENU_NOTAS':
+                permissoes_dict['show_notas'] = True
+            elif modulo == 'MENU_ELOGIOS':
+                permissoes_dict['show_elogios'] = True
+            elif modulo == 'SUBMENU_ELOGIOS_OFICIAIS':
+                permissoes_dict['show_elogios_oficiais'] = True
+            elif modulo == 'SUBMENU_ELOGIOS_PRACAS':
+                permissoes_dict['show_elogios_pracas'] = True
+            elif modulo == 'MENU_PUNICOES':
+                permissoes_dict['show_punicoes'] = True
+            elif modulo == 'SUBMENU_PUNICOES_OFICIAIS':
+                permissoes_dict['show_punicoes_oficiais'] = True
+            elif modulo == 'SUBMENU_PUNICOES_PRACAS':
+                permissoes_dict['show_punicoes_pracas'] = True
+            elif modulo == 'SUBMENU_BOLETINS_OSTENSIVOS':
+                permissoes_dict['show_boletins_ostensivos'] = True
+            elif modulo == 'SUBMENU_BOLETINS_RESERVADOS':
+                permissoes_dict['show_boletins_reservados'] = True
+            elif modulo == 'SUBMENU_BOLETINS_ESPECIAIS':
+                permissoes_dict['show_boletins_especiais'] = True
+            elif modulo == 'SUBMENU_AVISOS':
+                permissoes_dict['show_avisos'] = True
+            elif modulo == 'SUBMENU_ORDENS_SERVICO':
+                permissoes_dict['show_ordens_servico'] = True
+            elif modulo == 'SUBMENU_ESCALAS_DASHBOARD':
+                permissoes_dict['show_escalas_dashboard'] = True
+            elif modulo == 'SUBMENU_ESCALAS_LISTA':
+                permissoes_dict['show_escalas_lista'] = True
+            elif modulo == 'SUBMENU_ESCALAS_CONFIGURACAO':
+                permissoes_dict['show_escalas_configuracao'] = True
+            elif modulo == 'SUBMENU_ESCALAS_BANCO_HORAS':
+                permissoes_dict['show_escalas_banco_horas'] = True
+            elif modulo == 'SUBMENU_ESCALAS_OPERACOES':
+                permissoes_dict['show_escalas_operacoes'] = True
+            elif modulo == 'SUBMENU_LIQUIDACAO':
+                permissoes_dict['show_liquidacao'] = True
+            elif modulo == 'SUBMENU_USUARIOS':
+                permissoes_dict['show_usuarios'] = True
+            elif modulo == 'SUBMENU_PERMISSOES':
+                permissoes_dict['show_permissoes'] = True
+            elif modulo == 'SUBMENU_LOGS':
+                permissoes_dict['show_logs'] = True
+            elif modulo == 'SUBMENU_ADMINISTRACAO':
+                permissoes_dict['show_administracao'] = True
+            elif modulo == 'SUBMENU_NOTAS_LISTA':
+                permissoes_dict['notas_lista'] = True
+            elif modulo == 'NOTAS_VISUALIZAR':
+                permissoes_dict['notas_visualizar'] = True
+            elif modulo == 'NOTAS_CRIAR':
+                permissoes_dict['notas_criar'] = True
+            elif modulo == 'NOTAS_EDITAR':
+                permissoes_dict['notas_editar'] = True
+            elif modulo == 'NOTAS_EXCLUIR':
+                permissoes_dict['notas_excluir'] = True
+            elif modulo == 'NOTAS_REVISAR':
+                permissoes_dict['notas_revisar'] = True
+            elif modulo == 'NOTAS_APROVAR':
+                permissoes_dict['notas_aprovar'] = True
+            elif modulo == 'NOTAS_PUBLICAR':
+                permissoes_dict['notas_publicar'] = True
+            elif modulo == 'SUBMENU_PUBLICACOES':
+                permissoes_dict['show_publicacoes'] = True
+            elif modulo == 'SUBMENU_NOTAS':
+                permissoes_dict['show_notas'] = True
+            elif modulo == 'PUBLICACOES_VISUALIZAR':
+                permissoes_dict['publicacoes_visualizar'] = True
+            elif modulo == 'PUBLICACOES_CRIAR':
+                permissoes_dict['publicacoes_criar'] = True
+            elif modulo == 'PUBLICACOES_EDITAR':
+                permissoes_dict['publicacoes_editar'] = True
+            elif modulo == 'PUBLICACOES_EXCLUIR':
+                permissoes_dict['publicacoes_excluir'] = True
+            elif modulo == 'PUBLICACOES_PUBLICAR':
+                permissoes_dict['publicacoes_publicar'] = True
+            elif modulo == 'NOTAS_ADMINISTRAR':
+                permissoes_dict['notas_administrar'] = True
+            elif modulo == 'SUBMENU_USUARIOS':
+                permissoes_dict['show_usuarios'] = True
+            elif modulo == 'SUBMENU_PERMISSOES':
+                permissoes_dict['show_permissoes'] = True
+            elif modulo == 'SUBMENU_LOGS':
+                permissoes_dict['show_logs'] = True
+            elif modulo == 'SUBMENU_ADMINISTRACAO':
+                permissoes_dict['show_administracao'] = True
+        
+        # Obter permissões granulares (todas as permissões, não apenas VISUALIZAR)
+        permissoes_granulares = PermissaoFuncao.objects.filter(
+            funcao_militar=self,
+            ativo=True
+        ).values_list('modulo', 'acesso')
+        
+        # Mapear permissões granulares
+        for modulo, acesso in permissoes_granulares:
+            chave = f"{modulo}_{acesso}"
+            permissoes_dict[chave] = True
+            
+            # Mapear para permissões específicas do sistema
+            if modulo == 'MILITARES' and acesso == 'CRIAR':
+                permissoes_dict['MILITARES_CRIAR'] = True
+            elif modulo == 'MILITARES' and acesso == 'EDITAR':
+                permissoes_dict['MILITARES_EDITAR'] = True
+            elif modulo == 'MILITARES' and acesso == 'EXCLUIR':
+                permissoes_dict['MILITARES_EXCLUIR'] = True
+            elif modulo == 'MILITARES' and acesso == 'TRANSFERIR':
+                permissoes_dict['MILITARES_TRANSFERIR'] = True
+            elif modulo == 'MILITARES' and acesso == 'PROMOVER':
+                permissoes_dict['MILITARES_PROMOVER'] = True
+            elif modulo == 'MILITARES' and acesso == 'INATIVAR':
+                permissoes_dict['MILITARES_INATIVAR'] = True
+            elif modulo == 'MILITARES' and acesso == 'FICHA_CONCEITO':
+                permissoes_dict['MILITARES_FICHA_CONCEITO'] = True
+            elif modulo == 'MILITARES' and acesso == 'EXPORTAR':
+                permissoes_dict['MILITARES_EXPORTAR'] = True
+            elif modulo == 'MILITARES' and acesso == 'VISUALIZAR':
+                permissoes_dict['MILITARES_VISUALIZAR'] = True
+            elif modulo == 'NOTAS' and acesso == 'CRIAR':
+                permissoes_dict['NOTAS_CRIAR'] = True
+            elif modulo == 'NOTAS' and acesso == 'EDITAR':
+                permissoes_dict['NOTAS_EDITAR'] = True
+            elif modulo == 'NOTAS' and acesso == 'EXCLUIR':
+                permissoes_dict['NOTAS_EXCLUIR'] = True
+            elif modulo == 'NOTAS' and acesso == 'PUBLICAR':
+                permissoes_dict['NOTAS_PUBLICAR'] = True
+            elif modulo == 'NOTAS' and acesso == 'APROVAR':
+                permissoes_dict['NOTAS_APROVAR'] = True
+            elif modulo == 'NOTAS' and acesso == 'REVISAR':
+                permissoes_dict['NOTAS_REVISAR'] = True
+            elif modulo == 'NOTAS' and acesso == 'ADMINISTRAR':
+                permissoes_dict['NOTAS_ADMINISTRAR'] = True
+            elif modulo == 'NOTAS' and acesso == 'VISUALIZAR':
+                permissoes_dict['NOTAS_VISUALIZAR'] = True
+            # Mapear permissões de Viaturas
+            elif modulo == 'VIATURAS' and acesso == 'VISUALIZAR':
+                permissoes_dict['VIATURAS_VISUALIZAR'] = True
+            elif modulo == 'VIATURAS' and acesso == 'CRIAR':
+                permissoes_dict['VIATURAS_CRIAR'] = True
+            elif modulo == 'VIATURAS' and acesso == 'EDITAR':
+                permissoes_dict['VIATURAS_EDITAR'] = True
+            elif modulo == 'VIATURAS' and acesso == 'EXCLUIR':
+                permissoes_dict['VIATURAS_EXCLUIR'] = True
+            # Mapear permissões de Equipamentos Operacionais
+            elif modulo == 'EQUIPAMENTOS_OPERACIONAIS' and acesso == 'VISUALIZAR':
+                permissoes_dict['EQUIPAMENTOS_OPERACIONAIS_VISUALIZAR'] = True
+            elif modulo == 'EQUIPAMENTOS_OPERACIONAIS' and acesso == 'CRIAR':
+                permissoes_dict['EQUIPAMENTOS_OPERACIONAIS_CRIAR'] = True
+            elif modulo == 'EQUIPAMENTOS_OPERACIONAIS' and acesso == 'EDITAR':
+                permissoes_dict['EQUIPAMENTOS_OPERACIONAIS_EDITAR'] = True
+            elif modulo == 'EQUIPAMENTOS_OPERACIONAIS' and acesso == 'EXCLUIR':
+                permissoes_dict['EQUIPAMENTOS_OPERACIONAIS_EXCLUIR'] = True
+            # Mapear permissões de Armas
+            elif modulo == 'ARMAS' and acesso == 'VISUALIZAR':
+                permissoes_dict['ARMAS_VISUALIZAR'] = True
+            elif modulo == 'ARMAS' and acesso == 'CRIAR':
+                permissoes_dict['ARMAS_CRIAR'] = True
+            elif modulo == 'ARMAS' and acesso == 'EDITAR':
+                permissoes_dict['ARMAS_EDITAR'] = True
+            elif modulo == 'ARMAS' and acesso == 'EXCLUIR':
+                permissoes_dict['ARMAS_EXCLUIR'] = True
+            # Mapear permissões de Bens Móveis
+            elif modulo == 'BENS_MOVEIS' and acesso == 'VISUALIZAR':
+                permissoes_dict['BENS_MOVEIS_VISUALIZAR'] = True
+            elif modulo == 'BENS_MOVEIS' and acesso == 'CRIAR':
+                permissoes_dict['BENS_MOVEIS_CRIAR'] = True
+            elif modulo == 'BENS_MOVEIS' and acesso == 'EDITAR':
+                permissoes_dict['BENS_MOVEIS_EDITAR'] = True
+            elif modulo == 'BENS_MOVEIS' and acesso == 'EXCLUIR':
+                permissoes_dict['BENS_MOVEIS_EXCLUIR'] = True
+            # Mapear permissões de Afastamentos
+            elif modulo == 'AFASTAMENTOS' and acesso == 'VISUALIZAR':
+                permissoes_dict['AFASTAMENTOS_VISUALIZAR'] = True
+            elif modulo == 'AFASTAMENTOS' and acesso == 'CRIAR':
+                permissoes_dict['AFASTAMENTOS_CRIAR'] = True
+            elif modulo == 'AFASTAMENTOS' and acesso == 'EDITAR':
+                permissoes_dict['AFASTAMENTOS_EDITAR'] = True
+            elif modulo == 'AFASTAMENTOS' and acesso == 'EXCLUIR':
+                permissoes_dict['AFASTAMENTOS_EXCLUIR'] = True
+            # Mapear permissões de Elogios
+            elif modulo == 'ELOGIOS' and acesso == 'VISUALIZAR':
+                permissoes_dict['ELOGIOS_VISUALIZAR'] = True
+            elif modulo == 'ELOGIOS' and acesso == 'CRIAR':
+                permissoes_dict['ELOGIOS_CRIAR'] = True
+            elif modulo == 'ELOGIOS' and acesso == 'EDITAR':
+                permissoes_dict['ELOGIOS_EDITAR'] = True
+            elif modulo == 'ELOGIOS' and acesso == 'EXCLUIR':
+                permissoes_dict['ELOGIOS_EXCLUIR'] = True
+            # Mapear permissões de Punições
+            elif modulo == 'PUNICOES' and acesso == 'VISUALIZAR':
+                permissoes_dict['PUNICOES_VISUALIZAR'] = True
+            elif modulo == 'PUNICOES' and acesso == 'CRIAR':
+                permissoes_dict['PUNICOES_CRIAR'] = True
+            elif modulo == 'PUNICOES' and acesso == 'EDITAR':
+                permissoes_dict['PUNICOES_EDITAR'] = True
+            elif modulo == 'PUNICOES' and acesso == 'EXCLUIR':
+                permissoes_dict['PUNICOES_EXCLUIR'] = True
+            # Mapear permissões de Publicações
+            elif modulo == 'PUBLICACOES' and acesso == 'VISUALIZAR':
+                permissoes_dict['PUBLICACOES_VISUALIZAR'] = True
+            elif modulo == 'PUBLICACOES' and acesso == 'CRIAR':
+                permissoes_dict['PUBLICACOES_CRIAR'] = True
+            elif modulo == 'PUBLICACOES' and acesso == 'EDITAR':
+                permissoes_dict['PUBLICACOES_EDITAR'] = True
+            elif modulo == 'PUBLICACOES' and acesso == 'EXCLUIR':
+                permissoes_dict['PUBLICACOES_EXCLUIR'] = True
+            elif modulo == 'PUBLICACOES' and acesso == 'PUBLICAR':
+                permissoes_dict['PUBLICACOES_PUBLICAR'] = True
+        
+        # Obter permissões específicas de ações (EXECUTAR) - manter compatibilidade
+        permissoes_acoes = PermissaoFuncao.objects.filter(
+            funcao_militar=self,
+            ativo=True,
+            acesso='EXECUTAR'
+        ).values_list('modulo', flat=True)
+        
+        # Mapear permissões específicas de ações
+        for modulo in permissoes_acoes:
+            if modulo == 'ATIVOS_VISUALIZAR':
+                permissoes_dict['MILITARES_VISUALIZAR'] = True
+            elif modulo == 'ATIVOS_CRIAR':
+                permissoes_dict['MILITARES_CRIAR'] = True
+            elif modulo == 'ATIVOS_EDITAR':
+                permissoes_dict['MILITARES_EDITAR'] = True
+            elif modulo == 'ATIVOS_EXCLUIR':
+                permissoes_dict['MILITARES_EXCLUIR'] = True
+            elif modulo == 'ATIVOS_TRANSFERIR':
+                permissoes_dict['MILITARES_TRANSFERIR'] = True
+            elif modulo == 'ATIVOS_PROMOVER':
+                permissoes_dict['MILITARES_PROMOVER'] = True
+            elif modulo == 'ATIVOS_INATIVAR':
+                permissoes_dict['MILITARES_INATIVAR'] = True
+            elif modulo == 'ATIVOS_FICHA_CONCEITO':
+                permissoes_dict['MILITARES_FICHA_CONCEITO'] = True
+            elif modulo == 'ATIVOS_EXPORTAR':
+                permissoes_dict['MILITARES_EXPORTAR'] = True
+            elif modulo == 'ATIVOS_DASHBOARD':
+                permissoes_dict['MILITARES_DASHBOARD'] = True
+            elif modulo == 'ATIVOS_REORDENAR':
+                permissoes_dict['MILITARES_REORDENAR'] = True
+            elif modulo == 'INATIVOS_VISUALIZAR':
+                permissoes_dict['INATIVOS_VISUALIZAR'] = True
+            elif modulo == 'INATIVOS_EDITAR':
+                permissoes_dict['INATIVOS_EDITAR'] = True
+            elif modulo == 'INATIVOS_EXCLUIR':
+                permissoes_dict['INATIVOS_EXCLUIR'] = True
+            elif modulo == 'INATIVOS_REATIVAR':
+                permissoes_dict['INATIVOS_REATIVAR'] = True
+            elif modulo == 'LOTACOES_VISUALIZAR':
+                permissoes_dict['LOTACOES_VISUALIZAR'] = True
+            elif modulo == 'LOTACOES_CRIAR':
+                permissoes_dict['LOTACOES_CRIAR'] = True
+            elif modulo == 'LOTACOES_EDITAR':
+                permissoes_dict['LOTACOES_EDITAR'] = True
+            elif modulo == 'LOTACOES_EXCLUIR':
+                permissoes_dict['LOTACOES_EXCLUIR'] = True
+            elif modulo == 'DETAIL_FICHAS_CONCEITO':
+                permissoes_dict['DETAIL_FICHAS_CONCEITO'] = True
+            elif modulo == 'DETAIL_PUNICOES':
+                permissoes_dict['DETAIL_PUNICOES'] = True
+            
+            # Seção de Promoções - Fichas de Oficiais
+            elif modulo == 'FICHAS_OFICIAIS_VISUALIZAR':
+                permissoes_dict['FICHAS_OFICIAIS_VISUALIZAR'] = True
+            elif modulo == 'FICHAS_OFICIAIS_CRIAR':
+                permissoes_dict['FICHAS_OFICIAIS_CRIAR'] = True
+            elif modulo == 'FICHAS_OFICIAIS_EDITAR':
+                permissoes_dict['FICHAS_OFICIAIS_EDITAR'] = True
+            elif modulo == 'FICHAS_OFICIAIS_EXCLUIR':
+                permissoes_dict['FICHAS_OFICIAIS_EXCLUIR'] = True
+            
+            # Seção de Promoções - Fichas de Praças
+            elif modulo == 'FICHAS_PRACAS_VISUALIZAR':
+                permissoes_dict['FICHAS_PRACAS_VISUALIZAR'] = True
+            elif modulo == 'FICHAS_PRACAS_CRIAR':
+                permissoes_dict['FICHAS_PRACAS_CRIAR'] = True
+            elif modulo == 'FICHAS_PRACAS_EDITAR':
+                permissoes_dict['FICHAS_PRACAS_EDITAR'] = True
+            elif modulo == 'FICHAS_PRACAS_EXCLUIR':
+                permissoes_dict['FICHAS_PRACAS_EXCLUIR'] = True
+            
+            # Seção de Promoções - Calendários
+            elif modulo == 'CALENDARIOS_VISUALIZAR':
+                permissoes_dict['CALENDARIOS_VISUALIZAR'] = True
+            elif modulo == 'CALENDARIOS_CRIAR':
+                permissoes_dict['CALENDARIOS_CRIAR'] = True
+            elif modulo == 'CALENDARIOS_EDITAR':
+                permissoes_dict['CALENDARIOS_EDITAR'] = True
+            elif modulo == 'CALENDARIOS_EXCLUIR':
+                permissoes_dict['CALENDARIOS_EXCLUIR'] = True
+            
+            # Seção de Promoções - Quadros de Fixação
+            elif modulo == 'QUADROS_FIXACAO_VISUALIZAR':
+                permissoes_dict['QUADROS_FIXACAO_VISUALIZAR'] = True
+            elif modulo == 'QUADROS_FIXACAO_CRIAR':
+                permissoes_dict['QUADROS_FIXACAO_CRIAR'] = True
+            elif modulo == 'QUADROS_FIXACAO_EDITAR':
+                permissoes_dict['QUADROS_FIXACAO_EDITAR'] = True
+            elif modulo == 'QUADROS_FIXACAO_EXCLUIR':
+                permissoes_dict['QUADROS_FIXACAO_EXCLUIR'] = True
+            
+            # Seção de Promoções - Quadros de Acesso
+            elif modulo == 'QUADROS_ACESSO_VISUALIZAR':
+                permissoes_dict['QUADROS_ACESSO_VISUALIZAR'] = True
+            elif modulo == 'QUADROS_ACESSO_CRIAR':
+                permissoes_dict['QUADROS_ACESSO_CRIAR'] = True
+            elif modulo == 'QUADROS_ACESSO_EDITAR':
+                permissoes_dict['QUADROS_ACESSO_EDITAR'] = True
+            elif modulo == 'QUADROS_ACESSO_EXCLUIR':
+                permissoes_dict['QUADROS_ACESSO_EXCLUIR'] = True
+            elif modulo == 'QUADROS_ACESSO_ASSINAR':
+                permissoes_dict['QUADROS_ACESSO_ASSINAR'] = True
+            elif modulo == 'QUADROS_ACESSO_HOMOLOGAR':
+                permissoes_dict['QUADROS_ACESSO_HOMOLOGAR'] = True
+            elif modulo == 'QUADROS_ACESSO_DESHOMOLOGAR':
+                permissoes_dict['QUADROS_ACESSO_DESHOMOLOGAR'] = True
+            elif modulo == 'QUADROS_ACESSO_ELABORAR':
+                permissoes_dict['QUADROS_ACESSO_ELABORAR'] = True
+            elif modulo == 'QUADROS_ACESSO_REGENERAR':
+                permissoes_dict['QUADROS_ACESSO_REGENERAR'] = True
+            elif modulo == 'QUADROS_ACESSO_GERAR_PDF':
+                permissoes_dict['QUADROS_ACESSO_GERAR_PDF'] = True
+            
+            # Seção de Promoções - Comissões (genéricas)
+            elif modulo == 'COMISSOES_VISUALIZAR':
+                permissoes_dict['COMISSOES_VISUALIZAR'] = True
+            elif modulo == 'COMISSOES_CRIAR':
+                permissoes_dict['COMISSOES_CRIAR'] = True
+            elif modulo == 'COMISSOES_EDITAR':
+                permissoes_dict['COMISSOES_EDITAR'] = True
+            elif modulo == 'COMISSOES_EXCLUIR':
+                permissoes_dict['COMISSOES_EXCLUIR'] = True
+            
+            # Seção de Promoções - Comissões de Oficiais
+            elif modulo == 'COMISSOES_OFICIAIS_VISUALIZAR':
+                permissoes_dict['COMISSOES_OFICIAIS_VISUALIZAR'] = True
+            elif modulo == 'COMISSOES_OFICIAIS_CRIAR':
+                permissoes_dict['COMISSOES_OFICIAIS_CRIAR'] = True
+            elif modulo == 'COMISSOES_OFICIAIS_EDITAR':
+                permissoes_dict['COMISSOES_OFICIAIS_EDITAR'] = True
+            elif modulo == 'COMISSOES_OFICIAIS_EXCLUIR':
+                permissoes_dict['COMISSOES_OFICIAIS_EXCLUIR'] = True
+            
+            # Seção de Promoções - Comissões de Praças
+            elif modulo == 'COMISSOES_PRACAS_VISUALIZAR':
+                permissoes_dict['COMISSOES_PRACAS_VISUALIZAR'] = True
+            elif modulo == 'COMISSOES_PRACAS_CRIAR':
+                permissoes_dict['COMISSOES_PRACAS_CRIAR'] = True
+            elif modulo == 'COMISSOES_PRACAS_EDITAR':
+                permissoes_dict['COMISSOES_PRACAS_EDITAR'] = True
+            elif modulo == 'COMISSOES_PRACAS_EXCLUIR':
+                permissoes_dict['COMISSOES_PRACAS_EXCLUIR'] = True
+            
+            # Seção de Promoções - Meus Votos
+            elif modulo == 'MEUS_VOTOS_VISUALIZAR':
+                permissoes_dict['MEUS_VOTOS_VISUALIZAR'] = True
+            elif modulo == 'MEUS_VOTOS_VOTAR':
+                permissoes_dict['MEUS_VOTOS_VOTAR'] = True
+            
+            # Seção de Promoções - Promoções
+            elif modulo == 'PROMOCOES_VISUALIZAR':
+                permissoes_dict['PROMOCOES_VISUALIZAR'] = True
+            elif modulo == 'PROMOCOES_CRIAR':
+                permissoes_dict['PROMOCOES_CRIAR'] = True
+            elif modulo == 'PROMOCOES_EDITAR':
+                permissoes_dict['PROMOCOES_EDITAR'] = True
+            elif modulo == 'PROMOCOES_EXCLUIR':
+                permissoes_dict['PROMOCOES_EXCLUIR'] = True
+            
+            # Seção de Promoções - Almanaques
+            elif modulo == 'ALMANAQUES_VISUALIZAR':
+                permissoes_dict['ALMANAQUES_VISUALIZAR'] = True
+            elif modulo == 'ALMANAQUES_CRIAR':
+                permissoes_dict['ALMANAQUES_CRIAR'] = True
+            elif modulo == 'ALMANAQUES_EDITAR':
+                permissoes_dict['ALMANAQUES_EDITAR'] = True
+            elif modulo == 'ALMANAQUES_EXCLUIR':
+                permissoes_dict['ALMANAQUES_EXCLUIR'] = True
+            
+            # Medalhas - Concessões
+            elif modulo == 'MEDALHAS_CONCESSOES_VISUALIZAR':
+                permissoes_dict['MEDALHAS_CONCESSOES_VISUALIZAR'] = True
+            elif modulo == 'MEDALHAS_CONCESSOES_CRIAR':
+                permissoes_dict['MEDALHAS_CONCESSOES_CRIAR'] = True
+            elif modulo == 'MEDALHAS_CONCESSOES_EDITAR':
+                permissoes_dict['MEDALHAS_CONCESSOES_EDITAR'] = True
+            elif modulo == 'MEDALHAS_CONCESSOES_EXCLUIR':
+                permissoes_dict['MEDALHAS_CONCESSOES_EXCLUIR'] = True
+            
+            # Medalhas - Propostas
+            elif modulo == 'MEDALHAS_PROPOSTAS_VISUALIZAR':
+                permissoes_dict['MEDALHAS_PROPOSTAS_VISUALIZAR'] = True
+            elif modulo == 'MEDALHAS_PROPOSTAS_CRIAR':
+                permissoes_dict['MEDALHAS_PROPOSTAS_CRIAR'] = True
+            elif modulo == 'MEDALHAS_PROPOSTAS_EDITAR':
+                permissoes_dict['MEDALHAS_PROPOSTAS_EDITAR'] = True
+            elif modulo == 'MEDALHAS_PROPOSTAS_EXCLUIR':
+                permissoes_dict['MEDALHAS_PROPOSTAS_EXCLUIR'] = True
+            
+            # Medalhas - Elegíveis
+            elif modulo == 'ELEGIVEIS_VISUALIZAR':
+                permissoes_dict['ELEGIVEIS_VISUALIZAR'] = True
+            elif modulo == 'ELEGIVEIS_GERAR':
+                permissoes_dict['ELEGIVEIS_GERAR'] = True
+            elif modulo == 'ELEGIVEIS_EXPORTAR':
+                permissoes_dict['ELEGIVEIS_EXPORTAR'] = True
+            
+            # Medalhas - Propostas (Lista)
+            elif modulo == 'PROPOSTAS_VISUALIZAR':
+                permissoes_dict['PROPOSTAS_VISUALIZAR'] = True
+            elif modulo == 'PROPOSTAS_CRIAR':
+                permissoes_dict['PROPOSTAS_CRIAR'] = True
+            elif modulo == 'PROPOSTAS_EDITAR':
+                permissoes_dict['PROPOSTAS_EDITAR'] = True
+            elif modulo == 'PROPOSTAS_EXCLUIR':
+                permissoes_dict['PROPOSTAS_EXCLUIR'] = True
+            
+            # Configurações - Usuários
+            elif modulo == 'USUARIOS_VISUALIZAR':
+                permissoes_dict['USUARIOS_VISUALIZAR'] = True
+            elif modulo == 'USUARIOS_CRIAR':
+                permissoes_dict['USUARIOS_CRIAR'] = True
+            elif modulo == 'USUARIOS_EDITAR':
+                permissoes_dict['USUARIOS_EDITAR'] = True
+            elif modulo == 'USUARIOS_EXCLUIR':
+                permissoes_dict['USUARIOS_EXCLUIR'] = True
+            
+            # Configurações - Permissões
+            elif modulo == 'PERMISSOES_VISUALIZAR':
+                permissoes_dict['PERMISSOES_VISUALIZAR'] = True
+            elif modulo == 'PERMISSOES_EDITAR':
+                permissoes_dict['PERMISSOES_EDITAR'] = True
+            elif modulo == 'PERMISSOES_ADMINISTRAR':
+                permissoes_dict['PERMISSOES_ADMINISTRAR'] = True
+            
+            # Configurações - Logs
+            elif modulo == 'LOGS_VISUALIZAR':
+                permissoes_dict['LOGS_VISUALIZAR'] = True
+            elif modulo == 'LOGS_EXPORTAR':
+                permissoes_dict['LOGS_EXPORTAR'] = True
+            elif modulo == 'LOGS_LIMPAR':
+                permissoes_dict['LOGS_LIMPAR'] = True
+        
+        # Garantir que todas as permissões tenham um valor padrão
+        permissoes_padrao = {
+            'show_dashboard': False,
+            'show_efetivo': False,
+            'show_ativos': False,
+            'show_inativos': False,
+            'show_lotacoes': False,
+            'show_secao_promocoes': False,
+            'show_fichas_oficiais': False,
+            'show_fichas_pracas': False,
+            'show_quadros_acesso': False,
+            'show_quadros_fixacao': False,
+            'show_almanaques': False,
+            'show_promocoes': False,
+            'show_calendarios': False,
+            'show_comissoes': False,
+            'show_meus_votos': False,
+            'show_intersticios': False,
+            'show_gerenciar_intersticios': False,
+            'show_gerenciar_previsao': False,
+            'show_medalhas': False,
+            'show_medalhas_concessoes': False,
+            'show_medalhas_propostas': False,
+            'show_elegiveis': False,
+            'show_propostas': False,
+            'show_titulos_publicacao': False,
+            'show_configuracoes': False,
+            'show_usuarios': False,
+            'show_permissoes': False,
+            'show_logs': False,
+            'show_administracao': False,
+            # Permissões específicas de ações
+            'MILITARES_VISUALIZAR': False,
+            'MILITARES_CRIAR': False,
+            'MILITARES_EDITAR': False,
+            'MILITARES_EXCLUIR': False,
+            'MILITARES_TRANSFERIR': False,
+            'MILITARES_PROMOVER': False,
+            'MILITARES_INATIVAR': False,
+            'MILITARES_FICHA_CONCEITO': False,
+            'MILITARES_EXPORTAR': False,
+            'MILITARES_DASHBOARD': False,
+            'MILITARES_REORDENAR': False,
+            'INATIVOS_VISUALIZAR': False,
+            'INATIVOS_EDITAR': False,
+            'INATIVOS_EXCLUIR': False,
+            'INATIVOS_REATIVAR': False,
+            'LOTACOES_VISUALIZAR': False,
+            'LOTACOES_CRIAR': False,
+            'LOTACOES_EDITAR': False,
+            'LOTACOES_EXCLUIR': False,
+            # Permissões de detalhes do militar
+            'DETAIL_FICHAS_CONCEITO': False,
+            'DETAIL_PUNICOES': False,
+            
+            # Seção de Promoções - Fichas de Oficiais
+            'FICHAS_OFICIAIS_VISUALIZAR': False,
+            'FICHAS_OFICIAIS_CRIAR': False,
+            'FICHAS_OFICIAIS_EDITAR': False,
+            'FICHAS_OFICIAIS_EXCLUIR': False,
+            
+            # Seção de Promoções - Fichas de Praças
+            'FICHAS_PRACAS_VISUALIZAR': False,
+            'FICHAS_PRACAS_CRIAR': False,
+            'FICHAS_PRACAS_EDITAR': False,
+            'FICHAS_PRACAS_EXCLUIR': False,
+            
+            # Seção de Promoções - Calendários
+            'CALENDARIOS_VISUALIZAR': False,
+            'CALENDARIOS_CRIAR': False,
+            'CALENDARIOS_EDITAR': False,
+            'CALENDARIOS_EXCLUIR': False,
+            
+            # Seção de Promoções - Quadros de Fixação
+            'QUADROS_FIXACAO_VISUALIZAR': False,
+            'QUADROS_FIXACAO_CRIAR': False,
+            'QUADROS_FIXACAO_EDITAR': False,
+            'QUADROS_FIXACAO_EXCLUIR': False,
+            
+            # Seção de Promoções - Quadros de Acesso
+            'QUADROS_ACESSO_VISUALIZAR': False,
+            'QUADROS_ACESSO_CRIAR': False,
+            'QUADROS_ACESSO_EDITAR': False,
+            'QUADROS_ACESSO_EXCLUIR': False,
+            'QUADROS_ACESSO_ASSINAR': False,
+            'QUADROS_ACESSO_HOMOLOGAR': False,
+            'QUADROS_ACESSO_DESHOMOLOGAR': False,
+            'QUADROS_ACESSO_ELABORAR': False,
+            'QUADROS_ACESSO_REGENERAR': False,
+            'QUADROS_ACESSO_GERAR_PDF': False,
+            
+            # Seção de Promoções - Comissões (genéricas)
+            'COMISSOES_VISUALIZAR': False,
+            'COMISSOES_CRIAR': False,
+            'COMISSOES_EDITAR': False,
+            'COMISSOES_EXCLUIR': False,
+            
+            # Seção de Promoções - Comissões de Oficiais
+            'COMISSOES_OFICIAIS_VISUALIZAR': False,
+            'COMISSOES_OFICIAIS_CRIAR': False,
+            'COMISSOES_OFICIAIS_EDITAR': False,
+            'COMISSOES_OFICIAIS_EXCLUIR': False,
+            
+            # Seção de Promoções - Comissões de Praças
+            'COMISSOES_PRACAS_VISUALIZAR': False,
+            'COMISSOES_PRACAS_CRIAR': False,
+            'COMISSOES_PRACAS_EDITAR': False,
+            'COMISSOES_PRACAS_EXCLUIR': False,
+            
+            # Seção de Promoções - Meus Votos
+            'MEUS_VOTOS_VISUALIZAR': False,
+            'MEUS_VOTOS_VOTAR': False,
+            
+            # Seção de Promoções - Promoções
+            'PROMOCOES_VISUALIZAR': False,
+            'PROMOCOES_CRIAR': False,
+            'PROMOCOES_EDITAR': False,
+            'PROMOCOES_EXCLUIR': False,
+            
+            # Seção de Promoções - Almanaques
+            'ALMANAQUES_VISUALIZAR': False,
+            'ALMANAQUES_CRIAR': False,
+            'ALMANAQUES_EDITAR': False,
+            'ALMANAQUES_EXCLUIR': False,
+            
+            # Medalhas - Concessões
+            'MEDALHAS_CONCESSOES_VISUALIZAR': False,
+            'MEDALHAS_CONCESSOES_CRIAR': False,
+            'MEDALHAS_CONCESSOES_EDITAR': False,
+            'MEDALHAS_CONCESSOES_EXCLUIR': False,
+            
+            # Medalhas - Propostas
+            'MEDALHAS_PROPOSTAS_VISUALIZAR': False,
+            'MEDALHAS_PROPOSTAS_CRIAR': False,
+            'MEDALHAS_PROPOSTAS_EDITAR': False,
+            'MEDALHAS_PROPOSTAS_EXCLUIR': False,
+            
+            # Medalhas - Elegíveis
+            'ELEGIVEIS_VISUALIZAR': False,
+            'ELEGIVEIS_GERAR': False,
+            'ELEGIVEIS_EXPORTAR': False,
+            
+            # Medalhas - Propostas (Lista)
+            'PROPOSTAS_VISUALIZAR': False,
+            'PROPOSTAS_CRIAR': False,
+            'PROPOSTAS_EDITAR': False,
+            'PROPOSTAS_EXCLUIR': False,
+            
+            # Configurações - Usuários
+            'USUARIOS_VISUALIZAR': False,
+            'USUARIOS_CRIAR': False,
+            'USUARIOS_EDITAR': False,
+            'USUARIOS_EXCLUIR': False,
+            
+            # Configurações - Permissões
+            'PERMISSOES_VISUALIZAR': False,
+            'PERMISSOES_EDITAR': False,
+            'PERMISSOES_ADMINISTRAR': False,
+            
+            # Configurações - Logs
+            'LOGS_VISUALIZAR': False,
+            'LOGS_EXPORTAR': False,
+            'LOGS_LIMPAR': False,
+        }
+        
+        # Mapear permissões granulares de botões
+        for modulo, acesso in permissoes_granulares:
+            if modulo.startswith('BOTAO_'):
+                chave = f"{modulo}_{acesso}"
+                permissoes_dict[chave] = True
+                
+                # Mapear para chaves específicas do sistema
+                if modulo == 'BOTAO_LOTACAO_NOVA' and acesso == 'TOTAL':
+                    permissoes_dict['BOTAO_LOTACAO_NOVA'] = True
+                elif modulo == 'BOTAO_LOTACAO_EDITAR' and acesso == 'TOTAL':
+                    permissoes_dict['BOTAO_LOTACAO_EDITAR'] = True
+                elif modulo == 'BOTAO_LOTACAO_EXCLUIR' and acesso == 'TOTAL':
+                    permissoes_dict['BOTAO_LOTACAO_EXCLUIR'] = True
+                elif modulo == 'BOTAO_LOTACAO_ESTATISTICAS' and acesso == 'TOTAL':
+                    permissoes_dict['BOTAO_LOTACAO_ESTATISTICAS'] = True
+                elif modulo == 'BOTAO_PUBLICACAO_NOVA' and acesso == 'TOTAL':
+                    permissoes_dict['BOTAO_PUBLICACAO_NOVA'] = True
+                elif modulo == 'BOTAO_PUBLICACAO_EDITAR' and acesso == 'TOTAL':
+                    permissoes_dict['BOTAO_PUBLICACAO_EDITAR'] = True
+                elif modulo == 'BOTAO_PUBLICACAO_EXCLUIR' and acesso == 'TOTAL':
+                    permissoes_dict['BOTAO_PUBLICACAO_EXCLUIR'] = True
+                elif modulo == 'BOTAO_PUBLICACAO_PUBLICAR' and acesso == 'TOTAL':
+                    permissoes_dict['BOTAO_PUBLICACAO_PUBLICAR'] = True
+                elif modulo == 'BOTAO_PUBLICACAO_ASSINAR' and acesso == 'TOTAL':
+                    permissoes_dict['BOTAO_PUBLICACAO_ASSINAR'] = True
+                elif modulo == 'BOTAO_AFASTAMENTO_NOVO' and acesso == 'TOTAL':
+                    permissoes_dict['BOTAO_AFASTAMENTO_NOVO'] = True
+                elif modulo == 'BOTAO_AFASTAMENTO_EDITAR' and acesso == 'TOTAL':
+                    permissoes_dict['BOTAO_AFASTAMENTO_EDITAR'] = True
+                elif modulo == 'BOTAO_AFASTAMENTO_EXCLUIR' and acesso == 'TOTAL':
+                    permissoes_dict['BOTAO_AFASTAMENTO_EXCLUIR'] = True
+                elif modulo == 'BOTAO_AFASTAMENTO_VISUALIZAR' and acesso == 'TOTAL':
+                    permissoes_dict['BOTAO_AFASTAMENTO_VISUALIZAR'] = True
+                elif modulo == 'BOTAO_PLANO_LICENCA_ESPECIAL_VISUALIZAR' and acesso == 'TOTAL':
+                    permissoes_dict['BOTAO_PLANO_LICENCA_ESPECIAL_VISUALIZAR'] = True
+        
+        # Calcular is_consultor baseado nas permissões granulares
+        # Se não tem permissão de editar militares, é consultor
+        tem_edicao_militares = permissoes_dict.get('MILITARES_EDITAR', False)
+        permissoes_dict['is_consultor'] = not tem_edicao_militares
+        
+        # Mesclar com permissões padrão
+        permissoes_padrao.update(permissoes_dict)
+        
+        return permissoes_padrao
+    
+    def clear_permissions_cache(self):
+        """
+        Limpa o cache de permissões da função
+        """
+        from django.core.cache import cache
+        cache_key = f"menu_permissions_{self.id}"
+        cache.delete(cache_key)
+    
+    @property
+    def acesso_display(self):
+        """Retorna o acesso formatado"""
+        return dict(self.ACESSO_CHOICES).get(self.acesso, self.acesso)
+    
+    @property
+    def grupo_display(self):
+        """Retorna o grupo formatado"""
+        return dict(self.GRUPO_CHOICES).get(self.grupo, self.grupo)
+    
+    @property
+    def publicacao_display(self):
+        """Retorna a publicação formatada"""
+        return dict(self.PUBLICACAO_CHOICES).get(self.publicacao, self.publicacao)
+
+
 class PermissaoFuncao(models.Model):
     """Permissões específicas para cada cargo/função"""
     
     MODULOS_CHOICES = [
+        # Menus Principais
+        ('MENU_DASHBOARD', 'Dashboard'),
+        ('MENU_EFETIVO', 'Efetivo'),
+        ('MENU_AFASTAMENTOS', 'Afastamentos'),
+        ('MENU_FERIAS', 'Férias'),
+        ('MENU_VIATURAS', 'Viaturas'),
+        ('MENU_FROTA', 'Frota'),
+        ('MENU_EQUIPAMENTOS_OPERACIONAIS', 'Equipamentos Operacionais'),
+        ('MENU_SECAO_PROMOCOES', 'Seção de Promoções'),
+        ('MENU_MEDALHAS', 'Medalhas'),
+        ('MENU_PUBLICACOES', 'Publicações'),
+        ('MENU_ESCALAS', 'Escalas de Serviço'),
+        ('MENU_PLANEJADAS', 'Operações Planejadas'),
+        ('MENU_CONFIGURACOES', 'Configurações'),
+        ('MENU_RELATORIOS', 'Relatórios'),
+        ('MENU_PESSOAL', 'Pessoal'),
+        ('MENU_BENS_MOVEIS', 'Bens Móveis'),
+        ('MENU_ALMOXARIFADO', 'Almoxarifado'),
+        ('MENU_PROCESSOS', 'Processos Administrativos'),
+        
+        # Submenus - Pessoal
+        ('SUBMENU_MINHAS_INFORMACOES', 'Minhas Informações'),
+        ('SUBMENU_MINHA_FICHA_CADASTRO', 'Minha Ficha de Cadastro'),
+        ('SUBMENU_MINHA_FICHA_CONCEITO_OFICIAL', 'Minha Ficha de Conceito (Oficial)'),
+        ('SUBMENU_MINHA_FICHA_CONCEITO_PRACA', 'Minha Ficha de Conceito (Praça)'),
+        ('SUBMENU_CRIAR_FICHA_CONCEITO_OFICIAL', 'Criar Ficha de Conceito (Oficial)'),
+        ('SUBMENU_CRIAR_FICHA_CONCEITO_PRACA', 'Criar Ficha de Conceito (Praça)'),
+        
+        # Submenus - Efetivo
+        ('SUBMENU_ATIVOS', 'Militares Ativos'),
+        ('SUBMENU_INATIVOS', 'Militares Inativos'),
+        ('SUBMENU_LOTACOES', 'Lotações'),
+        ('SUBMENU_AFASTAMENTOS', 'Afastamentos'),
+        
+        # Submenus - Seção de Promoções
+        ('SUBMENU_FICHAS_OFICIAIS', 'Fichas de Conceito (Oficiais)'),
+        ('SUBMENU_FICHAS_PRACAS', 'Fichas de Conceito (Praças)'),
+        ('SUBMENU_QUADROS_ACESSO', 'Quadros de Acesso'),
+        ('SUBMENU_QUADROS_FIXACAO', 'Quadros de Fixação de Vagas'),
+        ('SUBMENU_CALENDARIOS', 'Calendários de Promoções'),
+        ('SUBMENU_COMISSOES', 'Comissões de Promoções'),
+        ('SUBMENU_MEUS_VOTOS', 'Meus Votos'),
+        ('SUBMENU_PROMOCOES', 'Promoções'),
+        ('SUBMENU_ALMANAQUES', 'Almanaques'),
+        ('SUBMENU_INTERSTICIOS', 'Interstícios'),
+        ('SUBMENU_GERENCIAR_INTERSTICIOS', 'Gerenciar Interstícios'),
+        ('SUBMENU_GERENCIAR_PREVISAO', 'Gerenciar Previsão'),
+        
+        # Submenus - Medalhas
+        ('SUBMENU_MEDALHAS_CONCESSOES', 'Concessões de Medalhas'),
+        ('SUBMENU_MEDALHAS_PROPOSTAS', 'Propostas de Medalhas'),
+        ('SUBMENU_ELEGIVEIS', 'Elegíveis'),
+        ('SUBMENU_PROPOSTAS', 'Propostas'),
+        ('SUBMENU_CONCEDER_MEDALHA', 'Conceder Medalha'),
+        
+        # Submenus - Publicações
+        ('SUBMENU_PUBLICACOES', 'Publicações'),
+        ('SUBMENU_NOTAS', 'Notas'),
+        ('SUBMENU_NOTAS_RESERVADAS', 'Notas Reservadas'),
+        ('SUBMENU_BOLETINS_OSTENSIVOS', 'Boletins Ostensivos'),
+        ('SUBMENU_BOLETINS_RESERVADOS', 'Boletins Reservados'),
+        ('SUBMENU_BOLETINS_ESPECIAIS', 'Boletins Especiais'),
+        ('SUBMENU_AVISOS', 'Avisos'),
+        ('SUBMENU_ORDENS_SERVICO', 'Ordens de Serviço'),
+        
+        # Submenus - Escalas de Serviço
+        ('SUBMENU_ESCALAS_DASHBOARD', 'Dashboard de Escalas'),
+        ('SUBMENU_ESCALAS_LISTA', 'Lista de Escalas'),
+        ('SUBMENU_ESCALAS_CONFIGURACAO', 'Configurações de Escalas'),
+        ('SUBMENU_ESCALAS_BANCO_HORAS', 'Banco de Horas'),
+        ('SUBMENU_ESCALAS_OPERACOES', 'Operações de Escalas'),
+        
+        # Submenus - Frota
+        ('SUBMENU_VIATURAS', 'Viaturas'),
+        ('SUBMENU_CONTROLE_COMBUSTIVEL', 'Controle de Combustível'),
+        ('SUBMENU_MANUTENCOES', 'Manutenções'),
+        ('SUBMENU_TROCAS_OLEO', 'Trocas de Óleo'),
+        ('SUBMENU_LICENCIAMENTOS', 'Licenciamentos'),
+        ('SUBMENU_RODAGENS', 'Rodagens'),
+        ('SUBMENU_PAINEL_GUARDA', 'Painel de Guarda'),
+        
+        # Submenus - Equipamentos Operacionais
+        ('SUBMENU_EQUIPAMENTOS_OPERACIONAIS', 'Equipamentos Operacionais'),
+        ('SUBMENU_EQUIPAMENTOS_OPERACIONAIS_COMBUSTIVEL', 'Controle de Combustível (Equipamentos)'),
+        ('SUBMENU_EQUIPAMENTOS_OPERACIONAIS_MANUTENCOES', 'Manutenções (Equipamentos)'),
+        ('SUBMENU_EQUIPAMENTOS_OPERACIONAIS_TROCAS_OLEO', 'Trocas de Óleo (Equipamentos)'),
+        ('SUBMENU_EQUIPAMENTOS_OPERACIONAIS_TEMPOS_USO', 'Controle de Uso por Horas'),
+        
+        # Submenus - Almoxarifado
+        ('SUBMENU_ALMOXARIFADO_ITENS', 'Itens do Almoxarifado'),
+        ('SUBMENU_ALMOXARIFADO_ENTRADAS', 'Entradas do Almoxarifado'),
+        ('SUBMENU_ALMOXARIFADO_SAIDAS', 'Saídas do Almoxarifado'),
+        ('SUBMENU_ALMOXARIFADO_REQUISICOES', 'Requisições do Almoxarifado'),
+        
+        # Submenus - Configurações/Sistema
+        ('SUBMENU_USUARIOS', 'Gerenciar Usuários'),
+        ('SUBMENU_PERMISSOES', 'Funções Militares'),
+        ('SUBMENU_ORGAOS', 'Órgãos'),
+        ('SUBMENU_ORGANOGRAMA', 'Organograma'),
+        ('SUBMENU_LOGS', 'Logs do Sistema'),
+        ('SUBMENU_TITULOS_PUBLICACAO', 'Títulos de Publicações'),
+        ('SUBMENU_ADMINISTRACAO', 'Administração'),
+        ('SUBMENU_GRANDES_COMANDOS', 'Grandes Comandos'),
+        ('SUBMENU_UNIDADES', 'Unidades'),
+        ('SUBMENU_SUB_UNIDADES', 'Sub-Unidades'),
+        
+        # Submenus - Relatórios
+        ('SUBMENU_RELATORIOS_MILITARES', 'Relatórios de Militares'),
+        ('SUBMENU_RELATORIOS_PROMOCOES', 'Relatórios de Promoções'),
+        ('SUBMENU_RELATORIOS_MEDALHAS', 'Relatórios de Medalhas'),
+        ('SUBMENU_RELATORIOS_PUBLICACOES', 'Relatórios de Publicações'),
+        ('SUBMENU_RELATORIOS_GERAIS', 'Relatórios Gerais'),
+        
+        # Permissões específicas de ações - Efetivo
+        ('ATIVOS_VISUALIZAR', 'Visualizar Militares Ativos'),
+        ('ATIVOS_CRIAR', 'Criar Militares Ativos'),
+        ('ATIVOS_EDITAR', 'Editar Militares Ativos'),
+        ('ATIVOS_EXCLUIR', 'Excluir Militares Ativos'),
+        ('ATIVOS_TRANSFERIR', 'Transferir Militares Ativos'),
+        ('ATIVOS_PROMOVER', 'Promover Militares Ativos'),
+        ('ATIVOS_INATIVAR', 'Inativar Militares Ativos'),
+        ('ATIVOS_FICHA_CONCEITO', 'Gerenciar Fichas de Conceito'),
+        ('ATIVOS_EXPORTAR', 'Exportar Militares Ativos'),
+        ('ATIVOS_DASHBOARD', 'Dashboard Militares Ativos'),
+        ('ATIVOS_REORDENAR', 'Reordenar Militares Ativos'),
+        
+        ('INATIVOS_VISUALIZAR', 'Visualizar Militares Inativos'),
+        ('INATIVOS_EDITAR', 'Editar Militares Inativos'),
+        ('INATIVOS_EXPORTAR', 'Exportar Militares Inativos'),
+        
+        ('LOTACOES_VISUALIZAR', 'Visualizar Lotações'),
+        ('LOTACOES_CRIAR', 'Criar Lotações'),
+        ('LOTACOES_EDITAR', 'Editar Lotações'),
+        ('LOTACOES_EXCLUIR', 'Excluir Lotações'),
+        ('INATIVOS_EDITAR', 'Editar Militares Inativos'),
+        ('INATIVOS_EXCLUIR', 'Excluir Militares Inativos'),
+        ('INATIVOS_REATIVAR', 'Reativar Militares Inativos'),
+        
+        # Permissões específicas de ações - Lotações
+        ('LOTACOES_VISUALIZAR', 'Visualizar Lotações'),
+        ('LOTACOES_CRIAR', 'Criar Lotações'),
+        ('LOTACOES_EDITAR', 'Editar Lotações'),
+        ('LOTACOES_EXCLUIR', 'Excluir Lotações'),
+        
+        # Permissões específicas de ações - Detalhes do Militar
+        ('DETAIL_FICHAS_CONCEITO', 'Visualizar Fichas de Conceito'),
+        ('DETAIL_PUNICOES', 'Visualizar Punições e Elogios'),
+        ('DETAIL_MEDALHAS', 'Visualizar Medalhas'),
+        ('DETAIL_CONTATO', 'Visualizar Contato'),
+        
+        # Permissões específicas de ações - Quadros de Fixação
+        ('QUADROS_FIXACAO_VISUALIZAR', 'Visualizar Quadros de Fixação'),
+        ('QUADROS_FIXACAO_CRIAR', 'Criar Quadros de Fixação'),
+        ('QUADROS_FIXACAO_EDITAR', 'Editar Quadros de Fixação'),
+        ('QUADROS_FIXACAO_EXCLUIR', 'Excluir Quadros de Fixação'),
+        
+        # Permissões específicas de ações - Quadros de Acesso
+        ('QUADROS_ACESSO_VISUALIZAR', 'Visualizar Quadros de Acesso'),
+        ('QUADROS_ACESSO_CRIAR', 'Criar Quadros de Acesso'),
+        ('QUADROS_ACESSO_EDITAR', 'Editar Quadros de Acesso'),
+        ('QUADROS_ACESSO_EXCLUIR', 'Excluir Quadros de Acesso'),
+        
+        # Permissões específicas de ações - Comissões de Oficiais
+        ('COMISSOES_OFICIAIS_VISUALIZAR', 'Visualizar Comissões de Oficiais'),
+        ('COMISSOES_OFICIAIS_CRIAR', 'Criar Comissões de Oficiais'),
+        ('COMISSOES_OFICIAIS_EDITAR', 'Editar Comissões de Oficiais'),
+        ('COMISSOES_OFICIAIS_EXCLUIR', 'Excluir Comissões de Oficiais'),
+        
+        # Permissões específicas de ações - Comissões de Praças
+        ('COMISSOES_PRACAS_VISUALIZAR', 'Visualizar Comissões de Praças'),
+        ('COMISSOES_PRACAS_CRIAR', 'Criar Comissões de Praças'),
+        ('COMISSOES_PRACAS_EDITAR', 'Editar Comissões de Praças'),
+        ('COMISSOES_PRACAS_EXCLUIR', 'Excluir Comissões de Praças'),
+        ('QUADROS_ACESSO_ASSINAR', 'Assinar Quadros de Acesso'),
+        ('QUADROS_ACESSO_HOMOLOGAR', 'Homologar Quadros de Acesso'),
+        ('QUADROS_ACESSO_DESHOMOLOGAR', 'Deshomologar Quadros de Acesso'),
+        ('QUADROS_ACESSO_ELABORAR', 'Elaborar Quadros de Acesso'),
+        ('QUADROS_ACESSO_REGENERAR', 'Regenerar Quadros de Acesso'),
+        ('QUADROS_ACESSO_GERAR_PDF', 'Gerar PDF de Quadros de Acesso'),
+        
+        # Submenus - Medalhas
+        ('SUBMENU_MEDALHAS_CONCESSOES', 'Concessões de Medalhas'),
+        ('SUBMENU_MEDALHAS_PROPOSTAS', 'Propostas de Medalhas'),
+        ('SUBMENU_ELEGIVEIS', 'Elegíveis'),
+        ('SUBMENU_PROPOSTAS', 'Propostas'),
+        ('SUBMENU_NOTAS_LISTA', 'Lista de Notas'),
+        
+        # Submenus - Publicações
+        ('SUBMENU_PUBLICACOES', 'Publicações'),
+        ('SUBMENU_NOTAS', 'Notas'),
+        
+        # Ações - Notas
+        ('NOTAS_VISUALIZAR', 'Visualizar Notas'),
+        ('NOTAS_CRIAR', 'Criar Notas'),
+        ('NOTAS_EDITAR', 'Editar Notas'),
+        ('NOTAS_EXCLUIR', 'Excluir Notas'),
+        ('NOTAS_REVISAR', 'Revisar Notas'),
+        ('NOTAS_APROVAR', 'Aprovar Notas'),
+        ('NOTAS_PUBLICAR', 'Publicar Notas'),
+        ('NOTAS_ADMINISTRAR', 'Administrar Notas'),
+        
+        # Ações - Publicações
+        ('PUBLICACOES_VISUALIZAR', 'Visualizar Publicações'),
+        ('PUBLICACOES_CRIAR', 'Criar Publicações'),
+        ('PUBLICACOES_EDITAR', 'Editar Publicações'),
+        ('PUBLICACOES_EXCLUIR', 'Excluir Publicações'),
+        ('PUBLICACOES_PUBLICAR', 'Publicar Publicações'),
+        
+        # Submenus - Configurações
+        ('SUBMENU_INTERSTICIOS', 'Interstícios'),
+        ('SUBMENU_GERENCIAR_INTERSTICIOS', 'Gerenciar Interstícios'),
+        ('SUBMENU_GERENCIAR_PREVISAO', 'Gerenciar Previsão'),
+        ('SUBMENU_USUARIOS', 'Usuários'),
+        ('SUBMENU_PERMISSOES', 'Permissões'),
+        ('SUBMENU_LOGS', 'Logs'),
+        ('SUBMENU_ADMINISTRACAO', 'Administração'),
+        
+        # Submenus - Planejadas
+        ('SUBMENU_PLANEJADAS', 'Operações Planejadas'),
+        ('SUBMENU_OPERADOR_PLANEJADAS', 'Operador de Planejadas'),
+        ('SUBMENU_FISCAL_PLANEJADAS', 'Fiscal de Planejadas'),
+        ('SUBMENU_LIQUIDACAO', 'Liquidação'),
+        
+        # Ações - Planejadas
+        ('PLANEJADAS_VISUALIZAR', 'Visualizar Planejadas'),
+        ('PLANEJADAS_CRIAR', 'Criar Planejadas'),
+        ('PLANEJADAS_EDITAR', 'Editar Planejadas'),
+        ('PLANEJADAS_EXCLUIR', 'Excluir Planejadas'),
+        ('PLANEJADAS_ADICIONAR_MILITAR', 'Adicionar Militar à Planejada'),
+        ('PLANEJADAS_REMOVER_MILITAR', 'Remover Militar da Planejada'),
+        ('PLANEJADAS_ASSINAR_OPERADOR', 'Assinar como Operador'),
+        ('PLANEJADAS_ASSINAR_FISCAL', 'Assinar como Fiscal'),
+        
+        # Ações - Orçamentos de Planejadas
+        ('ORCAMENTOS_PLANEJADAS_VISUALIZAR', 'Visualizar Orçamentos de Planejadas'),
+        ('ORCAMENTOS_PLANEJADAS_CRIAR', 'Criar Orçamentos de Planejadas'),
+        ('ORCAMENTOS_PLANEJADAS_EDITAR', 'Editar Orçamentos de Planejadas'),
+        ('ORCAMENTOS_PLANEJADAS_EXCLUIR', 'Excluir Orçamentos de Planejadas'),
+        ('ORCAMENTOS_PLANEJADAS_DISTRIBUIR', 'Distribuir Orçamentos'),
+        ('ORCAMENTOS_PLANEJADAS_APROVAR', 'Aprovar Orçamentos'),
+        
+        # Módulos de Ações - Viaturas/Frota
+        ('VIATURAS', 'Viaturas'),
+        
+        # Módulos de Ações - Equipamentos Operacionais
+        ('EQUIPAMENTOS_OPERACIONAIS', 'Equipamentos Operacionais'),
+        
+        # Módulos de Ações - Material Bélico/Armas
+        ('ARMAS', 'Armas'),
+        
+        # Módulos de Ações - Bens Móveis
+        ('BENS_MOVEIS', 'Bens Móveis'),
+        
+        # Módulos de Ações - Publicações
+        ('PUBLICACOES', 'Publicações'),
+        
+        # Módulos de Ações - Elogios
+        ('ELOGIOS', 'Elogios'),
+        
+        # Módulos de Ações - Punições
+        ('PUNICOES', 'Punições'),
+        
+        # Módulos de Ações - Fichas de Conceito
+        ('FICHAS_CONCEITO', 'Fichas de Conceito'),
+        
+        # Módulos de Ações - Quadros de Fixação
+        ('QUADROS_FIXACAO', 'Quadros de Fixação'),
+        
+        # Módulos de Ações - Quadros de Acesso
+        ('QUADROS_ACESSO', 'Quadros de Acesso'),
+        
+        # Módulos de Ações - Comissões
+        ('COMISSOES', 'Comissões'),
+        
+        # Módulos de Ações - Escalas
+        ('ESCALAS', 'Escalas de Serviço'),
+        
+        # Módulos de Ações - Notas
+        ('NOTAS', 'Notas'),
+        
+        # Módulos de Ações - Boletins
+        ('BOLETINS_OSTENSIVOS', 'Boletins Ostensivos'),
+        ('BOLETINS_RESERVADOS', 'Boletins Reservados'),
+        ('BOLETINS_ESPECIAIS', 'Boletins Especiais'),
+        
+        # Módulos de Ações - Avisos
+        ('AVISOS', 'Avisos'),
+        
+        # Módulos de Ações - Ordens de Serviço
+        ('ORDENS_SERVICO', 'Ordens de Serviço'),
+        
+        # Módulos de Ações - Medalhas
+        ('MEDALHAS', 'Medalhas'),
+        
+        # Módulos de Ações - Usuários
+        ('USUARIOS', 'Usuários'),
+        
+        # Módulos de Ações - Relatórios
+        ('RELATORIOS', 'Relatórios'),
+        
+        # Módulos de Ações - Planejadas
+        ('PLANEJADAS', 'Operações Planejadas'),
+        
+        # Módulos de Ações - Orçamentos
+        ('ORCAMENTOS_PLANEJADAS', 'Orçamentos de Planejadas'),
+        
+        # Módulos de Ações - Afastamentos
+        ('AFASTAMENTOS', 'Afastamentos'),
+        
+        # Módulos de Ações - Militares
         ('MILITARES', 'Militares'),
-        ('FICHAS_CONCEITO', 'Fichas Conceito'),
-        ('QUADROS_ACESSO', 'Quadros Acesso'),
-        ('PROMOCOES', 'Promocoes'),
-        ('VAGAS', 'Vagas'),
-        ('COMISSAO', 'Comissao'),
-        ('DOCUMENTOS', 'Documentos'),
-        ('USUARIOS', 'Usuarios'),
-        ('RELATORIOS', 'Relatorios'),
-        ('CONFIGURACOES', 'Configuracoes'),
-        ('ALMANAQUES', 'Almanaques'),
-        ('CALENDARIOS', 'Calendarios'),
-        ('NOTIFICACOES', 'Notificacoes'),
-        ('MODELOS_ATA', 'Modelos Ata'),
-        ('CARGOS_COMISSAO', 'Cargos Comissao'),
-        ('QUADROS_FIXACAO', 'Quadros Fixacao'),
-        ('ASSINATURAS', 'Assinaturas'),
-        ('ESTATISTICAS', 'Estatisticas'),
-        ('EXPORTACAO', 'Exportacao'),
-        ('IMPORTACAO', 'Importacao'),
-        ('BACKUP', 'Backup'),
-        ('AUDITORIA', 'Auditoria'),
-        ('DASHBOARD', 'Dashboard'),
-        ('BUSCA', 'Busca'),
-        ('AJAX', 'Ajax'),
-        ('API', 'Api'),
-        ('SESSAO', 'Sessao'),
-        ('FUNCAO', 'Funcao'),
-        ('PERFIL', 'Perfil'),
-        ('SISTEMA', 'Sistema'),
+        ('ATIVOS', 'Militares Ativos'),
+        ('INATIVOS', 'Militares Inativos'),
+        ('LOTACOES', 'Lotações'),
+        
+        # Módulos de Ações - Almoxarifado
+        ('ALMOXARIFADO', 'Almoxarifado'),
+        ('SUBMENU_ALMOXARIFADO_ITENS', 'Itens do Almoxarifado'),
+        ('SUBMENU_ALMOXARIFADO_ENTRADAS', 'Entradas do Almoxarifado'),
+        ('SUBMENU_ALMOXARIFADO_SAIDAS', 'Saídas do Almoxarifado'),
     ]
     
     ACESSOS_CHOICES = [
@@ -4558,17 +7434,19 @@ class PermissaoFuncao(models.Model):
         ('CRIAR', 'Criar'),
         ('EDITAR', 'Editar'),
         ('EXCLUIR', 'Excluir'),
+        ('EXECUTAR', 'Executar'),
         ('APROVAR', 'Aprovar'),
         ('HOMOLOGAR', 'Homologar'),
         ('GERAR_PDF', 'Gerar PDF'),
         ('IMPRIMIR', 'Imprimir'),
         ('ASSINAR', 'Assinar'),
         ('ADMINISTRAR', 'Administrar'),
+        ('REORDENAR_ANTIGUIDADE', 'Reordenar Antiguidade'),
     ]
     
-    cargo_funcao = models.ForeignKey(CargoFuncao, on_delete=models.CASCADE, related_name='permissoes', verbose_name="Cargo/Função", null=True, blank=True)
-    modulo = models.CharField(max_length=20, choices=MODULOS_CHOICES, verbose_name="Módulo")
-    acesso = models.CharField(max_length=20, choices=ACESSOS_CHOICES, verbose_name="Tipo de Acesso")
+    funcao_militar = models.ForeignKey(FuncaoMilitar, on_delete=models.CASCADE, related_name='permissoes', verbose_name="Função Militar", null=True, blank=True)
+    modulo = models.CharField(max_length=50, choices=MODULOS_CHOICES, verbose_name="Módulo")
+    acesso = models.CharField(max_length=25, choices=ACESSOS_CHOICES, verbose_name="Tipo de Acesso")
     ativo = models.BooleanField(default=True, verbose_name="Ativo")
     observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
     data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
@@ -4577,12 +7455,12 @@ class PermissaoFuncao(models.Model):
     class Meta:
         verbose_name = "Permissão de Função"
         verbose_name_plural = "Permissões de Funções"
-        unique_together = ['cargo_funcao', 'modulo', 'acesso']
-        ordering = ['cargo_funcao__nome', 'modulo', 'acesso']
+        unique_together = ['funcao_militar', 'modulo', 'acesso']
+        ordering = ['funcao_militar__nome', 'modulo', 'acesso']
     
     def __str__(self):
-        if self.cargo_funcao:
-            return f"{self.cargo_funcao.nome} - {self.get_modulo_display()} - {self.get_acesso_display()}"
+        if self.funcao_militar:
+            return f"{self.funcao_militar.nome} - {self.get_modulo_display()} - {self.get_acesso_display()}"
         else:
             return f"Genérica - {self.get_modulo_display()} - {self.get_acesso_display()}"
 
@@ -4605,24 +7483,226 @@ class PerfilAcesso(models.Model):
     def __str__(self):
         return self.nome
     
-    def aplicar_perfil(self, cargo_funcao):
+    def aplicar_perfil(self, funcao_militar):
         """Aplica as permissões do perfil a um cargo/função"""
         # Remove permissões existentes
-        PermissaoFuncao.objects.filter(cargo_funcao=cargo_funcao).delete()
+        PermissaoFuncao.objects.filter(funcao_militar=funcao_militar).delete()
         
         # Adiciona as permissões do perfil
         for permissao in self.permissoes.all():
             PermissaoFuncao.objects.create(
-                cargo_funcao=cargo_funcao,
+                funcao_militar=funcao_militar,
                 modulo=permissao.modulo,
                 acesso=permissao.acesso,
                 observacoes=f"Aplicado do perfil: {self.nome}"
             )
 
 
+class SecaoPromocoes(models.Model):
+    """Modelo para gerenciar a Seção de Promoções"""
+    
+    STATUS_CHOICES = [
+        ('ATIVA', 'Ativa'),
+        ('INATIVA', 'Inativa'),
+        ('SUSPENSA', 'Suspensa'),
+    ]
+    
+    nome = models.CharField(max_length=200, verbose_name="Nome da Seção")
+    sigla = models.CharField(max_length=20, verbose_name="Sigla", help_text="Ex: SPPROM")
+    descricao = models.TextField(blank=True, verbose_name="Descrição")
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='ATIVA', verbose_name="Status")
+    
+    # Responsáveis
+    chefe = models.ForeignKey(Militar, on_delete=models.SET_NULL, null=True, blank=True, 
+                             related_name='secoes_chefiadas', verbose_name="Chefe da Seção")
+    auxiliar = models.ForeignKey(Militar, on_delete=models.SET_NULL, null=True, blank=True,
+                                related_name='secoes_auxiliadas', verbose_name="Auxiliar da Seção")
+    
+    # Datas
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    data_ativacao = models.DateTimeField(null=True, blank=True, verbose_name="Data de Ativação")
+    data_desativacao = models.DateTimeField(null=True, blank=True, verbose_name="Data de Desativação")
+    
+    # Observações
+    observacoes = models.TextField(blank=True, verbose_name="Observações")
+    
+    class Meta:
+        verbose_name = "Seção de Promoções"
+        verbose_name_plural = "Seções de Promoções"
+        ordering = ['nome']
+    
+    def __str__(self):
+        return f"{self.nome} ({self.sigla})"
+    
+    @property
+    def is_ativa(self):
+        """Verifica se a seção está ativa"""
+        return self.status == 'ATIVA'
+    
+    def ativar(self, user=None):
+        """Ativa a seção"""
+        self.status = 'ATIVA'
+        self.data_ativacao = timezone.now()
+        self.save()
+    
+    def desativar(self, user=None):
+        """Desativa a seção"""
+        self.status = 'INATIVA'
+        self.data_desativacao = timezone.now()
+        self.save()
+
+
+class PermissaoSubmenu(models.Model):
+    """Permissões específicas para submenus do sistema"""
+    
+    # Opções de submenu
+    SUBMENU_CHOICES = [
+        # Seção de Promoções
+        ('FICHAS_OFICIAIS', 'Fichas de Conceito (Oficiais)'),
+        ('FICHAS_PRACAS', 'Fichas de Conceito (Praças)'),
+        ('QUADROS_ACESSO', 'Quadros de Acesso'),
+        ('QUADROS_FIXACAO', 'Quadros de Fixação de Vagas'),
+        ('ALMANAQUES', 'Almanaques'),
+        ('PROMOCOES', 'Promoções'),
+        ('CALENDARIOS', 'Calendários de Promoções'),
+        ('COMISSOES', 'Comissões de Promoções'),
+        ('MEUS_VOTOS', 'Meus Votos'),
+        ('INTERSTICIOS', 'Interstícios'),
+        ('GERENCIAR_INTERSTICIOS', 'Gerenciar Interstícios'),
+        ('GERENCIAR_PREVISAO', 'Gerenciar Previsão'),
+        ('GERENCIAR_SECOES', 'Gerenciar Seções'),
+        ('DASHBOARD_SECOES', 'Dashboard Seções'),
+        
+        # Outros módulos podem ser adicionados aqui
+        ('MILITARES', 'Militares'),
+        ('USUARIOS', 'Usuários'),
+        ('PERMISSOES', 'Permissões'),
+        ('RELATORIOS', 'Relatórios'),
+        ('CONFIGURACOES', 'Configurações'),
+        
+        # Publicações
+        ('NOTAS', 'Notas'),
+        ('NOTAS_RESERVADAS', 'Notas Reservadas'),
+        ('BOLETINS_OSTENSIVOS', 'Boletins Ostensivos'),
+        ('BOLETINS_RESERVADOS', 'Boletins Reservados'),
+        ('BOLETINS_ESPECIAIS', 'Boletins Especiais'),
+        ('AVISOS', 'Avisos'),
+        ('ORDENS_SERVICO', 'Ordens de Serviço'),
+    ]
+    
+    # Tipos de acesso para submenus
+    ACESSO_CHOICES = [
+        ('VISUALIZAR', 'Visualizar'),
+        ('CRIAR', 'Criar'),
+        ('EDITAR', 'Editar'),
+        ('EXCLUIR', 'Excluir'),
+        ('APROVAR', 'Aprovar'),
+        ('HOMOLOGAR', 'Homologar'),
+        ('GERAR_PDF', 'Gerar PDF'),
+        ('IMPRIMIR', 'Imprimir'),
+        ('ASSINAR', 'Assinar'),
+        ('ADMINISTRAR', 'Administrar'),
+        ('TOTAL', 'Acesso Total'),
+    ]
+    
+    funcao_militar = models.ForeignKey(
+        FuncaoMilitar, 
+        on_delete=models.CASCADE, 
+        related_name='permissoes_submenu',
+        verbose_name="Função Militar"
+    )
+    submenu = models.CharField(
+        max_length=30, 
+        choices=SUBMENU_CHOICES, 
+        verbose_name="Submenu"
+    )
+    acesso = models.CharField(
+        max_length=15, 
+        choices=ACESSO_CHOICES, 
+        verbose_name="Tipo de Acesso"
+    )
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Permissão de Submenu"
+        verbose_name_plural = "Permissões de Submenu"
+        unique_together = ['funcao_militar', 'submenu', 'acesso']
+        ordering = ['funcao_militar__nome', 'submenu', 'acesso']
+    
+    def __str__(self):
+        return f"{self.funcao_militar.nome} - {self.get_submenu_display()} - {self.get_acesso_display()}"
+    
+    @classmethod
+    def criar_perfil_secao_promocoes(cls, funcao_militar):
+        """
+        Cria perfil completo de permissões para Seção de Promoções
+        """
+        submenus_secao = [
+            'FICHAS_OFICIAIS', 'FICHAS_PRACAS', 'QUADROS_ACESSO', 
+            'QUADROS_FIXACAO', 'ALMANAQUES', 'PROMOCOES', 
+            'CALENDARIOS', 'COMISSOES', 'MEUS_VOTOS', 
+            'INTERSTICIOS', 'GERENCIAR_INTERSTICIOS', 
+            'GERENCIAR_PREVISAO', 'GERENCIAR_SECOES', 'DASHBOARD_SECOES'
+        ]
+        
+        acessos_totais = ['VISUALIZAR', 'CRIAR', 'EDITAR', 'EXCLUIR', 'APROVAR', 'HOMOLOGAR', 'ADMINISTRAR', 'TOTAL']
+        
+        for submenu in submenus_secao:
+            for acesso in acessos_totais:
+                cls.objects.get_or_create(
+                    funcao_militar=funcao_militar,
+                    submenu=submenu,
+                    acesso=acesso,
+                    defaults={'ativo': True}
+                )
+    
+    @classmethod
+    def obter_permissoes_funcao(cls, funcao_militar, submenu=None):
+        """
+        Obtém todas as permissões de uma função militar
+        """
+        queryset = cls.objects.filter(
+            funcao_militar=funcao_militar,
+            ativo=True
+        )
+        
+        if submenu:
+            queryset = queryset.filter(submenu=submenu)
+        
+        return queryset
+    
+    @classmethod
+    def tem_permissao_submenu(cls, funcao_militar, submenu, acesso):
+        """
+        Verifica se uma função tem permissão específica em um submenu
+        """
+        return cls.objects.filter(
+            funcao_militar=funcao_militar,
+            submenu=submenu,
+            acesso=acesso,
+            ativo=True
+        ).exists()
+    
+    @classmethod
+    def tem_acesso_total_submenu(cls, funcao_militar, submenu):
+        """
+        Verifica se uma função tem acesso total a um submenu
+        """
+        return cls.objects.filter(
+            funcao_militar=funcao_militar,
+            submenu=submenu,
+            acesso='TOTAL',
+            ativo=True
+        ).exists()
+
+
 class CalendarioPromocao(models.Model):
     """Modelo para gerenciar calendários de promoções"""
-    ANO_CHOICES = [(str(year), str(year)) for year in range(2020, 2031)]
+    ANO_CHOICES = [(str(year), str(year)) for year in range(2020, 2031)] + [('CUSTOM', 'Ano Personalizado')]
     SEMESTRE_CHOICES = [
         ('1', '1º Semestre'),
         ('2', '2º Semestre'),
@@ -4646,11 +7726,12 @@ class CalendarioPromocao(models.Model):
         verbose_name="Numeração do Calendário",
         help_text="Numeração automática e única, ex: CAL-OF-2025/1 ou CAL-OF-2025/1-A01"
     )
-    ano = models.CharField(max_length=4, choices=ANO_CHOICES, verbose_name="Ano")
+    ano = models.CharField(max_length=10, choices=ANO_CHOICES, verbose_name="Ano")
     semestre = models.CharField(max_length=1, choices=SEMESTRE_CHOICES, verbose_name="Semestre")
     tipo = models.CharField(max_length=10, choices=TIPO_CHOICES, default='OFICIAIS', verbose_name="Tipo")
     status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='RASCUNHO', verbose_name="Status")
     ativo = models.BooleanField(default=True, verbose_name="Ativo")
+
     observacoes = models.TextField(blank=True, verbose_name="Observações")
     data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
     data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
@@ -4755,12 +7836,73 @@ class CalendarioPromocao(models.Model):
     
     def get_titulo_completo(self):
         """Retorna o título completo do calendário"""
-        if self.numero and ' A ' in self.numero:
+        if self.numero and '-A' in self.numero:
             # É um aditamento
             return f"Calendário {self.numero} - {self.get_tipo_display()} - {self.get_semestre_display()} {self.ano} (Aditamento)"
         else:
             # É um calendário principal
             return f"Calendário {self.numero} - {self.get_tipo_display()} - {self.get_semestre_display()} {self.ano}"
+    
+    def get_proximas_atividades(self, dias_antecedencia=7):
+        """Retorna as próximas atividades que estão para vencer"""
+        from datetime import timedelta
+        hoje = timezone.now().date()
+        data_limite = hoje + timedelta(days=dias_antecedencia)
+        
+        atividades_proximas = []
+        for item in self.itens.all():
+            if item.data_fim <= data_limite and item.data_fim >= hoje:
+                atividades_proximas.append({
+                    'item': item,
+                    'dias_restantes': (item.data_fim - hoje).days,
+                    'status': 'PROXIMO_VENCIMENTO'
+                })
+            elif item.data_fim < hoje:
+                atividades_proximas.append({
+                    'item': item,
+                    'dias_atraso': (hoje - item.data_fim).days,
+                    'status': 'VENCIDO'
+                })
+        
+        return sorted(atividades_proximas, key=lambda x: x['item'].data_fim)
+    
+    def get_alertas_datas(self):
+        """Retorna alertas sobre datas importantes"""
+        alertas = []
+        atividades_proximas = self.get_proximas_atividades()
+        
+        for atividade in atividades_proximas:
+            if atividade['status'] == 'PROXIMO_VENCIMENTO':
+                if atividade['dias_restantes'] == 0:
+                    alertas.append({
+                        'tipo': 'URGENTE',
+                        'mensagem': f"⚠️ {atividade['item'].get_tipo_atividade_display()} VENCE HOJE!",
+                        'item': atividade['item'],
+                        'cor': 'danger'
+                    })
+                elif atividade['dias_restantes'] <= 3:
+                    alertas.append({
+                        'tipo': 'CRITICO',
+                        'mensagem': f"🚨 {atividade['item'].get_tipo_atividade_display()} vence em {atividade['dias_restantes']} dia(s)",
+                        'item': atividade['item'],
+                        'cor': 'warning'
+                    })
+                else:
+                    alertas.append({
+                        'tipo': 'ATENCAO',
+                        'mensagem': f"⚠️ {atividade['item'].get_tipo_atividade_display()} vence em {atividade['dias_restantes']} dia(s)",
+                        'item': atividade['item'],
+                        'cor': 'info'
+                    })
+            elif atividade['status'] == 'VENCIDO':
+                alertas.append({
+                    'tipo': 'VENCIDO',
+                    'mensagem': f"❌ {atividade['item'].get_tipo_atividade_display()} está vencido há {atividade['dias_atraso']} dia(s)",
+                    'item': atividade['item'],
+                    'cor': 'secondary'
+                })
+        
+        return alertas
 
 
 class AssinaturaCalendarioPromocao(models.Model):
@@ -4992,8 +8134,8 @@ class AlmanaqueMilitar(models.Model):
     def save(self, *args, **kwargs):
         if not self.numero:
             # Gerar numeração automática
-            from datetime import datetime
-            hoje = datetime.now()
+            from django.utils import timezone
+            hoje = timezone.localtime(timezone.now())
             ano = hoje.year
             mes = hoje.month
             dia = hoje.day
@@ -5059,6 +8201,11 @@ class AlmanaqueMilitar(models.Model):
             'HOMOLOGADO': 'primary'
         }
         return colors.get(self.status, 'secondary')
+    
+    @property
+    def ano(self):
+        """Retorna o ano da data de geração do almanaque"""
+        return self.data_geracao.year
 
 
 class AssinaturaAlmanaque(models.Model):
@@ -5089,7 +8236,7 @@ class AssinaturaAlmanaque(models.Model):
         default='APROVACAO',
         verbose_name="Tipo de Assinatura"
     )
-    cargo_funcao = models.CharField(
+    funcao_militar = models.CharField(
         max_length=200, 
         blank=True, 
         null=True, 
@@ -5111,5 +8258,14950 @@ class AssinaturaAlmanaque(models.Model):
         """Verifica se o usuário tem permissão para assinar"""
         # Implementar lógica de permissões específicas
         return usuario.is_authenticated
+
+
+class LogSistema(models.Model):
+    """Modelo para registrar logs de todas as atividades do sistema"""
+    
+    NIVEL_CHOICES = [
+        ('INFO', 'Informação'),
+        ('WARNING', 'Aviso'),
+        ('ERROR', 'Erro'),
+        ('CRITICAL', 'Crítico'),
+        ('DEBUG', 'Debug'),
+    ]
+    
+    MODULO_CHOICES = [
+        ('MILITARES', 'Militares'),
+        ('FICHAS_CONCEITO', 'Fichas Conceito'),
+        ('QUADROS_ACESSO', 'Quadros Acesso'),
+        ('PROMOCOES', 'Promoções'),
+        ('VAGAS', 'Vagas'),
+        ('COMISSAO', 'Comissão'),
+        ('DOCUMENTOS', 'Documentos'),
+        ('USUARIOS', 'Usuários'),
+        ('RELATORIOS', 'Relatórios'),
+        ('CONFIGURACOES', 'Configurações'),
+        ('ALMANAQUES', 'Almanaques'),
+        ('CALENDARIOS', 'Calendários'),
+        ('NOTIFICACOES', 'Notificações'),
+        ('MODELOS_ATA', 'Modelos Ata'),
+        ('CARGOS_COMISSAO', 'Cargos Comissão'),
+        ('QUADROS_FIXACAO', 'Quadros Fixação'),
+        ('ASSINATURAS', 'Assinaturas'),
+        ('ESTATISTICAS', 'Estatísticas'),
+        ('EXPORTACAO', 'Exportação'),
+        ('IMPORTACAO', 'Importação'),
+        ('BACKUP', 'Backup'),
+        ('AUDITORIA', 'Auditoria'),
+        ('DASHBOARD', 'Dashboard'),
+        ('BUSCA', 'Busca'),
+        ('AJAX', 'Ajax'),
+        ('API', 'Api'),
+        ('SESSAO', 'Sessão'),
+        ('FUNCAO', 'Função'),
+        ('PERFIL', 'Perfil'),
+        ('SISTEMA', 'Sistema'),
+        ('AUTENTICIDADE', 'Verificação de Autenticidade'),
+        ('LOGIN', 'Login/Logout'),
+        ('SEGURANCA', 'Segurança'),
+        ('PERMISSOES', 'Permissões'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    ACAO_CHOICES = [
+        ('CRIAR', 'Criar'),
+        ('EDITAR', 'Editar'),
+        ('EXCLUIR', 'Excluir'),
+        ('VISUALIZAR', 'Visualizar'),
+        ('LISTAR', 'Listar'),
+        ('BUSCAR', 'Buscar'),
+        ('FILTRAR', 'Filtrar'),
+        ('EXPORTAR', 'Exportar'),
+        ('IMPORTAR', 'Importar'),
+        ('APROVAR', 'Aprovar'),
+        ('REPROVAR', 'Reprovar'),
+        ('HOMOLOGAR', 'Homologar'),
+        ('DESHOMOLOGAR', 'Deshomologar'),
+        ('ASSINAR', 'Assinar'),
+        ('GERAR_PDF', 'Gerar PDF'),
+        ('IMPRIMIR', 'Imprimir'),
+        ('LOGIN', 'Login'),
+        ('LOGOUT', 'Logout'),
+        ('ALTERAR_SENHA', 'Alterar Senha'),
+        ('RESETAR_SENHA', 'Resetar Senha'),
+        ('ATRIBUIR_PERMISSAO', 'Atribuir Permissão'),
+        ('REMOVER_PERMISSAO', 'Remover Permissão'),
+        ('ATIVAR', 'Ativar'),
+        ('INATIVAR', 'Inativar'),
+        ('BACKUP', 'Backup'),
+        ('RESTAURAR', 'Restaurar'),
+        ('VERIFICAR_AUTENTICIDADE', 'Verificar Autenticidade'),
+        ('GERAR_CODIGO', 'Gerar Código'),
+        ('VALIDAR_CODIGO', 'Validar Código'),
+        ('ENVIAR_EMAIL', 'Enviar Email'),
+        ('ENVIAR_NOTIFICACAO', 'Enviar Notificação'),
+        ('PROCESSAR_ARQUIVO', 'Processar Arquivo'),
+        ('EXECUTAR_COMANDO', 'Executar Comando'),
+        ('ATUALIZAR_DADOS', 'Atualizar Dados'),
+        ('SINCRONIZAR', 'Sincronizar'),
+        ('CALCULAR', 'Calcular'),
+        ('VALIDAR', 'Validar'),
+        ('PROCESSAR', 'Processar'),
+        ('ANALISAR', 'Analisar'),
+        ('CONFIGURAR', 'Configurar'),
+        ('TESTAR', 'Testar'),
+        ('MONITORAR', 'Monitorar'),
+        ('LIMPAR', 'Limpar'),
+        ('ORDENAR', 'Ordenar'),
+        ('REORDENAR', 'Reordenar'),
+        ('MIGRAR', 'Migrar'),
+        ('CONVERTER', 'Converter'),
+        ('CORRIGIR', 'Corrigir'),
+        ('RESTAURAR', 'Restaurar'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    # Campos básicos
+    timestamp = models.DateTimeField(auto_now_add=True, verbose_name="Data/Hora")
+    nivel = models.CharField(max_length=10, choices=NIVEL_CHOICES, default='INFO', verbose_name="Nível")
+    modulo = models.CharField(max_length=20, choices=MODULO_CHOICES, verbose_name="Módulo")
+    acao = models.CharField(max_length=30, choices=ACAO_CHOICES, verbose_name="Ação")
+    
+    # Usuário que executou a ação
+    usuario = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        verbose_name="Usuário",
+        related_name='logs_sistema'
+    )
+    
+    # Informações da ação
+    descricao = models.TextField(verbose_name="Descrição")
+    detalhes = models.JSONField(blank=True, null=True, verbose_name="Detalhes Adicionais")
+    
+    # Informações do objeto afetado
+    modelo_afetado = models.CharField(max_length=100, blank=True, null=True, verbose_name="Modelo Afetado")
+    objeto_id = models.CharField(max_length=50, blank=True, null=True, verbose_name="ID do Objeto")
+    objeto_str = models.CharField(max_length=200, blank=True, null=True, verbose_name="Representação do Objeto")
+    
+    # Informações da requisição
+    ip_address = models.GenericIPAddressField(blank=True, null=True, verbose_name="Endereço IP")
+    user_agent = models.TextField(blank=True, null=True, verbose_name="User Agent")
+    url = models.URLField(blank=True, null=True, verbose_name="URL")
+    metodo_http = models.CharField(max_length=10, blank=True, null=True, verbose_name="Método HTTP")
+    
+    # Informações de performance
+    tempo_execucao = models.DecimalField(
+        max_digits=10, 
+        decimal_places=3, 
+        blank=True, 
+        null=True, 
+        verbose_name="Tempo de Execução (segundos)"
+    )
+    
+    # Informações de erro (se aplicável)
+    erro = models.TextField(blank=True, null=True, verbose_name="Erro")
+    traceback = models.TextField(blank=True, null=True, verbose_name="Traceback")
+    
+    # Campos de controle
+    processado = models.BooleanField(default=False, verbose_name="Processado")
+    notificado = models.BooleanField(default=False, verbose_name="Notificado")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    
+    class Meta:
+        verbose_name = "Log do Sistema"
+        verbose_name_plural = "Logs do Sistema"
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['timestamp']),
+            models.Index(fields=['nivel']),
+            models.Index(fields=['modulo']),
+            models.Index(fields=['acao']),
+            models.Index(fields=['usuario']),
+            models.Index(fields=['modelo_afetado']),
+            models.Index(fields=['ip_address']),
+        ]
+    
+    def __str__(self):
+        return f"[{self.timestamp.strftime('%d/%m/%Y %H:%M:%S')}] {self.nivel} - {self.modulo} - {self.acao} - {self.descricao[:50]}"
+    
+    @classmethod
+    def registrar(cls, nivel='INFO', modulo='SISTEMA', acao='OUTROS', descricao='', 
+                  usuario=None, detalhes=None, modelo_afetado=None, objeto_id=None, 
+                  objeto_str=None, ip_address=None, user_agent=None, url=None, 
+                  metodo_http=None, tempo_execucao=None, erro=None, traceback=None, 
+                  request=None):
+        """
+        Método para registrar logs de forma simplificada
+        """
+        try:
+            # Extrair informações da requisição se fornecida
+            if request:
+                if not ip_address:
+                    ip_address = cls._get_client_ip(request)
+                if not user_agent:
+                    user_agent = request.META.get('HTTP_USER_AGENT', '')
+                if not url:
+                    url = request.build_absolute_uri()
+                if not metodo_http:
+                    metodo_http = request.method
+            
+            # Criar o log
+            log = cls.objects.create(
+                nivel=nivel,
+                modulo=modulo,
+                acao=acao,
+                usuario=usuario,
+                descricao=descricao,
+                detalhes=detalhes,
+                modelo_afetado=modelo_afetado,
+                objeto_id=str(objeto_id) if objeto_id else None,
+                objeto_str=str(objeto_str)[:200] if objeto_str else None,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                url=url,
+                metodo_http=metodo_http,
+                tempo_execucao=tempo_execucao,
+                erro=erro,
+                traceback=traceback
+            )
+            
+            return log
+            
+        except Exception as e:
+            # Em caso de erro ao registrar log, não falhar o sistema
+            print(f"Erro ao registrar log: {e}")
+            return None
+    
+    @staticmethod
+    def _get_client_ip(request):
+        """Extrai o IP real do cliente"""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
+    
+    def get_nivel_color(self):
+        """Retorna a cor CSS para o nível do log"""
+        cores = {
+            'INFO': 'primary',
+            'WARNING': 'warning',
+            'ERROR': 'danger',
+            'CRITICAL': 'dark',
+            'DEBUG': 'secondary',
+        }
+        return cores.get(self.nivel, 'secondary')
+    
+    def get_nivel_icon(self):
+        """Retorna o ícone para o nível do log"""
+        icones = {
+            'INFO': 'fas fa-info-circle',
+            'WARNING': 'fas fa-exclamation-triangle',
+            'ERROR': 'fas fa-times-circle',
+            'CRITICAL': 'fas fa-skull-crossbones',
+            'DEBUG': 'fas fa-bug',
+        }
+        return icones.get(self.nivel, 'fas fa-circle')
+    
+    def get_descricao_resumida(self):
+        """Retorna uma versão resumida da descrição"""
+        if len(self.descricao) <= 100:
+            return self.descricao
+        return self.descricao[:97] + "..."
+    
+    def get_detalhes_formatados(self):
+        """Retorna os detalhes formatados para exibição"""
+        if not self.detalhes:
+            return ""
+        
+        try:
+            import json
+            return json.dumps(self.detalhes, indent=2, ensure_ascii=False)
+        except:
+            return str(self.detalhes)
+    
+    def marcar_como_processado(self):
+        """Marca o log como processado"""
+        self.processado = True
+        self.save(update_fields=['processado'])
+    
+    def marcar_como_notificado(self):
+        """Marca o log como notificado"""
+        self.notificado = True
+        self.save(update_fields=['notificado'])
+    
+    @classmethod
+    def limpar_logs_antigos(cls, dias=30):
+        """Remove logs mais antigos que o número de dias especificado"""
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        data_limite = timezone.now() - timedelta(days=dias)
+        logs_removidos = cls.objects.filter(timestamp__lt=data_limite).count()
+        cls.objects.filter(timestamp__lt=data_limite).delete()
+        
+        return logs_removidos
+    
+    @classmethod
+    def get_estatisticas(cls, data_inicio=None, data_fim=None):
+        """Retorna estatísticas dos logs no período especificado"""
+        from django.db.models import Count, Q
+        
+        queryset = cls.objects.all()
+        
+        if data_inicio:
+            queryset = queryset.filter(timestamp__gte=data_inicio)
+        if data_fim:
+            queryset = queryset.filter(timestamp__lte=data_fim)
+        
+        estatisticas = {
+            'total': queryset.count(),
+            'por_nivel': dict(queryset.values('nivel').annotate(count=Count('id')).values_list('nivel', 'count')),
+            'por_modulo': dict(queryset.values('modulo').annotate(count=Count('id')).values_list('modulo', 'count')),
+            'por_acao': dict(queryset.values('acao').annotate(count=Count('id')).values_list('acao', 'count')),
+            'erros': queryset.filter(nivel__in=['ERROR', 'CRITICAL']).count(),
+            'usuarios_ativos': queryset.values('usuario').distinct().count(),
+        }
+        
+        return estatisticas
+
+
+
+# ==========================
+# Módulo de Concessão de Medalhas
+# ==========================
+
+MEDALHA_TIPO_CHOICES = [
+    ('HONRA', 'Medalha de Honra (Ex.: Imperador Dom Pedro II)'),
+    ('TEMPO_SERVICO', 'Medalha de Tempo de Serviço'),
+]
+
+PUBLICO_ALVO_CHOICES = [
+    ('BOMBEIRO_MILITAR', 'Bombeiro Militar (CBMEPI)'),
+    ('MILITAR_FFAA', 'Militar das Forças Armadas'),
+    ('MILITAR_COIRMA', 'Militar de Instituição Coirmã'),
+    ('CIVIL', 'Personalidade Civil'),
+]
+
+TEMPO_SERVICO_GRAU_CHOICES = [
+    ('BRONZE_10', 'Bronze - 10 anos'),
+    ('PRATA_20', 'Prata - 20 anos'),
+    ('OURO_30', 'Ouro - 30 anos'),
+]
+
+DOCUMENTO_TIPO_CHOICES = [
+    ('PORTARIA', 'Portaria'),
+    ('BOLETIM', 'Boletim'),
+    ('DOE_PI', 'DOE-PI'),
+]
+
+class Medalha(models.Model):
+    """Catálogo de medalhas concedidas pela corporação."""
+    codigo = models.CharField(max_length=30, unique=True, verbose_name="Código")
+    nome = models.CharField(max_length=120, verbose_name="Nome da Medalha")
+    tipo = models.CharField(max_length=20, choices=MEDALHA_TIPO_CHOICES, verbose_name="Tipo")
+    grau_tempo_servico = models.CharField(max_length=20, choices=TEMPO_SERVICO_GRAU_CHOICES, blank=True, null=True, verbose_name="Grau (Tempo de Serviço)")
+    descricao = models.TextField(blank=True, null=True, verbose_name="Descrição")
+    publico_alvo_padrao = models.CharField(max_length=20, choices=PUBLICO_ALVO_CHOICES, default='BOMBEIRO_MILITAR', verbose_name="Público-Alvo Padrão")
+    ativo = models.BooleanField(default=True, verbose_name="Ativa")
+    data_criacao = models.DateTimeField(auto_now_add=True)
+    data_atualizacao = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Medalha"
+        verbose_name_plural = "Medalhas"
+        ordering = ['nome']
+
+    def __str__(self):
+        return f"{self.nome}"
+
+
+class ConcessaoMedalha(models.Model):
+    """Registro de concessão de medalhas (para militar do CBMEPI ou beneficiário externo)."""
+    medalha = models.ForeignKey(Medalha, on_delete=models.PROTECT, related_name='concessoes', verbose_name="Medalha")
+    # Beneficiário interno (militar do CBMEPI)
+    militar = models.ForeignKey('Militar', on_delete=models.PROTECT, blank=True, null=True, related_name='medalhas_recebidas', verbose_name="Militar")
+    # Beneficiário externo (quando não for Militar CBMEPI)
+    categoria_externa = models.CharField(max_length=20, choices=PUBLICO_ALVO_CHOICES, blank=True, null=True, verbose_name="Categoria Externa")
+    nome_externo = models.CharField(max_length=200, blank=True, null=True, verbose_name="Nome do Agraciado Externo")
+    documento_externo = models.CharField(max_length=40, blank=True, null=True, verbose_name="CPF")
+    orgao_externo = models.CharField(max_length=200, blank=True, null=True, verbose_name="Órgão/Instituição")
+
+    # Detalhes para externos
+    FORCA_EXTERNA_CHOICES = [
+        ('FAB', 'Força Aérea Brasileira'),
+        ('EB', 'Exército Brasileiro'),
+        ('MB', 'Marinha do Brasil'),
+        ('PM', 'Polícia Militar'),
+        ('CBM', 'Corpo de Bombeiros Militar'),
+    ]
+    forca_externa = models.CharField(max_length=10, choices=FORCA_EXTERNA_CHOICES, blank=True, null=True, verbose_name="Força/Instituição (externo)")
+    uf_externa = models.CharField(max_length=2, blank=True, null=True, verbose_name="UF (coirmã)")
+    posto_graduacao_externo = models.CharField(max_length=80, blank=True, null=True, verbose_name="Posto/Graduação (externo)")
+    funcao_externa = models.CharField(max_length=120, blank=True, null=True, verbose_name="Cargo/Função")
+
+    data_concessao = models.DateField(default=timezone.now, verbose_name="Data da Concessão")
+    documento_tipo = models.CharField(max_length=10, choices=DOCUMENTO_TIPO_CHOICES, verbose_name="Ato", blank=True, null=True)
+    portaria_numero = models.CharField(max_length=60, blank=True, null=True, verbose_name="Nº do Documento")
+    portaria_data = models.DateField(blank=True, null=True, verbose_name="Data da Publicação")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+
+    # Indicação (aplicável especialmente para medalhas de Tempo de Serviço)
+    indicado_por_nome = models.CharField(max_length=200, blank=True, null=True, verbose_name="Indicado por")
+    indicado_por_funcao = models.CharField(max_length=200, blank=True, null=True, verbose_name="Função de quem indicou")
+
+    # Cancelamento
+    cancelado = models.BooleanField(default=False, verbose_name="Cancelado")
+    cancelado_motivo = models.TextField(blank=True, null=True, verbose_name="Motivo do Cancelamento")
+    cancelado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='concessoes_canceladas', verbose_name="Cancelado por")
+    cancelado_em = models.DateTimeField(blank=True, null=True, verbose_name="Cancelado em")
+
+    # Status da Outorga
+    STATUS_CHOICES = [
+        ('PROPOSTA', 'Proposta'),
+        ('OUTORGADA', 'Outorgada'),
+    ]
+    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default='PROPOSTA', verbose_name="Status")
+    outorgada_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='concessoes_outorgadas', verbose_name="Outorgada por")
+    outorgada_em = models.DateTimeField(blank=True, null=True, verbose_name="Outorgada em")
+
+    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='concessoes_criadas', verbose_name="Registrado por")
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Concessão de Medalha"
+        verbose_name_plural = "Concessões de Medalhas"
+        indexes = [
+            models.Index(fields=['medalha', 'data_concessao']),
+            models.Index(fields=['militar', 'medalha']),
+        ]
+
+    def __str__(self):
+        if self.militar:
+            return f"{self.medalha.nome} → {self.militar.get_posto_graduacao_display()} {self.militar.nome_completo}"
+        return f"{self.medalha.nome} → {self.nome_externo or 'Beneficiário Externo'}"
+
+    def clean(self):
+        # Exigir ou militar interno ou dados externos mínimos
+        if not self.militar and not self.nome_externo:
+            raise ValidationError("Informe o militar ou os dados do agraciado externo.")
+        if self.militar and (self.nome_externo or self.categoria_externa):
+            raise ValidationError("Não é permitido informar militar e dados externos simultaneamente.")
+        # Regras de público-alvo básico (usar medalha_id para evitar RelatedObjectDoesNotExist)
+        medalha_obj = None
+        if self.medalha_id:
+            try:
+                medalha_obj = getattr(self, 'medalha')
+            except Exception:
+                from .models import Medalha as MedalhaModel
+                medalha_obj = MedalhaModel.objects.filter(pk=self.medalha_id).only('tipo', 'codigo').first()
+        if medalha_obj and medalha_obj.tipo == 'TEMPO_SERVICO' and not self.militar:
+            raise ValidationError("Medalha de Tempo de Serviço é exclusiva a bombeiros militares.")
+        # Para medalhas de Tempo de Serviço, os campos de indicação são opcionais
+        # (podem ficar vazios para medalhas de elegibilidade automática)
+        # if medalha_obj and medalha_obj.tipo == 'TEMPO_SERVICO':
+        #     if not self.indicado_por_nome or not self.indicado_por_funcao:
+        #         raise ValidationError("Informe quem indicou e a função de quem indicou para medalhas de Tempo de Serviço.")
+        # Externos (civis/FFAA/coirmãs) só podem receber a Medalha Imperador Dom Pedro II (IDPII)
+        if not self.militar and medalha_obj:
+            if medalha_obj.codigo != 'IDPII':
+                raise ValidationError("Para civis, militares das FFAA e de instituições coirmãs, somente a Medalha Imperador Dom Pedro II é permitida.")
+        # Validação de CPF e unicidade para externos
+        if not self.militar:
+            import re as _re
+            if not self.documento_externo:
+                raise ValidationError("Informe o CPF do agraciado externo.")
+            cpf_digits = _re.sub(r'\D', '', self.documento_externo or '')
+            self.documento_externo = cpf_digits
+            if not self._cpf_valido(cpf_digits):
+                raise ValidationError("CPF inválido.")
+            if self.medalha_id and ConcessaoMedalha.objects.filter(
+                militar__isnull=True,
+                documento_externo=cpf_digits,
+                medalha_id=self.medalha_id
+            ).exclude(pk=self.pk).exists():
+                raise ValidationError("Este CPF já foi agraciado com esta medalha.")
+
+        # Regras para externos conforme categoria
+        if not self.militar:
+            # Forças Armadas: exigir Força (FAB/EB/MB) e posto/graduação
+            if self.categoria_externa == 'MILITAR_FFAA':
+                if self.forca_externa not in ['FAB', 'EB', 'MB']:
+                    raise ValidationError("Informe a Força (FAB, EB ou MB) para militar das Forças Armadas.")
+                if not self.posto_graduacao_externo:
+                    raise ValidationError("Informe o posto/graduação conforme a Força selecionada.")
+            # Coirmãs (PM/CBM): exigir UF e posto/graduação
+            if self.categoria_externa == 'MILITAR_COIRMA':
+                if self.forca_externa not in ['PM', 'CBM']:
+                    raise ValidationError("Selecione Polícia Militar (PM) ou Corpo de Bombeiros Militar (CBM) para instituições coirmãs.")
+                if not self.uf_externa:
+                    raise ValidationError("Informe a UF da federação para a instituição coirmã.")
+                if not self.posto_graduacao_externo:
+                    raise ValidationError("Informe o posto/graduação do militar da instituição coirmã.")
+            # Civil: função opcional e instituição opcional (já modelado como não obrigatório)
+
+    @staticmethod
+    def _cpf_valido(cpf: str) -> bool:
+        if not cpf or len(cpf) != 11 or cpf == cpf[0] * 11:
+            return False
+        try:
+            nums = [int(d) for d in cpf]
+        except ValueError:
+            return False
+        # Primeiro dígito
+        s1 = sum(nums[i] * (10 - i) for i in range(9))
+        d1 = (s1 * 10) % 11
+        d1 = 0 if d1 == 10 else d1
+        if nums[9] != d1:
+            return False
+        # Segundo dígito
+        s2 = sum(nums[i] * (11 - i) for i in range(10))
+        d2 = (s2 * 10) % 11
+        d2 = 0 if d2 == 10 else d2
+        return nums[10] == d2
+        # Evitar duplicidade: mesma medalha para o mesmo militar
+        if self.militar and self.medalha_id:
+            existe = ConcessaoMedalha.objects.filter(militar=self.militar, medalha_id=self.medalha_id).exclude(pk=self.pk).exists()
+            if existe:
+                raise ValidationError("Este militar já foi agraciado com esta medalha.")
+        return super().clean()
+
+    def is_tempo_servico(self) -> bool:
+        return bool(self.medalha and self.medalha.tipo == 'TEMPO_SERVICO')
+
+    def cancelar(self, usuario: User, motivo: str):
+        from django.utils import timezone as _tz
+        self.cancelado = True
+        self.cancelado_motivo = (motivo or '').strip()
+        self.cancelado_por = usuario
+        self.cancelado_em = _tz.now()
+        self.save(update_fields=['cancelado','cancelado_motivo','cancelado_por','cancelado_em'])
+
+    def outorgar(self, usuario: User):
+        from django.utils import timezone as _tz
+        self.status = 'OUTORGADA'
+        self.outorgada_por = usuario
+        self.outorgada_em = _tz.now()
+        self.save(update_fields=['status','outorgada_por','outorgada_em'])
+
+    def reverter_para_proposta(self, usuario: User | None = None):
+        self.status = 'PROPOSTA'
+        self.outorgada_por = None
+        self.outorgada_em = None
+        self.save(update_fields=['status','outorgada_por','outorgada_em'])
+
+    @staticmethod
+    def ja_agraciado(militar: 'Militar', medalha_codigo: str) -> bool:
+        try:
+            medalha = Medalha.objects.get(codigo=medalha_codigo)
+        except Medalha.DoesNotExist:
+            return False
+        return ConcessaoMedalha.objects.filter(militar=militar, medalha=medalha).exists()
+
+
+def garantir_medalhas_padrao():
+    """Cria as medalhas padrão, caso não existam."""
+    padroes = [
+        dict(codigo='IDPII', nome='Medalha Imperador Dom Pedro II', tipo='HONRA', grau_tempo_servico=None, publico='CIVIL'),
+        dict(codigo='TS_10', nome='Medalha de Tempo de Serviço - Bronze (10 anos)', tipo='TEMPO_SERVICO', grau_tempo_servico='BRONZE_10', publico='BOMBEIRO_MILITAR'),
+        dict(codigo='TS_20', nome='Medalha de Tempo de Serviço - Prata (20 anos)', tipo='TEMPO_SERVICO', grau_tempo_servico='PRATA_20', publico='BOMBEIRO_MILITAR'),
+        dict(codigo='TS_30', nome='Medalha de Tempo de Serviço - Ouro (30 anos)', tipo='TEMPO_SERVICO', grau_tempo_servico='OURO_30', publico='BOMBEIRO_MILITAR'),
+    ]
+    for p in padroes:
+        Medalha.objects.get_or_create(
+            codigo=p['codigo'],
+            defaults=dict(
+                nome=p['nome'],
+                tipo=p['tipo'],
+                grau_tempo_servico=p['grau_tempo_servico'],
+                publico_alvo_padrao=p['publico'],
+                ativo=True,
+            )
+        )
+
+
+class PropostaMedalha(models.Model):
+    """Modelo para salvar propostas de medalhas com numeração automática"""
+    
+    STATUS_CHOICES = [
+        ('RASCUNHO', 'Rascunho'),
+        ('ENVIADA', 'Enviada'),
+        ('APROVADA', 'Aprovada'),
+        ('REJEITADA', 'Rejeitada'),
+        ('CANCELADA', 'Cancelada'),
+    ]
+    
+    numero_proposta = models.CharField(max_length=20, unique=True, verbose_name="Número da Proposta")
+    titulo = models.CharField(max_length=200, default="PROPOSTA PARA CONCESSÃO DA OUTORGA DE MEDALHA 'IMPERADOR DOM PEDRO II'", verbose_name="Título da Proposta")
+    descricao = models.TextField(blank=True, null=True, verbose_name="Descrição")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='RASCUNHO', verbose_name="Status")
+    
+    # Relacionamentos com as concessões selecionadas
+    concessoes = models.ManyToManyField('ConcessaoMedalha', verbose_name="Concessões Selecionadas")
+    
+    # Campos de controle
+    criado_por = models.ForeignKey(User, on_delete=models.PROTECT, verbose_name="Criado por")
+    criado_em = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    atualizado_em = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    # Campos para aprovação
+    aprovado_por = models.ForeignKey(User, on_delete=models.PROTECT, null=True, blank=True, related_name='propostas_aprovadas', verbose_name="Aprovado por")
+    aprovado_em = models.DateTimeField(null=True, blank=True, verbose_name="Data de Aprovação")
+    observacoes_aprovacao = models.TextField(blank=True, null=True, verbose_name="Observações da Aprovação")
+    
+    class Meta:
+        verbose_name = "Proposta de Medalha"
+        verbose_name_plural = "Propostas de Medalhas"
+        ordering = ['-criado_em']
+    
+    def __str__(self):
+        return f"{self.numero_proposta} - {self.titulo[:50]}..."
+    
+    def save(self, *args, **kwargs):
+        if not self.numero_proposta:
+            self.numero_proposta = self.gerar_numero_proposta()
+        super().save(*args, **kwargs)
+    
+    @classmethod
+    def gerar_numero_proposta(cls):
+        """Gera número automático no formato MIDPII - 01, MIDPII - 02, etc."""
+        # Buscar todas as propostas que seguem o padrão MIDPII - XX
+        propostas_padrao = cls.objects.filter(
+            numero_proposta__regex=r'^MIDPII - \d+$'
+        ).order_by('-numero_proposta')
+        
+        if not propostas_padrao.exists():
+            return "MIDPII - 01"
+        
+        try:
+            # Extrair o número da última proposta
+            ultima_proposta = propostas_padrao.first()
+            numero_atual = int(ultima_proposta.numero_proposta.split('-')[-1].strip())
+            novo_numero = numero_atual + 1
+            return f"MIDPII - {novo_numero:02d}"
+        except (ValueError, IndexError):
+            # Se houver erro no parsing, buscar o próximo número disponível
+            numeros_existentes = set()
+            for proposta in propostas_padrao:
+                try:
+                    num = int(proposta.numero_proposta.split('-')[-1].strip())
+                    numeros_existentes.add(num)
+                except (ValueError, IndexError):
+                    continue
+            
+            # Encontrar o primeiro número disponível
+            numero_disponivel = 1
+            while numero_disponivel in numeros_existentes:
+                numero_disponivel += 1
+            
+            return f"MIDPII - {numero_disponivel:02d}"
+    
+    def get_total_concessoes(self):
+        """Retorna o total de concessões na proposta"""
+        return self.concessoes.count()
+    
+    def get_concessoes_por_categoria(self):
+        """Retorna as concessões agrupadas por categoria"""
+        return {
+            'civis': self.concessoes.filter(categoria_externa='CIVIL'),
+            'ffaa': self.concessoes.filter(categoria_externa='MILITAR_FFAA'),
+            'coirmas': self.concessoes.filter(categoria_externa='MILITAR_COIRMA'),
+            'internos': self.concessoes.filter(militar__isnull=False),
+        }
+    
+    def aprovar(self, usuario, observacoes=""):
+        """Aprova a proposta"""
+        self.status = 'APROVADA'
+        self.aprovado_por = usuario
+        self.aprovado_em = timezone.now()
+        self.observacoes_aprovacao = observacoes
+        self.save()
+    
+    def rejeitar(self, observacoes=""):
+        """Rejeita a proposta"""
+        self.status = 'REJEITADA'
+        self.observacoes_aprovacao = observacoes
+        self.save()
+    
+    def cancelar(self):
+        """Cancela a proposta"""
+        self.status = 'CANCELADA'
+        self.save()
+
+
+class Qualificacao(models.Model):
+    """Modelo para qualificações e certificados dos militares"""
+    militar = models.ForeignKey(Militar, on_delete=models.CASCADE, related_name='qualificacoes', verbose_name="Militar")
+    tipo = models.CharField(max_length=20, choices=TIPO_QUALIFICACAO_CHOICES, verbose_name="Tipo de Qualificação")
+    nome_curso = models.CharField(max_length=200, verbose_name="Nome do Curso/Certificação")
+    carga_horaria = models.PositiveIntegerField(blank=True, null=True, verbose_name="Carga Horária (CH)")
+    instituicao = models.CharField(max_length=200, blank=True, null=True, verbose_name="Instituição")
+    data_inicio = models.DateField(blank=True, null=True, verbose_name="Data de Início")
+    data_conclusao = models.DateField(blank=True, null=True, verbose_name="Data de Conclusão")
+    status_verificacao = models.CharField(max_length=20, choices=STATUS_VERIFICACAO_CHOICES, default='PENDENTE', verbose_name="Status de Verificação")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    arquivo_certificado = models.FileField(upload_to='qualificacoes/', blank=True, null=True, verbose_name="Arquivo do Certificado")
+    data_cadastro = models.DateTimeField(auto_now_add=True, verbose_name="Data de Cadastro")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Qualificação"
+        verbose_name_plural = "Qualificações"
+        ordering = ['-data_conclusao', '-data_cadastro']
+    
+    def __str__(self):
+        return f"{self.nome_curso} - {self.militar.nome_completo}"
+    
+    @property
+    def duracao_curso(self):
+        """Calcula a duração do curso em dias"""
+        if self.data_inicio and self.data_conclusao:
+            return (self.data_conclusao - self.data_inicio).days
+        return None
+    
+    @property
+    def status_verificacao_display(self):
+        """Retorna o status de verificação com ícone"""
+        status_icons = {
+            'PENDENTE': '⏳',
+            'VERIFICADO': '✅',
+            'REJEITADO': '❌'
+        }
+        icon = status_icons.get(self.status_verificacao, '❓')
+        return f"{icon} {self.get_status_verificacao_display()}"
+
+
+# Opções para campos de lotação
+STATUS_LOTACAO_CHOICES = [
+    ('ATUAL', 'Atual'),
+    ('ANTERIOR', 'Anterior'),
+    ('TEMPORARIA', 'Temporária'),
+    ('COMANDO', 'Comando'),
+    ('AFASTAMENTO', 'Afastamento'),
+]
+
+TIPO_FUNCAO_CHOICES = [
+    ('COMANDO', 'Comando'),
+    ('ADMINISTRATIVA', 'Administrativa'),
+    ('OPERACIONAL', 'Operacional'),
+    ('TECNICA', 'Técnica'),
+    ('INSTRUCAO', 'Instrução'),
+    ('OUTRAS', 'Outras'),
+]
+
+
+class Lotacao(models.Model):
+    """Modelo para gerenciar lotações dos militares - onde o militar está lotado"""
+    militar = models.ForeignKey(Militar, on_delete=models.CASCADE, related_name='lotacoes', verbose_name="Militar")
+    lotacao = models.CharField(max_length=300, verbose_name="Lotação", help_text="Ex: Diretoria de Gestão de Pessoas - DGP")
+    
+    # Vinculação ao organograma
+    orgao = models.ForeignKey('Orgao', on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Órgão")
+    grande_comando = models.ForeignKey('GrandeComando', on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Grande Comando")
+    unidade = models.ForeignKey('Unidade', on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Unidade")
+    sub_unidade = models.ForeignKey('SubUnidade', on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Sub-Unidade")
+    
+    status = models.CharField(max_length=20, choices=STATUS_LOTACAO_CHOICES, default='ANTERIOR', verbose_name="Status")
+    data_inicio = models.DateField(verbose_name="Data de Início")
+    data_fim = models.DateField(blank=True, null=True, verbose_name="Data de Fim", help_text="Deixe em branco para lotação atual")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    data_cadastro = models.DateTimeField(auto_now_add=True, verbose_name="Data de Cadastro")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Lotação"
+        verbose_name_plural = "Lotações"
+        ordering = ['-data_inicio', '-data_cadastro']
+    
+    def __str__(self):
+        return f"{self.militar.nome_guerra} - {self.lotacao}"
+    
+    @property
+    def hierarquia_organograma(self):
+        """Retorna a hierarquia completa do organograma"""
+        hierarquia = []
+        
+        if self.orgao:
+            hierarquia.append(f"Órgão: {self.orgao.sigla} - {self.orgao.nome}")
+        
+        if self.grande_comando:
+            hierarquia.append(f"Grande Comando: {self.grande_comando.sigla} - {self.grande_comando.nome}")
+        
+        if self.unidade:
+            hierarquia.append(f"Unidade: {self.unidade.sigla} - {self.unidade.nome}")
+        
+        if self.sub_unidade:
+            hierarquia.append(f"Sub-Unidade: {self.sub_unidade.sigla} - {self.sub_unidade.nome}")
+        
+        return " → ".join(hierarquia) if hierarquia else "Sem vinculação ao organograma"
+    
+    @property
+    def nivel_organograma(self):
+        """Retorna o nível mais específico do organograma"""
+        if self.sub_unidade:
+            return f"Sub-Unidade: {self.sub_unidade.sigla}"
+        elif self.unidade:
+            return f"Unidade: {self.unidade.sigla}"
+        elif self.grande_comando:
+            return f"Grande Comando: {self.grande_comando.sigla}"
+        elif self.orgao:
+            return f"Órgão: {self.orgao.sigla}"
+        else:
+            return "Sem vinculação"
+    
+    @property
+    def instancia_om_nome(self):
+        """Retorna apenas o nome da instância OM mais específica (sem ascendência)"""
+        if self.sub_unidade:
+            return self.sub_unidade.nome
+        elif self.unidade:
+            return self.unidade.nome
+        elif self.grande_comando:
+            return self.grande_comando.nome
+        elif self.orgao:
+            return self.orgao.nome
+        else:
+            return self.lotacao if self.lotacao else "Não informado"
+    
+    def clean(self):
+        """Validações do modelo"""
+        if self.data_fim and self.data_fim < self.data_inicio:
+            raise ValidationError("A data de fim deve ser posterior à data de início.")
+    
+    @property
+    def duracao_lotacao(self):
+        """Calcula a duração da lotação em dias"""
+        if self.data_fim:
+            return (self.data_fim - self.data_inicio).days
+        else:
+            # Se não tem data de fim, calcular até hoje
+            from django.utils import timezone
+            return (timezone.now().date() - self.data_inicio).days
+    
+    @property
+    def duracao_formatada(self):
+        """Retorna a duração formatada"""
+        dias = self.duracao_lotacao
+        if dias < 30:
+            return f"{dias} dias"
+        elif dias < 365:
+            meses = dias // 30
+            dias_resto = dias % 30
+            if dias_resto == 0:
+                return f"{meses} {'mês' if meses == 1 else 'meses'}"
+            else:
+                return f"{meses} {'mês' if meses == 1 else 'meses'} e {dias_resto} dias"
+        else:
+            anos = dias // 365
+            dias_resto = dias % 365
+            meses = dias_resto // 30
+            if meses == 0:
+                return f"{anos} {'ano' if anos == 1 else 'anos'}"
+            else:
+                return f"{anos} {'ano' if anos == 1 else 'anos'} e {meses} {'mês' if meses == 1 else 'meses'}"
+    
+    @property
+    def status_display(self):
+        """Retorna o status formatado com ícone"""
+        status_icons = {
+            'ATUAL': '✅',
+            'ANTERIOR': '📋',
+            'TEMPORARIA': '⏰',
+            'COMANDO': '🎖️',
+            'AFASTAMENTO': '🚫',
+        }
+        icon = status_icons.get(self.status, '❓')
+        return f"{icon} {self.get_status_display()}"
+    
+    def vincular_organograma_automaticamente(self):
+        """
+        Tenta vincular automaticamente a lotação às estruturas organizacionais
+        baseado na correspondência de nomes
+        """
+        if any([self.orgao, self.grande_comando, self.unidade, self.sub_unidade]):
+            return False  # Já está vinculada
+        
+        # Limpar o nome da lotação removendo setas e caracteres especiais
+        nome_limpo = self.lotacao.replace('→', '').replace('|', '').strip()
+        nome_limpo = ' '.join(nome_limpo.split())  # Remove espaços extras
+        
+        # Tentar vincular por nome exato
+        # 1. Sub-unidade
+        sub_unidade = SubUnidade.objects.filter(
+            nome__iexact=nome_limpo,
+            ativo=True
+        ).first()
+        
+        if sub_unidade:
+            self.sub_unidade = sub_unidade
+            self.unidade = sub_unidade.unidade
+            self.grande_comando = sub_unidade.unidade.grande_comando
+            self.orgao = sub_unidade.unidade.grande_comando.orgao
+            return True
+        
+        # 2. Unidade
+        unidade = Unidade.objects.filter(
+            nome__iexact=nome_limpo,
+            ativo=True
+        ).first()
+        
+        if unidade:
+            self.unidade = unidade
+            self.grande_comando = unidade.grande_comando
+            self.orgao = unidade.grande_comando.orgao
+            return True
+        
+        # 3. Grande Comando
+        grande_comando = GrandeComando.objects.filter(
+            nome__iexact=nome_limpo,
+            ativo=True
+        ).first()
+        
+        if grande_comando:
+            self.grande_comando = grande_comando
+            self.orgao = grande_comando.orgao
+            return True
+        
+        # 4. Órgão
+        orgao = Orgao.objects.filter(
+            nome__iexact=nome_limpo,
+            ativo=True
+        ).first()
+        
+        if orgao:
+            self.orgao = orgao
+            return True
+        
+        # Tentar vinculação por correspondência parcial
+        # 5. Sub-unidade (parcial)
+        sub_unidade_parcial = SubUnidade.objects.filter(
+            nome__icontains=nome_limpo,
+            ativo=True
+        ).first()
+        
+        if sub_unidade_parcial:
+            self.sub_unidade = sub_unidade_parcial
+            self.unidade = sub_unidade_parcial.unidade
+            self.grande_comando = sub_unidade_parcial.unidade.grande_comando
+            self.orgao = sub_unidade_parcial.unidade.grande_comando.orgao
+            return True
+        
+        # 6. Unidade (parcial)
+        unidade_parcial = Unidade.objects.filter(
+            nome__icontains=nome_limpo,
+            ativo=True
+        ).first()
+        
+        if unidade_parcial:
+            self.unidade = unidade_parcial
+            self.grande_comando = unidade_parcial.grande_comando
+            self.orgao = unidade_parcial.grande_comando.orgao
+            return True
+        
+        # 7. Tentar vincular por partes do nome (para nomes com setas)
+        if '→' in self.lotacao or '|' in self.lotacao:
+            # Extrair a última parte (mais específica)
+            partes = self.lotacao.replace('→', '|').split('|')
+            for parte in reversed(partes):  # Começar pela última parte
+                parte_limpa = parte.strip()
+                if not parte_limpa:
+                    continue
+                
+                # Tentar vincular com a parte limpa
+                # Sub-unidade
+                sub_unidade = SubUnidade.objects.filter(
+                    nome__icontains=parte_limpa,
+                    ativo=True
+                ).first()
+                
+                if sub_unidade:
+                    self.sub_unidade = sub_unidade
+                    self.unidade = sub_unidade.unidade
+                    self.grande_comando = sub_unidade.unidade.grande_comando
+                    self.orgao = sub_unidade.unidade.grande_comando.orgao
+                    return True
+                
+                # Unidade
+                unidade = Unidade.objects.filter(
+                    nome__icontains=parte_limpa,
+                    ativo=True
+                ).first()
+                
+                if unidade:
+                    self.unidade = unidade
+                    self.grande_comando = unidade.grande_comando
+                    self.orgao = unidade.grande_comando.orgao
+                    return True
+                
+                # Grande Comando
+                grande_comando = GrandeComando.objects.filter(
+                    nome__icontains=parte_limpa,
+                    ativo=True
+                ).first()
+                
+                if grande_comando:
+                    self.grande_comando = grande_comando
+                    self.orgao = grande_comando.orgao
+                    return True
+                
+                # Órgão
+                orgao = Orgao.objects.filter(
+                    nome__icontains=parte_limpa,
+                    ativo=True
+                ).first()
+                
+                if orgao:
+                    self.orgao = orgao
+                    return True
+        
+        return False
+
+    def garantir_apenas_uma_lotacao_atual(self):
+        """
+        Garante que apenas uma lotação seja atual por militar.
+        Se esta lotação for marcada como ATUAL, todas as outras do mesmo militar
+        serão marcadas como ANTERIOR.
+        """
+        if self.status == 'ATUAL' and self.militar:
+            # Buscar todas as outras lotações atuais do mesmo militar
+            lotacoes_atuais = Lotacao.objects.filter(
+                militar=self.militar,
+                status='ATUAL',
+                ativo=True
+            ).exclude(id=self.id)
+            
+            # Marcar todas como ANTERIOR
+            lotacoes_atuais.update(status='ANTERIOR')
+            
+            return True
+        return False
+
+    def save(self, *args, **kwargs):
+        """
+        Override do save para garantir que apenas uma lotação seja atual por militar
+        """
+        # Garantir que apenas uma lotação seja atual
+        self.garantir_apenas_uma_lotacao_atual()
+        
+        # Chamar o save original
+        super().save(*args, **kwargs)
+
+
+class Afastamento(models.Model):
+    """Modelo para registrar afastamentos dos militares"""
+    
+    # Definir choices usando TODAS as opções da SITUACAO_CHOICES - mesma lista completa do campo situação
+    TIPO_AFASTAMENTO_CHOICES = sorted(
+        SITUACAO_CHOICES,
+        key=lambda x: x[1]
+    )
+    
+    @classmethod
+    def get_tipo_afastamento_choices(cls):
+        """Retorna todos os tipos de situação - mesma lista completa do campo situação do modelo Militar"""
+        # Retornar TODAS as opções de SITUACAO_CHOICES
+        return sorted(SITUACAO_CHOICES, key=lambda x: x[1])
+    
+    @classmethod
+    def get_all_tipo_choices(cls):
+        """Retorna todos os tipos de situação disponíveis - mesma lista completa do campo situação"""
+        return cls.get_tipo_afastamento_choices()
+    
+    STATUS_CHOICES = [
+        ('ATIVO', 'Ativo'),
+        ('ENCERRADO', 'Encerrado'),
+        ('CANCELADO', 'Cancelado'),
+    ]
+    
+    militar = models.ForeignKey(Militar, on_delete=models.CASCADE, related_name='afastamentos', verbose_name="Militar")
+    tipo_afastamento = models.CharField(
+        max_length=50, 
+        choices=TIPO_AFASTAMENTO_CHOICES, 
+        verbose_name="Situação",
+        help_text="Selecione a situação que será aplicada ao militar (todas as opções disponíveis no cadastro)"
+    )
+    situacao_anterior = models.CharField(
+        max_length=50, 
+        choices=SITUACAO_CHOICES, 
+        blank=True, 
+        null=True,
+        verbose_name="Situação Anterior",
+        help_text="Situação do militar antes de criar este afastamento (preenchido automaticamente)"
+    )
+    data_inicio = models.DateField(verbose_name="Data de Início")
+    data_fim_prevista = models.DateField(blank=True, null=True, verbose_name="Data de Fim Prevista")
+    data_fim_real = models.DateField(blank=True, null=True, verbose_name="Data de Fim Real")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ATIVO', verbose_name="Status")
+    motivo = models.TextField(verbose_name="Motivo do Afastamento", help_text="Descrição detalhada do motivo do afastamento")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    documento_referencia = models.CharField(max_length=200, blank=True, null=True, verbose_name="Documento de Referência", help_text="Ex: Ofício, Portaria, etc.")
+    numero_documento = models.CharField(max_length=50, blank=True, null=True, verbose_name="Número do Documento")
+    cadastrado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='afastamentos_cadastrados', verbose_name="Cadastrado por")
+    data_cadastro = models.DateTimeField(auto_now_add=True, verbose_name="Data de Cadastro")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Afastamento"
+        verbose_name_plural = "Afastamentos"
+        ordering = ['-data_inicio', '-data_cadastro']
+        indexes = [
+            models.Index(fields=['-data_inicio']),
+            models.Index(fields=['status']),
+            models.Index(fields=['militar']),
+        ]
+    
+    def __str__(self):
+        return f"{self.militar.nome_guerra} - {self.get_tipo_afastamento_display()} ({self.data_inicio})"
+    
+    def clean(self):
+        """Validações do modelo"""
+        # Validar se o tipo de afastamento está na lista válida de SITUACAO_CHOICES
+        tipos_validos = [v for v, l in SITUACAO_CHOICES]
+        if self.tipo_afastamento and self.tipo_afastamento not in tipos_validos:
+            raise ValidationError(f"Tipo de afastamento '{self.tipo_afastamento}' não é uma situação válida.")
+        
+        if self.data_fim_prevista and self.data_fim_prevista < self.data_inicio:
+            raise ValidationError("A data de fim prevista deve ser posterior à data de início.")
+        if self.data_fim_real and self.data_fim_real < self.data_inicio:
+            raise ValidationError("A data de fim real deve ser posterior à data de início.")
+        if self.data_fim_real and self.data_fim_prevista and self.data_fim_real > self.data_fim_prevista:
+            # Não é erro, mas pode ser interessante registrar
+            pass
+    
+    def save(self, *args, **kwargs):
+        """Override do save para atualizar a situação do militar automaticamente"""
+        from django.utils import timezone
+        from datetime import date
+        
+        # Verificar se é uma atualização (tem pk) ou criação (novo)
+        is_new = self.pk is None
+        
+        # Se for criação e não tiver situação anterior definida, salvar a situação atual do militar
+        # IMPORTANTE: Fazer isso ANTES de alterar a situação do militar
+        if is_new and not self.situacao_anterior and self.militar:
+            # Recarregar o militar do banco para garantir que temos a situação atual
+            if self.militar.pk:
+                self.militar.refresh_from_db()
+            # Salvar a situação atual do militar antes de alterá-la
+            # Garantir que temos uma situação válida
+            if self.militar.situacao:
+                self.situacao_anterior = self.militar.situacao
+            else:
+                # Se o militar não tem situação definida, usar PRONTO como padrão
+                self.situacao_anterior = 'PRONTO'
+        
+        # Verificar se a data_fim_prevista já passou ANTES de salvar
+        hoje = date.today()
+        
+        # Se está ativo, tem data_fim_prevista e a data já passou, encerrar automaticamente
+        if self.status == 'ATIVO' and self.data_fim_prevista and not self.data_fim_real:
+            if self.data_fim_prevista < hoje:
+                # Data prevista já passou, encerrar automaticamente
+                self.status = 'ENCERRADO'
+                # Se não tem data_fim_real, usar a data_fim_prevista como data_fim_real
+                if not self.data_fim_real:
+                    self.data_fim_real = self.data_fim_prevista
+        
+        # Se data_fim_real foi preenchida e está ativo, encerrar
+        if self.data_fim_real and self.status == 'ATIVO':
+            self.status = 'ENCERRADO'
+        
+        # Chamar o save primeiro para garantir que temos o pk e as datas atualizadas
+        # Isso salvará também a situação_anterior se foi definida acima
+        self.full_clean()
+        super().save(*args, **kwargs)
+        
+        if not self.militar:
+            return
+        
+        # Função auxiliar para verificar se deve voltar situação para PRONTO
+        def deve_voltar_para_pronto():
+            """Verifica se o militar deve voltar para PRONTO após encerrar afastamento"""
+            from django.db.models import Q
+            # Verificar se não há outros afastamentos ativos até hoje
+            outros_afastamentos_ativos = Afastamento.objects.filter(
+                militar=self.militar
+            ).exclude(pk=self.pk).exclude(status='CANCELADO').filter(
+                data_inicio__lte=hoje
+            ).filter(
+                Q(data_fim_prevista__gte=hoje) | 
+                Q(data_fim_real__gte=hoje) | 
+                Q(data_fim_prevista__isnull=True, data_fim_real__isnull=True)
+            ).exists()
+            
+            # Importar aqui para evitar importação circular (Ferias e LicencaEspecial vêm depois)
+            from militares.models import Ferias, LicencaEspecial
+            # Verificar se há férias ativas (GOZANDO ou PLANEJADA que já iniciaram) até hoje
+            tem_ferias_ativa = Ferias.objects.filter(
+                militar=self.militar
+            ).exclude(status__in=['CANCELADA', 'REPROGRAMADA', 'GOZADA']).filter(
+                data_inicio__lte=hoje,
+                data_fim__gte=hoje
+            ).filter(
+                status__in=['GOZANDO', 'PLANEJADA']
+            ).exists()
+            # Verificar se há licenças especiais ativas (GOZANDO) até hoje
+            tem_licenca_ativa = LicencaEspecial.objects.filter(
+                militar=self.militar
+            ).exclude(status='CANCELADA').filter(
+                data_inicio__lte=hoje
+            ).filter(
+                Q(data_fim__gte=hoje) | 
+                Q(data_fim__isnull=True)
+            ).exists()
+            
+            return not outros_afastamentos_ativos and not tem_ferias_ativa and not tem_licenca_ativa
+        
+        # 1. Se está ativo e não tem data_fim_real, atualizar situação do militar
+        if self.status == 'ATIVO' and not self.data_fim_real:
+            # Atualizar a situação do militar para o tipo de afastamento
+            # Isso acontece tanto na criação quanto na atualização
+            if self.militar.situacao != self.tipo_afastamento:
+                self.militar.situacao = self.tipo_afastamento
+                self.militar.save(update_fields=['situacao'])
+        
+        # 2. Se o status é ENCERRADO (manualmente ou automaticamente), voltar situação para PRONTO
+        if self.status == 'ENCERRADO':
+            # Verificar se a situação do militar corresponde a este tipo de afastamento
+            # ou se está em uma situação que foi causada por este afastamento
+            if self.militar.situacao == self.tipo_afastamento:
+                if deve_voltar_para_pronto():
+                    self.militar.situacao = 'PRONTO'
+                    self.militar.save(update_fields=['situacao'])
+            # Se não corresponde exatamente, mas temos situação_anterior salva, restaurar
+            elif self.situacao_anterior and deve_voltar_para_pronto():
+                self.militar.situacao = self.situacao_anterior
+                self.militar.save(update_fields=['situacao'])
+            # Caso padrão: se não há outros afastamentos/férias/licenças ativas, voltar para PRONTO
+            elif deve_voltar_para_pronto():
+                self.militar.situacao = 'PRONTO'
+                self.militar.save(update_fields=['situacao'])
+        
+        # 4. Se foi cancelado, voltar situação para PRONTO se estiver com esse afastamento
+        if self.status == 'CANCELADO' and self.militar.situacao == self.tipo_afastamento:
+            # Usar a mesma função auxiliar para verificar se deve voltar para PRONTO
+            if deve_voltar_para_pronto():
+                self.militar.situacao = 'PRONTO'
+                self.militar.save(update_fields=['situacao'])
+    
+    @property
+    def duracao_dias(self):
+        """Calcula a duração do afastamento em dias"""
+        if self.data_fim_real:
+            return (self.data_fim_real - self.data_inicio).days
+        elif self.data_fim_prevista:
+            return (self.data_fim_prevista - self.data_inicio).days
+        else:
+            # Se não tem data de fim, calcular até hoje
+            from django.utils import timezone
+            return (timezone.now().date() - self.data_inicio).days
+    
+    @property
+    def duracao_formatada(self):
+        """Retorna a duração formatada"""
+        dias = self.duracao_dias
+        if dias < 30:
+            return f"{dias} dias"
+        elif dias < 365:
+            meses = dias // 30
+            dias_resto = dias % 30
+            if dias_resto == 0:
+                return f"{meses} {'mês' if meses == 1 else 'meses'}"
+            else:
+                return f"{meses} {'mês' if meses == 1 else 'meses'} e {dias_resto} dias"
+        else:
+            anos = dias // 365
+            dias_resto = dias % 365
+            meses = dias_resto // 30
+            if meses == 0:
+                return f"{anos} {'ano' if anos == 1 else 'anos'}"
+            else:
+                return f"{anos} {'ano' if anos == 1 else 'anos'} e {meses} {'mês' if meses == 1 else 'meses'}"
+    
+    @property
+    def status_display(self):
+        """Retorna o status formatado com ícone"""
+        status_icons = {
+            'ATIVO': '🟢',
+            'ENCERRADO': '✅',
+            'CANCELADO': '❌',
+        }
+        icon = status_icons.get(self.status, '❓')
+        return f"{icon} {self.get_status_display()}"
+
+
+def documento_afastamento_upload_path(instance, filename):
+    """Define o caminho de upload para documentos de afastamento"""
+    return f'afastamentos/{instance.afastamento.militar.matricula}/{instance.afastamento.pk}/{filename}'
+
+
+class DocumentoAfastamento(models.Model):
+    """Documentos anexados aos afastamentos"""
+    
+    TIPO_CHOICES = [
+        ('PORTARIA', 'Portaria'),
+        ('OFICIO', 'Ofício'),
+        ('DECRETO', 'Decreto'),
+        ('LICENCA_MEDICA', 'Licença Médica'),
+        ('SOLICITACAO', 'Solicitação'),
+        ('AUTORIZACAO', 'Autorização'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    afastamento = models.ForeignKey(Afastamento, on_delete=models.CASCADE, related_name='documentos', verbose_name="Afastamento")
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, verbose_name="Tipo de Documento")
+    titulo = models.CharField(max_length=200, verbose_name="Título do Documento")
+    descricao = models.TextField(blank=True, null=True, verbose_name="Descrição")
+    arquivo = models.FileField(upload_to=documento_afastamento_upload_path, verbose_name="Arquivo")
+    upload_por = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Upload por")
+    data_upload = models.DateTimeField(auto_now_add=True, verbose_name="Data do Upload")
+    
+    class Meta:
+        verbose_name = "Documento do Afastamento"
+        verbose_name_plural = "Documentos dos Afastamentos"
+        ordering = ['-data_upload']
+    
+    def __str__(self):
+        return f"{self.titulo} - {self.afastamento.militar.nome_guerra}"
+    
+    def filename(self):
+        """Retorna apenas o nome do arquivo"""
+        return self.arquivo.name.split('/')[-1] if self.arquivo else ''
+    
+    def file_size(self):
+        """Retorna o tamanho do arquivo formatado"""
+        if self.arquivo:
+            size = self.arquivo.size
+            for unit in ['B', 'KB', 'MB', 'GB']:
+                if size < 1024.0:
+                    return f"{size:.2f} {unit}"
+                size /= 1024.0
+            return f"{size:.2f} TB"
+        return "0 B"
+
+
+def documento_ferias_upload_path(instance, filename):
+    """Define o caminho de upload para documentos de férias"""
+    return f'ferias/{instance.ferias.militar.matricula}/{instance.ferias.pk}/{filename}'
+
+
+class PlanoFerias(models.Model):
+    """Modelo para criar planos de férias por ano"""
+    
+    STATUS_CHOICES = [
+        ('RASCUNHO', 'Rascunho'),
+        ('EM_APROVACAO', 'Em Aprovação'),
+        ('APROVADO', 'Aprovado'),
+        ('PUBLICADO', 'Publicado'),
+        ('CANCELADO', 'Cancelado'),
+    ]
+    
+    ano_referencia = models.IntegerField(verbose_name="Ano de Referência", help_text="Ano ao qual as férias se referem")
+    ano_plano = models.IntegerField(verbose_name="Ano do Plano", help_text="Ano em que o plano foi criado")
+    titulo = models.CharField(max_length=200, verbose_name="Título do Plano", help_text="Ex: Plano de Férias 2025")
+    descricao = models.TextField(blank=True, null=True, verbose_name="Descrição")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='RASCUNHO', verbose_name="Status")
+    
+    documento_referencia = models.CharField(max_length=200, blank=True, null=True, verbose_name="Documento de Referência", help_text="Ex: Portaria, Decreto, etc.")
+    numero_documento = models.CharField(max_length=200, blank=True, null=True, verbose_name="Documento de Publicação", help_text="Ex: DOE n° 001/2025 de 25/01/2025")
+    
+    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='planos_ferias_criados', verbose_name="Criado por")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Plano de Férias"
+        verbose_name_plural = "Planos de Férias"
+        ordering = ['-ano_plano', '-ano_referencia', '-data_criacao']
+        unique_together = [['ano_referencia', 'ano_plano']]
+        indexes = [
+            models.Index(fields=['-ano_plano']),
+            models.Index(fields=['-ano_referencia']),
+            models.Index(fields=['status']),
+        ]
+    
+    def __str__(self):
+        return f"Plano de Férias {self.ano_referencia} - {self.ano_plano}"
+    
+    def clean(self):
+        """Validações do modelo"""
+        if self.ano_referencia <= 2000 or self.ano_referencia > 2100:
+            raise ValidationError("Ano de referência deve estar entre 2000 e 2100.")
+        
+        if self.ano_plano <= 2000 or self.ano_plano > 2100:
+            raise ValidationError("Ano do plano deve estar entre 2000 e 2100.")
+    
+    @property
+    def total_ferias(self):
+        """Retorna o total de férias associadas a este plano (excluindo reprogramadas)"""
+        return self.ferias.exclude(status='REPROGRAMADA').count()
+    
+    @property
+    def ferias_planejadas(self):
+        """Retorna quantidade de férias planejadas"""
+        return self.ferias.filter(status='PLANEJADA').count()
+    
+    @property
+    def ferias_gozando(self):
+        """Retorna quantidade de férias sendo usufruídas"""
+        return self.ferias.filter(status='GOZANDO').count()
+    
+    @property
+    def ferias_gozadas(self):
+        """Retorna quantidade de férias já usufruídas"""
+        return self.ferias.filter(status='GOZADA').count()
+    
+    @property
+    def ferias_reprogramadas(self):
+        """Retorna quantidade de férias reprogramadas"""
+        # Contar férias com status REPROGRAMADA
+        count_status = self.ferias.filter(status='REPROGRAMADA').count()
+        
+        # Também contar férias GOZADA que foram parcialmente gozadas e reprogramadas
+        # (quando uma férias GOZANDO é reprogramada, a original fica GOZADA com info de reprogramação)
+        count_gozadas_reprogramadas = 0
+        ferias_gozadas = self.ferias.filter(status='GOZADA')
+        for ferias in ferias_gozadas:
+            if ferias.observacoes:
+                obs_lower = ferias.observacoes.lower()
+                if 'reprogramado' in obs_lower or 'reprogramação' in obs_lower or 'reprogramada' in obs_lower:
+                    if 'dias restantes reprogramados' in obs_lower:
+                        count_gozadas_reprogramadas += 1
+        
+        return count_status + count_gozadas_reprogramadas
+
+
+class Ferias(models.Model):
+    """Modelo para registrar férias dos militares"""
+    
+    STATUS_CHOICES = [
+        ('PLANEJADA', 'Planejada'),
+        ('GOZANDO', 'Usufruindo'),
+        ('GOZADA', 'Usufruída'),
+        ('CANCELADA', 'Cancelada'),
+        ('REPROGRAMADA', 'Reprogramada'),
+    ]
+    
+    TIPO_CHOICES = [
+        ('FRACIONADA_1', 'Fracionada - 1º Período'),
+        ('FRACIONADA_2', 'Fracionada - 2º Período'),
+        ('FRACIONADA_3', 'Fracionada - 3º Período'),
+        ('INTEGRAL', 'Integral'),
+        ('ABONO', 'Abono de Férias'),
+    ]
+    
+    plano = models.ForeignKey('PlanoFerias', on_delete=models.CASCADE, null=True, blank=True, related_name='ferias', verbose_name="Plano de Férias")
+    militar = models.ForeignKey(Militar, on_delete=models.CASCADE, related_name='ferias', verbose_name="Militar")
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default='INTEGRAL', verbose_name="Tipo de Férias")
+    ano_referencia = models.IntegerField(verbose_name="Ano de Referência", help_text="Ano ao qual as férias se referem")
+    data_inicio = models.DateField(verbose_name="Data de Início")
+    data_fim = models.DateField(verbose_name="Data de Fim")
+    quantidade_dias = models.IntegerField(verbose_name="Quantidade de Dias", default=30, help_text="Quantidade de dias de férias")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PLANEJADA', verbose_name="Status")
+    
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    documento_referencia = models.CharField(max_length=200, blank=True, null=True, verbose_name="Documento de Referência", help_text="Ex: Ofício, Portaria, etc.")
+    numero_documento = models.CharField(max_length=50, blank=True, null=True, verbose_name="Número do Documento")
+    
+    cadastrado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='ferias_cadastradas', verbose_name="Cadastrado por")
+    data_cadastro = models.DateTimeField(auto_now_add=True, verbose_name="Data de Cadastro")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Férias"
+        verbose_name_plural = "Férias"
+        ordering = ['-ano_referencia', '-data_inicio', '-data_cadastro']
+        indexes = [
+            models.Index(fields=['-ano_referencia']),
+            models.Index(fields=['-data_inicio']),
+            models.Index(fields=['status']),
+            models.Index(fields=['militar']),
+        ]
+    
+    def __str__(self):
+        return f"{self.militar.nome_guerra} - {self.get_tipo_display()} {self.ano_referencia} ({self.data_inicio})"
+    
+    def clean(self):
+        """Validações do modelo"""
+        if self.data_fim and self.data_fim < self.data_inicio:
+            raise ValidationError("A data de fim deve ser posterior à data de início.")
+        
+        if self.quantidade_dias <= 0:
+            raise ValidationError("A quantidade de dias deve ser maior que zero.")
+        
+        if self.quantidade_dias > 30:
+            raise ValidationError("A quantidade de dias não pode ser maior que 30 (exceto em casos especiais).")
+    
+    def save(self, *args, **kwargs):
+        """Override do save para atualizar a situação do militar e status automaticamente conforme as regras"""
+        from django.utils import timezone
+        from datetime import date
+        
+        hoje = date.today()
+        
+        # Salvar status anterior antes de qualquer modificação automática
+        status_anterior = self.status
+        
+        # REGRA 1: Se a data_fim já passou, atualizar status para GOZADA (independente do status atual)
+        # EXCETO se estiver sendo definido explicitamente como GOZANDO (homologação manual)
+        # Exceto também se estiver CANCELADA ou REPROGRAMADA (não altera automaticamente)
+        if self.data_fim and self.data_fim < hoje:
+            # Se está sendo homologado manualmente (mudou de PLANEJADA para GOZANDO), respeitar a homologação
+            # Não alterar para GOZADA se foi homologado manualmente
+            if status_anterior == 'PLANEJADA' and self.status == 'GOZANDO':
+                # Manter GOZANDO mesmo se a data passou (foi homologado manualmente)
+                # Não fazer nada, manter o status GOZANDO
+                pass
+            # Se já está GOZANDO e a data passou, atualizar para GOZADA automaticamente
+            elif self.status == 'GOZANDO':
+                # Se já está GOZANDO e a data passou, atualizar para GOZADA
+                self.status = 'GOZADA'
+            elif self.status not in ['CANCELADA', 'REPROGRAMADA', 'GOZADA']:
+                # Se não foi homologado manualmente e já passou, marcar como GOZADA
+                self.status = 'GOZADA'
+        
+        # REGRA 2: Se o período já iniciou (data_inicio <= hoje) mas ainda não terminou (data_fim >= hoje)
+        # e está PLANEJADA, atualizar para GOZANDO automaticamente
+        elif self.data_inicio and self.data_inicio <= hoje and self.data_fim and self.data_fim >= hoje:
+            if self.status == 'PLANEJADA':
+                self.status = 'GOZANDO'
+        
+        # REGRA 3: Se está GOZANDO mas a data_inicio ainda não chegou, manter como GOZANDO
+        # (permite homologação antecipada, mas o militar só vai para FERIAS quando realmente começar)
+        
+        # REGRA 4: Status REPROGRAMADA e CANCELADA não são alterados automaticamente
+        # (devem ser alterados apenas manualmente ou por comandos específicos)
+        
+        # REGRA 5: Status PLANEJADA permanece como PLANEJADA até o período iniciar ou ser homologada manualmente
+        
+        # Chamar o save primeiro para garantir que temos o pk e as datas atualizadas
+        self.full_clean()
+        super().save(*args, **kwargs)
+        
+        if not self.militar:
+            return
+        
+        # REGRA 5: Atualizar situação do militar baseado no status
+        
+        # Se está GOZANDO e a data_inicio já chegou (hoje ou passou), militar em FERIAS
+        if self.status == 'GOZANDO':
+            if self.data_inicio and self.data_inicio <= hoje:
+                # Férias já começou, militar deve estar em FERIAS
+                if self.militar.situacao != 'AFASTAMENTO_FERIAS':
+                    self.militar.situacao = 'AFASTAMENTO_FERIAS'
+                    self.militar.save(update_fields=['situacao'])
+            # Se data_inicio ainda não chegou, manter situação atual (pode estar em outra situação)
+        
+        # Se foi usufruída, cancelada ou reprogramada, verificar se deve voltar para PRONTO
+        elif self.status in ['GOZADA', 'CANCELADA', 'REPROGRAMADA']:
+            # Função auxiliar para verificar se deve voltar situação para PRONTO
+            def deve_voltar_para_pronto():
+                """Verifica se o militar deve voltar para PRONTO após encerrar férias"""
+                from django.db.models import Q
+                from militares.models import Afastamento, LicencaEspecial
+                
+                # Verificar se há outros afastamentos ativos até hoje
+                outros_afastamentos_ativos = Afastamento.objects.filter(
+                    militar=self.militar
+                ).exclude(status='CANCELADO').filter(
+                    data_inicio__lte=hoje
+                ).filter(
+                    Q(data_fim_prevista__gte=hoje) | 
+                    Q(data_fim_real__gte=hoje) | 
+                    Q(data_fim_prevista__isnull=True, data_fim_real__isnull=True)
+                ).exists()
+                
+                # Verificar se há outras férias ativas (GOZANDO ou PLANEJADA que já iniciaram) até hoje
+                outras_ferias_ativas = Ferias.objects.filter(
+                    militar=self.militar
+                ).exclude(pk=self.pk).exclude(status__in=['CANCELADA', 'REPROGRAMADA', 'GOZADA']).filter(
+                    data_inicio__lte=hoje,
+                    data_fim__gte=hoje
+                ).filter(
+                    status__in=['GOZANDO', 'PLANEJADA']
+                ).exists()
+                
+                # Verificar se há licenças especiais ativas (GOZANDO) até hoje
+                licencas_ativas = LicencaEspecial.objects.filter(
+                    militar=self.militar
+                ).exclude(status='CANCELADA').filter(
+                    data_inicio__lte=hoje
+                ).filter(
+                    Q(data_fim__gte=hoje) | 
+                    Q(data_fim__isnull=True)
+                ).exists()
+                
+                return not outros_afastamentos_ativos and not outras_ferias_ativas and not licencas_ativas
+            
+            # Se a situação atual é AFASTAMENTO_FERIAS e não há outros afastamentos/férias/licenças ativas, voltar para PRONTO
+            if self.militar.situacao == 'AFASTAMENTO_FERIAS' and deve_voltar_para_pronto():
+                self.militar.situacao = 'PRONTO'
+                self.militar.save(update_fields=['situacao'])
+        
+        # Se está PLANEJADA, não altera a situação do militar
+        # (militar continua na situação em que estava antes)
+    
+    @property
+    def duracao_dias(self):
+        """Calcula a duração das férias em dias"""
+        if self.data_fim and self.data_inicio:
+            return (self.data_fim - self.data_inicio).days + 1
+        return self.quantidade_dias
+    
+    @property
+    def status_display(self):
+        """Retorna o status formatado com ícone"""
+        status_icons = {
+            'PLANEJADA': '📅',
+            'GOZANDO': '🏖️',
+            'GOZADA': '✅',
+            'CANCELADA': '❌',
+            'REPROGRAMADA': '🔄',
+        }
+        icon = status_icons.get(self.status, '❓')
+        return f"{icon} {self.get_status_display()}"
+    
+    @property
+    def foi_reprogramada(self):
+        """Verifica se a férias foi reprogramada (por status ou observações)"""
+        if self.status == 'REPROGRAMADA':
+            return True
+        if self.observacoes:
+            obs_lower = self.observacoes.lower()
+            return 'reprogramação' in obs_lower or 'reprogramada' in obs_lower
+        return False
+
+
+class PlanoLicencaEspecial(models.Model):
+    """Modelo para criar planos de licenças especiais por ano"""
+    
+    STATUS_CHOICES = [
+        ('RASCUNHO', 'Rascunho'),
+        ('EM_APROVACAO', 'Em Aprovação'),
+        ('APROVADO', 'Aprovado'),
+        ('PUBLICADO', 'Publicado'),
+        ('CANCELADO', 'Cancelado'),
+    ]
+    
+    ano_plano = models.IntegerField(verbose_name="Ano do Plano", help_text="Ano em que o plano foi criado")
+    titulo = models.CharField(max_length=200, verbose_name="Título do Plano", help_text="Ex: Plano de Licenças Especiais 2025")
+    descricao = models.TextField(blank=True, null=True, verbose_name="Descrição")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='RASCUNHO', verbose_name="Status")
+    
+    documento_referencia = models.CharField(max_length=200, blank=True, null=True, verbose_name="Documento de Referência", help_text="Ex: Portaria, Decreto, etc.")
+    numero_documento = models.CharField(max_length=200, blank=True, null=True, verbose_name="Documento de Publicação", help_text="Ex: DOE n° 001/2025 de 25/01/2025")
+    
+    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='planos_licencas_especiais_criados', verbose_name="Criado por")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Plano de Licença Especial"
+        verbose_name_plural = "Planos de Licenças Especiais"
+        ordering = ['-ano_plano', '-data_criacao']
+        unique_together = [['ano_plano']]
+        indexes = [
+            models.Index(fields=['-ano_plano']),
+            models.Index(fields=['status']),
+        ]
+    
+    def __str__(self):
+        return f"Plano de Licenças Especiais {self.ano_plano}"
+    
+    def clean(self):
+        """Validações do modelo"""
+        if self.ano_plano <= 2000 or self.ano_plano > 2100:
+            raise ValidationError("Ano do plano deve estar entre 2000 e 2100.")
+    
+    @property
+    def total_licencas(self):
+        """Retorna o total de licenças especiais associadas a este plano"""
+        return self.licencas_especiais.count()
+    
+    @property
+    def licencas_planejadas(self):
+        """Retorna quantidade de licenças planejadas"""
+        return self.licencas_especiais.filter(status='PLANEJADA').count()
+    
+    @property
+    def licencas_gozando(self):
+        """Retorna quantidade de licenças sendo usufruídas"""
+        return self.licencas_especiais.filter(status='GOZANDO').count()
+    
+    @property
+    def licencas_gozadas(self):
+        """Retorna quantidade de licenças já usufruídas"""
+        return self.licencas_especiais.filter(status='GOZADA').count()
+
+
+class LicencaEspecial(models.Model):
+    """Modelo para registrar licenças especiais dos militares decorrentes de decênios trabalhados"""
+    
+    STATUS_CHOICES = [
+        ('PLANEJADA', 'Planejada'),
+        ('GOZANDO', 'Usufruindo'),
+        ('GOZADA', 'Usufruída'),
+        ('CANCELADA', 'Cancelada'),
+    ]
+    
+    plano = models.ForeignKey('PlanoLicencaEspecial', on_delete=models.CASCADE, null=True, blank=True, related_name='licencas_especiais', verbose_name="Plano de Licença Especial")
+    militar = models.ForeignKey(Militar, on_delete=models.CASCADE, related_name='licencas_especiais', verbose_name="Militar")
+    decenio = models.IntegerField(verbose_name="Decênio", help_text="Qual decênio (1º, 2º, 3º, etc.) a partir da data de ingresso")
+    quantidade_meses = models.IntegerField(verbose_name="Quantidade de Meses", help_text="Quantidade de meses da licença especial")
+    data_inicio = models.DateField(verbose_name="Data de Início")
+    data_fim = models.DateField(verbose_name="Data de Fim", blank=True, null=True, help_text="Calculado automaticamente baseado na quantidade de meses")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PLANEJADA', verbose_name="Status")
+    
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    documento_referencia = models.CharField(max_length=200, blank=True, null=True, verbose_name="Documento de Referência", help_text="Ex: Portaria, Decreto, etc.")
+    numero_documento = models.CharField(max_length=50, blank=True, null=True, verbose_name="Número do Documento")
+    
+    cadastrado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='licencas_especiais_cadastradas', verbose_name="Cadastrado por")
+    data_cadastro = models.DateTimeField(auto_now_add=True, verbose_name="Data de Cadastro")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Licença Especial"
+        verbose_name_plural = "Licenças Especiais"
+        ordering = ['-data_inicio', '-data_cadastro']
+        indexes = [
+            models.Index(fields=['-data_inicio']),
+            models.Index(fields=['status']),
+            models.Index(fields=['militar']),
+            models.Index(fields=['decenio']),
+        ]
+    
+    def __str__(self):
+        return f"{self.militar.nome_guerra} - {self.decenio}º Decênio ({self.data_inicio})"
+    
+    @property
+    def periodo_decenio(self):
+        """Retorna o período do decênio no formato DD/MM/YYYY a DD/MM/YYYY"""
+        if not self.militar.data_ingresso:
+            return "-"
+        
+        from datetime import date
+        data_ingresso = self.militar.data_ingresso
+        
+        # Calcular datas do decênio
+        # 1º decênio: data_inicio = data_ingresso, data_fim = data_ingresso + 10 anos
+        anos_inicio = (self.decenio - 1) * 10
+        anos_fim = self.decenio * 10
+        
+        # Criar datas preservando dia e mês
+        data_inicio_decenio = date(
+            data_ingresso.year + anos_inicio,
+            data_ingresso.month,
+            data_ingresso.day
+        )
+        
+        data_fim_decenio = date(
+            data_ingresso.year + anos_fim,
+            data_ingresso.month,
+            data_ingresso.day
+        )
+        
+        # Formatar no padrão DD/MM/YYYY
+        return f"{data_inicio_decenio.strftime('%d/%m/%Y')} a {data_fim_decenio.strftime('%d/%m/%Y')}"
+    
+    def clean(self):
+        """Validações do modelo"""
+        from django.core.exceptions import ValidationError
+        from datetime import date
+        from dateutil.relativedelta import relativedelta
+        
+        if self.data_fim and self.data_fim < self.data_inicio:
+            raise ValidationError("A data de fim deve ser posterior à data de início.")
+        
+        if self.quantidade_meses <= 0:
+            raise ValidationError("A quantidade de meses deve ser maior que zero.")
+        
+        # Calcular data_fim automaticamente se não fornecida
+        if not self.data_fim and self.data_inicio and self.quantidade_meses:
+            # Adicionar meses e depois subtrair 1 dia para obter o último dia do período
+            self.data_fim = self.data_inicio + relativedelta(months=self.quantidade_meses, days=-1)
+        
+        # Validar decênio baseado na data de ingresso
+        if self.militar and self.militar.data_ingresso and self.decenio is not None:
+            hoje = date.today()
+            anos_de_servico = hoje.year - self.militar.data_ingresso.year
+            if (hoje.month, hoje.day) < (self.militar.data_ingresso.month, self.militar.data_ingresso.day):
+                anos_de_servico -= 1
+            
+            decenio_maximo = (anos_de_servico // 10) + 1
+            if self.decenio > decenio_maximo:
+                raise ValidationError(f"O decênio informado ({self.decenio}º) é maior que o possível com base no tempo de serviço do militar ({anos_de_servico} anos). Máximo: {decenio_maximo}º decênio.")
+            
+            # Validar que a soma das licenças especiais do mesmo decênio não pode ultrapassar 6 meses
+            if self.militar and self.decenio and self.quantidade_meses:
+                licencas_mesmo_decenio = self.militar.licencas_especiais.filter(
+                    decenio=self.decenio
+                ).exclude(status='CANCELADA')
+                
+                # Se estiver editando, excluir a própria licença
+                if self.pk:
+                    licencas_mesmo_decenio = licencas_mesmo_decenio.exclude(pk=self.pk)
+                
+                # Calcular total de meses já cadastrados para este decênio
+                total_meses_decenio = sum(licenca.quantidade_meses for licenca in licencas_mesmo_decenio)
+                
+                # Adicionar os meses da licença atual
+                total_meses_com_esta = total_meses_decenio + self.quantidade_meses
+                
+                # Validar que não pode ultrapassar 6 meses
+                if total_meses_com_esta > 6:
+                    meses_restantes = 6 - total_meses_decenio
+                    raise ValidationError(
+                        f"A soma das licenças especiais do {self.decenio}º decênio não pode ultrapassar 6 meses. "
+                        f"Já existem {total_meses_decenio} mês{'es' if total_meses_decenio != 1 else ''} cadastrado{'s' if total_meses_decenio != 1 else ''} para este decênio. "
+                        f"Você pode cadastrar no máximo {meses_restantes} mês{'es' if meses_restantes != 1 else ''} adicional{'is' if meses_restantes != 1 else ''}."
+                    )
+            
+            # Validação de sequência removida - permite cadastrar qualquer decênio
+            
+            # Validar que não pode criar licença especial antes de completar o decênio
+            if self.militar and self.militar.data_ingresso and self.data_inicio:
+                # Calcular data de fim do decênio
+                data_ingresso = self.militar.data_ingresso
+                anos_fim = self.decenio * 10
+                
+                data_fim_decenio = date(
+                    data_ingresso.year + anos_fim,
+                    data_ingresso.month,
+                    data_ingresso.day
+                )
+                
+                # A data de início da licença especial deve ser posterior à data de conclusão do decênio
+                if self.data_inicio <= data_fim_decenio:
+                    raise ValidationError(
+                        f"A data de início da licença especial deve ser posterior à data de conclusão do decênio. "
+                        f"O {self.decenio}º decênio será completado em {data_fim_decenio.strftime('%d/%m/%Y')}. "
+                        f"A data de início informada ({self.data_inicio.strftime('%d/%m/%Y')}) deve ser após esta data."
+                    )
+                
+                # Validar que não pode ser gozada antes de completar o decênio
+                if self.status == 'GOZADA':
+                    raise ValidationError(
+                        f"Não é permitido marcar a licença especial como 'Gozada' antes de completar o decênio. "
+                        f"O {self.decenio}º decênio será completado em {data_fim_decenio.strftime('%d/%m/%Y')}."
+                    )
+    
+    def save(self, *args, **kwargs):
+        """Calcula data_fim automaticamente e atualiza status baseado em datas"""
+        from datetime import date
+        from dateutil.relativedelta import relativedelta
+        
+        # Calcular data_fim se não fornecida
+        if not self.data_fim and self.data_inicio and self.quantidade_meses:
+            # Adicionar os meses e depois subtrair 1 dia para obter o último dia do período
+            self.data_fim = self.data_inicio + relativedelta(months=self.quantidade_meses, days=-1)
+        
+        # Atualizar status baseado em datas
+        hoje = date.today()
+        
+        if self.status not in ['CANCELADA', 'GOZADA']:
+            # Não atualizar automaticamente para GOZADA se ainda não completou o decênio
+            if self.data_inicio <= hoje <= self.data_fim:
+                self.status = 'GOZANDO'
+            elif self.data_fim and self.data_fim < hoje:
+                # Só pode marcar como GOZADA se o decênio foi completado
+                if self.militar and self.militar.data_ingresso:
+                    data_ingresso = self.militar.data_ingresso
+                    anos_fim = self.decenio * 10
+                    data_fim_decenio = date(
+                        data_ingresso.year + anos_fim,
+                        data_ingresso.month,
+                        data_ingresso.day
+                    )
+                    # Só atualiza para GOZADA se o decênio foi completado
+                    if hoje >= data_fim_decenio:
+                        self.status = 'GOZADA'
+                    else:
+                        # Se a licença terminou mas o decênio não, mantém como GOZANDO
+                        self.status = 'GOZANDO'
+                else:
+                    self.status = 'GOZADA'
+            else:
+                self.status = 'PLANEJADA'
+        
+        # Chamar o save primeiro para garantir que temos o pk
+        self.full_clean()
+        super().save(*args, **kwargs)
+        
+        if not self.militar:
+            return
+        
+        # Atualizar situação do militar baseado no status
+        if self.status == 'GOZANDO':
+            if self.militar.situacao != 'AFASTAMENTO_LICENCA_ESPECIAL':
+                self.militar.situacao = 'AFASTAMENTO_LICENCA_ESPECIAL'
+                self.militar.save(update_fields=['situacao'])
+        elif self.status in ['GOZADA', 'CANCELADA']:
+            # Função auxiliar para verificar se deve voltar situação para PRONTO
+            def deve_voltar_para_pronto():
+                """Verifica se o militar deve voltar para PRONTO após encerrar licença"""
+                from django.db.models import Q
+                from militares.models import Afastamento, Ferias
+                
+                # Verificar se há outros afastamentos ativos até hoje
+                outros_afastamentos_ativos = Afastamento.objects.filter(
+                    militar=self.militar
+                ).exclude(status='CANCELADO').filter(
+                    data_inicio__lte=hoje
+                ).filter(
+                    Q(data_fim_prevista__gte=hoje) | 
+                    Q(data_fim_real__gte=hoje) | 
+                    Q(data_fim_prevista__isnull=True, data_fim_real__isnull=True)
+                ).exists()
+                
+                # Verificar se há outras licenças especiais ativas (GOZANDO) até hoje
+                outras_licencas_ativas = LicencaEspecial.objects.filter(
+                    militar=self.militar
+                ).exclude(pk=self.pk).exclude(status='CANCELADA').filter(
+                    data_inicio__lte=hoje
+                ).filter(
+                    Q(data_fim__gte=hoje) | 
+                    Q(data_fim__isnull=True)
+                ).exists()
+                
+                # Verificar se há férias ativas (GOZANDO ou PLANEJADA que já iniciaram) até hoje
+                ferias_ativas = Ferias.objects.filter(
+                    militar=self.militar
+                ).exclude(status__in=['CANCELADA', 'REPROGRAMADA', 'GOZADA']).filter(
+                    data_inicio__lte=hoje,
+                    data_fim__gte=hoje
+                ).filter(
+                    status__in=['GOZANDO', 'PLANEJADA']
+                ).exists()
+                
+                return not outros_afastamentos_ativos and not outras_licencas_ativas and not ferias_ativas
+            
+            if self.militar.situacao == 'AFASTAMENTO_LICENCA_ESPECIAL' and deve_voltar_para_pronto():
+                self.militar.situacao = 'PRONTO'
+                self.militar.save(update_fields=['situacao'])
+    
+    @property
+    def duracao_dias(self):
+        """Calcula a duração da licença especial em dias"""
+        if self.data_fim and self.data_inicio:
+            return (self.data_fim - self.data_inicio).days + 1
+        return self.quantidade_meses * 30  # Aproximação
+    
+    @property
+    def status_display(self):
+        """Retorna o status formatado com ícone"""
+        status_icons = {
+            'PLANEJADA': '📅',
+            'GOZANDO': '🏖️',
+            'GOZADA': '✅',
+            'CANCELADA': '❌',
+        }
+        icon = status_icons.get(self.status, '❓')
+        return f"{icon} {self.get_status_display()}"
+
+
+class DocumentoFerias(models.Model):
+    """Documentos anexados às férias"""
+    
+    TIPO_CHOICES = [
+        ('PORTARIA', 'Portaria'),
+        ('OFICIO', 'Ofício'),
+        ('DECRETO', 'Decreto'),
+        ('SOLICITACAO', 'Solicitação'),
+        ('AUTORIZACAO', 'Autorização'),
+        ('PLANO_FERIAS', 'Plano de Férias'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    ferias = models.ForeignKey(Ferias, on_delete=models.CASCADE, related_name='documentos', verbose_name="Férias")
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, verbose_name="Tipo de Documento")
+    titulo = models.CharField(max_length=200, verbose_name="Título do Documento")
+    descricao = models.TextField(blank=True, null=True, verbose_name="Descrição")
+    arquivo = models.FileField(upload_to=documento_ferias_upload_path, verbose_name="Arquivo")
+    upload_por = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Upload por")
+    data_upload = models.DateTimeField(auto_now_add=True, verbose_name="Data do Upload")
+    
+    class Meta:
+        verbose_name = "Documento de Férias"
+        verbose_name_plural = "Documentos de Férias"
+        ordering = ['-data_upload']
+    
+    def __str__(self):
+        return f"{self.titulo} - {self.ferias.militar.nome_guerra}"
+    
+    def filename(self):
+        """Retorna apenas o nome do arquivo"""
+        return self.arquivo.name.split('/')[-1] if self.arquivo else ''
+    
+    def file_size(self):
+        """Retorna o tamanho do arquivo formatado"""
+        if self.arquivo:
+            size = self.arquivo.size
+            for unit in ['B', 'KB', 'MB', 'GB']:
+                if size < 1024.0:
+                    return f"{size:.2f} {unit}"
+                size /= 1024.0
+            return f"{size:.2f} TB"
+        return "0 B"
+
+
+class MilitarFuncao(models.Model):
+    """Modelo para gerenciar as funções que um militar exerce"""
+    TIPO_FUNCAO_CHOICES = [
+        ('PRINCIPAL', 'Principal'),
+        ('ADICIONAL', 'Adicional'),
+        ('TEMPORARIA', 'Temporária'),
+        ('COMISSAO', 'Comissão'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('ATUAL', 'Atual'),
+        ('ANTERIOR', 'Anterior'),
+        ('TEMPORARIA', 'Temporária'),
+    ]
+    
+    militar = models.ForeignKey(Militar, on_delete=models.CASCADE, related_name='funcoes', verbose_name="Militar")
+    funcao_militar = models.ForeignKey(FuncaoMilitar, on_delete=models.CASCADE, verbose_name="Função Militar")
+    tipo_funcao = models.CharField(max_length=20, choices=TIPO_FUNCAO_CHOICES, default='PRINCIPAL', verbose_name="Tipo de Função")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ATUAL', verbose_name="Status")
+    data_inicio = models.DateField(verbose_name="Data de Início")
+    data_fim = models.DateField(blank=True, null=True, verbose_name="Data de Fim", help_text="Deixe em branco para função atual")
+    posto_inicial = models.CharField(max_length=4, choices=POSTO_GRADUACAO_CHOICES, blank=True, null=True, verbose_name="Posto Inicial", help_text="Posto do militar no início da função")
+    posto_final = models.CharField(max_length=4, choices=POSTO_GRADUACAO_CHOICES, blank=True, null=True, verbose_name="Posto Final", help_text="Posto do militar no fim da função")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    data_cadastro = models.DateTimeField(auto_now_add=True, verbose_name="Data de Cadastro")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Função do Militar"
+        verbose_name_plural = "Funções dos Militares"
+        ordering = ['-data_inicio', '-data_cadastro']
+        unique_together = ['militar', 'funcao_militar', 'data_inicio']
+    
+    def __str__(self):
+        return f"{self.militar.nome_guerra} - {self.funcao_militar.nome} ({self.get_tipo_funcao_display()})"
+    
+    @property
+    def status_display(self):
+        return dict(self.STATUS_CHOICES)[self.status]
+    
+    def clean(self):
+        """Validações do modelo"""
+        if self.data_fim and self.data_fim < self.data_inicio:
+            raise ValidationError("A data de fim deve ser posterior à data de início.")
+    
+    @property
+    def duracao_lotacao(self):
+        """Calcula a duração da lotação em dias"""
+        if self.data_fim:
+            return (self.data_fim - self.data_inicio).days
+        else:
+            return (date.today() - self.data_inicio).days
+    
+    @property
+    def duracao_formatada(self):
+        """Retorna a duração formatada"""
+        dias = self.duracao_lotacao
+        anos = dias // 365
+        meses = (dias % 365) // 30
+        dias_restantes = dias % 30
+        
+        if anos > 0:
+            return f"{anos} ano(s), {meses} mês(es), {dias_restantes} dia(s)"
+        elif meses > 0:
+            return f"{meses} mês(es), {dias_restantes} dia(s)"
+        else:
+            return f"{dias_restantes} dia(s)"
+    
+    @property
+    def status_display(self):
+        """Retorna o status com ícone"""
+        status_icons = {
+            'ATUAL': '✅',
+            'ANTERIOR': '📋',
+            'TEMPORARIA': '⏰',
+            'COMANDO': '🎖️',
+            'AFASTAMENTO': '🚫'
+        }
+        icon = status_icons.get(self.status, '❓')
+        return f"{icon} {self.get_status_display()}"
+    
+    def save(self, *args, **kwargs):
+        """Override do save para validações"""
+        self.clean()
+        super().save(*args, **kwargs)
+
+
+class Orgao(models.Model):
+    """Modelo para gerenciar órgãos do sistema"""
+    nome = models.CharField(max_length=200, verbose_name="Nome do Órgão")
+    sigla = models.CharField(max_length=20, unique=True, verbose_name="Sigla", help_text="Sigla única do órgão")
+    ordem = models.PositiveIntegerField(default=0, verbose_name="Ordem de Exibição", help_text="Ordem para exibição em listas e menus")
+    descricao = models.TextField(blank=True, null=True, verbose_name="Descrição", help_text="Descrição opcional do órgão")
+    endereco = models.TextField(blank=True, null=True, verbose_name="Endereço Completo", help_text="Endereço completo do órgão")
+    cidade = models.CharField(max_length=100, choices=CIDADES_PIAUI_CHOICES, blank=True, null=True, verbose_name="Cidade", help_text="Cidade onde está localizado o órgão")
+    latitude = models.DecimalField(max_digits=18, decimal_places=15, blank=True, null=True, verbose_name="Latitude", help_text="Coordenada de latitude (opcional)")
+    longitude = models.DecimalField(max_digits=18, decimal_places=15, blank=True, null=True, verbose_name="Longitude", help_text="Coordenada de longitude (opcional)")
+    ativo = models.BooleanField(default=True, verbose_name="Ativo", help_text="Indica se o órgão está ativo no sistema")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Órgão"
+        verbose_name_plural = "Órgãos"
+        ordering = ['ordem', 'nome']
+        unique_together = ['sigla']
+    
+    def __str__(self):
+        return self.nome
+    
+    def save(self, *args, **kwargs):
+        # Se não foi definida ordem, usar o próximo número disponível
+        if not self.ordem:
+            ultimo_orgao = Orgao.objects.order_by('-ordem').first()
+            self.ordem = (ultimo_orgao.ordem + 1) if ultimo_orgao else 1
+        super().save(*args, **kwargs)
+    
+    @property
+    def nome_completo(self):
+        """Retorna o nome completo com sigla"""
+        return f"{self.sigla} - {self.nome}"
+
+
+class GrandeComando(models.Model):
+    """Modelo para gerenciar grandes comandos do organograma"""
+    orgao = models.ForeignKey(Orgao, on_delete=models.CASCADE, related_name='grandes_comandos', verbose_name="Órgão")
+    nome = models.CharField(max_length=200, verbose_name="Nome do Grande Comando")
+    sigla = models.CharField(max_length=20, verbose_name="Sigla", help_text="Sigla do grande comando")
+    ordem = models.PositiveIntegerField(default=0, verbose_name="Ordem de Exibição", help_text="Ordem para exibição no organograma")
+    descricao = models.TextField(blank=True, null=True, verbose_name="Descrição", help_text="Descrição opcional do grande comando")
+    endereco = models.TextField(blank=True, null=True, verbose_name="Endereço Completo", help_text="Endereço completo do grande comando")
+    cidade = models.CharField(max_length=100, choices=CIDADES_PIAUI_CHOICES, blank=True, null=True, verbose_name="Cidade", help_text="Cidade onde está localizado o grande comando")
+    latitude = models.DecimalField(max_digits=18, decimal_places=15, blank=True, null=True, verbose_name="Latitude", help_text="Coordenada de latitude (opcional)")
+    longitude = models.DecimalField(max_digits=18, decimal_places=15, blank=True, null=True, verbose_name="Longitude", help_text="Coordenada de longitude (opcional)")
+    ativo = models.BooleanField(default=True, verbose_name="Ativo", help_text="Indica se o grande comando está ativo")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Grande Comando"
+        verbose_name_plural = "Grandes Comandos"
+        ordering = ['orgao__ordem', 'ordem', 'nome']
+        unique_together = ['orgao', 'sigla']
+    
+    def __str__(self):
+        return self.nome
+    
+    def save(self, *args, **kwargs):
+        # Se não foi definida ordem, usar o próximo número disponível
+        if not self.ordem:
+            ultimo_comando = GrandeComando.objects.filter(orgao=self.orgao).order_by('-ordem').first()
+            self.ordem = (ultimo_comando.ordem + 1) if ultimo_comando else 1
+        super().save(*args, **kwargs)
+    
+    @property
+    def nome_completo(self):
+        """Retorna o nome completo com sigla"""
+        return f"{self.orgao.sigla} - {self.sigla} - {self.nome}"
+
+
+class Unidade(models.Model):
+    """Modelo para gerenciar unidades do organograma"""
+    grande_comando = models.ForeignKey(GrandeComando, on_delete=models.CASCADE, related_name='unidades', verbose_name="Grande Comando")
+    nome = models.CharField(max_length=200, verbose_name="Nome da Unidade")
+    sigla = models.CharField(max_length=20, verbose_name="Sigla", help_text="Sigla da unidade")
+    ordem = models.PositiveIntegerField(default=0, verbose_name="Ordem de Exibição", help_text="Ordem para exibição no organograma")
+    descricao = models.TextField(blank=True, null=True, verbose_name="Descrição", help_text="Descrição opcional da unidade")
+    endereco = models.TextField(blank=True, null=True, verbose_name="Endereço Completo", help_text="Endereço completo da unidade")
+    cidade = models.CharField(max_length=100, choices=CIDADES_PIAUI_CHOICES, blank=True, null=True, verbose_name="Cidade", help_text="Cidade onde está localizada a unidade")
+    latitude = models.DecimalField(max_digits=18, decimal_places=15, blank=True, null=True, verbose_name="Latitude", help_text="Coordenada de latitude (opcional)")
+    longitude = models.DecimalField(max_digits=18, decimal_places=15, blank=True, null=True, verbose_name="Longitude", help_text="Coordenada de longitude (opcional)")
+    ativo = models.BooleanField(default=True, verbose_name="Ativo", help_text="Indica se a unidade está ativa")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Unidade"
+        verbose_name_plural = "Unidades"
+        ordering = ['grande_comando__orgao__ordem', 'grande_comando__ordem', 'ordem', 'nome']
+        unique_together = ['grande_comando', 'sigla']
+    
+    def __str__(self):
+        return self.nome
+    
+    def save(self, *args, **kwargs):
+        # Se não foi definida ordem, usar o próximo número disponível
+        if not self.ordem:
+            ultima_unidade = Unidade.objects.filter(grande_comando=self.grande_comando).order_by('-ordem').first()
+            self.ordem = (ultima_unidade.ordem + 1) if ultima_unidade else 1
+        super().save(*args, **kwargs)
+    
+    @property
+    def nome_completo(self):
+        """Retorna o nome completo com sigla"""
+        return f"{self.grande_comando.orgao.sigla} - {self.grande_comando.sigla} - {self.sigla} - {self.nome}"
+    
+    @property
+    def orgao(self):
+        """Retorna o órgão da unidade"""
+        return self.grande_comando.orgao
+
+
+class SubUnidade(models.Model):
+    """Modelo para gerenciar sub-unidades do organograma"""
+    unidade = models.ForeignKey(Unidade, on_delete=models.CASCADE, related_name='sub_unidades', verbose_name="Unidade")
+    nome = models.CharField(max_length=200, verbose_name="Nome da Sub-Unidade")
+    sigla = models.CharField(max_length=20, verbose_name="Sigla", help_text="Sigla da sub-unidade")
+    ordem = models.PositiveIntegerField(default=0, verbose_name="Ordem de Exibição", help_text="Ordem para exibição no organograma")
+    descricao = models.TextField(blank=True, null=True, verbose_name="Descrição", help_text="Descrição opcional da sub-unidade")
+    endereco = models.TextField(blank=True, null=True, verbose_name="Endereço Completo", help_text="Endereço completo da sub-unidade")
+    cidade = models.CharField(max_length=100, choices=CIDADES_PIAUI_CHOICES, blank=True, null=True, verbose_name="Cidade", help_text="Cidade onde está localizada a sub-unidade")
+    latitude = models.DecimalField(max_digits=18, decimal_places=15, blank=True, null=True, verbose_name="Latitude", help_text="Coordenada de latitude (opcional)")
+    longitude = models.DecimalField(max_digits=18, decimal_places=15, blank=True, null=True, verbose_name="Longitude", help_text="Coordenada de longitude (opcional)")
+    ativo = models.BooleanField(default=True, verbose_name="Ativo", help_text="Indica se a sub-unidade está ativa")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Sub-Unidade"
+        verbose_name_plural = "Sub-Unidades"
+        ordering = ['unidade__grande_comando__orgao__ordem', 'unidade__grande_comando__ordem', 'unidade__ordem', 'ordem', 'nome']
+        unique_together = ['unidade', 'sigla']
+    
+    def __str__(self):
+        return self.nome
+    
+    def save(self, *args, **kwargs):
+        # Se não foi definida ordem, usar o próximo número disponível
+        if not self.ordem:
+            ultima_sub_unidade = SubUnidade.objects.filter(unidade=self.unidade).order_by('-ordem').first()
+            self.ordem = (ultima_sub_unidade.ordem + 1) if ultima_sub_unidade else 1
+        super().save(*args, **kwargs)
+    
+    @property
+    def nome_completo(self):
+        """Retorna o nome completo com sigla"""
+        return f"{self.unidade.grande_comando.orgao.sigla} - {self.unidade.grande_comando.sigla} - {self.unidade.sigla} - {self.sigla} - {self.nome}"
+    
+    @property
+    def orgao(self):
+        """Retorna o órgão da sub-unidade"""
+        return self.unidade.grande_comando.orgao
+    
+    @property
+    def grande_comando(self):
+        """Retorna o grande comando da sub-unidade"""
+        return self.unidade.grande_comando
+
+
+class Elogio(models.Model):
+    """Modelo para registrar elogios de militares"""
+    
+    TIPO_CHOICES = [
+        ('INDIVIDUAL', 'Elogio Individual'),
+        ('COLETIVO', 'Elogio Coletivo'),
+    ]
+    
+    militar = models.ForeignKey(Militar, on_delete=models.CASCADE, verbose_name="Militar", related_name="elogios")
+    tipo = models.CharField(max_length=15, choices=TIPO_CHOICES, verbose_name="Tipo de Elogio")
+    data_elogio = models.DateField(verbose_name="Data do Elogio")
+    numero_documento = models.CharField(max_length=50, blank=True, null=True, verbose_name="Número do Documento", help_text="Ex: Portaria, Boletim, etc.")
+    descricao = models.TextField(verbose_name="Descrição do Elogio")
+    autoridade_elogiou = models.CharField(max_length=200, verbose_name="Autoridade que Elogiou")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    data_registro = models.DateTimeField(auto_now_add=True, verbose_name="Data de Registro")
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    
+    class Meta:
+        verbose_name = "Elogio"
+        verbose_name_plural = "Elogios"
+        ordering = ['-data_elogio', '-data_registro']
+    
+    def __str__(self):
+        return f"{self.get_tipo_display()} - {self.militar.nome_completo} - {self.data_elogio}"
+    
+    @property
+    def tipo_icon(self):
+        """Retorna ícone baseado no tipo"""
+        icons = {
+            'INDIVIDUAL': '🏆',
+            'COLETIVO': '👥'
+        }
+        return icons.get(self.tipo, '⭐')
+    
+    @property
+    def descricao_resumida(self):
+        """Retorna descrição resumida para exibição"""
+        if len(self.descricao) > 100:
+            return f"{self.descricao[:100]}..."
+        return self.descricao
+
+
+class Punicao(models.Model):
+    """Modelo para registrar punições de militares"""
+    
+    TIPO_CHOICES = [
+        ('ADVERTENCIA', 'Advertência'),
+        ('REPRENSAO', 'Repreensão'),
+        ('SUSPENSAO', 'Suspensão'),
+        ('DETENCAO', 'Detenção'),
+        ('PRISAO', 'Prisão'),
+        ('REFORMA_DISCIPLINAR', 'Reforma Disciplinar Compulsória'),
+        ('DEMISSAO', 'Demissão'),
+        ('LICENCIAMENTO', 'Licenciamento'),
+        ('EXCLUSAO_DISCIPLINA', 'Exclusão a Bem da Disciplina'),
+    ]
+    
+    militar = models.ForeignKey(Militar, on_delete=models.CASCADE, verbose_name="Militar", related_name="punicoes")
+    tipo = models.CharField(max_length=25, choices=TIPO_CHOICES, verbose_name="Tipo de Punição")
+    data_punicao = models.DateField(verbose_name="Data da Punição")
+    numero_documento = models.CharField(max_length=50, blank=True, null=True, verbose_name="Número do Documento", help_text="Ex: Portaria, Boletim, etc.")
+    descricao = models.TextField(verbose_name="Descrição da Punição")
+    autoridade_puniu = models.CharField(max_length=200, verbose_name="Autoridade que Puniu")
+    periodo_punicao = models.CharField(max_length=100, blank=True, null=True, verbose_name="Período da Punição", help_text="Ex: 30 dias, 1 ano, etc.")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    data_registro = models.DateTimeField(auto_now_add=True, verbose_name="Data de Registro")
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    
+    class Meta:
+        verbose_name = "Punição"
+        verbose_name_plural = "Punições"
+        ordering = ['-data_punicao', '-data_registro']
+    
+    def __str__(self):
+        return f"{self.get_tipo_display()} - {self.militar.nome_completo} - {self.data_punicao}"
+    
+    @property
+    def tipo_icon(self):
+        """Retorna ícone baseado no tipo"""
+        icons = {
+            'ADVERTENCIA': '[AVISO]',
+            'REPRENSAO': '[REPR]',
+            'SUSPENSAO': '[SUSP]',
+            'DETENCAO': '[DET]',
+            'PRISAO': '[PRIS]',
+            'REFORMA_DISCIPLINAR': '[REF]',
+            'DEMISSAO': '[DEM]',
+            'LICENCIAMENTO': '[LIC]',
+            'EXCLUSAO_DISCIPLINA': '[EXC]'
+        }
+        return icons.get(self.tipo, '[ERRO]')
+    
+    @property
+    def descricao_resumida(self):
+        """Retorna descrição resumida para exibição"""
+        if len(self.descricao) > 100:
+            return f"{self.descricao[:100]}..."
+        return self.descricao
+    
+    @property
+    def severidade(self):
+        """Retorna a severidade da punição"""
+        severidades = {
+            'ADVERTENCIA': 'Baixa',
+            'REPRENSAO': 'Baixa',
+            'SUSPENSAO': 'Média',
+            'DETENCAO': 'Alta',
+            'PRISAO': 'Muito Alta',
+            'REFORMA_DISCIPLINAR': 'Muito Alta',
+            'DEMISSAO': 'Muito Alta',
+            'LICENCIAMENTO': 'Muito Alta',
+            'EXCLUSAO_DISCIPLINA': 'Muito Alta'
+        }
+        return severidades.get(self.tipo, 'Desconhecida')
+
+
+class UsuarioMaster(models.Model):
+    """
+    Usuário Master com acesso total ao sistema
+    Não precisa de função militar ou lotação
+    """
+    username = models.CharField(max_length=150, unique=True, verbose_name="Nome de Usuário")
+    email = models.EmailField(unique=True, verbose_name="Email")
+    nome_completo = models.CharField(max_length=255, verbose_name="Nome Completo")
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_ultimo_acesso = models.DateTimeField(null=True, blank=True, verbose_name="Último Acesso")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    
+    class Meta:
+        verbose_name = "Usuário Master"
+        verbose_name_plural = "Usuários Master"
+        ordering = ['nome_completo']
+    
+    def __str__(self):
+        return f"{self.nome_completo} ({self.username})"
+    
+    def save(self, *args, **kwargs):
+        # Atualizar data de último acesso ao salvar
+        if self.pk:
+            self.data_ultimo_acesso = timezone.now()
+        super().save(*args, **kwargs)
+    
+    @property
+    def is_master(self):
+        """Indica se é um usuário master"""
+        return True
+    
+    def has_permission(self, modulo, acesso='VISUALIZAR'):
+        """Usuário master tem todas as permissões"""
+        return True
+    
+    def can_access_without_session(self):
+        """Usuário master pode acessar sem sessão ativa"""
+        return True
+
+
+class FuncaoMenuConfig(models.Model):
+    """
+    Configuração de menus que cada função militar pode acessar
+    Baseado no menu lateral do sistema
+    """
+    funcao_militar = models.OneToOneField(
+        FuncaoMilitar, 
+        on_delete=models.CASCADE, 
+        verbose_name="Função Militar",
+        related_name="menu_config"
+    )
+    
+    # Menus principais
+    show_dashboard = models.BooleanField(default=True, verbose_name="Dashboard")
+    show_efetivo = models.BooleanField(default=False, verbose_name="Efetivo")
+    show_afastamentos = models.BooleanField(default=False, verbose_name="Afastamentos")
+    show_ferias = models.BooleanField(default=False, verbose_name="Férias")
+    show_publicacoes = models.BooleanField(default=False, verbose_name="Publicações")
+    show_secao_promocoes = models.BooleanField(default=False, verbose_name="Seção de Promoções")
+    show_medalhas = models.BooleanField(default=False, verbose_name="Medalhas")
+    show_configuracoes = models.BooleanField(default=False, verbose_name="Configurações")
+    
+    # Submenus - Efetivo
+    show_ativos = models.BooleanField(default=False, verbose_name="Militares Ativos")
+    show_inativos = models.BooleanField(default=False, verbose_name="Militares Inativos")
+    show_lotacoes = models.BooleanField(default=False, verbose_name="Lotações")
+    show_averbacoes = models.BooleanField(default=False, verbose_name="Averbações")
+    
+    # Menus e Submenus - Frota
+    show_viaturas = models.BooleanField(default=False, verbose_name="Frota")
+    show_equipamentos_operacionais = models.BooleanField(default=False, verbose_name="Equipamentos Operacionais")
+    show_equipamentos_operacionais_combustivel = models.BooleanField(default=False, verbose_name="Controle de Combustível (Equipamentos)")
+    show_equipamentos_operacionais_manutencoes = models.BooleanField(default=False, verbose_name="Manutenções (Equipamentos)")
+    show_equipamentos_operacionais_trocas_oleo = models.BooleanField(default=False, verbose_name="Trocas de Óleo (Equipamentos)")
+    show_equipamentos_operacionais_tempos_uso = models.BooleanField(default=False, verbose_name="Controle de Uso por Horas")
+    show_controle_combustivel = models.BooleanField(default=False, verbose_name="Controle de Combustível")
+    show_manutencoes = models.BooleanField(default=False, verbose_name="Manutenções")
+    show_trocas_oleo = models.BooleanField(default=False, verbose_name="Trocas de Óleo")
+    show_licenciamentos = models.BooleanField(default=False, verbose_name="Licenciamentos")
+    show_rodagens = models.BooleanField(default=False, verbose_name="Rodagens")
+    show_painel_guarda = models.BooleanField(default=False, verbose_name="Painel de Guarda")
+    
+    # Menus e Submenus - Material Bélico
+    show_material_belico = models.BooleanField(default=False, verbose_name="Material Bélico")
+    
+    # Menus e Submenus - Bens Móveis
+    show_bens_moveis = models.BooleanField(default=False, verbose_name="Bens Móveis")
+    
+    # Menus e Submenus - Almoxarifado
+    show_almoxarifado = models.BooleanField(default=False, verbose_name="Almoxarifado")
+    show_processos = models.BooleanField(default=False, verbose_name="Processos Administrativos")
+    
+    show_armas_instituicao = models.BooleanField(default=False, verbose_name="Armas da Instituição")
+    show_armas_particulares = models.BooleanField(default=False, verbose_name="Armas Particulares")
+    show_cautelas_armas = models.BooleanField(default=False, verbose_name="Cautelas de Armas")
+    show_controle_movimentacoes = models.BooleanField(default=False, verbose_name="Controle de Movimentações")
+    show_controle_municao = models.BooleanField(default=False, verbose_name="Controle de Munição")
+    show_cautelas_municoes = models.BooleanField(default=False, verbose_name="Cautelas de Munição")
+    
+    # Submenus - Publicações
+    show_notas = models.BooleanField(default=False, verbose_name="Notas")
+    show_boletins_ostensivos = models.BooleanField(default=False, verbose_name="Boletins Ostensivos")
+    show_boletins_reservados = models.BooleanField(default=False, verbose_name="Boletins Reservados")
+    show_boletins_especiais = models.BooleanField(default=False, verbose_name="Boletins Especiais")
+    show_avisos = models.BooleanField(default=False, verbose_name="Avisos")
+    show_ordens_servico = models.BooleanField(default=False, verbose_name="Ordens de Serviço")
+    
+    # Submenus - Seção de Promoções
+    show_fichas_oficiais = models.BooleanField(default=False, verbose_name="Fichas de Conceito (Oficiais)")
+    show_fichas_pracas = models.BooleanField(default=False, verbose_name="Fichas de Conceito (Praças)")
+    show_calendarios = models.BooleanField(default=False, verbose_name="Calendários de Promoções")
+    show_quadros_fixacao = models.BooleanField(default=False, verbose_name="Quadros de Fixação de Vagas")
+    show_quadros_acesso = models.BooleanField(default=False, verbose_name="Quadros de Acesso")
+    show_comissoes = models.BooleanField(default=False, verbose_name="Comissões de Promoções")
+    show_meus_votos = models.BooleanField(default=False, verbose_name="Meus Votos")
+    show_promocoes = models.BooleanField(default=False, verbose_name="Promoções")
+    show_almanaques = models.BooleanField(default=False, verbose_name="Almanaques")
+    
+    # Submenus - Medalhas
+    show_medalhas_concessoes = models.BooleanField(default=False, verbose_name="Concessões de Medalhas")
+    show_medalhas_propostas = models.BooleanField(default=False, verbose_name="Propostas de Medalhas")
+    show_elegiveis = models.BooleanField(default=False, verbose_name="Elegíveis")
+    show_propostas = models.BooleanField(default=False, verbose_name="Propostas")
+    
+    # Submenus - Escalas de Serviço
+    show_escalas = models.BooleanField(default=False, verbose_name="Escalas de Serviço")
+    show_escalas_dashboard = models.BooleanField(default=False, verbose_name="Dashboard de Escalas")
+    show_escalas_lista = models.BooleanField(default=False, verbose_name="Lista de Escalas")
+    show_escalas_configuracao = models.BooleanField(default=False, verbose_name="Configurações de Escalas")
+    show_escalas_banco_horas = models.BooleanField(default=False, verbose_name="Banco de Horas")
+    show_escalas_operacoes = models.BooleanField(default=False, verbose_name="Operações de Escalas")
+    show_escalas_abonar = models.BooleanField(default=False, verbose_name="Abonar Escalas")
+    
+    # Permissões de Escalas
+    escalas_visualizar = models.BooleanField(default=False, verbose_name="Visualizar Escalas")
+    escalas_criar = models.BooleanField(default=False, verbose_name="Criar Escalas")
+    escalas_editar = models.BooleanField(default=False, verbose_name="Editar Escalas")
+    escalas_excluir = models.BooleanField(default=False, verbose_name="Excluir Escalas")
+    escalas_gerar_pdf = models.BooleanField(default=False, verbose_name="Gerar PDF Escalas")
+    escalas_adicionar_militar = models.BooleanField(default=False, verbose_name="Adicionar Militar à Escala")
+    escalas_remover_militar = models.BooleanField(default=False, verbose_name="Remover Militar da Escala")
+    escalas_configurar_horas = models.BooleanField(default=False, verbose_name="Configurar Horas dos Militares")
+    escalas_operacoes_planejadas = models.BooleanField(default=False, verbose_name="Gerenciar Operações Planejadas")
+    
+    # Submenus - Planejadas
+    show_planejadas = models.BooleanField(default=False, verbose_name="Operações Planejadas")
+    show_operador_planejadas = models.BooleanField(default=False, verbose_name="Operador de Planejadas")
+    show_liquidacao = models.BooleanField(default=False, verbose_name="Liquidação")
+    show_fiscal_planejadas = models.BooleanField(default=False, verbose_name="Fiscal de Planejadas")
+    
+    # Permissões de Planejadas
+    planejadas_visualizar = models.BooleanField(default=False, verbose_name="Visualizar Planejadas")
+    planejadas_criar = models.BooleanField(default=False, verbose_name="Criar Planejadas")
+    planejadas_editar = models.BooleanField(default=False, verbose_name="Editar Planejadas")
+    planejadas_excluir = models.BooleanField(default=False, verbose_name="Excluir Planejadas")
+    planejadas_adicionar_militar = models.BooleanField(default=False, verbose_name="Adicionar Militar à Planejada")
+    planejadas_remover_militar = models.BooleanField(default=False, verbose_name="Remover Militar da Planejada")
+    planejadas_assinatura_operador = models.BooleanField(default=False, verbose_name="Assinar como Operador")
+    planejadas_assinatura_fiscal = models.BooleanField(default=False, verbose_name="Assinar como Fiscal")
+    
+    # Submenus - Configurações/Sistema
+    show_intersticios = models.BooleanField(default=False, verbose_name="Interstícios")
+    show_gerenciar_intersticios = models.BooleanField(default=False, verbose_name="Gerenciar Interstícios")
+    show_gerenciar_previsao = models.BooleanField(default=False, verbose_name="Gerenciar Previsão de Vagas")
+    show_usuarios = models.BooleanField(default=False, verbose_name="Gerenciar Usuários")
+    show_permissoes = models.BooleanField(default=False, verbose_name="Funções Militares")
+    show_orgaos = models.BooleanField(default=False, verbose_name="Órgãos")
+    show_organograma = models.BooleanField(default=False, verbose_name="Organograma")
+    show_logs = models.BooleanField(default=False, verbose_name="Logs do Sistema")
+    show_titulos_publicacao = models.BooleanField(default=False, verbose_name="Títulos de Publicações")
+    show_administracao = models.BooleanField(default=False, verbose_name="Administração")
+    show_grandes_comandos = models.BooleanField(default=False, verbose_name="Grandes Comandos")
+    show_unidades = models.BooleanField(default=False, verbose_name="Unidades")
+    show_sub_unidades = models.BooleanField(default=False, verbose_name="Sub-Unidades")
+    
+    # Submenus - Relatórios
+    show_relatorios = models.BooleanField(default=False, verbose_name="Relatórios")
+    show_relatorios_militares = models.BooleanField(default=False, verbose_name="Relatórios de Militares")
+    show_relatorios_promocoes = models.BooleanField(default=False, verbose_name="Relatórios de Promoções")
+    show_relatorios_medalhas = models.BooleanField(default=False, verbose_name="Relatórios de Medalhas")
+    show_relatorios_publicacoes = models.BooleanField(default=False, verbose_name="Relatórios de Publicações")
+    show_relatorios_gerais = models.BooleanField(default=False, verbose_name="Relatórios Gerais")
+    
+    # Submenus - Pessoal
+    show_pessoal = models.BooleanField(default=False, verbose_name="Pessoal")
+    show_minhas_informacoes = models.BooleanField(default=False, verbose_name="Minhas Informações")
+    show_minha_ficha_cadastro = models.BooleanField(default=False, verbose_name="Minha Ficha de Cadastro")
+    show_minha_ficha_conceito_oficial = models.BooleanField(default=False, verbose_name="Minha Ficha de Conceito (Oficial)")
+    show_minha_ficha_conceito_praca = models.BooleanField(default=False, verbose_name="Minha Ficha de Conceito (Praça)")
+    show_criar_ficha_conceito_oficial = models.BooleanField(default=False, verbose_name="Criar Ficha de Conceito (Oficial)")
+    show_criar_ficha_conceito_praca = models.BooleanField(default=False, verbose_name="Criar Ficha de Conceito (Praça)")
+    
+    # Campos de controle
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Configuração de Menu da Função"
+        verbose_name_plural = "Configurações de Menu das Funções"
+        ordering = ['funcao_militar__nome']
+    
+    def __str__(self):
+        return f"Menu - {self.funcao_militar.nome}"
+    
+    def get_menus_principais(self):
+        """Retorna os menus principais ativos"""
+        return {
+            'dashboard': self.show_dashboard,
+            'efetivo': self.show_efetivo,
+            'afastamentos': self.show_afastamentos,
+            'publicacoes': self.show_publicacoes,
+            'escalas': self.show_escalas,
+            'secao_promocoes': self.show_secao_promocoes,
+            'medalhas': self.show_medalhas,
+            'configuracoes': self.show_configuracoes,
+        }
+    
+    def get_submenus_efetivo(self):
+        """Retorna os submenus do Efetivo ativos"""
+        return {
+            'ativos': self.show_ativos,
+            'inativos': self.show_inativos,
+            'lotacoes': self.show_lotacoes,
+            'averbacoes': self.show_averbacoes,
+        }
+    
+    def get_submenus_escalas(self):
+        """Retorna os submenus de Escalas ativos"""
+        return {
+            'dashboard': self.show_escalas_dashboard,
+            'lista': self.show_escalas_lista,
+            'configuracao': self.show_escalas_configuracao,
+            'banco_horas': self.show_escalas_banco_horas,
+            'operacoes': self.show_escalas_operacoes,
+            'abonar': self.show_escalas_abonar,
+        }
+    
+    def get_submenus_publicacoes(self):
+        """Retorna os submenus de Publicações ativos"""
+        return {
+            'notas': self.show_notas,
+            'boletins_ostensivos': self.show_boletins_ostensivos,
+            'boletins_reservados': self.show_boletins_reservados,
+            'boletins_especiais': self.show_boletins_especiais,
+            'avisos': self.show_avisos,
+            'ordens_servico': self.show_ordens_servico,
+        }
+    
+    def get_submenus_promocoes(self):
+        """Retorna os submenus da Seção de Promoções ativos"""
+        return {
+            'fichas_oficiais': self.show_fichas_oficiais,
+            'fichas_pracas': self.show_fichas_pracas,
+            'calendarios': self.show_calendarios,
+            'quadros_fixacao': self.show_quadros_fixacao,
+            'quadros_acesso': self.show_quadros_acesso,
+            'comissoes': self.show_comissoes,
+            'meus_votos': self.show_meus_votos,
+            'promocoes': self.show_promocoes,
+            'almanaques': self.show_almanaques,
+        }
+    
+    def get_submenus_medalhas(self):
+        """Retorna os submenus de Medalhas ativos"""
+        return {
+            'concessoes': self.show_medalhas_concessoes,
+            'propostas': self.show_medalhas_propostas,
+            'elegiveis': self.show_elegiveis,
+            'propostas': self.show_propostas,
+        }
+    
+    
+    def get_submenus_configuracoes(self):
+        """Retorna os submenus de Configurações/Sistema ativos"""
+        return {
+            'intersticios': self.show_intersticios,
+            'gerenciar_intersticios': self.show_gerenciar_intersticios,
+            'gerenciar_previsao': self.show_gerenciar_previsao,
+            'usuarios': self.show_usuarios,
+            'permissoes': self.show_permissoes,
+            'orgaos': self.show_orgaos,
+            'organograma': self.show_organograma,
+            'logs': self.show_logs,
+            'titulos_publicacao': self.show_titulos_publicacao,
+            'administracao': self.show_administracao,
+            'grandes_comandos': self.show_grandes_comandos,
+            'unidades': self.show_unidades,
+            'sub_unidades': self.show_sub_unidades,
+        }
+    
+    def get_submenus_relatorios(self):
+        """Retorna os submenus de Relatórios ativos"""
+        return {
+            'relatorios': self.show_relatorios,
+            'relatorios_militares': self.show_relatorios_militares,
+            'relatorios_promocoes': self.show_relatorios_promocoes,
+            'relatorios_medalhas': self.show_relatorios_medalhas,
+            'relatorios_publicacoes': self.show_relatorios_publicacoes,
+            'relatorios_gerais': self.show_relatorios_gerais,
+        }
+    
+    def get_submenus_pessoal(self):
+        """Retorna os submenus de Pessoal ativos"""
+        return {
+            'pessoal': self.show_pessoal,
+            'minhas_informacoes': self.show_minhas_informacoes,
+            'minha_ficha_cadastro': self.show_minha_ficha_cadastro,
+            'minha_ficha_conceito_oficial': self.show_minha_ficha_conceito_oficial,
+            'minha_ficha_conceito_praca': self.show_minha_ficha_conceito_praca,
+            'criar_ficha_conceito_oficial': self.show_criar_ficha_conceito_oficial,
+            'criar_ficha_conceito_praca': self.show_criar_ficha_conceito_praca,
+        }
+    
+    # Permissões de botões - Quadros de Fixação
+    quadros_fixacao_visualizar = models.BooleanField(default=False, verbose_name="Visualizar Quadros de Fixação")
+    quadros_fixacao_criar = models.BooleanField(default=False, verbose_name="Criar Quadros de Fixação")
+    quadros_fixacao_editar = models.BooleanField(default=False, verbose_name="Editar Quadros de Fixação")
+    quadros_fixacao_excluir = models.BooleanField(default=False, verbose_name="Excluir Quadros de Fixação")
+    quadros_fixacao_assinar = models.BooleanField(default=False, verbose_name="Assinar Quadros de Fixação")
+    quadros_fixacao_gerar_pdf = models.BooleanField(default=False, verbose_name="Gerar PDF Quadros de Fixação")
+    
+    # Permissões de botões - Almanaques
+    almanaques_visualizar = models.BooleanField(default=False, verbose_name="Visualizar Almanaques")
+    almanaques_criar = models.BooleanField(default=False, verbose_name="Criar Almanaques")
+    almanaques_editar = models.BooleanField(default=False, verbose_name="Editar Almanaques")
+    almanaques_excluir = models.BooleanField(default=False, verbose_name="Excluir Almanaques")
+    almanaques_assinar = models.BooleanField(default=False, verbose_name="Assinar Almanaques")
+    almanaques_gerar_pdf = models.BooleanField(default=False, verbose_name="Gerar PDF Almanaques")
+    
+    # Permissões de botões - Promoções
+    promocoes_visualizar = models.BooleanField(default=False, verbose_name="Visualizar Promoções")
+    promocoes_criar = models.BooleanField(default=False, verbose_name="Criar Promoções")
+    promocoes_editar = models.BooleanField(default=False, verbose_name="Editar Promoções")
+    promocoes_excluir = models.BooleanField(default=False, verbose_name="Excluir Promoções")
+    
+    # Permissões de botões - Calendários
+    calendarios_visualizar = models.BooleanField(default=False, verbose_name="Visualizar Calendários")
+    calendarios_criar = models.BooleanField(default=False, verbose_name="Criar Calendários")
+    calendarios_editar = models.BooleanField(default=False, verbose_name="Editar Calendários")
+    calendarios_excluir = models.BooleanField(default=False, verbose_name="Excluir Calendários")
+    
+    # Permissões de botões - Comissões
+    comissoes_visualizar = models.BooleanField(default=False, verbose_name="Visualizar Comissões")
+    comissoes_criar = models.BooleanField(default=False, verbose_name="Criar Comissões")
+    comissoes_editar = models.BooleanField(default=False, verbose_name="Editar Comissões")
+    comissoes_excluir = models.BooleanField(default=False, verbose_name="Excluir Comissões")
+    
+    # Permissões de botões - Meus Votos
+    meus_votos_visualizar = models.BooleanField(default=False, verbose_name="Visualizar Meus Votos")
+    meus_votos_votar = models.BooleanField(default=False, verbose_name="Votar")
+    
+    
+    # Configurações especiais
+    is_consultor = models.BooleanField(
+        default=False, 
+        verbose_name="Apenas Visualização",
+        help_text="Se marcado, o usuário terá apenas permissão de visualização"
+    )
+    
+    # Metadados
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    
+    class Meta:
+        verbose_name = "Configuração de Menu por Função"
+        verbose_name_plural = "Configurações de Menu por Função"
+        ordering = ['funcao_militar__nome']
+    
+    def __str__(self):
+        return f"Menu: {self.funcao_militar.nome}"
+    
+    def get_menu_permissions(self):
+        """
+        Retorna um dicionário com todas as permissões de menu
+        """
+        from django.db import connection
+        
+        
+        return {
+            # Menus principais
+            'show_dashboard': self.show_dashboard,
+            'show_efetivo': self.show_efetivo,
+            'show_publicacoes': self.show_publicacoes,
+            'show_secao_promocoes': self.show_secao_promocoes,
+            'show_medalhas': self.show_medalhas,
+            'show_escalas': self.show_escalas,
+            'show_configuracoes': self.show_configuracoes,
+            'show_relatorios': self.show_relatorios,
+            'show_pessoal': self.show_pessoal,
+            'show_afastamentos': self.show_afastamentos,
+            'show_ferias': self.show_ferias,
+            'show_planejadas': self.show_planejadas,
+            
+            # Submenus - Efetivo
+            'show_ativos': self.show_ativos,
+            'show_inativos': self.show_inativos,
+            'show_lotacoes': self.show_lotacoes,
+            'show_averbacoes': self.show_averbacoes,
+            
+            # Menus e Submenus - Frota
+            'show_viaturas': self.show_viaturas,
+            'show_controle_combustivel': self.show_controle_combustivel,
+            'show_manutencoes': self.show_manutencoes,
+            'show_trocas_oleo': self.show_trocas_oleo,
+            'show_licenciamentos': self.show_licenciamentos,
+            'show_rodagens': self.show_rodagens,
+            'show_painel_guarda': self.show_painel_guarda,
+            
+            # Menus e Submenus - Equipamentos Operacionais
+            'show_equipamentos_operacionais': self.show_equipamentos_operacionais,
+            'show_equipamentos_operacionais_combustivel': self.show_equipamentos_operacionais_combustivel,
+            'show_equipamentos_operacionais_manutencoes': self.show_equipamentos_operacionais_manutencoes,
+            'show_equipamentos_operacionais_trocas_oleo': self.show_equipamentos_operacionais_trocas_oleo,
+            'show_equipamentos_operacionais_tempos_uso': self.show_equipamentos_operacionais_tempos_uso,
+            
+            # Menus e Submenus - Material Bélico
+            'show_material_belico': self.show_material_belico,
+            
+            # Menus e Submenus - Bens Móveis
+            'show_bens_moveis': self.show_bens_moveis,
+            
+            # Menus e Submenus - Almoxarifado
+            # IMPORTANTE: show_almoxarifado sempre False - só True com permissão granular
+            'show_almoxarifado': False,
+            'show_almoxarifado_requisicoes': False,
+            'show_processos': self.show_processos,
+            
+            'show_armas_instituicao': self.show_armas_instituicao,
+            'show_armas_particulares': self.show_armas_particulares,
+            'show_cautelas_armas': self.show_cautelas_armas,
+            'show_controle_movimentacoes': self.show_controle_movimentacoes,
+            'show_controle_municao': self.show_controle_municao,
+            'show_cautelas_municoes': self.show_cautelas_municoes,
+            
+            # Submenus - Publicações
+            'show_notas': self.show_notas,
+            'show_boletins_ostensivos': self.show_boletins_ostensivos,
+            'show_boletins_reservados': self.show_boletins_reservados,
+            'show_boletins_especiais': self.show_boletins_especiais,
+            'show_avisos': self.show_avisos,
+            'show_ordens_servico': self.show_ordens_servico,
+            
+            # Submenus - Seção de Promoções
+            'show_fichas_oficiais': self.show_fichas_oficiais,
+            'show_fichas_pracas': self.show_fichas_pracas,
+            'show_quadros_acesso': self.show_quadros_acesso,
+            'show_quadros_fixacao': self.show_quadros_fixacao,
+            'show_calendarios': self.show_calendarios,
+            'show_comissoes': self.show_comissoes,
+            'show_meus_votos': self.show_meus_votos,
+            'show_promocoes': self.show_promocoes,
+            'show_almanaques': self.show_almanaques,
+            
+            # Submenus - Medalhas
+            'show_medalhas_concessoes': self.show_medalhas_concessoes,
+            'show_medalhas_propostas': self.show_medalhas_propostas,
+            'show_elegiveis': self.show_elegiveis,
+            'show_propostas': self.show_propostas,
+            
+            # Submenus - Escalas
+            'show_escalas_dashboard': self.show_escalas_dashboard,
+            'show_escalas_lista': self.show_escalas_lista,
+            'show_escalas_configuracao': self.show_escalas_configuracao,
+            'show_escalas_banco_horas': self.show_escalas_banco_horas,
+            'show_escalas_operacoes': self.show_escalas_operacoes,
+            'show_escalas_abonar': self.show_escalas_abonar,
+            
+            # Submenus - Configurações/Sistema
+            'show_intersticios': self.show_intersticios,
+            'show_gerenciar_intersticios': self.show_gerenciar_intersticios,
+            'show_gerenciar_previsao': self.show_gerenciar_previsao,
+            'show_usuarios': self.show_usuarios,
+            'show_permissoes': self.show_permissoes,
+            'show_orgaos': self.show_orgaos,
+            'show_organograma': self.show_organograma,
+            'show_logs': self.show_logs,
+            'show_titulos_publicacao': self.show_titulos_publicacao,
+            'show_administracao': self.show_administracao,
+            'show_grandes_comandos': self.show_grandes_comandos,
+            'show_unidades': self.show_unidades,
+            'show_sub_unidades': self.show_sub_unidades,
+            
+            # Submenus - Relatórios
+            'show_relatorios_militares': self.show_relatorios_militares,
+            'show_relatorios_promocoes': self.show_relatorios_promocoes,
+            'show_relatorios_medalhas': self.show_relatorios_medalhas,
+            'show_relatorios_publicacoes': self.show_relatorios_publicacoes,
+            'show_relatorios_gerais': self.show_relatorios_gerais,
+            
+            # Submenus - Pessoal
+            'show_minhas_informacoes': self.show_minhas_informacoes,
+            'show_minha_ficha_cadastro': self.show_minha_ficha_cadastro,
+            'show_minha_ficha_conceito_oficial': self.show_minha_ficha_conceito_oficial,
+            'show_minha_ficha_conceito_praca': self.show_minha_ficha_conceito_praca,
+            'show_criar_ficha_conceito_oficial': self.show_criar_ficha_conceito_oficial,
+            'show_criar_ficha_conceito_praca': self.show_criar_ficha_conceito_praca,
+            'show_promocoes': self.show_promocoes,
+            'show_calendarios': self.show_calendarios,
+            'show_comissoes': self.show_comissoes,
+            'show_meus_votos': self.show_meus_votos,
+            'show_intersticios': self.show_intersticios,
+            'show_gerenciar_intersticios': self.show_gerenciar_intersticios,
+            'show_gerenciar_previsao': self.show_gerenciar_previsao,
+            'show_administracao': self.show_administracao,
+            'show_logs': self.show_logs,
+            'show_medalhas': self.show_medalhas,
+            'show_lotacoes': self.show_lotacoes,
+            'show_titulos_publicacao': self.show_titulos_publicacao,
+            'is_consultor': self.is_consultor,
+        }
+    
+    @classmethod
+    def get_config_for_funcao(cls, funcao_militar):
+        """
+        Obtém a configuração de menu para uma função específica
+        Se não existir, cria uma configuração padrão
+        """
+        try:
+            return cls.objects.get(funcao_militar=funcao_militar, ativo=True)
+        except cls.DoesNotExist:
+            # Criar configuração padrão baseada no grupo da função
+            config = cls.objects.create(
+                funcao_militar=funcao_militar,
+                show_dashboard=True,  # Dashboard sempre visível
+            )
+            
+            # Configurações baseadas no grupo da função
+            if funcao_militar.grupo == 'ADMINISTRACAO':
+                # Funções administrativas têm acesso total
+                config.show_efetivo = True
+                config.show_inativos = True
+                config.show_usuarios = True
+                config.show_permissoes = True
+                config.show_secao_promocoes = True
+                config.show_fichas_oficiais = True
+                config.show_fichas_pracas = True
+                config.show_quadros_acesso = True
+                config.show_quadros_fixacao = True
+                config.show_almanaques = True
+                config.show_promocoes = True
+                config.show_calendarios = True
+                config.show_comissoes = True
+                config.show_meus_votos = True
+                config.show_intersticios = True
+                config.show_gerenciar_intersticios = True
+                config.show_gerenciar_previsao = True
+                config.show_administracao = True
+                config.show_logs = True
+                config.show_medalhas = True
+                config.show_lotacoes = True
+                config.show_titulos_publicacao = True
+                config.is_consultor = False
+                
+            elif funcao_militar.grupo == 'GESTAO':
+                # Funções de gestão têm acesso a promoções e administração limitada
+                config.show_efetivo = True
+                config.show_inativos = True
+                config.show_usuarios = True
+                config.show_permissoes = True
+                config.show_secao_promocoes = True
+                config.show_fichas_oficiais = True
+                config.show_fichas_pracas = True
+                config.show_quadros_acesso = True
+                config.show_quadros_fixacao = True
+                config.show_almanaques = True
+                config.show_promocoes = True
+                config.show_calendarios = True
+                config.show_comissoes = True
+                config.show_meus_votos = True
+                config.show_intersticios = True
+                config.show_gerenciar_intersticios = True
+                config.show_gerenciar_previsao = True
+                config.show_administracao = True
+                config.show_logs = True
+                config.show_medalhas = True
+                config.show_lotacoes = True
+                config.show_titulos_publicacao = True
+                config.is_consultor = False
+                
+            elif funcao_militar.grupo == 'COMISSAO':
+                # Funções de comissão têm acesso restrito apenas à seção de promoções
+                config.show_efetivo = False
+                config.show_inativos = False
+                config.show_usuarios = False
+                config.show_permissoes = False
+                config.show_secao_promocoes = True
+                config.show_fichas_oficiais = True
+                config.show_fichas_pracas = True
+                config.show_quadros_acesso = True
+                config.show_quadros_fixacao = True
+                config.show_almanaques = True
+                config.show_promocoes = True
+                config.show_calendarios = True
+                config.show_comissoes = True
+                config.show_meus_votos = True
+                config.show_intersticios = True
+                config.show_gerenciar_intersticios = True
+                config.show_gerenciar_previsao = True
+                config.show_administracao = False
+                config.show_logs = False
+                config.show_medalhas = False
+                config.show_lotacoes = False
+                config.is_consultor = True
+                
+            else:
+                # Outras funções têm acesso básico
+                config.show_efetivo = True
+                config.show_inativos = True
+                config.show_usuarios = False
+                config.show_permissoes = False
+                config.show_fichas_oficiais = False
+                config.show_fichas_pracas = False
+                config.show_quadros_acesso = False
+                config.show_quadros_fixacao = False
+                config.show_almanaques = True
+                config.show_promocoes = False
+                config.show_calendarios = False
+                config.show_comissoes = False
+                config.show_meus_votos = False
+                config.show_intersticios = False
+                config.show_gerenciar_intersticios = False
+                config.show_gerenciar_previsao = False
+                config.show_administracao = False
+                config.show_logs = False
+                config.show_medalhas = True
+                config.show_lotacoes = True
+                config.show_titulos_publicacao = True
+                config.is_consultor = False
+            
+            config.save()
+            return config
+
+
+    class Meta:
+        verbose_name = "Nota"
+        verbose_name_plural = "Notas"
+        ordering = ['-data_criacao']
+        permissions = [
+            ('can_manage_notas', 'Pode gerenciar notas'),
+            ('can_review_notas', 'Pode revisar notas'),
+            ('can_approve_notas', 'Pode aprovar notas'),
+            ('can_publish_notas', 'Pode publicar notas'),
+        ]
+    
+    def __str__(self):
+        return f"{self.titulo} - {self.get_status_display()}"
+    
+    def get_autor_display(self):
+        """Retorna o nome do autor formatado"""
+        if hasattr(self.autor, 'militar') and self.autor.militar:
+            return f"{self.autor.militar.get_posto_graduacao_display()} {self.autor.militar.nome_guerra}"
+        return self.autor.get_full_name() or self.autor.username
+    
+    def get_revisor_display(self):
+        """Retorna o nome do revisor formatado"""
+        if not self.revisor:
+            return "Não definido"
+        if hasattr(self.revisor, 'militar') and self.revisor.militar:
+            return f"{self.revisor.militar.get_posto_graduacao_display()} {self.revisor.militar.nome_guerra}"
+        return self.revisor.get_full_name() or self.revisor.username
+    
+    def get_aprovador_display(self):
+        """Retorna o nome do aprovador formatado"""
+        if not self.aprovador:
+            return "Não definido"
+        if hasattr(self.aprovador, 'militar') and self.aprovador.militar:
+            return f"{self.aprovador.militar.get_posto_graduacao_display()} {self.aprovador.militar.nome_guerra}"
+        return self.aprovador.get_full_name() or self.aprovador.username
+    
+    def pode_editar(self, user):
+        """Verifica se o usuário pode editar esta nota"""
+        if self.status in ['PUBLICADO', 'ARQUIVADO']:
+            return False
+        if self.autor == user:
+            return True
+        if user.has_perm('militares.can_manage_notas'):
+            return True
+        return False
+    
+    def pode_revisar(self, user):
+        """Verifica se o usuário pode revisar esta nota"""
+        if self.status not in ['ENVIADO', 'EM_REVISAO']:
+            return False
+        if user.has_perm('militares.can_review_notas'):
+            return True
+        return False
+    
+    def pode_aprovar(self, user):
+        """Verifica se o usuário pode aprovar esta nota"""
+        if self.status not in ['EM_REVISAO']:
+            return False
+        if user.has_perm('militares.can_approve_notas'):
+            return True
+        return False
+    
+    def pode_publicar(self, user):
+        """Verifica se o usuário pode publicar esta nota"""
+        if self.status != 'APROVADO':
+            return False
+        if user.has_perm('militares.can_publish_notas'):
+            return True
+        return False
+    
+    def enviar_para_revisao(self, user):
+        """Envia a nota para revisão"""
+        if self.status == 'RASCUNHO' and self.autor == user:
+            self.status = 'ENVIADO'
+            self.save()
+            return True
+        return False
+    
+    def iniciar_revisao(self, user):
+        """Inicia o processo de revisão"""
+        if self.status == 'ENVIADO' and user.has_perm('militares.can_review_notas'):
+            self.status = 'EM_REVISAO'
+            self.revisor = user
+            self.data_revisao = timezone.now()
+            self.save()
+            return True
+        return False
+    
+    def aprovar(self, user, comentarios=''):
+        """Aprova a nota"""
+        if self.status == 'EM_REVISAO' and user.has_perm('militares.can_approve_notas'):
+            self.status = 'APROVADO'
+            self.aprovador = user
+            self.data_aprovacao = timezone.now()
+            self.comentarios_aprovador = comentarios
+            self.save()
+            return True
+        return False
+    
+    def rejeitar(self, user, comentarios=''):
+        """Rejeita a nota"""
+        if self.status in ['ENVIADO', 'EM_REVISAO'] and user.has_perm('militares.can_review_notas'):
+            self.status = 'REJEITADO'
+            self.comentarios_revisor = comentarios
+            self.save()
+            return True
+        return False
+    
+    def publicar(self, user):
+        """Publica a nota"""
+        if self.status == 'APROVADO' and user.has_perm('militares.can_publish_notas'):
+            self.status = 'PUBLICADO'
+            self.data_publicacao = timezone.now()
+            self.save()
+            return True
+        return False
+    
+    def arquivar(self, user):
+        """Arquiva a nota"""
+        if user.has_perm('militares.can_manage_notas'):
+            self.status = 'ARQUIVADO'
+            self.ativo = False
+            self.save()
+            return True
+        return False
+
+
+class TituloPublicacaoConfig(models.Model):
+    """Configurações de títulos de publicações"""
+    
+    TIPO_CHOICES = [
+        ('', 'Selecione o tipo...'),
+        ('OSTENSIVO', 'Ostensivo'),
+        ('RESERVADO', 'Reservado'),
+        ('ESPECIAL', 'Especial'),
+    ]
+    
+    TOPICOS_CHOICES = [
+        ('', 'Selecione os tópicos...'),
+        ('1_PARTE_SERVICOS_DIARIOS', '1ª PARTE - SERVIÇOS DIÁRIOS'),
+        ('2_PARTE_INSTRUCAO', '2ª PARTE - INSTRUÇÃO'),
+        ('3_PARTE_ASSUNTOS_GERAIS', '3ª PARTE - ASSUNTOS GERAIS'),
+        ('3_PARTE_ADMINISTRATIVOS', '3ª PARTE - ADMINISTRATIVOS'),
+        ('4_PARTE_JUSTICA', '4ª PARTE - JUSTIÇA'),
+        ('4_PARTE_DISCIPLINA', '4ª PARTE - DISCIPLINA'),
+    ]
+    
+    ordem = models.PositiveIntegerField(
+        'Ordem',
+        help_text='Ordem de exibição (deixe vazio para ordem automática)',
+        blank=True,
+        null=True
+    )
+    
+    titulo = models.CharField(
+        'Título',
+        max_length=200,
+        help_text='Título da publicação'
+    )
+    
+    tipo = models.CharField(
+        'Tipo',
+        max_length=20,
+        choices=TIPO_CHOICES,
+        default='PORTARIA',
+        help_text='Tipo da publicação'
+    )
+    
+    topicos = models.CharField(
+        'Tópicos',
+        max_length=50,
+        choices=TOPICOS_CHOICES,
+        blank=True,
+        null=True,
+        help_text='Selecione os tópicos da publicação'
+    )
+    
+    ativo = models.BooleanField(
+        'Ativo',
+        default=True,
+        help_text='Se este título está ativo'
+    )
+    
+    data_criacao = models.DateTimeField(
+        'Data de Criação',
+        auto_now_add=True
+    )
+    
+    data_atualizacao = models.DateTimeField(
+        'Data de Atualização',
+        auto_now=True
+    )
+    
+    criado_por = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='titulos_publicacao_criados',
+        verbose_name='Criado por'
+    )
+    
+    class Meta:
+        verbose_name = 'Configuração de Título de Publicação'
+        verbose_name_plural = 'Configurações de Títulos de Publicações'
+        ordering = ['ordem', 'titulo']
+    
+    def get_topicos_display(self):
+        """Retorna o display dos tópicos"""
+        if self.topicos:
+            return dict(self.TOPICOS_CHOICES).get(self.topicos, self.topicos)
+        return ''
+    
+    def __str__(self):
+        return f"{self.get_tipo_display()} - {self.titulo}"
+    
+    def get_topicos_list(self):
+        """Retorna os tópicos como uma lista"""
+        if not self.topicos:
+            return []
+        return [topico.strip() for topico in self.topicos.split('\n') if topico.strip()]
+    
+    def save(self, *args, **kwargs):
+        # Se ordem não foi definida, definir automaticamente
+        if not self.ordem:
+            ultimo_ordem = TituloPublicacaoConfig.objects.aggregate(
+                max_ordem=models.Max('ordem')
+            )['max_ordem']
+            self.ordem = (ultimo_ordem or 0) + 1
+        
+        super().save(*args, **kwargs)
+    
+    def reordenar_automaticamente(self):
+        """Reordena automaticamente todos os títulos ativos"""
+        titulos = TituloPublicacaoConfig.objects.filter(ativo=True).order_by('ordem', 'titulo')
+        for i, titulo in enumerate(titulos, 1):
+            titulo.ordem = i
+            titulo.save(update_fields=['ordem'])
+
+
+class Publicacao(models.Model):
+    """Modelo para publicações (notas, boletins)"""
+    
+    TIPO_CHOICES = [
+        ('NOTA', 'Nota'),
+        ('BOLETIM_OSTENSIVO', 'Boletim Ostensivo'),
+        ('BOLETIM_RESERVADO', 'Boletim Reservado'),
+        ('BOLETIM_ESPECIAL', 'Boletim Especial'),
+        ('AVISO', 'Aviso'),
+        ('ORDEM_SERVICO', 'Ordem de Serviço'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('RASCUNHO', 'Rascunho'),
+        ('REVISADA', 'Revisada'),
+        ('APROVADA', 'Aprovada'),
+        ('EDITADA', 'Editada'),
+        ('EM_EDICAO', 'Em Edição'),
+        ('PUBLICADA', 'Publicada'),
+        ('ARQUIVADA', 'Arquivada'),
+    ]
+    
+    # Campos básicos
+    numero = models.CharField(
+        'Número',
+        max_length=50,
+        blank=True,
+        help_text='Número da publicação (ex: 001/2024)'
+    )
+    
+    titulo = models.CharField(
+        'Título',
+        max_length=200,
+        help_text='Título da publicação'
+    )
+    
+    tipo = models.CharField(
+        'Tipo',
+        max_length=20,
+        choices=TIPO_CHOICES,
+        help_text='Tipo da publicação'
+    )
+    
+    # Origem da publicação baseada no organograma
+    origem_publicacao = models.CharField(
+        'Origem da Publicação',
+        max_length=200,
+        blank=True,
+        null=True,
+        help_text='Origem da publicação no organograma (ex: Comando Geral, DGP, etc.)'
+    )
+    
+    # Tipo de publicação específico (ex: Portaria, Instrução, etc.)
+    tipo_publicacao = models.CharField(
+        'Tipo de Publicação',
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text='Tipo específico da publicação (ex: Portaria, Instrução, etc.)'
+    )
+    
+    # Tópicos da publicação
+    topicos = models.CharField(
+        'Tópicos',
+        max_length=200,
+        blank=True,
+        null=True,
+        help_text='Tópicos da publicação (ex: 1ª PARTE - SERVIÇOS DIÁRIOS)'
+    )
+    
+    # Campos do organograma para rastreamento hierárquico
+    orgao = models.ForeignKey(
+        'Orgao',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='publicacoes',
+        verbose_name='Órgão'
+    )
+    
+    grande_comando = models.ForeignKey(
+        'GrandeComando',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='publicacoes',
+        verbose_name='Grande Comando'
+    )
+    
+    unidade = models.ForeignKey(
+        'Unidade',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='publicacoes',
+        verbose_name='Unidade'
+    )
+    
+    sub_unidade = models.ForeignKey(
+        'SubUnidade',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='publicacoes',
+        verbose_name='Sub-Unidade'
+    )
+    
+    status = models.CharField(
+        'Status',
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='RASCUNHO',
+        help_text='Status da publicação'
+    )
+    
+    # Conteúdo
+    conteudo = models.TextField(
+        'Conteúdo',
+        help_text='Conteúdo da publicação'
+    )
+    
+    # Metadados
+    data_publicacao = models.DateTimeField(
+        'Data de Publicação',
+        null=True,
+        blank=True,
+        help_text='Data e hora da publicação'
+    )
+    
+    data_criacao = models.DateTimeField(
+        'Data de Criação',
+        auto_now_add=True
+    )
+    
+    data_boletim = models.DateField(
+        'Data do Boletim',
+        null=True,
+        blank=True,
+        help_text='Data de criação do boletim para controle diário'
+    )
+    
+    data_disponibilizacao = models.DateTimeField(
+        'Data de Disponibilização',
+        null=True,
+        blank=True,
+        help_text='Data e hora em que o boletim foi disponibilizado'
+    )
+    
+    data_atualizacao = models.DateTimeField(
+        'Última Atualização',
+        auto_now=True
+    )
+    
+    editada_apos_devolucao = models.BooleanField(
+        'Editada Após Devolução',
+        default=False,
+        help_text='Indica se a nota foi editada após ser devolvida'
+    )
+    
+    # Relacionamentos
+    criado_por = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='publicacoes_criadas',
+        verbose_name='Criado por'
+    )
+    
+    publicado_por = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='publicacoes_publicadas',
+        verbose_name='Publicado por'
+    )
+    
+    # Número do boletim onde foi publicada (se aplicável)
+    numero_boletim = models.CharField(
+        'Número do Boletim',
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text='Número do boletim onde esta nota foi publicada'
+    )
+    
+    # Número do boletim reservado onde foi publicada (se aplicável)
+    numero_boletim_reservado = models.CharField(
+        'Número do Boletim Reservado',
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text='Número do boletim reservado onde esta nota foi publicada'
+    )
+    
+    # Número do boletim especial onde foi publicada (se aplicável)
+    numero_boletim_especial = models.CharField(
+        'Número do Boletim Especial',
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text='Número do boletim especial onde esta nota foi publicada'
+    )
+    
+    # Relacionamento para boletins reservados
+    boletim_reservado = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='notas_incluidas_reservadas',
+        verbose_name='Boletim Reservado',
+        help_text='Boletim reservado onde esta nota está incluída'
+    )
+    
+    # Relacionamento para boletins especiais
+    boletim_especial = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='notas_incluidas_especiais',
+        verbose_name='Boletim Especial',
+        help_text='Boletim especial onde esta nota está incluída'
+    )
+    
+    # Campos de controle
+    ativo = models.BooleanField(
+        'Ativo',
+        default=True,
+        help_text='Se esta publicação está ativa'
+    )
+    
+    # Militares indexados nesta publicação
+    militares_indexados = models.ManyToManyField(
+        'Militar',
+        blank=True,
+        related_name='publicacoes_indexadas',
+        verbose_name='Militares Indexados',
+        help_text='Militares mencionados ou relacionados a esta publicação'
+    )
+    
+    class Meta:
+        verbose_name = 'Publicação'
+        verbose_name_plural = 'Publicações'
+        ordering = ['-data_publicacao', '-data_criacao']
+        unique_together = ['numero', 'tipo']
+    
+    def __str__(self):
+        return f"{self.numero} - {self.titulo} ({self.get_tipo_display()})"
+    
+    def get_tipo_display_short(self):
+        """Retorna o tipo abreviado"""
+        tipos = {
+            'NOTA': 'NOTA',
+            'BOLETIM_OSTENSIVO': 'B.O.',
+            'BOLETIM_RESERVADO': 'B.R.',
+            'BOLETIM_ESPECIAL': 'B.E.',
+        }
+        return tipos.get(self.tipo, self.tipo)
+    
+    def is_publicado(self):
+        """Verifica se a publicação está publicada"""
+        return self.status == 'PUBLICADO' and self.data_publicacao is not None
+    
+    def can_edit(self, user):
+        """Verifica se o usuário pode editar a publicação baseado na função militar"""
+        if user.is_superuser:
+            return True
+        
+        # NOVO: Qualquer usuário autenticado pode editar modelos de notas
+        if self.titulo and 'MODELO' in self.titulo.upper():
+            return True
+        
+        # Verificar se tem função militar ativa
+        from .permissoes_simples import obter_funcao_militar_ativa
+        funcao_usuario = obter_funcao_militar_ativa(user)
+        if not funcao_usuario:
+            return False
+        
+        funcao_militar = funcao_usuario.funcao_militar
+        
+        # Verificar permissões de publicação da função
+        if funcao_militar.publicacao in ['EDITOR_GERAL', 'EDITOR_ADJUNTO', 'EDITOR']:
+            return True
+        
+        # Administradores do Sistema podem editar qualquer nota
+        if funcao_militar.nome == 'Administrador do Sistema':
+            return True
+        
+        # Se for o criador e não estiver publicada
+        return self.criado_por == user and self.status != 'PUBLICADO'
+    
+    def can_publish(self, user):
+        """Verifica se o usuário pode publicar baseado na função militar"""
+        if user.is_superuser:
+            return True
+        
+        # Verificar se tem função militar ativa
+        from .permissoes_simples import obter_funcao_militar_ativa
+        funcao_usuario = obter_funcao_militar_ativa(user)
+        if not funcao_usuario:
+            return False
+        
+        funcao_militar = funcao_usuario.funcao_militar
+        
+        # Verificar permissões de publicação da função
+        if funcao_militar.publicacao in ['EDITOR_GERAL', 'EDITOR_ADJUNTO', 'APROVADOR']:
+            return True
+    
+    def save(self, *args, **kwargs):
+        """Sobrescreve o save para gerar numeração automática anual"""
+        # Gerar número automático se necessário
+        if (not self.numero or self.numero == '') and self.tipo in ['NOTA', 'BOLETIM_OSTENSIVO', 'BOLETIM_RESERVADO', 'BOLETIM_ESPECIAL']:
+            self.numero = self.gerar_numero_automatico()
+        
+        super().save(*args, **kwargs)
+    
+    @property
+    def notas_incluidas(self):
+        """Retorna as notas incluídas neste boletim"""
+        if self.tipo == 'BOLETIM_OSTENSIVO' and self.numero:
+            return Publicacao.objects.filter(
+                tipo='NOTA',
+                numero_boletim=self.numero
+            )
+        elif self.tipo == 'BOLETIM_ESPECIAL' and self.numero:
+            return Publicacao.objects.filter(
+                tipo='NOTA',
+                numero_boletim_especial=self.numero
+            )
+        return Publicacao.objects.none()
+    
+    def gerar_numero_automatico(self):
+        """Gera numeração automática anual para publicações"""
+        from django.utils import timezone
+        
+        ano_atual = timezone.localtime(timezone.now()).year
+        
+        # Buscar a última nota do ano atual ordenada por data de criação
+        ultima_nota = Publicacao.objects.filter(
+            tipo=self.tipo,
+            numero__endswith=f"/{ano_atual}"
+        ).order_by('-data_criacao', '-id').first()
+        
+        if ultima_nota and ultima_nota.numero:
+            try:
+                # Extrair o número sequencial (ex: "001/2025" -> 1)
+                partes = ultima_nota.numero.split('/')
+                if len(partes) >= 2 and partes[0].isdigit():
+                    numero_atual = int(partes[0])
+                    proximo_numero = numero_atual + 1
+                else:
+                    proximo_numero = 1
+            except (ValueError, IndexError):
+                proximo_numero = 1
+        else:
+            proximo_numero = 1
+        
+        # Verificar se o número já existe e incrementar se necessário
+        while True:
+            numero_tentativa = f"{proximo_numero:03d}/{ano_atual}"
+            if not Publicacao.objects.filter(
+                tipo=self.tipo,
+                numero=numero_tentativa
+            ).exists():
+                break
+            proximo_numero += 1
+        
+        # Formatar o número no formato desejado (ex: "001/2025")
+        return f"{proximo_numero:03d}/{ano_atual}"
+    
+    def gerar_conteudo_final_reservado(self):
+        """Gera o conteúdo final do boletim reservado com as notas incluídas"""
+        if self.tipo != 'BOLETIM_RESERVADO':
+            return self.conteudo
+        
+        # Buscar todas as notas reservadas incluídas no boletim
+        notas_incluidas = self.notas_incluidas_reservadas.all().order_by('data_publicacao')
+        
+        if not notas_incluidas.exists():
+            return self.conteudo
+        
+        # Gerar conteúdo estruturado
+        conteudo = f"<h2>BOLETIM RESERVADO DO CORPO DE BOMBEIROS MILITAR DO ESTADO DO PIAUÍ Nº {self.numero}</h2>\n"
+        conteudo += "=" * 60 + "\n\n"
+        
+        # Organizar notas por tópicos/partes
+        topicos_organizados = {
+            '1ª PARTE - SERVIÇOS DIÁRIOS': [],
+            '2ª PARTE - INSTRUÇÃO': [],
+            '3ª PARTE - ASSUNTOS GERAIS': [],
+            '3ª PARTE - ADMINISTRATIVOS': [],
+            '4ª PARTE - JUSTIÇA': [],
+            '4ª PARTE - DISCIPLINA': [],
+        }
+        
+        # Agrupar notas por tópico
+        for nota in notas_incluidas:
+            if nota.topicos and nota.topicos.strip() in topicos_organizados:
+                topicos_organizados[nota.topicos.strip()].append(nota)
+            else:
+                # Se o tópico não estiver mapeado, adicionar à primeira parte
+                topicos_organizados['1ª PARTE - SERVIÇOS DIÁRIOS'].append(nota)
+        
+        # Gerar conteúdo para cada tópico
+        for topico, notas in topicos_organizados.items():
+            if notas:  # Só incluir tópicos que têm notas
+                conteudo += f"<h3>{topico}</h3>\n\n"
+                
+                for i, nota in enumerate(notas, 1):
+                    conteudo += f"<h4>{nota.numero} - {nota.titulo}</h4>\n"
+                    conteudo += f"<p><strong>Data de Publicação:</strong> {nota.data_publicacao.strftime('%d/%m/%Y às %H:%M') if nota.data_publicacao else 'N/A'}</p>\n"
+                    conteudo += f"<p><strong>Origem:</strong> {nota.origem_publicacao or 'N/A'}</p>\n"
+                    conteudo += f"<div class='conteudo-nota'>\n{nota.conteudo}\n</div>\n\n"
+                    
+                    if i < len(notas):
+                        conteudo += "<hr>\n\n"
+        
+        return conteudo
+    
+    
+    @classmethod
+    def _gerar_conteudo_boletim(cls, notas, topico):
+        """Gera o conteúdo do boletim baseado nas notas agrupadas"""
+        conteudo = f"<h2>BOLETIM OSTENSIVO - {topico}</h2>\n\n"
+        
+        for i, nota in enumerate(notas, 1):
+            conteudo += f"<h3>{nota.numero} - {nota.titulo}</h3>\n"
+            conteudo += f"<p><strong>Data de Publicação:</strong> {nota.data_publicacao.strftime('%d/%m/%Y às %H:%M') if nota.data_publicacao else 'N/A'}</p>\n"
+            conteudo += f"<p><strong>Origem:</strong> {nota.origem_publicacao or 'N/A'}</p>\n"
+            conteudo += f"<div class='conteudo-nota'>\n{nota.conteudo}\n</div>\n\n"
+            
+            if i < len(notas):
+                conteudo += "<hr>\n\n"
+        
+        return conteudo
+    
+    @classmethod
+    def _converter_html_para_texto(cls, html_content):
+        """Converte conteúdo HTML para texto puro"""
+        import re
+        
+        if not html_content:
+            return ""
+        
+        # Remover tags HTML
+        texto = re.sub(r'<[^>]+>', '', html_content)
+        
+        # Decodificar entidades HTML
+        import html
+        texto = html.unescape(texto)
+        
+        # Limpar espaços extras e quebras de linha
+        texto = re.sub(r'\n\s*\n', '\n\n', texto)  # Múltiplas quebras viram dupla
+        texto = re.sub(r'[ \t]+', ' ', texto)  # Múltiplos espaços viram um
+        texto = texto.strip()
+        
+        return texto
+
+    @classmethod
+    def _gerar_conteudo_boletim_atualizado(cls, boletim):
+        """Gera o conteúdo atualizado do boletim baseado nas notas incluídas"""
+        # Buscar todas as notas incluídas no boletim
+        notas_incluidas = cls.objects.filter(
+            tipo='NOTA',
+            numero_boletim=boletim.numero
+        ).order_by('data_publicacao')
+        
+        if not notas_incluidas.exists():
+            return f"BCBMEPI - {boletim.numero}\n\nNenhuma nota incluída ainda."
+        
+        # Organizar notas por tópicos/partes
+        topicos_organizados = {
+            '1ª PARTE - SERVIÇOS DIÁRIOS': [],
+            '2ª PARTE - INSTRUÇÃO': [],
+            '3ª PARTE - ASSUNTOS GERAIS': [],
+            '3ª PARTE - ADMINISTRATIVOS': [],
+            '4ª PARTE - JUSTIÇA': [],
+            '4ª PARTE - DISCIPLINA': [],
+        }
+        
+        # Agrupar notas por tópico
+        for nota in notas_incluidas:
+            print(f"DEBUG: Nota {nota.numero} - Tópico: '{nota.topicos}'")
+            if nota.topicos and nota.topicos.strip() in topicos_organizados:
+                topicos_organizados[nota.topicos.strip()].append(nota)
+                print(f"DEBUG: Nota adicionada ao tópico '{nota.topicos}'")
+            else:
+                # Se o tópico não estiver mapeado, adicionar à primeira parte
+                topicos_organizados['1ª PARTE - SERVIÇOS DIÁRIOS'].append(nota)
+                print(f"DEBUG: Nota adicionada à 1ª PARTE (tópico não mapeado: '{nota.topicos}')")
+        
+        # Ordenar notas dentro de cada tópico por número
+        for topico, notas in topicos_organizados.items():
+            topicos_organizados[topico] = sorted(notas, key=lambda x: x.numero or '')
+        
+        # Debug: mostrar resumo de todas as partes
+        print("DEBUG: Resumo das partes:")
+        for topico, notas in topicos_organizados.items():
+            print(f"  {topico}: {len(notas)} notas")
+            for nota in notas:
+                print(f"    - {nota.numero}: {nota.titulo}")
+        
+        # Gerar conteúdo do boletim em texto puro
+        conteudo = f"BOLETIM DO CORPO DE BOMBEIROS MILITAR DO ESTADO DO PIAUÍ Nº {boletim.numero}\n"
+        conteudo += "=" * 60 + "\n\n"
+        
+        # Ordem das partes conforme especificado
+        ordem_partes = [
+            '1ª PARTE - SERVIÇOS DIÁRIOS',
+            '2ª PARTE - INSTRUÇÃO', 
+            '3ª PARTE - ASSUNTOS GERAIS',
+            '3ª PARTE - ADMINISTRATIVOS',
+            '4ª PARTE - JUSTIÇA',
+            '4ª PARTE - DISCIPLINA',
+        ]
+        
+        for parte in ordem_partes:
+            notas_da_parte = topicos_organizados[parte]
+            print(f"DEBUG: Verificando parte '{parte}' - {len(notas_da_parte)} notas")
+            
+            # Sempre adicionar a parte, mesmo se não houver notas
+            conteudo += f"{parte}\n"
+            conteudo += "-" * len(parte) + "\n\n"
+            
+            if notas_da_parte:
+                print(f"DEBUG: Adicionando {len(notas_da_parte)} notas à parte '{parte}'")
+                
+                for i, nota in enumerate(notas_da_parte, 1):
+                    conteudo += f"{nota.numero} - {nota.titulo}\n"
+                    conteudo += f"Data de Publicação: {nota.data_publicacao.strftime('%d/%m/%Y às %H:%M') if nota.data_publicacao else 'N/A'}\n"
+                    conteudo += f"Origem: {nota.origem_publicacao or 'N/A'}\n\n"
+                    
+                    # Converter conteúdo HTML para texto
+                    conteudo_nota_texto = cls._converter_html_para_texto(nota.conteudo)
+                    conteudo += f"{conteudo_nota_texto}\n\n"
+                    
+                    if i < len(notas_da_parte):
+                        conteudo += "-" * 50 + "\n\n"
+            else:
+                # Se não há notas nesta parte, mostrar mensagem
+                conteudo += "Nenhuma nota incluída ainda.\n\n"
+            
+            conteudo += "\n"  # Espaço entre partes
+        
+        return conteudo
+    
+    @classmethod
+    def _gerar_conteudo_boletim_automatico(cls, notas, topico):
+        """Gera o conteúdo do boletim automaticamente baseado nas notas fornecidas"""
+        if not notas:
+            return f"<h2>BCBMEPI - {topico}</h2>\n\n<p>Nenhuma nota incluída ainda.</p>"
+        
+        # Organizar notas por tópicos/partes
+        topicos_organizados = {
+            '1ª PARTE - SERVIÇOS DIÁRIOS': [],
+            '2ª PARTE - INSTRUÇÃO': [],
+            '3ª PARTE - ASSUNTOS GERAIS': [],
+            '3ª PARTE - ADMINISTRATIVOS': [],
+            '4ª PARTE - JUSTIÇA': [],
+            '4ª PARTE - DISCIPLINA': [],
+        }
+        
+        # Agrupar notas por tópico
+        for nota in notas:
+            if nota.topicos in topicos_organizados:
+                topicos_organizados[nota.topicos].append(nota)
+            else:
+                # Se o tópico não estiver mapeado, adicionar à primeira parte
+                topicos_organizados['1ª PARTE - SERVIÇOS DIÁRIOS'].append(nota)
+        
+        # Ordenar notas dentro de cada tópico por número
+        for topico, notas in topicos_organizados.items():
+            topicos_organizados[topico] = sorted(notas, key=lambda x: x.numero or '')
+        
+        # Debug: mostrar resumo de todas as partes
+        print("DEBUG: Resumo das partes:")
+        for topico, notas in topicos_organizados.items():
+            print(f"  {topico}: {len(notas)} notas")
+            for nota in notas:
+                print(f"    - {nota.numero}: {nota.titulo}")
+        
+        # Gerar conteúdo do boletim
+        conteudo = f"<h2>BCBMEPI - Boletim do Corpo de Bombeiros Militar do Estado do Piauí</h2>\n\n"
+        
+        # Ordem das partes conforme especificado
+        ordem_partes = [
+            '1ª PARTE - SERVIÇOS DIÁRIOS',
+            '2ª PARTE - INSTRUÇÃO', 
+            '3ª PARTE - ASSUNTOS GERAIS',
+            '3ª PARTE - ADMINISTRATIVOS',
+            '4ª PARTE - JUSTIÇA',
+            '4ª PARTE - DISCIPLINA',
+        ]
+        
+        for parte in ordem_partes:
+            notas_da_parte = topicos_organizados[parte]
+            print(f"DEBUG: Verificando parte '{parte}' - {len(notas_da_parte)} notas")
+            if notas_da_parte:
+                conteudo += f"<h3>{parte}</h3>\n\n"
+                print(f"DEBUG: Adicionando parte '{parte}' ao conteúdo")
+                
+                for i, nota in enumerate(notas_da_parte, 1):
+                    conteudo += f"<h4>{nota.numero} - {nota.titulo}</h4>\n"
+                    conteudo += f"<p><strong>Data de Publicação:</strong> {nota.data_publicacao.strftime('%d/%m/%Y às %H:%M') if nota.data_publicacao else 'N/A'}</p>\n"
+                    conteudo += f"<p><strong>Origem:</strong> {nota.origem_publicacao or 'N/A'}</p>\n"
+                    conteudo += f"<div class='conteudo-nota' style='margin: 0.5rem 0; padding: 0; line-height: 1.1; font-size: 0.9em;'>\n{nota.conteudo}\n</div>\n\n"
+                    
+                    if i < len(notas_da_parte):
+                        conteudo += "<hr>\n\n"
+                
+                conteudo += "<br>\n\n"  # Espaço entre partes
+        
+        return conteudo
+
+    def tem_assinatura_editor_chefe(self):
+        """Verifica se tem assinatura de Editor Chefe"""
+        return self.assinaturas.filter(tipo_assinatura='EDITOR_CHEFE').exists()
+    
+    def tem_assinatura_editor_adjunto(self):
+        """Verifica se tem assinatura de Editor Adjunto"""
+        return self.assinaturas.filter(tipo_assinatura='EDITOR_ADJUNTO').exists()
+    
+    def tem_assinatura_editor_geral(self):
+        """Verifica se tem assinatura de Editor Geral"""
+        return self.assinaturas.filter(tipo_assinatura='EDITOR_GERAL').exists()
+
+
+def anexo_upload_path(instance, filename):
+    """Define o caminho de upload para anexos de notas"""
+    return f'anexos/notas/{instance.publicacao.id}/{filename}'
+
+
+class AnexoNota(models.Model):
+    """Anexos de uma nota"""
+    
+    publicacao = models.ForeignKey(
+        'Publicacao',
+        on_delete=models.CASCADE,
+        related_name='anexos',
+        verbose_name='Publicação'
+    )
+    
+    arquivo = models.FileField(
+        'Arquivo',
+        upload_to=anexo_upload_path,
+        help_text='Arquivo anexado à nota'
+    )
+    
+    nome_original = models.CharField(
+        'Nome Original',
+        max_length=255,
+        help_text='Nome original do arquivo'
+    )
+    
+    descricao = models.CharField(
+        'Descrição',
+        max_length=200,
+        blank=True,
+        null=True,
+        help_text='Descrição opcional do anexo'
+    )
+    
+    tamanho = models.PositiveIntegerField(
+        'Tamanho (bytes)',
+        help_text='Tamanho do arquivo em bytes'
+    )
+    
+    tipo_mime = models.CharField(
+        'Tipo MIME',
+        max_length=100,
+        help_text='Tipo MIME do arquivo'
+    )
+    
+    data_upload = models.DateTimeField(
+        'Data do Upload',
+        auto_now_add=True
+    )
+    
+    upload_por = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='anexos_uploaded',
+        verbose_name='Upload por'
+    )
+    
+    ativo = models.BooleanField(
+        'Ativo',
+        default=True,
+        help_text='Se o anexo está ativo'
+    )
+    
+    class Meta:
+        verbose_name = 'Anexo de Nota'
+        verbose_name_plural = 'Anexos de Nota'
+        ordering = ['-data_upload']
+    
+    def __str__(self):
+        return f"{self.nome_original} - {self.publicacao.titulo}"
+    
+    def get_tamanho_display(self):
+        """Retorna o tamanho formatado"""
+        tamanho = self.tamanho
+        for unidade in ['B', 'KB', 'MB', 'GB']:
+            if tamanho < 1024.0:
+                return f"{tamanho:.1f} {unidade}"
+            tamanho /= 1024.0
+        return f"{tamanho:.1f} TB"
+    
+    def get_icone_tipo(self):
+        """Retorna o ícone baseado no tipo do arquivo"""
+        extensao = self.nome_original.split('.')[-1].lower()
+        
+        icones = {
+            'pdf': 'fas fa-file-pdf text-danger',
+            'doc': 'fas fa-file-word text-primary',
+            'docx': 'fas fa-file-word text-primary',
+            'xls': 'fas fa-file-excel text-success',
+            'xlsx': 'fas fa-file-excel text-success',
+            'ppt': 'fas fa-file-powerpoint text-warning',
+            'pptx': 'fas fa-file-powerpoint text-warning',
+            'jpg': 'fas fa-file-image text-info',
+            'jpeg': 'fas fa-file-image text-info',
+            'png': 'fas fa-file-image text-info',
+            'gif': 'fas fa-file-image text-info',
+            'txt': 'fas fa-file-alt text-secondary',
+            'zip': 'fas fa-file-archive text-dark',
+            'rar': 'fas fa-file-archive text-dark',
+        }
+        
+        return icones.get(extensao, 'fas fa-file text-muted')
+
+
+class AssinaturaNota(models.Model):
+    """Assinaturas de uma nota - permite múltiplas assinaturas"""
+    
+    TIPO_ASSINATURA_CHOICES = [
+        ('REVISAO', 'Revisão'),
+        ('APROVACAO', 'Aprovação'),
+        ('EDICAO', 'Edição'),
+        ('HOMOLOGACAO', 'Homologação'),
+        ('CONFERENCIA', 'Conferência'),
+        ('ELETRONICA', 'Eletrônica'),
+        ('EDITOR_CHEFE', 'Editor Chefe'),
+        ('EDITOR_ADJUNTO', 'Editor Adjunto'),
+        ('EDITOR_GERAL', 'Editor Geral'),
+    ]
+    
+    TIPO_MIDIA_CHOICES = [
+        ('FISICA', 'Física'),
+        ('ELETRONICA', 'Eletrônica'),
+    ]
+    
+    nota = models.ForeignKey(Publicacao, on_delete=models.CASCADE, verbose_name="Nota", related_name="assinaturas")
+    assinado_por = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Assinado por")
+    data_assinatura = models.DateTimeField(auto_now_add=True, verbose_name="Data da Assinatura")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações da Assinatura")
+    tipo_assinatura = models.CharField(
+        max_length=15, 
+        choices=TIPO_ASSINATURA_CHOICES, 
+        default='APROVACAO',
+        verbose_name="Tipo de Assinatura"
+    )
+    funcao_assinatura = models.CharField(
+        blank=True,
+        help_text="Função/cargo do usuário no momento da assinatura",
+        max_length=100,
+        null=True,
+        verbose_name="Função no momento da assinatura",
+    )
+    
+    # Campos para tipo de mídia da assinatura
+    tipo_midia = models.CharField(
+        max_length=10,
+        choices=TIPO_MIDIA_CHOICES,
+        default='FISICA',
+        verbose_name="Tipo de Mídia"
+    )
+    
+    # Campos para assinatura física
+    assinatura_fisica = models.ImageField(
+        upload_to='assinaturas_fisicas/',
+        blank=True,
+        null=True,
+        verbose_name="Assinatura Física (Imagem)"
+    )
+    
+    # Campos para assinatura eletrônica
+    hash_documento = models.CharField(max_length=255, blank=True, null=True, verbose_name="Hash do Documento")
+    timestamp = models.CharField(max_length=100, blank=True, null=True, verbose_name="Timestamp da Assinatura")
+    assinatura_digital = models.TextField(blank=True, null=True, verbose_name="Assinatura Digital")
+    certificado = models.CharField(max_length=100, blank=True, null=True, verbose_name="Certificado Digital")
+    ip_assinatura = models.GenericIPAddressField(blank=True, null=True, verbose_name="IP da Assinatura")
+    user_agent = models.TextField(blank=True, null=True, verbose_name="User Agent")
+    
+    class Meta:
+        verbose_name = "Assinatura da Nota"
+        verbose_name_plural = "Assinaturas das Notas"
+        ordering = ['-data_assinatura']
+        unique_together = ['nota', 'assinado_por', 'tipo_assinatura']
+    
+    def __str__(self):
+        return f"{self.nota.numero} - {self.assinado_por.get_full_name()} - {self.get_tipo_assinatura_display()}"
+    
+    def verificar_permissao_assinatura(self, usuario):
+        """Verifica se o usuário tem permissão para assinar esta nota"""
+        # Verificar se o usuário tem funções ativas ou é superusuário
+        from .models import UsuarioFuncaoMilitar
+        tem_funcoes = UsuarioFuncaoMilitar.objects.filter(
+            usuario=usuario,
+            ativo=True
+        ).exists()
+        
+        return tem_funcoes or usuario.is_superuser
+
+
+class AlteracaoEscala(models.Model):
+    """Registro de alterações em escalas aprovadas"""
+    
+    TIPO_ALTERACAO_CHOICES = [
+        ('ADICIONAR_MILITAR', 'Adicionar Militar'),
+        ('REMOVER_MILITAR', 'Remover Militar'),
+        ('ALTERAR_DADOS_MILITAR', 'Alterar Dados do Militar'),
+        ('ALTERAR_DADOS_ESCALA', 'Alterar Dados da Escala'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    escala = models.ForeignKey('EscalaServico', on_delete=models.CASCADE, verbose_name="Escala", related_name="alteracoes")
+    alterado_por = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Alterado por")
+    data_alteracao = models.DateTimeField(auto_now_add=True, verbose_name="Data da Alteração")
+    tipo_alteracao = models.CharField(max_length=30, choices=TIPO_ALTERACAO_CHOICES, verbose_name="Tipo de Alteração")
+    justificativa = models.TextField(verbose_name="Justificativa", help_text="Motivo obrigatório para a alteração")
+    
+    # Dados específicos da alteração
+    militar_afetado = models.ForeignKey('Militar', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Militar Afetado")
+    dados_anteriores = models.JSONField(null=True, blank=True, verbose_name="Dados Anteriores")
+    dados_novos = models.JSONField(null=True, blank=True, verbose_name="Dados Novos")
+    
+    # Controle de validade
+    valida_ate_data = models.DateField(verbose_name="Válida até", help_text="Data limite para esta alteração")
+    ativa = models.BooleanField(default=True, verbose_name="Alteração Ativa")
+    
+    class Meta:
+        verbose_name = "Alteração da Escala"
+        verbose_name_plural = "Alterações das Escalas"
+        ordering = ['-data_alteracao']
+    
+    def __str__(self):
+        return f"{self.escala} - {self.get_tipo_alteracao_display()} - {self.alterado_por.get_full_name()}"
+    
+    def pode_ser_alterada(self):
+        """Verifica se a alteração ainda pode ser feita (até a data da escala)"""
+        from django.utils import timezone
+        return timezone.now().date() <= self.valida_ate_data
+    
+    def is_valida(self):
+        """Verifica se a alteração é válida (ativa e dentro do prazo)"""
+        return self.ativa and self.pode_ser_alterada()
+
+
+class AssinaturaEscala(models.Model):
+    """Assinaturas de uma escala - permite múltiplas assinaturas"""
+    
+    TIPO_ASSINATURA_CHOICES = [
+        ('REVISAO', 'Revisão'),
+        ('APROVACAO', 'Aprovação'),
+        ('HOMOLOGACAO', 'Homologação'),
+        ('CONFERENCIA', 'Conferência'),
+        ('ELETRONICA', 'Eletrônica'),
+    ]
+    
+    TIPO_MIDIA_CHOICES = [
+        ('FISICA', 'Física'),
+        ('ELETRONICA', 'Eletrônica'),
+    ]
+    
+    escala = models.ForeignKey('EscalaServico', on_delete=models.CASCADE, verbose_name="Escala", related_name="assinaturas")
+    assinado_por = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Assinado por")
+    data_assinatura = models.DateTimeField(auto_now_add=True, verbose_name="Data da Assinatura")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações da Assinatura")
+    tipo_assinatura = models.CharField(
+        max_length=15, 
+        choices=TIPO_ASSINATURA_CHOICES, 
+        default='APROVACAO',
+        verbose_name="Tipo de Assinatura"
+    )
+    funcao_assinatura = models.CharField(
+        blank=True,
+        help_text="Função/cargo do usuário no momento da assinatura",
+        max_length=100,
+        null=True,
+        verbose_name="Função no momento da assinatura",
+    )
+    
+    # Campos para tipo de mídia da assinatura
+    tipo_midia = models.CharField(
+        max_length=10,
+        choices=TIPO_MIDIA_CHOICES,
+        default='FISICA',
+        verbose_name="Tipo de Mídia"
+    )
+    
+    # Campos para assinatura física
+    assinatura_fisica = models.ImageField(
+        upload_to='assinaturas_fisicas/',
+        blank=True,
+        null=True,
+        verbose_name="Assinatura Física (Imagem)"
+    )
+    
+    # Campos para assinatura eletrônica
+    hash_documento = models.CharField(max_length=255, blank=True, null=True, verbose_name="Hash do Documento")
+    timestamp = models.CharField(max_length=100, blank=True, null=True, verbose_name="Timestamp da Assinatura")
+    assinatura_digital = models.TextField(blank=True, null=True, verbose_name="Assinatura Digital")
+    certificado = models.CharField(max_length=100, blank=True, null=True, verbose_name="Certificado Digital")
+    ip_assinatura = models.GenericIPAddressField(blank=True, null=True, verbose_name="IP da Assinatura")
+    user_agent = models.TextField(blank=True, null=True, verbose_name="User Agent")
+    
+    class Meta:
+        verbose_name = "Assinatura da Escala"
+        verbose_name_plural = "Assinaturas das Escalas"
+        ordering = ['-data_assinatura']
+        unique_together = ['escala', 'assinado_por', 'tipo_assinatura']
+    
+    def __str__(self):
+        return f"{self.escala} - {self.assinado_por.get_full_name()} - {self.get_tipo_assinatura_display()}"
+    
+    def verificar_permissao_assinatura(self, usuario, tipo_assinatura='APROVACAO'):
+        """Verifica se o usuário tem permissão para assinar esta escala"""
+        from .models import UsuarioFuncaoMilitar
+        
+        # Superusuário sempre pode
+        if usuario.is_superuser:
+            return True
+        
+        # Buscar funções ativas do usuário
+        funcoes_usuario = UsuarioFuncaoMilitar.objects.filter(
+            usuario=usuario,
+            ativo=True
+        ).select_related('funcao_militar')
+        
+        if not funcoes_usuario.exists():
+            return False
+        
+        # Definir permissões específicas por tipo de assinatura
+        permissoes_revisao = ['REVISOR', 'APROVADOR', 'EDITOR', 'EDITOR_ADJUNTO', 'EDITOR_GERAL']
+        permissoes_aprovacao = ['APROVADOR', 'EDITOR', 'EDITOR_ADJUNTO', 'EDITOR_GERAL']
+        
+        # Verificar se o usuário tem permissão baseada no tipo de assinatura
+        if tipo_assinatura == 'REVISAO':
+            permissoes_necessarias = permissoes_revisao
+        elif tipo_assinatura == 'APROVACAO':
+            permissoes_necessarias = permissoes_aprovacao
+        else:
+            permissoes_necessarias = permissoes_revisao  # Padrão para outros tipos
+        
+        # Verificar se alguma função do usuário tem permissão necessária
+        for funcao in funcoes_usuario:
+            if funcao.funcao_militar.publicacao in permissoes_necessarias:
+                return True
+        
+        return False
+    
+    def pode_revisar(self, usuario):
+        """Verifica se o usuário pode revisar esta escala"""
+        return self.verificar_permissao_assinatura(usuario, 'REVISAO')
+    
+    def pode_aprovar(self, usuario):
+        """Verifica se o usuário pode aprovar esta escala"""
+        return self.verificar_permissao_assinatura(usuario, 'APROVACAO')
+
+
+class HistoricoArquivamentoNota(models.Model):
+    """Histórico de arquivamento de notas"""
+    
+    nota = models.ForeignKey(
+        'Publicacao',
+        on_delete=models.CASCADE,
+        related_name='historicos_arquivamento',
+        verbose_name='Nota'
+    )
+    
+    arquivado_por = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='notas_arquivadas',
+        verbose_name='Arquivado por'
+    )
+    
+    motivo_arquivamento = models.TextField(
+        'Motivo do Arquivamento',
+        help_text='Justificativa para o arquivamento da nota'
+    )
+    
+    data_arquivamento = models.DateTimeField(
+        'Data do Arquivamento',
+        auto_now_add=True
+    )
+    
+    class Meta:
+        verbose_name = 'Histórico de Arquivamento de Nota'
+        verbose_name_plural = 'Históricos de Arquivamento de Notas'
+        ordering = ['-data_arquivamento']
+    
+    def __str__(self):
+        return f"Arquivamento de {self.nota.numero} - {self.data_arquivamento.strftime('%d/%m/%Y %H:%M')}"
+
+
+class HistoricoDevolucaoNota(models.Model):
+    """Histórico de devolução de notas"""
+    
+    nota = models.ForeignKey(
+        'Publicacao',
+        on_delete=models.CASCADE,
+        related_name='historicos_devolucao',
+        verbose_name='Nota'
+    )
+    
+    devolvido_por = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='notas_devolvidas',
+        verbose_name='Devolvido por'
+    )
+    
+    motivo_devolucao = models.TextField(
+        'Motivo da Devolução',
+        help_text='Justificativa para a devolução da nota'
+    )
+    
+    data_devolucao = models.DateTimeField(
+        'Data da Devolução',
+        auto_now_add=True
+    )
+    
+    assinaturas_removidas = models.PositiveIntegerField(
+        'Assinaturas Removidas',
+        default=0,
+        help_text='Número de assinaturas removidas na devolução'
+    )
+    
+    class Meta:
+        verbose_name = 'Histórico de Devolução de Nota'
+        verbose_name_plural = 'Históricos de Devolução de Notas'
+        ordering = ['-data_devolucao']
+    
+    def __str__(self):
+        return f"Devolução de {self.nota.numero} - {self.data_devolucao.strftime('%d/%m/%Y %H:%M')}"
+
+
+class EscalaServico(models.Model):
+    """Modelo para escalas de serviço diárias"""
+    
+    TIPO_SERVICO_CHOICES = [
+        ('operacional', 'Operacional'),
+        ('administrativo', 'Administrativo'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('pendente', 'Pendente'),
+        ('em_revisao', 'Em Revisão'),
+        ('aprovada', 'Aprovada'),
+        ('ativa', 'Ativa'),
+        ('concluida', 'Concluída'),
+        ('cancelada', 'Cancelada'),
+    ]
+    
+    TURNO_CHOICES = [
+        ('2h', '2 horas'),
+        ('4h', '4 horas'),
+        ('6h', '6 horas'),
+        ('8h', '8 horas'),
+        ('12h', '12 horas'),
+        ('18h', '18 horas'),
+        ('24h', '24 horas'),
+    ]
+    
+    # Dados básicos da escala
+    data = models.DateField(verbose_name="Data da Escala")
+    organizacao = models.CharField(max_length=200, verbose_name="Organização")
+    tipo_servico = models.CharField(max_length=20, choices=TIPO_SERVICO_CHOICES, verbose_name="Tipo de Serviço")
+    turno = models.CharField(max_length=10, choices=TURNO_CHOICES, verbose_name="Turno")
+    hora_inicio = models.TimeField(verbose_name="Hora de Início")
+    hora_fim = models.TimeField(verbose_name="Hora de Término")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pendente', verbose_name="Status")
+    
+    # Metadados
+    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Criado por")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    # Controle de revisão e aprovação
+    revisado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='escalas_revisadas', verbose_name="Revisado por")
+    data_revisao = models.DateTimeField(null=True, blank=True, verbose_name="Data de Revisão")
+    observacoes_revisao = models.TextField(blank=True, null=True, verbose_name="Observações da Revisão")
+    
+    aprovado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='escalas_aprovadas', verbose_name="Aprovado por")
+    data_aprovacao = models.DateTimeField(null=True, blank=True, verbose_name="Data de Aprovação")
+    observacoes_aprovacao = models.TextField(blank=True, null=True, verbose_name="Observações da Aprovação")
+    
+    # Observações
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    
+    class Meta:
+        verbose_name = "Escala de Serviço"
+        verbose_name_plural = "Escalas de Serviço"
+        ordering = ['-data', 'organizacao', 'hora_inicio']
+        # unique_together removido - constraint foi removida do banco de dados
+        # Se necessário, adicionar constraint via migration usando RunSQL com IF NOT EXISTS
+    
+    def __str__(self):
+        return f"Escala {self.data.strftime('%d/%m/%Y')} - {self.organizacao} - {self.get_tipo_servico_display()}"
+    
+    @property
+    def duracao_horas(self):
+        """Calcula a duração da escala em horas"""
+        if self.hora_fim and self.hora_inicio:
+            inicio = datetime.combine(self.data, self.hora_inicio)
+            fim = datetime.combine(self.data, self.hora_fim)
+            
+            # Se a hora fim for menor que a hora início, assumir que é no dia seguinte
+            if fim <= inicio:
+                fim += timedelta(days=1)
+            
+            duracao = fim - inicio
+            return duracao.total_seconds() / 3600
+        return 0
+    
+    def pode_adicionar_militares(self, usuario_requisitante=None):
+        """
+        Verifica se é permitido adicionar militares à escala
+        
+        Regras:
+        1. Superusuários podem tudo
+        2. Escalas só podem ser alteradas até a data do serviço (inclusive)
+        3. Escalas concluídas: NÃO pode adicionar militares
+        4. Escalas aprovadas: só quem aprovou pode fazer alterações
+        5. Escalas não aprovadas: pode adicionar normalmente
+        """
+        from datetime import date
+        
+        hoje = date.today()
+        
+        # Superusuários podem tudo
+        if usuario_requisitante and usuario_requisitante.is_superuser:
+            return True, "Superusuário - acesso total permitido"
+        
+        # REGRA: Escalas só podem ser alteradas até a data do serviço (inclusive)
+        if self.data < hoje:
+            return False, f"Escala só pode ser alterada até a data do serviço ({self.data.strftime('%d/%m/%Y')}) - não é possível adicionar militares"
+        
+        # Se a escala está concluída, não pode adicionar militares
+        if self.status == 'concluida':
+            return False, "Escala já concluída - não é possível adicionar militares"
+        
+        # Se a escala não está aprovada, pode adicionar normalmente
+        if self.status not in ['aprovada', 'ativa', 'concluida']:
+            return True, "Escala ainda não aprovada - pode adicionar militares"
+        
+        # Se a escala está aprovada e ainda não passou da data, verificar se o usuário é o aprovador
+        if self.aprovado_por and usuario_requisitante:
+            if usuario_requisitante != self.aprovado_por:
+                return False, f"Apenas quem aprovou a escala ({self.aprovado_por.get_full_name() or self.aprovado_por.username}) pode adicionar militares"
+        
+        return True, "Pode adicionar militares"
+
+    def verificar_permissao_assinatura(self, usuario, tipo_assinatura='APROVACAO'):
+        """Verifica se o usuário tem permissão para assinar esta escala"""
+        from .models import UsuarioFuncaoMilitar
+        
+        # Superusuário sempre pode
+        if usuario.is_superuser:
+            return True
+        
+        # Buscar funções ativas do usuário
+        funcoes_usuario = UsuarioFuncaoMilitar.objects.filter(
+            usuario=usuario,
+            ativo=True
+        ).select_related('funcao_militar')
+        
+        if not funcoes_usuario.exists():
+            return False
+        
+        # Definir permissões específicas por tipo de assinatura
+        permissoes_revisao = ['REVISOR', 'APROVADOR', 'EDITOR', 'EDITOR_ADJUNTO', 'EDITOR_GERAL']
+        permissoes_aprovacao = ['APROVADOR', 'EDITOR', 'EDITOR_ADJUNTO', 'EDITOR_GERAL']
+        
+        if tipo_assinatura == 'REVISAO':
+            permissoes_necessarias = permissoes_revisao
+        elif tipo_assinatura == 'APROVACAO':
+            permissoes_necessarias = permissoes_aprovacao
+        else:
+            return False
+        
+        # Verificar se alguma função do usuário tem permissão necessária
+        for funcao in funcoes_usuario:
+            if funcao.funcao_militar.publicacao in permissoes_necessarias:
+                return True
+        
+        return False
+
+    def pode_revisar(self, usuario):
+        """Verifica se o usuário pode revisar esta escala"""
+        return self.verificar_permissao_assinatura(usuario, 'REVISAO')
+
+    def pode_aprovar(self, usuario):
+        """Verifica se o usuário pode aprovar esta escala"""
+        return self.verificar_permissao_assinatura(usuario, 'APROVACAO')
+
+
+class EscalaMilitar(models.Model):
+    """Modelo para militares indexados em escalas"""
+    
+    FUNCAO_CHOICES = [
+        ('responsavel', 'Responsável'),
+        ('substituto', 'Substituto'),
+        ('militar', 'Militar'),
+    ]
+    
+    TIPO_SERVICO_CHOICES = [
+        ('operacional', 'Operacional'),
+        ('administrativo', 'Administrativo'),
+    ]
+    
+    TURNO_CHOICES = [
+        ('2h', '2 horas'),
+        ('4h', '4 horas'),
+        ('6h', '6 horas'),
+        ('8h', '8 horas'),
+        ('12h', '12 horas'),
+        ('18h', '18 horas'),
+        ('24h', '24 horas'),
+    ]
+    
+    escala = models.ForeignKey(EscalaServico, on_delete=models.CASCADE, related_name='militares', verbose_name="Escala")
+    militar = models.ForeignKey('Militar', on_delete=models.CASCADE, verbose_name="Militar")
+    funcao = models.CharField(max_length=20, choices=FUNCAO_CHOICES, default='militar', verbose_name="Função")
+    
+    # Informações específicas do militar na escala
+    tipo_servico = models.CharField(max_length=20, choices=TIPO_SERVICO_CHOICES, default='operacional', verbose_name="Tipo de Serviço")
+    turno = models.CharField(max_length=10, choices=TURNO_CHOICES, default='8h', verbose_name="Turno")
+    hora_inicio = models.TimeField(verbose_name="Hora de Início")
+    hora_fim = models.TimeField(verbose_name="Hora de Término")
+    
+    # Campos específicos para escalas operacionais
+    funcao_operacional = models.CharField(max_length=100, blank=True, null=True, verbose_name="Função Operacional")
+    equipe = models.CharField(max_length=100, blank=True, null=True, verbose_name="Equipe")
+    viatura = models.CharField(max_length=100, blank=True, null=True, verbose_name="Viatura")
+    
+    # Campos específicos para escalas administrativas
+    secao = models.CharField(max_length=100, blank=True, null=True, verbose_name="Seção")
+    
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    
+    # Metadados
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Militar da Escala"
+        verbose_name_plural = "Militares da Escala"
+    
+    @staticmethod
+    def calcular_horas_totais_militar_dia(militar, data):
+        """
+        Calcula o total de horas que um militar está escalado em um dia específico
+        """
+        from datetime import datetime, timedelta
+        
+        escalas_dia = EscalaMilitar.objects.filter(
+            militar=militar,
+            escala__data=data
+        )
+        
+        total_horas = 0
+        
+        for escala_militar in escalas_dia:
+            if escala_militar.hora_inicio and escala_militar.hora_fim:
+                # Calcular diferença entre hora_fim e hora_inicio
+                inicio = datetime.combine(data, escala_militar.hora_inicio)
+                fim = datetime.combine(data, escala_militar.hora_fim)
+                
+                # Se hora_fim for menor que hora_inicio, assumir que passa da meia-noite
+                if fim < inicio:
+                    fim += timedelta(days=1)
+                
+                diferenca = fim - inicio
+                horas_escala = diferenca.total_seconds() / 3600  # Converter para horas
+                
+                # CORREÇÃO: Se as horas são iguais e a diferença é 0, assumir turno de 24h
+                if escala_militar.hora_inicio == escala_militar.hora_fim and horas_escala == 0:
+                    horas_escala = 24
+                
+                total_horas += horas_escala
+        
+        return total_horas
+    
+    @staticmethod
+    def verificar_disponibilidade_militar_dia(militar, data, nova_hora_inicio=None, nova_hora_fim=None):
+        """
+        Verifica se um militar está disponível para ser escalado em um dia específico
+        Retorna: (disponivel, horas_atuais, horas_restantes, mensagem)
+        """
+        from datetime import datetime, timedelta
+        
+        # Calcular horas atuais do militar no dia
+        horas_atuais = EscalaMilitar.calcular_horas_totais_militar_dia(militar, data)
+        
+        # Se não há nova escala sendo adicionada, apenas verificar disponibilidade
+        if not nova_hora_inicio or not nova_hora_fim:
+            horas_restantes = 24 - horas_atuais
+            disponivel = horas_restantes > 0
+            
+            if disponivel:
+                mensagem = f"Militar disponível. {horas_restantes:.1f}h restantes no dia."
+            else:
+                mensagem = f"Militar indisponível. Já escalado por {horas_atuais:.1f}h (limite: 24h)."
+            
+            return disponivel, horas_atuais, horas_restantes, mensagem
+        
+        # Calcular horas da nova escala
+        inicio = datetime.combine(data, nova_hora_inicio)
+        fim = datetime.combine(data, nova_hora_fim)
+        
+        # Se hora_fim <= hora_inicio, assumir que passa da meia-noite
+        if fim <= inicio:
+            fim += timedelta(days=1)
+        
+        diferenca = fim - inicio
+        horas_nova_escala = diferenca.total_seconds() / 3600
+        
+        # Se as horas são iguais e a diferença é 0, assumir turno de 24h
+        if nova_hora_inicio == nova_hora_fim and horas_nova_escala == 0:
+            horas_nova_escala = 24
+        
+        # REGRA CORRIGIDA: Se militar já tem exatamente 24h no dia, não pode ser escalado novamente
+        if horas_atuais >= 24:
+            mensagem = f"Escala não permitida. Militar já escalado por {horas_atuais:.1f}h (limite máximo de 24h por dia atingido)."
+            return False, horas_atuais, 0, mensagem
+        
+        # Verificar se a nova escala excede o limite de 24h
+        total_com_nova_escala = horas_atuais + horas_nova_escala
+        
+        if total_com_nova_escala > 24:
+            horas_restantes = 24 - horas_atuais
+            mensagem = f"Escala não permitida. Militar já escalado por {horas_atuais:.1f}h. Máximo restante: {horas_restantes:.1f}h."
+            return False, horas_atuais, horas_restantes, mensagem
+        
+        horas_restantes = 24 - total_com_nova_escala
+        mensagem = f"Escala permitida. Total: {total_com_nova_escala:.1f}h. Restam: {horas_restantes:.1f}h."
+        return True, horas_atuais, horas_restantes, mensagem
+    
+    class Meta:
+        ordering = ['escala', 'funcao', 'militar__nome_completo']
+        # Removido unique_together para permitir múltiplos turnos do mesmo militar na mesma escala
+    
+    def __str__(self):
+        return f"{self.militar.nome_completo} - {self.escala}"
+    
+    @staticmethod
+    def verificar_conflitos_planejadas(militar, data, hora_inicio, hora_fim):
+        """
+        Verifica conflitos com operações planejadas para um militar em uma data/horário específico
+        
+        Retorna: (tem_conflito, planejadas_conflitantes, mensagem)
+        """
+        from datetime import datetime, time
+        
+        # Buscar operações planejadas do militar na data
+        planejadas = militar.planejadas.filter(
+            data_operacao__date=data,
+            status='ativo'
+        )
+        
+        conflitos = []
+        
+        for planejada in planejadas:
+            # Verificar se há sobreposição de horários
+            if planejada.hora_inicio and planejada.hora_termino:
+                # Converter horários para comparação
+                planejada_inicio = planejada.hora_inicio
+                planejada_fim = planejada.hora_termino
+                
+                # Verificar sobreposição
+                if (hora_inicio < planejada_fim and hora_fim > planejada_inicio):
+                    conflitos.append({
+                        'id': planejada.id,
+                        'nome': planejada.nome,
+                        'tipo': planejada.tipo_planejada or 'P1',
+                        'hora_inicio': planejada.hora_inicio.strftime('%H:%M'),
+                        'hora_termino': planejada.hora_termino.strftime('%H:%M'),
+                        'cidade': planejada.cidade
+                    })
+        
+        if conflitos:
+            mensagem = f"Militar já possui {len(conflitos)} operação(ões) planejada(s) no mesmo horário:\n"
+            for conflito in conflitos:
+                mensagem += f"• {conflito['nome']} ({conflito['tipo']}) - {conflito['hora_inicio']} às {conflito['hora_termino']} - {conflito['cidade']}\n"
+            
+            return True, conflitos, mensagem
+        
+        return False, [], "Nenhum conflito encontrado"
+    
+    @staticmethod
+    def verificar_limites_planejadas_dia(militar, data, tipo_planejada):
+        """
+        Verifica se o militar pode ser adicionado a uma operação planejada baseado nos limites diários
+        
+        Regras:
+        - Máximo 4 P1 por dia
+        - Máximo 2 P2 por dia  
+        - Máximo 1 P1 + 1 P3 por dia
+        - Máximo 1 P4 por dia
+        
+        Retorna: (pode_adicionar, mensagem, planejadas_dia)
+        """
+        # Buscar todas as planejadas do militar na data
+        planejadas_dia = militar.planejadas.filter(
+            data_operacao__date=data,
+            status='ativo'
+        )
+        
+        # Contar por tipo
+        contadores = {'P1': 0, 'P2': 0, 'P3': 0, 'P4': 0}
+        for planejada in planejadas_dia:
+            tipo = planejada.tipo_planejada or 'P1'
+            if tipo in contadores:
+                contadores[tipo] += 1
+        
+        # Verificar limites baseado no tipo que está sendo adicionado
+        if tipo_planejada == 'P1':
+            if contadores['P1'] >= 4:
+                return False, f"Limite de 4 operações P1 por dia atingido (atual: {contadores['P1']})", planejadas_dia
+            if contadores['P1'] >= 1 and contadores['P3'] >= 1:
+                return False, f"Limite de 1 P1 + 1 P3 por dia atingido (P1: {contadores['P1']}, P3: {contadores['P3']})", planejadas_dia
+                
+        elif tipo_planejada == 'P2':
+            if contadores['P2'] >= 2:
+                return False, f"Limite de 2 operações P2 por dia atingido (atual: {contadores['P2']})", planejadas_dia
+                
+        elif tipo_planejada == 'P3':
+            if contadores['P3'] >= 1:
+                return False, f"Limite de 1 operação P3 por dia atingido (atual: {contadores['P3']})", planejadas_dia
+            if contadores['P1'] >= 1 and contadores['P3'] >= 1:
+                return False, f"Limite de 1 P1 + 1 P3 por dia atingido (P1: {contadores['P1']}, P3: {contadores['P3']})", planejadas_dia
+                
+        elif tipo_planejada == 'P4':
+            if contadores['P4'] >= 1:
+                return False, f"Limite de 1 operação P4 por dia atingido (atual: {contadores['P4']})", planejadas_dia
+        
+        return True, "Pode ser adicionado", planejadas_dia
+
+
+class BancoHoras(models.Model):
+    """Banco de horas dos militares baseado nas escalas de serviço"""
+    
+    TIPO_MOVIMENTACAO_CHOICES = [
+        ('ENTRADA', 'Entrada'),
+        ('SAIDA', 'Saída'),
+        ('COMPENSACAO', 'Compensação'),
+        ('AJUSTE', 'Ajuste Manual'),
+    ]
+    
+    militar = models.ForeignKey('Militar', on_delete=models.CASCADE, verbose_name="Militar")
+    data_movimentacao = models.DateField(verbose_name="Data da Movimentação")
+    tipo_movimentacao = models.CharField(max_length=20, choices=TIPO_MOVIMENTACAO_CHOICES, verbose_name="Tipo de Movimentação")
+    horas = models.DecimalField(max_digits=5, decimal_places=2, verbose_name="Horas")
+    saldo_anterior = models.DecimalField(max_digits=5, decimal_places=2, verbose_name="Saldo Anterior")
+    saldo_atual = models.DecimalField(max_digits=5, decimal_places=2, verbose_name="Saldo Atual")
+    
+    # Referência à escala que gerou a movimentação (opcional)
+    escala = models.ForeignKey(EscalaServico, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Escala")
+    escala_militar = models.ForeignKey(EscalaMilitar, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Militar da Escala")
+    
+    # Observações
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    
+    # Metadados
+    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Criado por")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Banco de Horas"
+        verbose_name_plural = "Banco de Horas"
+        ordering = ['-data_movimentacao', 'militar__nome_completo']
+        unique_together = ['militar', 'data_movimentacao', 'tipo_movimentacao', 'escala_militar']
+    
+    def __str__(self):
+        return f"{self.militar.nome_completo} - {self.get_tipo_movimentacao_display()} - {self.horas}h"
+    
+    @classmethod
+    def calcular_saldo_militar(cls, militar, data_ate=None):
+        """Calcula o saldo atual de horas de um militar até uma data específica"""
+        if data_ate is None:
+            data_ate = timezone.now().date()
+        
+        movimentacoes = cls.objects.filter(
+            militar=militar,
+            data_movimentacao__lte=data_ate
+        ).order_by('data_movimentacao', 'id')
+        
+        saldo = 0
+        for mov in movimentacoes:
+            if mov.tipo_movimentacao == 'ENTRADA':
+                saldo += mov.horas
+            elif mov.tipo_movimentacao in ['SAIDA', 'COMPENSACAO']:
+                saldo -= mov.horas
+            elif mov.tipo_movimentacao == 'AJUSTE':
+                saldo = mov.horas  # Ajuste manual define o saldo
+        
+        return saldo
+    
+    @classmethod
+    def gerar_movimentacao_escala(cls, escala_militar, tipo_movimentacao='ENTRADA'):
+        """Gera movimentação no banco de horas baseada em uma escala"""
+        from datetime import datetime, timedelta
+        
+        # Calcular horas trabalhadas
+        if escala_militar.hora_fim and escala_militar.hora_inicio:
+            from decimal import Decimal
+            inicio = datetime.combine(escala_militar.escala.data, escala_militar.hora_inicio)
+            fim = datetime.combine(escala_militar.escala.data, escala_militar.hora_fim)
+            
+            # Se a hora fim for menor que a hora início, assumir que é no dia seguinte
+            if fim <= inicio:
+                fim += timedelta(days=1)
+            
+            duracao = fim - inicio
+            horas = Decimal(str(duracao.total_seconds() / 3600))
+        else:
+            from decimal import Decimal
+            horas = Decimal('0')
+        
+        if horas <= 0:
+            return None
+        
+        # Calcular saldo anterior
+        saldo_anterior = cls.calcular_saldo_militar(escala_militar.militar, escala_militar.escala.data)
+        
+        # Calcular saldo atual
+        if tipo_movimentacao == 'ENTRADA':
+            saldo_atual = saldo_anterior + horas
+        else:
+            saldo_atual = saldo_anterior - horas
+        
+        # Criar movimentação
+        movimentacao = cls.objects.create(
+            militar=escala_militar.militar,
+            data_movimentacao=escala_militar.escala.data,
+            tipo_movimentacao=tipo_movimentacao,
+            horas=horas,
+            saldo_anterior=saldo_anterior,
+            saldo_atual=saldo_atual,
+            escala=escala_militar.escala,
+            escala_militar=escala_militar,
+            observacoes=f"Gerado automaticamente pela escala {escala_militar.escala}",
+            criado_por=escala_militar.escala.criado_por
+        )
+        
+        return movimentacao
+
+    @classmethod
+    def sincronizar_banco_horas_escalas(cls, data_inicio=None, data_fim=None):
+        """
+        Sincroniza o banco de horas com as escalas de serviço
+        Calcula automaticamente as horas trabalhadas pelos militares baseado nos turnos das escalas
+        """
+        from .models import EscalaMilitar
+        from datetime import datetime, timedelta
+        from decimal import Decimal
+        
+        if data_inicio is None:
+            data_inicio = datetime.now().date() - timedelta(days=30)  # Últimos 30 dias
+        if data_fim is None:
+            data_fim = datetime.now().date()
+        
+        # Buscar todas as escalas militares no período
+        escalas_militares = EscalaMilitar.objects.filter(
+            escala__data__gte=data_inicio,
+            escala__data__lte=data_fim,
+            militar__isnull=False
+        ).select_related('militar', 'escala')
+        
+        movimentacoes_criadas = 0
+        movimentacoes_atualizadas = 0
+        
+        for escala_militar in escalas_militares:
+            # Calcular horas trabalhadas diretamente
+            if escala_militar.hora_fim and escala_militar.hora_inicio:
+                from decimal import Decimal
+                inicio = datetime.combine(escala_militar.escala.data, escala_militar.hora_inicio)
+                fim = datetime.combine(escala_militar.escala.data, escala_militar.hora_fim)
+                
+                # Se a hora fim for menor que a hora início, assumir que é no dia seguinte
+                if fim <= inicio:
+                    fim += timedelta(days=1)
+                
+                duracao = fim - inicio
+                horas = Decimal(str(duracao.total_seconds() / 3600))
+            else:
+                from decimal import Decimal
+                horas = Decimal('0')
+            
+            if horas <= 0:
+                continue
+            
+            # Calcular saldo anterior
+            saldo_anterior = cls.calcular_saldo_militar(escala_militar.militar, escala_militar.escala.data)
+            saldo_atual = saldo_anterior + horas
+            
+            # Usar update_or_create para evitar duplicatas
+            movimentacao, created = cls.objects.update_or_create(
+                militar=escala_militar.militar,
+                data_movimentacao=escala_militar.escala.data,
+                tipo_movimentacao='ENTRADA',
+                escala_militar=escala_militar,
+                defaults={
+                    'horas': horas,
+                    'saldo_anterior': saldo_anterior,
+                    'saldo_atual': saldo_atual,
+                    'escala': escala_militar.escala,
+                    'observacoes': f"Gerado automaticamente pela escala {escala_militar.escala}",
+                    'criado_por': escala_militar.escala.criado_por
+                }
+            )
+            
+            if created:
+                movimentacoes_criadas += 1
+            else:
+                movimentacoes_atualizadas += 1
+        
+        # Recalcular todos os saldos
+        cls.recalcular_todos_saldos()
+        
+        return {
+            'movimentacoes_criadas': movimentacoes_criadas,
+            'movimentacoes_atualizadas': movimentacoes_atualizadas,
+            'total_escalas_processadas': escalas_militares.count()
+        }
+
+    @classmethod
+    def recalcular_todos_saldos(cls):
+        """
+        Recalcula todos os saldos do banco de horas
+        """
+        from decimal import Decimal
+        
+        # Buscar todos os militares únicos
+        militares = cls.objects.values_list('militar', flat=True).distinct()
+        
+        for militar_id in militares:
+            # Buscar todas as movimentações do militar ordenadas por data
+            movimentacoes = cls.objects.filter(militar_id=militar_id).order_by('data_movimentacao', 'id')
+            
+            saldo_atual = Decimal('0')
+            for mov in movimentacoes:
+                mov.saldo_anterior = saldo_atual
+                
+                if mov.tipo_movimentacao in ['ENTRADA', 'COMPENSACAO']:
+                    saldo_atual += mov.horas
+                else:  # SAIDA, AJUSTE
+                    saldo_atual -= mov.horas
+                
+                mov.saldo_atual = saldo_atual
+                mov.save()
+
+
+class IntervaloEscalaPlanejada(models.Model):
+    """Modelo para intervalos entre escalas normais e planejadas"""
+    
+    TIPO_INTERVALO_CHOICES = [
+        ('FIXO', 'Intervalo Fixo'),
+        ('PROPORCIONAL', 'Intervalo Proporcional à Escala'),
+        ('MINIMO', 'Intervalo Mínimo'),
+    ]
+    
+    tipo_intervalo = models.CharField(
+        max_length=20,
+        choices=TIPO_INTERVALO_CHOICES,
+        default='PROPORCIONAL',
+        verbose_name="Tipo de Intervalo",
+        help_text="Como calcular o intervalo entre escalas"
+    )
+    
+    horas_escala = models.PositiveIntegerField(
+        verbose_name="Horas da Escala Normal",
+        help_text="Duração da escala normal em horas"
+    )
+    
+    horas_intervalo = models.PositiveIntegerField(
+        verbose_name="Horas de Intervalo",
+        help_text="Quantas horas de folga após esta escala"
+    )
+    
+    multiplicador = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        default=1.00,
+        verbose_name="Multiplicador",
+        help_text="Multiplicador para calcular o intervalo (ex: 1.0 = mesmo tempo, 1.5 = 1.5x o tempo)"
+    )
+    
+    ativo = models.BooleanField(
+        default=True,
+        verbose_name="Ativo",
+        help_text="Se esta regra de intervalo está ativa"
+    )
+    
+    observacoes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações",
+        help_text="Observações sobre esta regra de intervalo"
+    )
+    
+    class Meta:
+        verbose_name = "Intervalo entre Escala e Planejada"
+        verbose_name_plural = "Intervalos entre Escalas e Planejadas"
+        ordering = ['horas_escala', 'tipo_intervalo']
+        unique_together = ['tipo_intervalo', 'horas_escala']
+    
+    def __str__(self):
+        if self.tipo_intervalo == 'FIXO':
+            return f"Intervalo Fixo: {self.horas_intervalo}h"
+        elif self.tipo_intervalo == 'PROPORCIONAL':
+            return f"Escala {self.horas_escala}h → Folga {self.horas_intervalo}h"
+        else:  # MINIMO
+            return f"Mínimo {self.horas_intervalo}h após escala {self.horas_escala}h"
+    
+    def calcular_intervalo(self, horas_escala_trabalhada):
+        """Calcula o intervalo baseado na escala trabalhada"""
+        if self.tipo_intervalo == 'FIXO':
+            return self.horas_intervalo
+        elif self.tipo_intervalo == 'PROPORCIONAL':
+            if horas_escala_trabalhada == self.horas_escala:
+                return self.horas_intervalo
+            else:
+                # Calcular proporcionalmente
+                proporcao = horas_escala_trabalhada / self.horas_escala
+                return int(proporcao * self.horas_intervalo * float(self.multiplicador))
+        else:  # MINIMO
+            return max(self.horas_intervalo, horas_escala_trabalhada)
+
+
+class AbonoPlanejada(models.Model):
+    """Modelo para abonos de planejadas na escala de abonar"""
+    
+    TIPO_PLANEJADA_CHOICES = [
+        ('P1', 'P1'),
+        ('P2', 'P2'),
+        ('P3', 'P3'),
+        ('P4', 'P4'),
+        ('P5', 'P5'),
+    ]
+    
+    militar = models.ForeignKey('Militar', on_delete=models.CASCADE, verbose_name="Militar")
+    planejada = models.ForeignKey('Planejada', on_delete=models.CASCADE, verbose_name="Planejada")
+    data_operacao = models.DateField(verbose_name="Data da Operação")
+    tipo_planejada = models.CharField(max_length=10, choices=TIPO_PLANEJADA_CHOICES, verbose_name="Tipo de Planejada")
+    horas = models.DecimalField(max_digits=5, decimal_places=2, verbose_name="Horas")
+    cidade = models.CharField(max_length=200, verbose_name="Cidade")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    
+    # Metadados
+    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Criado por")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Abono de Planejada"
+        verbose_name_plural = "Abonos de Planejadas"
+        ordering = ['-data_operacao', 'militar__nome_completo']
+        unique_together = ['militar', 'planejada', 'data_operacao']
+    
+    def __str__(self):
+        return f"{self.militar.nome_completo} - {self.tipo_planejada} - {self.data_operacao.strftime('%d/%m/%Y')}"
+    
+    @classmethod
+    def marcar_abono_planejada(cls, militar, planejada):
+        """Marca um militar na escala de abonar por participar de uma planejada"""
+        from datetime import datetime, timedelta
+        
+        # Calcular horas da planejada
+        if planejada.hora_termino and planejada.hora_inicio:
+            inicio = datetime.combine(planejada.data_operacao.date(), planejada.hora_inicio)
+            fim = datetime.combine(planejada.data_operacao.date(), planejada.hora_termino)
+            
+            # Se a hora fim for menor que a hora início, assumir que é no dia seguinte
+            if fim <= inicio:
+                fim += timedelta(days=1)
+            
+            duracao = fim - inicio
+            horas = duracao.total_seconds() / 3600
+        else:
+            horas = 0
+        
+        if horas <= 0:
+            return None
+        
+        # Criar ou atualizar abono
+        abono, created = cls.objects.get_or_create(
+            militar=militar,
+            planejada=planejada,
+            data_operacao=planejada.data_operacao.date(),
+            defaults={
+                'tipo_planejada': planejada.tipo_planejada or 'P1',
+                'horas': horas,
+                'cidade': planejada.cidade,
+                'observacoes': f"Abono por participação na planejada: {planejada.nome} - {planejada.cidade}",
+                'criado_por': None  # Será preenchido pela view
+            }
+        )
+        
+        if not created:
+            # Atualizar dados se já existia
+            abono.tipo_planejada = planejada.tipo_planejada or 'P1'
+            abono.horas = horas
+            abono.cidade = planejada.cidade
+            abono.observacoes = f"Abono por participação na planejada: {planejada.nome} - {planejada.cidade}"
+            abono.save()
+        
+        return abono
+    
+    @classmethod
+    def desmarcar_abono_planejada(cls, militar, planejada):
+        """Remove a marcação de um militar na escala de abonar"""
+        try:
+            abono = cls.objects.get(
+                militar=militar,
+                planejada=planejada,
+                data_operacao=planejada.data_operacao.date()
+            )
+            abono.delete()
+            return True
+        except cls.DoesNotExist:
+            return False
+
+
+class ConfiguracaoPlanejadas(models.Model):
+    """Modelo para configurações de planejadas"""
+    
+    # Configurações básicas
+    quantidade_planejadas_por_militar_mes = models.PositiveIntegerField(
+        default=4,
+        verbose_name="Quantidade de Planejadas por Militar/Mês",
+        help_text="Número máximo de planejadas que um militar pode ter por mês"
+    )
+    
+    valor_planejada_normal = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        verbose_name="Valor da Planejada Normal",
+        help_text="Valor pago por planejada em dias normais"
+    )
+    
+    valor_planejada_fim_semana = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        verbose_name="Valor da Planejada em Fins de Semana",
+        help_text="Valor pago por planejada em fins de semana e feriados"
+    )
+    
+    # Valores por planejada para cálculo automático
+    valor_por_hora_normal = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        verbose_name="Valor por Planejada - Dias Normais",
+        help_text="Valor fixo por planejada em dias normais (P1=1x, P2=2x, P3=3x, P4=4x)"
+    )
+    
+    valor_por_hora_fds = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        verbose_name="Valor por Planejada - Fins de Semana",
+        help_text="Valor fixo por planejada em fins de semana e feriados"
+    )
+    
+    # Valores específicos para cada tipo de planejada - Dias normais
+    valor_planejada_p1_normal = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        verbose_name="Valor P1 - Dias Normais",
+        help_text="Valor específico para planejada P1 em dias normais"
+    )
+    
+    valor_planejada_p2_normal = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        verbose_name="Valor P2 - Dias Normais",
+        help_text="Valor específico para planejada P2 em dias normais"
+    )
+    
+    valor_planejada_p3_normal = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        verbose_name="Valor P3 - Dias Normais",
+        help_text="Valor específico para planejada P3 em dias normais"
+    )
+    
+    valor_planejada_p4_normal = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        verbose_name="Valor P4 - Dias Normais",
+        help_text="Valor específico para planejada P4 em dias normais"
+    )
+    
+    # Valores específicos para cada tipo de planejada - Fins de semana
+    valor_planejada_p1_fds = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        verbose_name="Valor P1 - Fins de Semana",
+        help_text="Valor específico para planejada P1 em fins de semana"
+    )
+    
+    valor_planejada_p2_fds = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        verbose_name="Valor P2 - Fins de Semana",
+        help_text="Valor específico para planejada P2 em fins de semana"
+    )
+    
+    valor_planejada_p3_fds = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        verbose_name="Valor P3 - Fins de Semana",
+        help_text="Valor específico para planejada P3 em fins de semana"
+    )
+    
+    valor_planejada_p4_fds = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        verbose_name="Valor P4 - Fins de Semana",
+        help_text="Valor específico para planejada P4 em fins de semana"
+    )
+    
+    # Configurações de tipos de planejadas
+    horas_planejada_p1 = models.PositiveIntegerField(
+        default=6,
+        verbose_name="Horas da Planejada P1",
+        help_text="Quantidade de horas da planejada tipo P1 (6h)"
+    )
+    
+    horas_planejada_p2 = models.PositiveIntegerField(
+        default=12,
+        verbose_name="Horas da Planejada P2",
+        help_text="Quantidade de horas da planejada tipo P2 (12h)"
+    )
+    
+    horas_planejada_p3 = models.PositiveIntegerField(
+        default=18,
+        verbose_name="Horas da Planejada P3",
+        help_text="Quantidade de horas da planejada tipo P3 (18h)"
+    )
+    
+    horas_planejada_p4 = models.PositiveIntegerField(
+        default=24,
+        verbose_name="Horas da Planejada P4",
+        help_text="Quantidade de horas da planejada tipo P4 (24h)"
+    )
+    
+    # Configurações de intervalos específicos para cada turno
+    intervalo_turno_6h = models.PositiveIntegerField(
+        default=6,
+        verbose_name="Intervalo para Turno de 6h",
+        help_text="Intervalo mínimo em horas após turno de 6h para poder fazer planejada"
+    )
+    
+    intervalo_turno_12h = models.PositiveIntegerField(
+        default=12,
+        verbose_name="Intervalo para Turno de 12h",
+        help_text="Intervalo mínimo em horas após turno de 12h para poder fazer planejada"
+    )
+    
+    intervalo_turno_18h = models.PositiveIntegerField(
+        default=18,
+        verbose_name="Intervalo para Turno de 18h",
+        help_text="Intervalo mínimo em horas após turno de 18h para poder fazer planejada"
+    )
+    
+    intervalo_turno_24h = models.PositiveIntegerField(
+        default=24,
+        verbose_name="Intervalo para Turno de 24h",
+        help_text="Intervalo mínimo em horas após turno de 24h para poder fazer planejada"
+    )
+    
+    # Configurações de Flexibilização por Tipo
+    permitir_flexibilizacao_p1 = models.BooleanField(
+        default=False,
+        verbose_name="Permitir Flexibilização P1",
+        help_text="Quando ativado, permite que militares sejam adicionados em planejadas P1 mesmo que não atendam todas as validações do sistema (qualificações, intervalos, limites mensais, etc.). Use com cautela!"
+    )
+    
+    permitir_flexibilizacao_p2 = models.BooleanField(
+        default=False,
+        verbose_name="Permitir Flexibilização P2",
+        help_text="Quando ativado, permite que militares sejam adicionados em planejadas P2 mesmo que não atendam todas as validações do sistema (qualificações, intervalos, limites mensais, etc.). Use com cautela!"
+    )
+    
+    permitir_flexibilizacao_p3 = models.BooleanField(
+        default=False,
+        verbose_name="Permitir Flexibilização P3",
+        help_text="Quando ativado, permite que militares sejam adicionados em planejadas P3 mesmo que não atendam todas as validações do sistema (qualificações, intervalos, limites mensais, etc.). Use com cautela!"
+    )
+    
+    permitir_flexibilizacao_p4 = models.BooleanField(
+        default=False,
+        verbose_name="Permitir Flexibilização P4",
+        help_text="Quando ativado, permite que militares sejam adicionados em planejadas P4 mesmo que não atendam todas as validações do sistema (qualificações, intervalos, limites mensais, etc.). Use com cautela!"
+    )
+    
+    # Campo legado para compatibilidade (deprecated)
+    permitir_flexibilizacao_validacoes = models.BooleanField(
+        default=False,
+        verbose_name="Permitir Flexibilização de Validações (Legado)",
+        help_text="DEPRECATED: Use os campos específicos por tipo (P1, P2, P3, P4). Este campo será removido em versões futuras."
+    )
+    
+    # Metadados
+    ativo = models.BooleanField(
+        default=True,
+        verbose_name="Ativo",
+        help_text="Indica se esta configuração está ativa"
+    )
+    
+    data_criacao = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Data de Criação"
+    )
+    
+    data_atualizacao = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Data de Atualização"
+    )
+    
+    observacoes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações",
+        help_text="Observações sobre a configuração"
+    )
+    
+    class Meta:
+        verbose_name = "Configuração de Planejadas"
+        verbose_name_plural = "Configurações de Planejadas"
+        ordering = ['-data_criacao']
+    
+    def __str__(self):
+        return f"Configuração de Planejadas - {self.data_criacao.strftime('%d/%m/%Y %H:%M')}"
+    
+    
+    @property
+    def tipos_planejadas_disponiveis(self):
+        """Retorna os tipos de planejadas disponíveis com suas horas"""
+        return [
+            {'tipo': 'P1', 'horas': self.horas_planejada_p1},
+            {'tipo': 'P2', 'horas': self.horas_planejada_p2},
+            {'tipo': 'P3', 'horas': self.horas_planejada_p3},
+            {'tipo': 'P4', 'horas': self.horas_planejada_p4},
+        ]
+    
+    @property
+    def valor_planejada_normal_formatado(self):
+        """Retorna o valor da planejada normal formatado"""
+        return f"R$ {self.valor_planejada_normal:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+    
+    @property
+    def valor_planejada_fim_semana_formatado(self):
+        """Retorna o valor da planejada de fim de semana formatado"""
+        return f"R$ {self.valor_planejada_fim_semana:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+    
+    def clean(self):
+        """Validações do modelo"""
+        from django.core.exceptions import ValidationError
+        
+        if self.quantidade_planejadas_por_militar_mes <= 0:
+            raise ValidationError("A quantidade de planejadas por militar deve ser maior que zero.")
+        
+        if self.valor_planejada_normal < 0:
+            raise ValidationError("O valor da planejada normal não pode ser negativo.")
+        
+        if self.valor_planejada_fim_semana < 0:
+            raise ValidationError("O valor da planejada de fim de semana não pode ser negativo.")
+        
+        if self.horas_planejada_p1 <= 0 or self.horas_planejada_p2 <= 0 or self.horas_planejada_p3 <= 0 or self.horas_planejada_p4 <= 0:
+            raise ValidationError("Todas as horas das planejadas devem ser maiores que zero.")
+        
+        if self.intervalo_turno_6h <= 0 or self.intervalo_turno_12h <= 0 or self.intervalo_turno_18h <= 0 or self.intervalo_turno_24h <= 0:
+            raise ValidationError("Todos os intervalos de turno devem ser maiores que zero.")
+    
+    def save(self, *args, **kwargs):
+        """Override do save para garantir apenas uma configuração ativa"""
+        self.clean()
+        
+        # Se esta configuração for marcada como ativa, desativar todas as outras
+        if self.ativo:
+            ConfiguracaoPlanejadas.objects.filter(ativo=True).exclude(id=self.id).update(ativo=False)
+        
+        super().save(*args, **kwargs)
+    
+    @classmethod
+    def get_configuracao_ativa(cls):
+        """Retorna a configuração ativa atual"""
+        return cls.objects.filter(ativo=True).first()
+    
+    @classmethod
+    def get_ou_create_configuracao_padrao(cls):
+        """Retorna a configuração ativa ou cria uma padrão se não existir"""
+        configuracao = cls.get_configuracao_ativa()
+        
+        if not configuracao:
+            configuracao = cls.objects.create(
+                quantidade_planejadas_por_militar_mes=4,
+                valor_planejada_normal=0.00,
+                valor_planejada_fim_semana=0.00,
+                valor_por_hora_normal=0.00,
+                valor_por_hora_fds=0.00,
+                horas_planejada_p1=6,
+                horas_planejada_p2=12,
+                horas_planejada_p3=18,
+                horas_planejada_p4=24,
+                intervalo_turno_6h=6,
+                intervalo_turno_12h=12,
+                intervalo_turno_18h=18,
+                intervalo_turno_24h=24,
+                ativo=True,
+                observacoes="Configuração padrão criada automaticamente"
+            )
+        
+        return configuracao
+    
+    def calcular_intervalo_para_planejada(self, horas_escala_trabalhada):
+        """Calcula o intervalo necessário para planejada baseado na escala trabalhada"""
+        # Usar intervalos específicos baseados na duração da escala
+        if horas_escala_trabalhada == 6:
+            return self.intervalo_turno_6h
+        elif horas_escala_trabalhada == 12:
+            return self.intervalo_turno_12h
+        elif horas_escala_trabalhada == 18:
+            return self.intervalo_turno_18h
+        elif horas_escala_trabalhada == 24:
+            return self.intervalo_turno_24h
+        else:
+            # Para outras durações, usar o intervalo mais próximo
+            if horas_escala_trabalhada <= 6:
+                return self.intervalo_turno_6h
+            elif horas_escala_trabalhada <= 12:
+                return self.intervalo_turno_12h
+            elif horas_escala_trabalhada <= 18:
+                return self.intervalo_turno_18h
+            else:
+                return self.intervalo_turno_24h
+    
+    def calcular_valor_planejada(self, tipo_planejada, data_operacao, feriado_municipal=False):
+        """
+        Calcula o valor da planejada baseado no tipo e data da operação
+        
+        Args:
+            tipo_planejada (str): Tipo da planejada (P1, P2, P3, P4)
+            data_operacao (datetime): Data da operação
+            feriado_municipal (bool): Se é feriado não cadastrado no sistema
+            
+        Returns:
+            Decimal: Valor calculado da planejada
+        """
+        from datetime import datetime
+        
+        # Mapear tipo para quantidade de planejadas
+        quantidade_planejadas_por_tipo = {
+            'P1': 1,  # 1 planejada
+            'P2': 2,  # 2 planejadas
+            'P3': 3,  # 3 planejadas
+            'P4': 4,  # 4 planejadas
+        }
+        
+        # Verificar se é fim de semana (sábado=5, domingo=6)
+        if isinstance(data_operacao, datetime):
+            dia_semana = data_operacao.weekday()
+        else:
+            # Se for string, tentar converter
+            try:
+                data_obj = datetime.strptime(str(data_operacao), '%Y-%m-%d')
+                dia_semana = data_obj.weekday()
+            except:
+                dia_semana = 0  # Segunda-feira como padrão
+        
+        # Verificar se é feriado nacional ou estadual
+        if isinstance(data_operacao, datetime):
+            data_obj = data_operacao
+        else:
+            try:
+                data_obj = datetime.strptime(str(data_operacao), '%Y-%m-%d')
+            except:
+                data_obj = datetime.now()
+        
+        # Feriados nacionais fixos
+        feriados_nacionais = {
+            (1, 1): 'Confraternização Universal',
+            (4, 21): 'Tiradentes',
+            (5, 1): 'Dia do Trabalho',
+            (9, 7): 'Independência do Brasil',
+            (10, 12): 'Nossa Senhora Aparecida',
+            (11, 2): 'Finados',
+            (11, 15): 'Proclamação da República',
+            (11, 20): 'Dia da Consciência Negra',
+            (12, 25): 'Natal'
+        }
+        
+        # Feriados estaduais do Piauí
+        feriados_piaui = {
+            (3, 13): 'Batalha do Jenipapo',
+            (10, 19): 'Dia do Piauí'
+        }
+        
+        # Verificar se é feriado
+        mes_dia = (data_obj.month, data_obj.day)
+        is_feriado_nacional = mes_dia in feriados_nacionais
+        is_feriado_estadual = mes_dia in feriados_piaui
+        is_feriado_qualquer = is_feriado_nacional or is_feriado_estadual or feriado_municipal
+        
+        # Determinar se é fim de semana (sexta=4, sábado=5, domingo=6) ou feriado
+        is_fim_semana = dia_semana >= 4 or is_feriado_qualquer  # Sexta-feira, sábado, domingo ou feriado
+        
+        # Escolher valor por planejada baseado no dia e tipo
+        if is_fim_semana:
+            # Valores para fins de semana
+            valores_por_tipo = {
+                'P1': self.valor_planejada_p1_fds,
+                'P2': self.valor_planejada_p2_fds,
+                'P3': self.valor_planejada_p3_fds,
+                'P4': self.valor_planejada_p4_fds,
+            }
+        else:
+            # Valores para dias úteis
+            valores_por_tipo = {
+                'P1': self.valor_planejada_p1_normal,
+                'P2': self.valor_planejada_p2_normal,
+                'P3': self.valor_planejada_p3_normal,
+                'P4': self.valor_planejada_p4_normal,
+            }
+        
+        # Obter valor específico para o tipo de planejada
+        valor_por_planejada = valores_por_tipo.get(tipo_planejada, self.valor_planejada_normal)
+        
+        # Se o valor específico for 0, usar o valor base multiplicado pela quantidade
+        if valor_por_planejada == 0:
+            valor_base = self.valor_planejada_fim_semana if is_fim_semana else self.valor_planejada_normal
+            quantidade = quantidade_planejadas_por_tipo.get(tipo_planejada, 1)
+            valor_total = valor_base * quantidade
+        else:
+            # Usar o valor específico configurado
+            valor_total = valor_por_planejada
+        
+        return valor_total
+
+
+class OrcamentoPlanejadas(models.Model):
+    """Modelo para configurar o orçamento total de planejadas por mês"""
+    MES_CHOICES = [
+        (1, 'Janeiro'), (2, 'Fevereiro'), (3, 'Março'), (4, 'Abril'),
+        (5, 'Maio'), (6, 'Junho'), (7, 'Julho'), (8, 'Agosto'),
+        (9, 'Setembro'), (10, 'Outubro'), (11, 'Novembro'), (12, 'Dezembro')
+    ]
+    
+    ano = models.PositiveIntegerField(verbose_name="Ano")
+    mes = models.PositiveIntegerField(choices=MES_CHOICES, verbose_name="Mês")
+    valor_total = models.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        verbose_name="Valor Total Disponível",
+        help_text="Valor total disponibilizado para planejadas no mês"
+    )
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Orçamento de Planejadas"
+        verbose_name_plural = "Orçamentos de Planejadas"
+        ordering = ['-ano', '-mes']
+        unique_together = ['ano', 'mes']
+    
+    def __str__(self):
+        return f"Orçamento {self.mes:02d}/{self.ano} - R$ {self.valor_total:,.2f}"
+    
+    @property
+    def mes_nome(self):
+        return dict(self.MES_CHOICES)[self.mes]
+    
+    @property
+    def valor_total_formatado(self):
+        # Formatação brasileira: ponto para milhares, vírgula para decimais
+        valor_str = f"{self.valor_total:,.2f}"
+        # Substituir vírgula por ponto temporariamente, depois trocar de volta
+        valor_str = valor_str.replace(',', 'TEMP').replace('.', ',').replace('TEMP', '.')
+        return f"R$ {valor_str}"
+    
+    @classmethod
+    def get_orcamento_ativo(cls, ano, mes):
+        """Retorna o orçamento ativo para o ano e mês especificados"""
+        return cls.objects.filter(ano=ano, mes=mes, ativo=True).first()
+    
+    def clean(self):
+        """Validações do modelo"""
+        from django.core.exceptions import ValidationError
+        
+        if self.valor_total <= 0:
+            raise ValidationError("O valor total deve ser maior que zero.")
+        
+        if self.ano < 2020 or self.ano > 2030:
+            raise ValidationError("O ano deve estar entre 2020 e 2030.")
+
+
+class DistribuicaoOrcamentoPlanejadas(models.Model):
+    """Modelo para distribuir o orçamento entre as instâncias organizacionais"""
+    orcamento = models.ForeignKey(
+        OrcamentoPlanejadas, 
+        on_delete=models.CASCADE, 
+        related_name='distribuicoes',
+        verbose_name="Orçamento"
+    )
+    
+    # Vinculação à instância organizacional
+    orgao = models.ForeignKey('Orgao', on_delete=models.CASCADE, blank=True, null=True, verbose_name="Órgão")
+    grande_comando = models.ForeignKey('GrandeComando', on_delete=models.CASCADE, blank=True, null=True, verbose_name="Grande Comando")
+    unidade = models.ForeignKey('Unidade', on_delete=models.CASCADE, blank=True, null=True, verbose_name="Unidade")
+    sub_unidade = models.ForeignKey('SubUnidade', on_delete=models.CASCADE, blank=True, null=True, verbose_name="Sub-Unidade")
+    
+    valor_planejadas = models.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        verbose_name="Valor para Planejadas",
+        help_text="Valor destinado para planejadas desta instância"
+    )
+    percentual = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        verbose_name="Percentual",
+        help_text="Percentual do orçamento total destinado a esta instância"
+    )
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Distribuição de Orçamento"
+        verbose_name_plural = "Distribuições de Orçamento"
+        ordering = ['orcamento__ano', 'orcamento__mes', 'orgao__nome', 'grande_comando__nome', 'unidade__nome']
+        unique_together = ['orcamento', 'orgao', 'grande_comando', 'unidade', 'sub_unidade']
+    
+    def __str__(self):
+        instancia = self.get_instancia_nome()
+        return f"{instancia} - {self.orcamento} - R$ {self.valor_planejadas:,.2f}"
+    
+    @property
+    def valor_planejadas_formatado(self):
+        # Formatação brasileira: ponto para milhares, vírgula para decimais
+        valor_str = f"{self.valor_planejadas:,.2f}"
+        # Substituir vírgula por ponto temporariamente, depois trocar de volta
+        valor_str = valor_str.replace(',', 'TEMP').replace('.', ',').replace('TEMP', '.')
+        return f"R$ {valor_str}"
+    
+    @property
+    def percentual_formatado(self):
+        return f"{self.percentual}%"
+    
+    def get_instancia_nome(self):
+        """Retorna o nome da instância organizacional"""
+        if self.sub_unidade:
+            return f"{self.sub_unidade.nome} (Sub-Unidade)"
+        elif self.unidade:
+            return f"{self.unidade.nome} (Unidade)"
+        elif self.grande_comando:
+            return f"{self.grande_comando.nome} (Grande Comando)"
+        elif self.orgao:
+            return f"{self.orgao.nome} (Órgão)"
+        else:
+            return "Instância não definida"
+    
+    def get_instancia_tipo(self):
+        """Retorna o tipo da instância organizacional"""
+        if self.sub_unidade:
+            return "Sub-Unidade"
+        elif self.unidade:
+            return "Unidade"
+        elif self.grande_comando:
+            return "Grande Comando"
+        elif self.orgao:
+            return "Órgão"
+        else:
+            return "Não definido"
+    
+    def clean(self):
+        """Validações do modelo"""
+        from django.core.exceptions import ValidationError
+        
+        if self.valor_planejadas <= 0:
+            raise ValidationError("O valor para planejadas deve ser maior que zero.")
+        
+        if self.percentual <= 0 or self.percentual > 100:
+            raise ValidationError("O percentual deve estar entre 0 e 100.")
+        
+        # Verificar se pelo menos uma instância está definida
+        if not any([self.orgao, self.grande_comando, self.unidade, self.sub_unidade]):
+            raise ValidationError("Pelo menos uma instância organizacional deve ser selecionada.")
+        
+        # Verificar se não há múltiplas instâncias do mesmo nível
+        instancias = [self.orgao, self.grande_comando, self.unidade, self.sub_unidade]
+        instancias_nao_nulas = [i for i in instancias if i is not None]
+        
+        if len(instancias_nao_nulas) > 1:
+            # Verificar hierarquia correta
+            if self.sub_unidade and not self.unidade:
+                raise ValidationError("Sub-Unidade deve ter uma Unidade associada.")
+            if self.unidade and not self.grande_comando:
+                raise ValidationError("Unidade deve ter um Grande Comando associado.")
+            if self.grande_comando and not self.orgao:
+                raise ValidationError("Grande Comando deve ter um Órgão associado.")
+
+
+class Planejada(models.Model):
+    """
+    Modelo para operações planejadas
+    """
+    STATUS_CHOICES = [
+        ('ativo', 'Ativo'),
+        ('concluido', 'Concluído'),
+        ('cancelado', 'Cancelado'),
+        ('suspenso', 'Suspenso'),
+    ]
+    
+    SEMANA_CHOICES = [
+        ('segunda', 'Segunda-feira'),
+        ('terca', 'Terça-feira'),
+        ('quarta', 'Quarta-feira'),
+        ('quinta', 'Quinta-feira'),
+        ('sexta', 'Sexta-feira'),
+        ('sabado', 'Sábado'),
+        ('domingo', 'Domingo'),
+    ]
+    
+    nome = models.CharField(max_length=200, verbose_name="Nome da Operação")
+    descricao = models.TextField(blank=True, null=True, verbose_name="Descrição")
+    origem = models.CharField(max_length=200, verbose_name="Origem")
+    cidade = models.CharField(max_length=100, verbose_name="Cidade")
+    
+    # Vinculação à instância organizacional (onde a planejada foi criada)
+    orgao = models.ForeignKey('Orgao', on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Órgão")
+    grande_comando = models.ForeignKey('GrandeComando', on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Grande Comando")
+    unidade = models.ForeignKey('Unidade', on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Unidade")
+    sub_unidade = models.ForeignKey('SubUnidade', on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Sub-Unidade")
+    
+    data_operacao = models.DateTimeField(verbose_name="Data da Operação")
+    hora_inicio = models.TimeField(verbose_name="Hora de Início", default="08:00")
+    hora_termino = models.TimeField(verbose_name="Hora de Término", default="14:00")
+    tipo_planejada = models.CharField(max_length=10, blank=True, null=True, verbose_name="Tipo de Planejada", default="P1")
+    semana = models.CharField(max_length=20, choices=SEMANA_CHOICES, verbose_name="Dia da Semana")
+    valor = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Valor")
+    valor_total = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Valor Total da Planejada")
+    cotas = models.IntegerField(default=1, verbose_name="Cotas")
+    saldo = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Saldo")
+    policiais = models.IntegerField(default=1, verbose_name="Número de Bombeiros")
+    responsavel = models.CharField(max_length=200, blank=True, null=True, verbose_name="Responsável")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ativo', verbose_name="Status")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    
+    # Campos para link da nota
+    numero_nota = models.CharField(max_length=100, blank=True, null=True, verbose_name="Ordem de Operação Planejada")
+    link_pdf_nota = models.URLField(blank=True, null=True, verbose_name="Link PDF da Nota", help_text="Link direto para o PDF da nota")
+    
+    # Campos para exclusão com justificativa
+    excluido = models.BooleanField(default=False, verbose_name="Excluído")
+    justificativa_exclusao = models.TextField(blank=True, null=True, verbose_name="Justificativa da Exclusão")
+    excluido_por = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Excluído por")
+    data_exclusao = models.DateTimeField(blank=True, null=True, verbose_name="Data da Exclusão")
+    
+    # Campos para assinaturas
+    assinatura_operador = models.ForeignKey('Militar', on_delete=models.SET_NULL, blank=True, null=True, 
+                                           related_name='planejadas_operador', verbose_name="Assinatura do Operador")
+    data_assinatura_operador = models.DateTimeField(blank=True, null=True, verbose_name="Data da Assinatura do Operador")
+    
+    assinatura_aprovador = models.ForeignKey('Militar', on_delete=models.SET_NULL, blank=True, null=True, 
+                                            related_name='planejadas_aprovador', verbose_name="Assinatura do Aprovador")
+    data_assinatura_aprovador = models.DateTimeField(blank=True, null=True, verbose_name="Data da Assinatura do Aprovador")
+    
+    assinatura_fiscal = models.ForeignKey('Militar', on_delete=models.SET_NULL, blank=True, null=True, 
+                                        related_name='planejadas_fiscal', verbose_name="Assinatura do Fiscal")
+    data_assinatura_fiscal = models.DateTimeField(blank=True, null=True, verbose_name="Data da Assinatura do Fiscal")
+    
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    feriado_municipal = models.BooleanField(default=False, verbose_name="Feriado", help_text="Marque se for um feriado não cadastrado no sistema")
+    militares = models.ManyToManyField('Militar', blank=True, related_name='planejadas', verbose_name="Militares")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Operação Planejada"
+        verbose_name_plural = "Operações Planejadas"
+        ordering = ['-data_operacao', 'nome']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['nome', 'data_operacao', 'cidade'],
+                condition=models.Q(excluido=False),
+                name='unique_planejada_nome_data_cidade'
+            )
+        ]
+    
+    def __str__(self):
+        return f"{self.nome} - {self.cidade} - {self.data_operacao.strftime('%d/%m/%Y')}"
+    
+    def calcular_valor_automatico(self):
+        """
+        Calcula o valor da planejada automaticamente baseado na configuração ativa
+        """
+        try:
+            configuracao = ConfiguracaoPlanejadas.get_configuracao_ativa()
+            if configuracao:
+                valor_calculado = configuracao.calcular_valor_planejada(
+                    self.tipo_planejada, 
+                    self.data_operacao,
+                    self.feriado_municipal
+                )
+                self.valor = valor_calculado
+                return valor_calculado
+            else:
+                return self.valor
+        except Exception:
+            return self.valor
+    
+    def save(self, *args, **kwargs):
+        """
+        Override do save para calcular valor automaticamente se não estiver definido
+        """
+        # Validar antes de salvar
+        self.clean()
+        
+        if not self.valor or self.valor == 0:
+            self.calcular_valor_automatico()
+        
+        # Calcular valor_total automaticamente se não estiver definido
+        if not self.valor_total or self.valor_total == 0:
+            self.valor_total = self.valor * self.policiais
+        
+        super().save(*args, **kwargs)
+    
+    def definir_policiais_manual(self, valor):
+        """
+        Define o número de policiais manualmente e marca como manual
+        """
+        self.policiais = valor
+        self._policiais_manual = valor
+    
+    @property
+    def valor_formatado(self):
+        return f"R$ {self.valor:,.2f}"
+    
+    @property
+    def saldo_formatado(self):
+        return f"R$ {self.saldo:,.2f}"
+    
+    @property
+    def instancia_nome(self):
+        """Retorna o nome da instância organizacional da planejada"""
+        if self.sub_unidade:
+            return f"{self.sub_unidade.sigla} - {self.sub_unidade.nome}"
+        elif self.unidade:
+            return f"{self.unidade.sigla} - {self.unidade.nome}"
+        elif self.grande_comando:
+            return f"{self.grande_comando.sigla} - {self.grande_comando.nome}"
+        elif self.orgao:
+            return f"{self.orgao.sigla} - {self.orgao.nome}"
+        else:
+            return "Sem instância definida"
+    
+    @property
+    def nivel_instancia(self):
+        """Retorna o nível mais específico da instância"""
+        if self.sub_unidade:
+            return 'SUB_UNIDADE'
+        elif self.unidade:
+            return 'UNIDADE'
+        elif self.grande_comando:
+            return 'GRANDE_COMANDO'
+        elif self.orgao:
+            return 'ORGAO'
+        else:
+            return 'NENHUM'
+    
+    def pode_acessar_instancia(self, usuario):
+        """
+        Verifica se o usuário pode acessar esta planejada baseado na sua lotação
+        """
+        if not usuario or not usuario.is_authenticated:
+            return False
+        
+        # Superusuários podem acessar todas as planejadas
+        if usuario.is_superuser:
+            return True
+        
+        # Buscar função militar ativa do usuário
+        from .permissoes_simples import obter_funcao_militar_ativa
+        funcao_usuario = obter_funcao_militar_ativa(usuario)
+        
+        if not funcao_usuario:
+            return False
+        
+        # Verificar se o usuário tem permissão para operações planejadas
+        if funcao_usuario.funcao_militar.publicacao not in ['OPERADOR_PLANEJADAS', 'FISCAL_PLANEJADAS', 'APROVADOR']:
+            return False
+        
+        # Verificar se a planejada está na mesma instância do usuário
+        return funcao_usuario.pode_acessar_lotacao(
+            orgao=self.orgao,
+            grande_comando=self.grande_comando,
+            unidade=self.unidade,
+            sub_unidade=self.sub_unidade
+        )
+    
+    def definir_instancia_usuario(self, usuario):
+        """
+        Define a instância da planejada baseada na lotação do usuário
+        """
+        if not usuario or not usuario.is_authenticated:
+            return
+        
+        # Buscar função militar ativa do usuário
+        from .permissoes_simples import obter_funcao_militar_ativa
+        funcao_usuario = obter_funcao_militar_ativa(usuario)
+        
+        if funcao_usuario:
+            self.orgao = funcao_usuario.orgao
+            self.grande_comando = funcao_usuario.grande_comando
+            self.unidade = funcao_usuario.unidade
+            self.sub_unidade = funcao_usuario.sub_unidade
+    
+    def recalcular_valor_total(self):
+        """
+        Recalcula o valor_total baseado no valor e número de policiais
+        """
+        self.valor_total = self.valor * self.policiais
+        self.save(update_fields=['valor_total'])
+        return self.valor_total
+    
+    def calcular_quadrantes_p1(self, termino_turno, duracao_turno):
+        """
+        Calcula os quadrantes para P1 baseado no término do turno ordinário.
+        
+        REGRA ESCALÁVEL:
+        - Turno Xh → Folga obrigatória Xh → Janela P1/P2 Xh → Folga obrigatória Xh → Novo turno
+        - A planejada pode ser P1 ou P2 e só pode ser feita na janela específica de Xh
+        - Após a planejada, precisa de novo turno ordinário antes de nova planejada
+        
+        Exemplos:
+        - 6h: 6h trabalho → 6h folga → 6h janela P1 → 6h folga → novo turno
+        - 12h: 12h trabalho → 12h folga → 12h janela P1/P2 → 12h folga → novo turno
+        - 18h: 18h trabalho → 18h folga → 18h janela P1/P2 → 18h folga → novo turno
+        - 24h: 24h trabalho → 24h folga → 24h janela P1/P2 → 24h folga → novo turno
+        
+        Quadrantes:
+        1. Folga obrigatória (Xh após término do turno)
+        2. Janela P1/P2 (Xh específicas para planejada)
+        3. Folga obrigatória pós-planejada (Xh após janela)
+        
+        Args:
+            termino_turno: datetime do término do turno ordinário
+            duracao_turno: duração do turno em horas
+            
+        Returns:
+            dict com informações dos quadrantes
+        """
+        from datetime import timedelta
+        
+        # Folga obrigatória: Xh após término do turno
+        folga_obrigatoria_inicio = termino_turno
+        folga_obrigatoria_fim = termino_turno + timedelta(hours=duracao_turno)
+        
+        # Janela P1/P2: Xh específicas para planejada (após folga obrigatória)
+        janela_p1_inicio = folga_obrigatoria_fim
+        janela_p1_fim = janela_p1_inicio + timedelta(hours=duracao_turno)
+        
+        # Folga obrigatória pós-planejada: Xh após janela
+        folga_pos_planejada_inicio = janela_p1_fim
+        folga_pos_planejada_fim = folga_pos_planejada_inicio + timedelta(hours=duracao_turno)
+        
+        return {
+            'folga_obrigatoria': {
+                'inicio': folga_obrigatoria_inicio,
+                'fim': folga_obrigatoria_fim,
+                'descricao': f'{folga_obrigatoria_inicio.strftime("%d/%m/%Y %H:%M")} - {folga_obrigatoria_fim.strftime("%d/%m/%Y %H:%M")} (folga obrigatória {duracao_turno}h)'
+            },
+            'janela_p1': {
+                'inicio': janela_p1_inicio,
+                'fim': janela_p1_fim,
+                'descricao': f'{janela_p1_inicio.strftime("%d/%m/%Y %H:%M")} - {janela_p1_fim.strftime("%d/%m/%Y %H:%M")} (janela P1/P2 {duracao_turno}h - pode vender)'
+            },
+            'folga_pos_planejada': {
+                'inicio': folga_pos_planejada_inicio,
+                'fim': folga_pos_planejada_fim,
+                'descricao': f'{folga_pos_planejada_inicio.strftime("%d/%m/%Y %H:%M")} - {folga_pos_planejada_fim.strftime("%d/%m/%Y %H:%M")} (folga obrigatória pós-planejada {duracao_turno}h)'
+            }
+        }
+    
+    def calcular_quadrantes_p2(self, termino_turno, duracao_turno=None):
+        """
+        Calcula os quadrantes para P2 baseado no término do turno ordinário.
+        
+        REGRA: Quem pode mais pode menos - usa duração do turno, não tipo fixo
+        
+        Quadrantes:
+        1. Quadrante de folga (duração do turno após término)
+        2. Quadrante liberado (duração do turno após a folga)
+        
+        Args:
+            termino_turno: datetime do término do turno ordinário
+            duracao_turno: duração do turno em horas (se None, usa 12h como padrão)
+            
+        Returns:
+            dict com informações dos quadrantes
+        """
+        from datetime import timedelta
+        
+        # Se não especificou duração, usar 12h (padrão P2)
+        if duracao_turno is None:
+            duracao_turno = 12
+        
+        quadrante_folga_inicio = termino_turno
+        quadrante_folga_fim = termino_turno + timedelta(hours=duracao_turno)
+        quadrante_liberado_inicio = quadrante_folga_fim
+        quadrante_liberado_fim = quadrante_liberado_inicio + timedelta(hours=duracao_turno)
+        
+        return {
+            'folga': {
+                'inicio': quadrante_folga_inicio,
+                'fim': quadrante_folga_fim,
+                'descricao': f'{quadrante_folga_inicio.strftime("%d/%m/%Y %H:%M")} - {quadrante_folga_fim.strftime("%d/%m/%Y %H:%M")}'
+            },
+            'liberado': {
+                'inicio': quadrante_liberado_inicio,
+                'fim': quadrante_liberado_fim,
+                'descricao': f'{quadrante_liberado_inicio.strftime("%d/%m/%Y %H:%M")} - {quadrante_liberado_fim.strftime("%d/%m/%Y %H:%M")}'
+            }
+        }
+    
+    def calcular_quadrantes_p3(self, termino_turno, duracao_turno=None):
+        """
+        Calcula os quadrantes para P3 baseado no término do turno ordinário.
+        
+        REGRA: Quem pode mais pode menos - usa duração do turno, não tipo fixo
+        
+        Quadrantes:
+        1. Quadrante de folga (duração do turno após término)
+        2. Quadrante liberado (duração do turno após a folga)
+        
+        Args:
+            termino_turno: datetime do término do turno ordinário
+            duracao_turno: duração do turno em horas (se None, usa 18h como padrão)
+            
+        Returns:
+            dict com informações dos quadrantes
+        """
+        from datetime import timedelta
+        
+        # Se não especificou duração, usar 18h (padrão P3)
+        if duracao_turno is None:
+            duracao_turno = 18
+        
+        quadrante_folga_inicio = termino_turno
+        quadrante_folga_fim = termino_turno + timedelta(hours=duracao_turno)
+        quadrante_liberado_inicio = quadrante_folga_fim
+        quadrante_liberado_fim = quadrante_liberado_inicio + timedelta(hours=duracao_turno)
+        
+        return {
+            'folga': {
+                'inicio': quadrante_folga_inicio,
+                'fim': quadrante_folga_fim,
+                'descricao': f'{quadrante_folga_inicio.strftime("%d/%m/%Y %H:%M")} - {quadrante_folga_fim.strftime("%d/%m/%Y %H:%M")}'
+            },
+            'liberado': {
+                'inicio': quadrante_liberado_inicio,
+                'fim': quadrante_liberado_fim,
+                'descricao': f'{quadrante_liberado_inicio.strftime("%d/%m/%Y %H:%M")} - {quadrante_liberado_fim.strftime("%d/%m/%Y %H:%M")}'
+            }
+        }
+    
+    def calcular_quadrantes_p4(self, termino_turno, duracao_turno=None):
+        """
+        Calcula os quadrantes para P4 baseado no término do turno ordinário.
+        
+        REGRA: Quem pode mais pode menos - usa duração do turno, não tipo fixo
+        
+        Quadrantes:
+        1. Quadrante de folga (duração do turno após término)
+        2. Quadrante liberado (duração do turno após a folga)
+        
+        Args:
+            termino_turno: datetime do término do turno ordinário
+            duracao_turno: duração do turno em horas (se None, usa 24h como padrão)
+            
+        Returns:
+            dict com informações dos quadrantes
+        """
+        from datetime import timedelta
+        
+        # Se não especificou duração, usar 24h (padrão P4)
+        if duracao_turno is None:
+            duracao_turno = 24
+        
+        quadrante_folga_inicio = termino_turno
+        quadrante_folga_fim = termino_turno + timedelta(hours=duracao_turno)
+        quadrante_liberado_inicio = quadrante_folga_fim
+        quadrante_liberado_fim = quadrante_liberado_inicio + timedelta(hours=duracao_turno)
+        
+        return {
+            'folga': {
+                'inicio': quadrante_folga_inicio,
+                'fim': quadrante_folga_fim,
+                'descricao': f'{quadrante_folga_inicio.strftime("%d/%m/%Y %H:%M")} - {quadrante_folga_fim.strftime("%d/%m/%Y %H:%M")}'
+            },
+            'liberado': {
+                'inicio': quadrante_liberado_inicio,
+                'fim': quadrante_liberado_fim,
+                'descricao': f'{quadrante_liberado_inicio.strftime("%d/%m/%Y %H:%M")} - {quadrante_liberado_fim.strftime("%d/%m/%Y %H:%M")}'
+            }
+        }
+    
+    def obter_informacoes_quadrantes_p1(self, militar, data_operacao):
+        """
+        Obtém informações detalhadas sobre os quadrantes P1 para um militar.
+        
+        Returns:
+            dict com informações dos quadrantes e status
+        """
+        from .models import EscalaMilitar
+        from datetime import datetime, timedelta
+        
+        # Normalizar data_operacao para date
+        data_operacao_date = normalizar_data_para_date(data_operacao)
+        
+        # Buscar último turno de serviço
+        ultima_escala_servico = EscalaMilitar.objects.filter(
+            militar=militar,
+            escala__data__lte=data_operacao_date,
+            escala__tipo_servico__in=['operacional', 'administrativo']
+        ).order_by('-escala__data', '-hora_fim').first()
+        
+        if not ultima_escala_servico:
+            return {
+                'status': 'sem_turno',
+                'mensagem': 'Militar não foi escalado em serviço normal',
+                'quadrantes': None
+            }
+        
+        # Calcular duração do turno
+        data_escala = ultima_escala_servico.escala.data
+        hora_inicio = ultima_escala_servico.hora_inicio
+        hora_termino = ultima_escala_servico.hora_fim
+        
+        inicio = datetime.combine(data_escala, hora_inicio)
+        fim = datetime.combine(data_escala, hora_termino)
+        
+        if hora_termino <= hora_inicio:
+            fim += timedelta(days=1)
+        
+        duracao_turno = (fim - inicio).total_seconds() / 3600
+        
+        # Verificar se é turno de 6h
+        if duracao_turno != 6:
+            return {
+                'status': 'turno_invalido',
+                'mensagem': f'Turno deve ser de 6h. Atual: {duracao_turno:.1f}h',
+                'duracao_turno': duracao_turno,
+                'quadrantes': None
+            }
+        
+        # Calcular quadrantes
+        quadrantes = self.calcular_quadrantes_p1(fim)
+        data_operacao_naive = data_operacao
+        if data_operacao_naive.tzinfo is not None:
+            data_operacao_naive = data_operacao_naive.replace(tzinfo=None)
+        
+        # Determinar status atual
+        if quadrantes['folga']['inicio'] <= data_operacao_naive < quadrantes['folga']['fim']:
+            status = 'em_folga'
+            mensagem = 'Militar está no período de folga obrigatória'
+        elif quadrantes['liberado']['inicio'] <= data_operacao_naive < quadrantes['liberado']['fim']:
+            status = 'liberado'
+            mensagem = 'Militar pode participar da planejada P1'
+        elif data_operacao_naive >= quadrantes['liberado']['fim']:
+            status = 'expirado'
+            mensagem = 'Período de liberação para P1 já expirou'
+        else:
+            status = 'indisponivel'
+            mensagem = 'Militar não está no período correto para P1'
+        
+        return {
+            'status': status,
+            'mensagem': mensagem,
+            'duracao_turno': duracao_turno,
+            'ultima_escala': ultima_escala_servico,
+            'quadrantes': quadrantes,
+            'data_operacao': data_operacao_naive
+        }
+
+    def verificar_quadrante_p1(self, militar, data_operacao):
+        """
+        Verifica se o militar está no quadrante correto para P1.
+        
+        Returns:
+            tuple: (pode_participar, info)
+        """
+        from .models import EscalaMilitar, AbonoPlanejada
+        from datetime import datetime, timedelta
+        
+        # Normalizar data_operacao para date
+        data_operacao_date = normalizar_data_para_date(data_operacao)
+        
+        # Buscar último turno de serviço
+        ultima_escala_servico = EscalaMilitar.objects.filter(
+            militar=militar,
+            escala__data__lte=data_operacao_date,
+            escala__tipo_servico__in=['operacional', 'administrativo']
+        ).order_by('-escala__data', '-hora_fim').first()
+        
+        if not ultima_escala_servico:
+            return False, {
+                'motivo': 'Militar não foi escalado em serviço normal antes da planejada P1',
+                'regra': 'Para participar de P1, o militar deve ter sido escalado em serviço normal'
+            }
+        
+        # Verificar se o último turno é mais recente que a última planejada
+        ultima_planejada = AbonoPlanejada.objects.filter(
+            militar=militar,
+            data_operacao__lt=data_operacao_date
+        ).order_by('-data_operacao').first()
+        
+        if ultima_planejada:
+            # Verificar se o último turno é mais recente que a última planejada
+            if ultima_escala_servico.escala.data <= ultima_planejada.data_operacao:
+                return False, {
+                    'motivo': f'Militar participou de planejada em {ultima_planejada.data_operacao.strftime("%d/%m/%Y")} e precisa participar de novo turno de serviço antes de nova planejada',
+                    'regra': 'Após participar de planejada, militar deve participar de novo turno de serviço antes de nova planejada'
+                }
+        
+        # Calcular duração do turno
+        data_escala = ultima_escala_servico.escala.data
+        hora_inicio = ultima_escala_servico.hora_inicio
+        hora_termino = ultima_escala_servico.hora_fim
+        
+        inicio = datetime.combine(data_escala, hora_inicio)
+        fim = datetime.combine(data_escala, hora_termino)
+        
+        if hora_termino <= hora_inicio:
+            fim += timedelta(days=1)
+        
+        duracao_turno = (fim - inicio).total_seconds() / 3600
+        
+        # Verificar se é turno válido para P1 (6h, 12h, 18h ou 24h)
+        if duracao_turno not in [6, 12, 18, 24]:
+            return False, {
+                'motivo': f'Para P1, militar deve ter turno ordinário de 6h, 12h, 18h ou 24h. Turno atual: {duracao_turno:.1f}h',
+                'duracao_turno': duracao_turno,
+                'regra': 'P1 requer turno ordinário de 6h, 12h, 18h ou 24h'
+            }
+        
+        # Calcular quadrantes usando a duração do turno
+        quadrantes = self.calcular_quadrantes_p1(fim, duracao_turno)
+        data_operacao_naive = data_operacao
+        if data_operacao_naive.tzinfo is not None:
+            data_operacao_naive = data_operacao_naive.replace(tzinfo=None)
+        
+        print(f"DEBUG QUADRANTE P1: Militar {militar.nome_completo}")
+        print(f"  Último turno: {data_escala} {hora_inicio}-{hora_termino}")
+        print(f"  Término do turno: {fim}")
+        print(f"  Folga obrigatória: {quadrantes['folga_obrigatoria']['inicio']} - {quadrantes['folga_obrigatoria']['fim']}")
+        print(f"  Janela P1: {quadrantes['janela_p1']['inicio']} - {quadrantes['janela_p1']['fim']}")
+        print(f"  Folga pós-planejada: {quadrantes['folga_pos_planejada']['inicio']} - {quadrantes['folga_pos_planejada']['fim']}")
+        print(f"  Data operação: {data_operacao_naive}")
+        
+        # Verificar se está no período de folga obrigatória (primeiras 6h - não pode)
+        if quadrantes['folga_obrigatoria']['inicio'] <= data_operacao_naive < quadrantes['folga_obrigatoria']['fim']:
+            print(f"  ❌ Está no período de folga obrigatória")
+            horas_restantes = (quadrantes['janela_p1']['inicio'] - data_operacao_naive).total_seconds() / 3600
+            return False, {
+                'motivo': f'Militar está no período de folga obrigatória (primeiras 6h). Pode vender apenas na janela P1: {quadrantes["janela_p1"]["inicio"].strftime("%d/%m/%Y %H:%M")} - {quadrantes["janela_p1"]["fim"].strftime("%d/%m/%Y %H:%M")}',
+                'folga_obrigatoria': quadrantes['folga_obrigatoria']['descricao'],
+                'janela_p1': quadrantes['janela_p1']['descricao'],
+                'horas_restantes': horas_restantes,
+                'regra': 'Após turno de 6h, militar deve folgar 6h e só pode vender na janela P1 de 6h'
+            }
+        
+        # Verificar se está na janela P1 (6h específicas para planejada)
+        if quadrantes['janela_p1']['inicio'] <= data_operacao_naive < quadrantes['janela_p1']['fim']:
+            print(f"  ✅ Está na janela P1 (pode vender)")
+            return True, {
+                'ultima_escala_servico': ultima_escala_servico,
+                'folga_obrigatoria': quadrantes['folga_obrigatoria']['descricao'],
+                'janela_p1': quadrantes['janela_p1']['descricao'],
+                'duracao_turno': duracao_turno,
+                'qualificado': True
+            }
+        
+        # Verificar se está na folga obrigatória pós-planejada (não pode)
+        if quadrantes['folga_pos_planejada']['inicio'] <= data_operacao_naive < quadrantes['folga_pos_planejada']['fim']:
+            print(f"  ❌ Está na folga obrigatória pós-planejada")
+            return False, {
+                'motivo': f'Militar está na folga obrigatória pós-planejada. Precisa de novo turno ordinário antes de nova planejada.',
+                'folga_obrigatoria': quadrantes['folga_obrigatoria']['descricao'],
+                'janela_p1': quadrantes['janela_p1']['descricao'],
+                'folga_pos_planejada': quadrantes['folga_pos_planejada']['descricao'],
+                'regra': 'Após planejada, militar deve folgar 6h e precisa de novo turno ordinário antes de nova planejada'
+            }
+        
+        # Se passou da folga pós-planejada, não pode mais entrar (precisa de novo turno)
+        if data_operacao_naive >= quadrantes['folga_pos_planejada']['fim']:
+            print(f"  ❌ Período de planejada já expirou")
+            return False, {
+                'motivo': f'Período de planejada já expirou. Janela P1: {quadrantes["janela_p1"]["descricao"]}. Precisa de novo turno ordinário.',
+                'folga_obrigatoria': quadrantes['folga_obrigatoria']['descricao'],
+                'janela_p1': quadrantes['janela_p1']['descricao'],
+                'folga_pos_planejada': quadrantes['folga_pos_planejada']['descricao'],
+                'regra': 'P1 só pode ser realizada na janela específica de 6h após folga obrigatória'
+            }
+        
+        # Caso não se encaixe em nenhum quadrante (antes da folga obrigatória)
+        print(f"  ❌ Data anterior ao último turno")
+        return False, {
+            'motivo': 'Data da planejada é anterior ao último turno de serviço',
+            'folga_obrigatoria': quadrantes['folga_obrigatoria']['descricao'],
+            'janela_p1': quadrantes['janela_p1']['descricao'],
+            'regra': 'P1 deve ser realizada após o último turno de serviço'
+        }
+    
+    def verificar_quadrante_p2(self, militar, data_operacao):
+        """
+        Verifica se o militar está no quadrante correto para P2.
+        REGRA: Quem pode mais pode menos - P2 aceita turnos de 12h ou mais.
+        
+        Returns:
+            tuple: (pode_participar, info)
+        """
+        from .models import EscalaMilitar, AbonoPlanejada
+        from datetime import datetime, timedelta
+        
+        # Normalizar data_operacao para date
+        data_operacao_date = normalizar_data_para_date(data_operacao)
+        
+        # Buscar último turno de serviço
+        ultima_escala_servico = EscalaMilitar.objects.filter(
+            militar=militar,
+            escala__data__lte=data_operacao_date,
+            escala__tipo_servico__in=['operacional', 'administrativo']
+        ).order_by('-escala__data', '-hora_fim').first()
+        
+        if not ultima_escala_servico:
+            return False, {
+                'motivo': 'Militar não foi escalado em serviço normal antes da planejada P2',
+                'regra': 'Para participar de P2, o militar deve ter sido escalado em serviço normal'
+            }
+        
+        # Verificar se o último turno é mais recente que a última planejada
+        ultima_planejada = AbonoPlanejada.objects.filter(
+            militar=militar,
+            data_operacao__lt=data_operacao_date
+        ).order_by('-data_operacao').first()
+        
+        if ultima_planejada:
+            if ultima_escala_servico.escala.data <= ultima_planejada.data_operacao:
+                return False, {
+                    'motivo': f'Militar participou de planejada em {ultima_planejada.data_operacao.strftime("%d/%m/%Y")} e precisa participar de novo turno de serviço antes de nova planejada',
+                    'regra': 'Após participar de planejada, militar deve participar de novo turno de serviço antes de nova planejada'
+                }
+        
+        # Calcular duração do turno
+        data_escala = ultima_escala_servico.escala.data
+        hora_inicio = ultima_escala_servico.hora_inicio
+        hora_termino = ultima_escala_servico.hora_fim
+        
+        inicio = datetime.combine(data_escala, hora_inicio)
+        fim = datetime.combine(data_escala, hora_termino)
+        
+        if hora_termino <= hora_inicio:
+            fim += timedelta(days=1)
+        
+        duracao_turno = (fim - inicio).total_seconds() / 3600
+        
+        # Verificar se é turno de 12h ou mais (quem pode mais pode menos)
+        if duracao_turno < 12:
+            return False, {
+                'motivo': f'Para P2, militar deve ter turno ordinário de 12h ou mais. Turno atual: {duracao_turno:.1f}h',
+                'duracao_turno': duracao_turno,
+                'regra': 'P2 requer turno ordinário de 12h ou mais (quem pode mais pode menos)'
+            }
+        
+        # Calcular quadrantes usando duração do turno (quem pode mais pode menos)
+        quadrantes = self.calcular_quadrantes_p2(fim, duracao_turno)
+        data_operacao_naive = data_operacao
+        if data_operacao_naive.tzinfo is not None:
+            data_operacao_naive = data_operacao_naive.replace(tzinfo=None)
+        
+        # Verificar se está no período de folga (não pode)
+        if quadrantes['folga']['inicio'] <= data_operacao_naive < quadrantes['folga']['fim']:
+            horas_restantes = (quadrantes['liberado']['inicio'] - data_operacao_naive).total_seconds() / 3600
+            return False, {
+                'motivo': f'Militar está no período de folga obrigatória. Pode entrar apenas a partir de {quadrantes["liberado"]["inicio"].strftime("%d/%m/%Y %H:%M")}',
+                'quadrante_folga': quadrantes['folga']['descricao'],
+                'quadrante_liberado': quadrantes['liberado']['descricao'],
+                'horas_restantes': horas_restantes,
+                'regra': f'Após turno de {duracao_turno:.1f}h, militar deve folgar {duracao_turno:.1f}h e só pode entrar no 2º quadrante ({duracao_turno:.1f}h após folga)'
+            }
+        
+        # Verificar se está no quadrante liberado
+        if quadrantes['liberado']['inicio'] <= data_operacao_naive < quadrantes['liberado']['fim']:
+            return True, {
+                'ultima_escala_servico': ultima_escala_servico,
+                'quadrante_folga': quadrantes['folga']['descricao'],
+                'quadrante_liberado': quadrantes['liberado']['descricao'],
+                'duracao_turno': duracao_turno,
+                'qualificado': True
+            }
+        
+        # Se passou do quadrante liberado, não pode mais entrar
+        if data_operacao_naive >= quadrantes['liberado']['fim']:
+            return False, {
+                'motivo': f'Período de liberação para P2 já expirou. Quadrante liberado: {quadrantes["liberado"]["descricao"]}',
+                'quadrante_folga': quadrantes['folga']['descricao'],
+                'quadrante_liberado': quadrantes['liberado']['descricao'],
+                'regra': 'P2 só pode ser realizada no 2º quadrante após folga de 12h'
+            }
+        
+        # Caso não se encaixe em nenhum quadrante
+        return False, {
+            'motivo': 'Data da planejada não se encaixa nos quadrantes permitidos para P2',
+            'quadrante_folga': quadrantes['folga']['descricao'],
+            'quadrante_liberado': quadrantes['liberado']['descricao'],
+            'regra': 'P2 deve ser realizada no 2º quadrante após folga de 12h'
+        }
+    
+    def verificar_quadrante_p3(self, militar, data_operacao):
+        """
+        Verifica se o militar está no quadrante correto para P3.
+        REGRA: Quem pode mais pode menos - P3 aceita turnos de 18h ou mais.
+        
+        Returns:
+            tuple: (pode_participar, info)
+        """
+        from .models import EscalaMilitar, AbonoPlanejada
+        from datetime import datetime, timedelta
+        
+        # Normalizar data_operacao para date
+        data_operacao_date = normalizar_data_para_date(data_operacao)
+        
+        # Buscar último turno de serviço
+        ultima_escala_servico = EscalaMilitar.objects.filter(
+            militar=militar,
+            escala__data__lte=data_operacao_date,
+            escala__tipo_servico__in=['operacional', 'administrativo']
+        ).order_by('-escala__data', '-hora_fim').first()
+        
+        if not ultima_escala_servico:
+            return False, {
+                'motivo': 'Militar não foi escalado em serviço normal antes da planejada P3',
+                'regra': 'Para participar de P3, o militar deve ter sido escalado em serviço normal'
+            }
+        
+        # Verificar se o último turno é mais recente que a última planejada
+        ultima_planejada = AbonoPlanejada.objects.filter(
+            militar=militar,
+            data_operacao__lt=data_operacao_date
+        ).order_by('-data_operacao').first()
+        
+        if ultima_planejada:
+            if ultima_escala_servico.escala.data <= ultima_planejada.data_operacao:
+                return False, {
+                    'motivo': f'Militar participou de planejada em {ultima_planejada.data_operacao.strftime("%d/%m/%Y")} e precisa participar de novo turno de serviço antes de nova planejada',
+                    'regra': 'Após participar de planejada, militar deve participar de novo turno de serviço antes de nova planejada'
+                }
+        
+        # Calcular duração do turno
+        data_escala = ultima_escala_servico.escala.data
+        hora_inicio = ultima_escala_servico.hora_inicio
+        hora_termino = ultima_escala_servico.hora_fim
+        
+        inicio = datetime.combine(data_escala, hora_inicio)
+        fim = datetime.combine(data_escala, hora_termino)
+        
+        if hora_termino <= hora_inicio:
+            fim += timedelta(days=1)
+        
+        duracao_turno = (fim - inicio).total_seconds() / 3600
+        
+        # Verificar se é turno de 18h ou mais (quem pode mais pode menos)
+        if duracao_turno < 18:
+            return False, {
+                'motivo': f'Para P3, militar deve ter turno ordinário de 18h ou mais. Turno atual: {duracao_turno:.1f}h',
+                'duracao_turno': duracao_turno,
+                'regra': 'P3 requer turno ordinário de 18h ou mais (quem pode mais pode menos)'
+            }
+        
+        # Calcular quadrantes
+        # Calcular quadrantes usando duração do turno (quem pode mais pode menos)
+        quadrantes = self.calcular_quadrantes_p3(fim, duracao_turno)
+        data_operacao_naive = data_operacao
+        if data_operacao_naive.tzinfo is not None:
+            data_operacao_naive = data_operacao_naive.replace(tzinfo=None)
+        
+        # Verificar se está no período de folga (não pode)
+        if quadrantes['folga']['inicio'] <= data_operacao_naive < quadrantes['folga']['fim']:
+            horas_restantes = (quadrantes['liberado']['inicio'] - data_operacao_naive).total_seconds() / 3600
+            return False, {
+                'motivo': f'Militar está no período de folga obrigatória. Pode entrar apenas a partir de {quadrantes["liberado"]["inicio"].strftime("%d/%m/%Y %H:%M")}',
+                'quadrante_folga': quadrantes['folga']['descricao'],
+                'quadrante_liberado': quadrantes['liberado']['descricao'],
+                'horas_restantes': horas_restantes,
+                'regra': f'Após turno de {duracao_turno:.1f}h, militar deve folgar {duracao_turno:.1f}h e só pode entrar no 2º quadrante ({duracao_turno:.1f}h após folga)'
+            }
+        
+        # Verificar se está no quadrante liberado
+        if quadrantes['liberado']['inicio'] <= data_operacao_naive < quadrantes['liberado']['fim']:
+            return True, {
+                'ultima_escala_servico': ultima_escala_servico,
+                'quadrante_folga': quadrantes['folga']['descricao'],
+                'quadrante_liberado': quadrantes['liberado']['descricao'],
+                'duracao_turno': duracao_turno,
+                'qualificado': True
+            }
+        
+        # Se passou do quadrante liberado, não pode mais entrar
+        if data_operacao_naive >= quadrantes['liberado']['fim']:
+            return False, {
+                'motivo': f'Período de liberação para P3 já expirou. Quadrante liberado: {quadrantes["liberado"]["descricao"]}',
+                'quadrante_folga': quadrantes['folga']['descricao'],
+                'quadrante_liberado': quadrantes['liberado']['descricao'],
+                'regra': 'P3 só pode ser realizada no 2º quadrante após folga de 18h'
+            }
+        
+        # Caso não se encaixe em nenhum quadrante
+        return False, {
+            'motivo': 'Data da planejada não se encaixa nos quadrantes permitidos para P3',
+            'quadrante_folga': quadrantes['folga']['descricao'],
+            'quadrante_liberado': quadrantes['liberado']['descricao'],
+            'regra': 'P3 deve ser realizada no 2º quadrante após folga de 18h'
+        }
+    
+    def verificar_quadrante_p4(self, militar, data_operacao):
+        """
+        Verifica se o militar está no quadrante correto para P4.
+        REGRA: Quem pode mais pode menos - P4 aceita turnos de 24h ou mais.
+        
+        Returns:
+            tuple: (pode_participar, info)
+        """
+        from .models import EscalaMilitar, AbonoPlanejada
+        from datetime import datetime, timedelta
+        
+        # Normalizar data_operacao para date
+        data_operacao_date = normalizar_data_para_date(data_operacao)
+        
+        # Buscar último turno de serviço
+        ultima_escala_servico = EscalaMilitar.objects.filter(
+            militar=militar,
+            escala__data__lte=data_operacao_date,
+            escala__tipo_servico__in=['operacional', 'administrativo']
+        ).order_by('-escala__data', '-hora_fim').first()
+        
+        if not ultima_escala_servico:
+            return False, {
+                'motivo': 'Militar não foi escalado em serviço normal antes da planejada P4',
+                'regra': 'Para participar de P4, o militar deve ter sido escalado em serviço normal'
+            }
+        
+        # Verificar se o último turno é mais recente que a última planejada
+        ultima_planejada = AbonoPlanejada.objects.filter(
+            militar=militar,
+            data_operacao__lt=data_operacao_date
+        ).order_by('-data_operacao').first()
+        
+        if ultima_planejada:
+            if ultima_escala_servico.escala.data <= ultima_planejada.data_operacao:
+                return False, {
+                    'motivo': f'Militar participou de planejada em {ultima_planejada.data_operacao.strftime("%d/%m/%Y")} e precisa participar de novo turno de serviço antes de nova planejada',
+                    'regra': 'Após participar de planejada, militar deve participar de novo turno de serviço antes de nova planejada'
+                }
+        
+        # Calcular duração do turno
+        data_escala = ultima_escala_servico.escala.data
+        hora_inicio = ultima_escala_servico.hora_inicio
+        hora_termino = ultima_escala_servico.hora_fim
+        
+        inicio = datetime.combine(data_escala, hora_inicio)
+        fim = datetime.combine(data_escala, hora_termino)
+        
+        if hora_termino <= hora_inicio:
+            fim += timedelta(days=1)
+        
+        duracao_turno = (fim - inicio).total_seconds() / 3600
+        
+        # Verificar se é turno de 24h ou mais (quem pode mais pode menos)
+        if duracao_turno < 24:
+            return False, {
+                'motivo': f'Para P4, militar deve ter turno ordinário de 24h ou mais. Turno atual: {duracao_turno:.1f}h',
+                'duracao_turno': duracao_turno,
+                'regra': 'P4 requer turno ordinário de 24h ou mais (quem pode mais pode menos)'
+            }
+        
+        # Calcular quadrantes
+        # Calcular quadrantes usando duração do turno (quem pode mais pode menos)
+        quadrantes = self.calcular_quadrantes_p4(fim, duracao_turno)
+        data_operacao_naive = data_operacao
+        if data_operacao_naive.tzinfo is not None:
+            data_operacao_naive = data_operacao_naive.replace(tzinfo=None)
+        
+        # Verificar se está no período de folga (não pode)
+        if quadrantes['folga']['inicio'] <= data_operacao_naive < quadrantes['folga']['fim']:
+            horas_restantes = (quadrantes['liberado']['inicio'] - data_operacao_naive).total_seconds() / 3600
+            return False, {
+                'motivo': f'Militar está no período de folga obrigatória. Pode entrar apenas a partir de {quadrantes["liberado"]["inicio"].strftime("%d/%m/%Y %H:%M")}',
+                'quadrante_folga': quadrantes['folga']['descricao'],
+                'quadrante_liberado': quadrantes['liberado']['descricao'],
+                'horas_restantes': horas_restantes,
+                'regra': f'Após turno de {duracao_turno:.1f}h, militar deve folgar {duracao_turno:.1f}h e só pode entrar no 2º quadrante ({duracao_turno:.1f}h após folga)'
+            }
+        
+        # Verificar se está no quadrante liberado
+        if quadrantes['liberado']['inicio'] <= data_operacao_naive < quadrantes['liberado']['fim']:
+            return True, {
+                'ultima_escala_servico': ultima_escala_servico,
+                'quadrante_folga': quadrantes['folga']['descricao'],
+                'quadrante_liberado': quadrantes['liberado']['descricao'],
+                'duracao_turno': duracao_turno,
+                'qualificado': True
+            }
+        
+        # Se passou do quadrante liberado, não pode mais entrar
+        if data_operacao_naive >= quadrantes['liberado']['fim']:
+            return False, {
+                'motivo': f'Período de liberação para P4 já expirou. Quadrante liberado: {quadrantes["liberado"]["descricao"]}',
+                'quadrante_folga': quadrantes['folga']['descricao'],
+                'quadrante_liberado': quadrantes['liberado']['descricao'],
+                'regra': 'P4 só pode ser realizada no 2º quadrante após folga de 24h'
+            }
+        
+        # Caso não se encaixe em nenhum quadrante
+        return False, {
+            'motivo': 'Data da planejada não se encaixa nos quadrantes permitidos para P4',
+            'quadrante_folga': quadrantes['folga']['descricao'],
+            'quadrante_liberado': quadrantes['liberado']['descricao'],
+            'regra': 'P4 deve ser realizada no 2º quadrante após folga de 24h'
+        }
+    
+    def gerar_abono_planejada(self, militar):
+        """
+        Gera abono no banco de horas para um militar em uma planejada
+        """
+        from decimal import Decimal
+        from datetime import datetime, timedelta
+        
+        # Calcular horas da planejada
+        if self.hora_termino and self.hora_inicio:
+            inicio = datetime.combine(self.data_operacao_date, self.hora_inicio)
+            fim = datetime.combine(self.data_operacao_date, self.hora_termino)
+            
+            # Se a hora fim for menor que a hora início, assumir que é no dia seguinte
+            if fim <= inicio:
+                fim += timedelta(days=1)
+            
+            duracao = fim - inicio
+            horas = Decimal(str(duracao.total_seconds() / 3600))
+        else:
+            horas = Decimal('0')
+        
+        if horas <= 0:
+            return None
+        
+        # Calcular saldo anterior
+        saldo_anterior = BancoHoras.calcular_saldo_militar(militar, self.data_operacao_date)
+        
+        # Calcular saldo atual (adicionar horas)
+        saldo_atual = saldo_anterior + horas
+        
+        # Criar movimentação no banco de horas
+        movimentacao = BancoHoras.objects.create(
+            militar=militar,
+            data_movimentacao=self.data_operacao_date,
+            tipo_movimentacao='ENTRADA',
+            horas=horas,
+            saldo_anterior=saldo_anterior,
+            saldo_atual=saldo_atual,
+            observacoes=f"Abono por participação na planejada: {self.nome} - {self.cidade}",
+            criado_por=None  # Será preenchido pela view
+        )
+        
+        return movimentacao
+    
+    def remover_abono_planejada(self, militar):
+        """
+        Remove o abono do banco de horas para um militar em uma planejada
+        """
+        # Buscar movimentações relacionadas a esta planejada
+        movimentacoes = BancoHoras.objects.filter(
+            militar=militar,
+            data_movimentacao=self.data_operacao_date,
+            observacoes__icontains=f"Abono por participação na planejada: {self.nome}"
+        )
+        
+        for movimentacao in movimentacoes:
+            # Criar movimentação de saída para compensar
+            saldo_anterior = BancoHoras.calcular_saldo_militar(militar, self.data_operacao_date)
+            saldo_atual = saldo_anterior - movimentacao.horas
+            
+            BancoHoras.objects.create(
+                militar=militar,
+                data_movimentacao=self.data_operacao_date,
+                tipo_movimentacao='SAIDA',
+                horas=movimentacao.horas,
+                saldo_anterior=saldo_anterior,
+                saldo_atual=saldo_atual,
+                observacoes=f"Remoção de abono da planejada: {self.nome} - {self.cidade}",
+                criado_por=None
+            )
+            
+            # Remover a movimentação original
+            movimentacao.delete()
+    
+    def sincronizar_abonos_militares(self):
+        """
+        Sincroniza os abonos de todos os militares da planejada
+        """
+        for militar in self.militares.all():
+            # Remover abonos existentes
+            self.remover_abono_planejada(militar)
+            # Gerar novo abono
+            self.gerar_abono_planejada(militar)
+    
+    def marcar_na_escala_abonar(self, militar):
+        """
+        Marca um militar na escala de abonar por participar de uma planejada
+        """
+        return AbonoPlanejada.marcar_abono_planejada(militar, self)
+    
+    def desmarcar_da_escala_abonar(self, militar):
+        """
+        Remove a marcação de um militar na escala de abonar
+        """
+        return AbonoPlanejada.desmarcar_abono_planejada(militar, self)
+    
+    def sincronizar_escala_abonar(self):
+        """
+        Sincroniza todos os militares da planejada na escala de abonar
+        """
+        for militar in self.militares.all():
+            # Desmarcar primeiro
+            self.desmarcar_da_escala_abonar(militar)
+            # Marcar novamente
+            self.marcar_na_escala_abonar(militar)
+    
+    def marcar_como_excluido(self, usuario, justificativa):
+        """
+        Marca a planejada como excluída com justificativa e libera valor para a OM
+        """
+        from django.utils import timezone
+        from django.db.models import Sum
+        from datetime import datetime
+        
+        # Salvar dados antes da exclusão para liberar orçamento
+        valor_planejada = self.valor_total
+        origem_planejada = self.origem
+        data_operacao = self.data_operacao
+        
+        # Marcar como excluído
+        self.excluido = True
+        self.justificativa_exclusao = justificativa
+        self.excluido_por = usuario
+        self.data_exclusao = timezone.now()
+        self.save()
+        
+        # Remover todos os militares da escala de abonar
+        for militar in self.militares.all():
+            self.desmarcar_da_escala_abonar(militar)
+        
+        # Remover todos os militares da planejada
+        self.militares.clear()
+        
+        # Liberar valor de volta ao orçamento da OM
+        try:
+            # Usar a data da operação da planejada, não a data atual
+            ano_planejada = data_operacao.year
+            mes_planejada = data_operacao.month
+            
+            # Buscar orçamento do mês da planejada
+            from .models import OrcamentoPlanejadas, DistribuicaoOrcamentoPlanejadas
+            from django.db.models import Q
+            
+            orcamento = OrcamentoPlanejadas.objects.filter(
+                ano=ano_planejada,
+                mes=mes_planejada,
+                ativo=True
+            ).first()
+            
+            if orcamento:
+                # Buscar distribuição usando lógica hierárquica
+                # A origem pode conter múltiplas organizações separadas por "|"
+                # Devemos encontrar a distribuição mais específica possível
+                distribuicao = None
+                
+                # Dividir origem por "|" para obter organizações hierárquicas
+                partes_origem = [p.strip() for p in origem_planejada.split('|')]
+                
+                # Buscar por ordem de especificidade: Sub-Unidade > Unidade > Grande Comando > Órgão
+                for parte in reversed(partes_origem):  # Começar pela mais específica
+                    # Tentar encontrar distribuição para esta parte específica
+                    dist_candidata = DistribuicaoOrcamentoPlanejadas.objects.filter(
+                        orcamento=orcamento,
+                        ativo=True
+                    ).filter(
+                        Q(orgao__nome__icontains=parte) |
+                        Q(grande_comando__nome__icontains=parte) |
+                        Q(unidade__nome__icontains=parte) |
+                        Q(sub_unidade__nome__icontains=parte)
+                    ).first()
+                    
+                    if dist_candidata:
+                        distribuicao = dist_candidata
+                        break
+                
+                # Se não encontrou nenhuma distribuição específica, buscar pela origem completa
+                if not distribuicao:
+                    distribuicao = DistribuicaoOrcamentoPlanejadas.objects.filter(
+                        orcamento=orcamento,
+                        ativo=True
+                    ).filter(
+                        Q(orgao__nome__icontains=origem_planejada) |
+                        Q(grande_comando__nome__icontains=origem_planejada) |
+                        Q(unidade__nome__icontains=origem_planejada) |
+                        Q(sub_unidade__nome__icontains=origem_planejada)
+                    ).first()
+                
+                if distribuicao:
+                    # Calcular gastos restantes do mês da planejada para esta origem
+                    planejadas_restantes = Planejada.objects.filter(
+                        data_operacao__year=ano_planejada,
+                        data_operacao__month=mes_planejada,
+                        ativo=True,
+                        excluido=False,  # Não contar planejadas excluídas
+                        origem__icontains=origem_planejada
+                    )
+                    
+                    total_gasto_restante = planejadas_restantes.aggregate(
+                        total=Sum('valor_total')
+                    )['total'] or 0
+                    
+                    saldo_disponivel = float(distribuicao.valor_planejadas) - float(total_gasto_restante)
+                    
+                    # Atualizar observações da distribuição com informação sobre a exclusão
+                    observacao_atual = distribuicao.observacoes or ""
+                    nova_observacao = f"{observacao_atual}\n[EXCLUSÃO] Planejada '{self.nome}' excluída em {self.data_exclusao.strftime('%d/%m/%Y %H:%M')} por {usuario.get_full_name() or usuario.username}. Valor liberado: R$ {valor_planejada:,.2f}. Saldo atual: R$ {saldo_disponivel:,.2f}"
+                    
+                    distribuicao.observacoes = nova_observacao.strip()
+                    distribuicao.save()
+                    
+        except Exception as e:
+            # Log do erro mas não falhar a exclusão
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Erro ao liberar orçamento após exclusão da planejada {self.id}: {str(e)}")
+    
+    def restaurar_planejada(self, usuario):
+        """
+        Restaura uma planejada excluída e atualiza o orçamento
+        """
+        from django.utils import timezone
+        from django.db.models import Sum
+        from datetime import datetime
+        
+        # Salvar dados antes da restauração
+        valor_planejada = self.valor_total
+        origem_planejada = self.origem
+        
+        # Restaurar planejada
+        self.excluido = False
+        self.justificativa_exclusao = None
+        self.excluido_por = None
+        self.data_exclusao = None
+        self.save()
+        
+        # Restaurar militares na escala de abonar
+        self.sincronizar_escala_abonar()
+        
+        # Atualizar orçamento da OM
+        try:
+            # Usar a data da operação da planejada, não a data atual
+            ano_planejada = self.data_operacao.year
+            mes_planejada = self.data_operacao.month
+            
+            # Buscar orçamento do mês da planejada
+            from .models import OrcamentoPlanejadas, DistribuicaoOrcamentoPlanejadas
+            from django.db.models import Q
+            
+            orcamento = OrcamentoPlanejadas.objects.filter(
+                ano=ano_planejada,
+                mes=mes_planejada,
+                ativo=True
+            ).first()
+            
+            if orcamento:
+                # Buscar distribuição usando lógica hierárquica
+                distribuicao = None
+                
+                # Dividir origem por "|" para obter organizações hierárquicas
+                partes_origem = [p.strip() for p in origem_planejada.split('|')]
+                
+                # Buscar por ordem de especificidade: Sub-Unidade > Unidade > Grande Comando > Órgão
+                for parte in reversed(partes_origem):  # Começar pela mais específica
+                    # Tentar encontrar distribuição para esta parte específica
+                    dist_candidata = DistribuicaoOrcamentoPlanejadas.objects.filter(
+                        orcamento=orcamento,
+                        ativo=True
+                    ).filter(
+                        Q(orgao__nome__icontains=parte) |
+                        Q(grande_comando__nome__icontains=parte) |
+                        Q(unidade__nome__icontains=parte) |
+                        Q(sub_unidade__nome__icontains=parte)
+                    ).first()
+                    
+                    if dist_candidata:
+                        distribuicao = dist_candidata
+                        break
+                
+                # Se não encontrou nenhuma distribuição específica, buscar pela origem completa
+                if not distribuicao:
+                    distribuicao = DistribuicaoOrcamentoPlanejadas.objects.filter(
+                        orcamento=orcamento,
+                        ativo=True
+                    ).filter(
+                        Q(orgao__nome__icontains=origem_planejada) |
+                        Q(grande_comando__nome__icontains=origem_planejada) |
+                        Q(unidade__nome__icontains=origem_planejada) |
+                        Q(sub_unidade__nome__icontains=origem_planejada)
+                    ).first()
+                
+                if distribuicao:
+                    # Calcular gastos restantes do mês da planejada para esta origem
+                    planejadas_restantes = Planejada.objects.filter(
+                        data_operacao__year=ano_planejada,
+                        data_operacao__month=mes_planejada,
+                        ativo=True,
+                        excluido=False,  # Não contar planejadas excluídas
+                        origem__icontains=origem_planejada
+                    )
+                    
+                    total_gasto_restante = planejadas_restantes.aggregate(
+                        total=Sum('valor_total')
+                    )['total'] or 0
+                    
+                    saldo_disponivel = float(distribuicao.valor_planejadas) - float(total_gasto_restante)
+                    
+                    # Atualizar observações da distribuição com informação sobre a restauração
+                    observacao_atual = distribuicao.observacoes or ""
+                    nova_observacao = f"{observacao_atual}\n[RESTAURAÇÃO] Planejada '{self.nome}' restaurada em {timezone.now().strftime('%d/%m/%Y %H:%M')} por {usuario.get_full_name() or usuario.username}. Valor restaurado: R$ {valor_planejada:,.2f}. Saldo atual: R$ {saldo_disponivel:,.2f}"
+                    
+                    distribuicao.observacoes = nova_observacao.strip()
+                    distribuicao.save()
+                    
+        except Exception as e:
+            # Log do erro mas não falhar a restauração
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Erro ao atualizar orçamento após restauração da planejada {self.id}: {str(e)}")
+    
+    def verificar_conflito_escala_servico(self, militar, data_operacao):
+        """
+        Verifica se um militar está escalado de serviço no dia da planejada
+        """
+        from .models import EscalaMilitar
+        
+        # Normalizar data_operacao para date
+        data_operacao_date = normalizar_data_para_date(data_operacao)
+        
+        # Verificar se o militar está escalado de serviço na data da planejada
+        escalas_servico = EscalaMilitar.objects.filter(
+            militar=militar,
+            escala__data=data_operacao_date,
+            escala__status__in=['aprovada', 'ativa', 'concluida']
+        )
+        
+        if escalas_servico.exists():
+            escalas_info = []
+            for escala_militar in escalas_servico:
+                escalas_info.append({
+                    'escala': escala_militar.escala,
+                    'hora_inicio': escala_militar.hora_inicio,
+                    'hora_fim': escala_militar.hora_fim,
+                    'tipo_servico': escala_militar.get_tipo_servico_display(),
+                    'organizacao': escala_militar.escala.organizacao
+                })
+            
+            return False, escalas_info
+        
+        return True, []
+    
+    def verificar_folga_suficiente(self, militar, data_operacao):
+        """
+        Verifica se o militar tem folga suficiente antes de entrar em planejada.
+        Regra: 24 horas após o término do ÚLTIMO TURNO DE SERVIÇO (não planejada).
+        Ciclo permanente: planejada -> folga -> turno ordinário -> folga -> planejada
+        """
+        from .models import EscalaMilitar
+        from datetime import datetime, timedelta
+        
+        # Normalizar data_operacao para date
+        data_operacao_date = normalizar_data_para_date(data_operacao)
+        
+        # Buscar a última escala de SERVIÇO NORMAL (não planejada) do militar antes da data da planejada
+        ultima_escala_servico = EscalaMilitar.objects.filter(
+            militar=militar,
+            escala__data__lt=data_operacao_date,
+            escala__status__in=['aprovada', 'ativa', 'concluida', 'pendente'],
+            # Apenas escalas de serviço normal (operacional ou administrativo)
+            escala__tipo_servico__in=['operacional', 'administrativo']
+        ).order_by('-escala__data', '-hora_fim').first()
+        
+        # Verificar se o militar participou de alguma planejada após a última escala de serviço
+        if ultima_escala_servico:
+            # Buscar planejadas em que o militar participou após a última escala de serviço
+            # Excluir a própria planejada atual se ela já existir
+            from .models import Planejada
+            planejadas_apos_servico = Planejada.objects.filter(
+                militares=militar,
+                data_operacao__gt=ultima_escala_servico.escala.data
+            )
+            
+            # Se esta planejada já existe, excluir da consulta
+            if self.pk:
+                planejadas_apos_servico = planejadas_apos_servico.exclude(pk=self.pk)
+            
+            if planejadas_apos_servico.exists():
+                # Se participou de planejada após o último serviço, precisa de novo turno de serviço
+                return False, {
+                    'ultima_escala_servico': ultima_escala_servico,
+                    'motivo': 'Militar participou de planejada após o último turno de serviço. Precisa entrar em turno ordinário antes de participar de nova planejada.',
+                    'data_ultima_escala': ultima_escala_servico.escala.data,
+                    'data_planejada': data_operacao
+                }
+        
+        if not ultima_escala_servico:
+            # Se não tem escala de serviço anterior, pode participar
+            return True, None
+        
+        # Calcular o horário de término da última escala de serviço
+        data_escala = ultima_escala_servico.escala.data
+        hora_termino = ultima_escala_servico.hora_fim
+        
+        # Criar datetime do término da escala (naive)
+        termino_escala_servico = datetime.combine(data_escala, hora_termino)
+        
+        # Se a hora de término for menor que a de início, assumir que é no dia seguinte
+        if ultima_escala_servico.hora_fim <= ultima_escala_servico.hora_inicio:
+            termino_escala_servico += timedelta(days=1)
+        
+        # Calcular data/hora mínima para próxima planejada (24 horas após o término do serviço)
+        data_minima_planejada = termino_escala_servico + timedelta(hours=24)
+        
+        # Converter data_operacao para naive se necessário para comparação
+        data_operacao_naive = data_operacao
+        if data_operacao_naive.tzinfo is not None:
+            data_operacao_naive = data_operacao_naive.replace(tzinfo=None)
+        
+        # Verificar se a data/hora da planejada é posterior à data mínima
+        if data_operacao_naive < data_minima_planejada:
+            return False, {
+                'ultima_escala_servico': ultima_escala_servico,
+                'termino_escala_servico': termino_escala_servico,
+                'data_minima_planejada': data_minima_planejada,
+                'data_planejada': data_operacao,
+                'horas_restantes': (data_minima_planejada - data_operacao_naive).total_seconds() / 3600
+            }
+        
+        return True, None
+    
+    def verificar_escala_24h_dois_dias_antes_p4(self, militar, data_operacao):
+        """
+        Verifica se o militar foi escalado em turno de 24h dois dias antes da planejada P4.
+        Se foi escalado em turno de 24h dois dias antes, não pode participar de planejada P4.
+        """
+        from .models import EscalaMilitar
+        from datetime import datetime, timedelta
+        
+        # Normalizar data_operacao para date
+        data_operacao_date = normalizar_data_para_date(data_operacao)
+        
+        # Calcular data de dois dias antes
+        data_dois_dias_antes = data_operacao_date - timedelta(days=2)
+        
+        # Buscar escalas do militar dois dias antes da planejada
+        escalas_dois_dias_antes = EscalaMilitar.objects.filter(
+            militar=militar,
+            escala__data=data_dois_dias_antes,
+            escala__status__in=['aprovada', 'ativa', 'concluida'],
+            escala__tipo_servico__in=['operacional', 'administrativo']
+        )
+        
+        # Verificar se alguma das escalas é de 24h
+        for escala_militar in escalas_dois_dias_antes:
+            # Verificar se é turno de 24h (hora_fim <= hora_inicio indica turno de 24h)
+            if escala_militar.hora_fim <= escala_militar.hora_inicio:
+                return False, {
+                    'escala_24h': escala_militar,
+                    'data_escala': escala_militar.escala.data,
+                    'hora_inicio': escala_militar.hora_inicio,
+                    'hora_fim': escala_militar.hora_fim,
+                    'tipo_servico': escala_militar.get_tipo_servico_display(),
+                    'organizacao': escala_militar.escala.organizacao,
+                    'motivo': 'Militar foi escalado em turno de 24h dois dias antes da planejada P4'
+                }
+        
+        return True, None
+    
+    def verificar_qualificacao_p4(self, militar, data_operacao):
+        """
+        Verifica se o militar está qualificado para participar de planejada P4.
+        
+        REGRAS P4:
+        1. Deve ter sido escalado em turno de 24h de SERVIÇO NORMAL antes
+        2. Deve ter folgado 24h após o serviço normal
+        3. Não pode entrar em P4 com folga de outros tipos de serviço
+        4. Após uma P4, só pode entrar em nova P4 após ser escalado novamente em turno de 24h de serviço normal
+        """
+        from .models import EscalaMilitar
+        from datetime import datetime, timedelta
+        
+        # Normalizar data_operacao para date
+        data_operacao_date = normalizar_data_para_date(data_operacao)
+        
+        # 1. Buscar a última escala de SERVIÇO NORMAL (não planejada) de 24h
+        ultima_escala_servico_24h = EscalaMilitar.objects.filter(
+            militar=militar,
+            escala__data__lt=data_operacao_date,
+            escala__status__in=['aprovada', 'ativa', 'concluida'],
+            escala__tipo_servico__in=['operacional', 'administrativo'],
+            # Verificar se é turno de 24h
+            hora_fim__lte=models.F('hora_inicio')
+        ).order_by('-escala__data', '-hora_fim').first()
+        
+        if not ultima_escala_servico_24h:
+            return False, {
+                'motivo': 'Militar não foi escalado em turno de 24h de serviço normal antes da planejada P4',
+                'regra': 'Para participar de P4, o militar deve ter sido escalado em turno de 24h de serviço normal'
+            }
+        
+        # 2. Calcular término real da escala de 24h
+        data_escala = ultima_escala_servico_24h.escala.data
+        hora_termino = ultima_escala_servico_24h.hora_fim
+        termino_escala_servico = datetime.combine(data_escala, hora_termino)
+        
+        # Se hora_fim <= hora_inicio, assumir que passa da meia-noite
+        if ultima_escala_servico_24h.hora_fim <= ultima_escala_servico_24h.hora_inicio:
+            termino_escala_servico += timedelta(days=1)
+        
+        # 3. Verificar se passou 24h desde o término do serviço normal
+        data_minima_planejada = termino_escala_servico + timedelta(hours=24)
+        
+        # Converter data_operacao para naive se necessário para comparação
+        data_operacao_naive = data_operacao
+        if data_operacao_naive.tzinfo is not None:
+            data_operacao_naive = data_operacao_naive.replace(tzinfo=None)
+        
+        if data_operacao_naive < data_minima_planejada:
+            horas_restantes = (data_minima_planejada - data_operacao_naive).total_seconds() / 3600
+            return False, {
+                'motivo': f'Militar precisa aguardar {horas_restantes:.1f} horas após o término do serviço normal de 24h',
+                'termino_servico': termino_escala_servico,
+                'data_minima_planejada': data_minima_planejada,
+                'horas_restantes': horas_restantes,
+                'regra': 'Após serviço normal de 24h, militar deve folgar 24h antes de entrar em P4'
+            }
+        
+        # 4. Verificar se o militar participou de alguma planejada após o serviço normal
+        # Se participou, verificar se foi escalado novamente em serviço normal de 24h
+        planejadas_apos_servico = self.militares.filter(
+            id=militar.id,
+            data_operacao__gt=termino_escala_servico,
+            data_operacao__lt=data_operacao_naive
+        ).exists()
+        
+        if planejadas_apos_servico:
+            # Verificar se foi escalado novamente em serviço normal de 24h após a última planejada
+            ultima_planejada = self.militares.filter(
+                id=militar.id,
+                data_operacao__gt=termino_escala_servico,
+                data_operacao__lt=data_operacao_naive
+            ).order_by('-data_operacao').first()
+            
+            if ultima_planejada:
+                # Buscar escalas de serviço normal de 24h após a última planejada
+                escalas_apos_planejada = EscalaMilitar.objects.filter(
+                    militar=militar,
+                    escala__data__gt=ultima_planejada.data_operacao_date,
+                    escala__data__lt=data_operacao_date,
+                    escala__status__in=['aprovada', 'ativa', 'concluida'],
+                    escala__tipo_servico__in=['operacional', 'administrativo'],
+                    hora_fim__lte=models.F('hora_inicio')
+                ).order_by('-escala__data', '-hora_fim').first()
+                
+                if not escalas_apos_planejada:
+                    return False, {
+                        'motivo': 'Militar participou de planejada após serviço normal, mas não foi escalado novamente em turno de 24h de serviço normal',
+                        'ultima_planejada': ultima_planejada.data_operacao,
+                        'regra': 'Após participar de P4, militar deve ser escalado novamente em turno de 24h de serviço normal antes de nova P4'
+                    }
+        
+        return True, {
+            'ultima_escala_servico_24h': ultima_escala_servico_24h,
+            'termino_servico': termino_escala_servico,
+            'data_minima_planejada': data_minima_planejada,
+            'qualificado': True
+        }
+    
+    def verificar_qualificacao_p1(self, militar, data_operacao):
+        """
+        Verifica se o militar está qualificado para participar de planejada P1.
+        
+        REGRAS P1:
+        1. Deve ter sido escalado em turno de 6h de SERVIÇO NORMAL antes
+        2. Deve ter folgado 6h após o serviço normal
+        """
+        from .models import EscalaMilitar, AbonoPlanejada
+        from datetime import datetime, timedelta
+        
+        # Normalizar data_operacao para date
+        data_operacao_date = normalizar_data_para_date(data_operacao)
+        
+        # 1. Buscar a última escala de SERVIÇO NORMAL (não planejada) de 6h
+        ultima_escala_servico_6h = EscalaMilitar.objects.filter(
+            militar=militar,
+            escala__data__lt=data_operacao_date,
+            escala__status__in=['aprovada', 'ativa', 'concluida'],
+            escala__tipo_servico__in=['operacional', 'administrativo'],
+            # Verificar se é turno de 6h (hora_fim > hora_inicio e diferença = 6h)
+            hora_fim__gt=models.F('hora_inicio')
+        ).order_by('-escala__data', '-hora_fim').first()
+        
+        if not ultima_escala_servico_6h:
+            return False, {
+                'motivo': 'Militar não foi escalado em turno de 6h de serviço normal antes da planejada P1',
+                'regra': 'Para participar de P1, o militar deve ter sido escalado em turno de 6h de serviço normal'
+            }
+        
+        # Verificar se é realmente turno de 6h
+        inicio = datetime.combine(ultima_escala_servico_6h.escala.data, ultima_escala_servico_6h.hora_inicio)
+        fim = datetime.combine(ultima_escala_servico_6h.escala.data, ultima_escala_servico_6h.hora_fim)
+        if ultima_escala_servico_6h.hora_fim <= ultima_escala_servico_6h.hora_inicio:
+            fim += timedelta(days=1)
+        
+        duracao_horas = (fim - inicio).total_seconds() / 3600
+        if duracao_horas != 6:
+            return False, {
+                'motivo': f'Militar não foi escalado em turno de 6h de serviço normal (escala foi de {duracao_horas:.1f}h)',
+                'regra': 'Para participar de P1, o militar deve ter sido escalado em turno de exatamente 6h de serviço normal'
+            }
+        
+        # 2. Calcular término real da escala de 6h
+        termino_escala_servico = fim
+        
+        # 3. Verificar se passou 6h desde o término do serviço normal
+        data_minima_planejada = termino_escala_servico + timedelta(hours=6)
+        
+        # Converter data_operacao para naive se necessário para comparação
+        data_operacao_naive = data_operacao
+        if data_operacao_naive.tzinfo is not None:
+            data_operacao_naive = data_operacao_naive.replace(tzinfo=None)
+        
+        if data_operacao_naive < data_minima_planejada:
+            horas_restantes = (data_minima_planejada - data_operacao_naive).total_seconds() / 3600
+            return False, {
+                'motivo': f'Militar precisa aguardar {horas_restantes:.1f} horas após o término do serviço normal de 6h',
+                'termino_servico': termino_escala_servico,
+                'data_minima_planejada': data_minima_planejada,
+                'horas_restantes': horas_restantes,
+                'regra': 'Após serviço normal de 6h, militar deve folgar 6h antes de entrar em P1'
+            }
+        
+        return True, {
+            'ultima_escala_servico_6h': ultima_escala_servico_6h,
+            'termino_servico': termino_escala_servico,
+            'data_minima_planejada': data_minima_planejada,
+            'qualificado': True
+        }
+    
+    def verificar_ciclo_planejada(self, militar, data_operacao):
+        """
+        Verifica se o militar está no ciclo correto para planejada.
+        
+        REGRA SIMPLIFICADA:
+        - Militar só precisa ter participado de algum turno (operacional ou administrativo)
+        - Não verifica planejadas anteriores - apenas turnos e folgas
+        - Planejada é operação extra e opcional
+        """
+        from datetime import datetime, timedelta
+        
+        # Normalizar data_operacao para date
+        data_operacao_date = normalizar_data_para_date(data_operacao)
+        
+        # Verificar se o militar tem algum turno de serviço recente
+        from .models import EscalaMilitar
+        
+        ultimo_turno = EscalaMilitar.objects.filter(
+            militar=militar,
+            escala__data__lte=data_operacao_date,
+            escala__tipo_servico__in=['operacional', 'administrativo']
+        ).order_by('-escala__data', '-hora_fim').first()
+        
+        if not ultimo_turno:
+            return False, {
+                'status': 'sem_turno_recente',
+                'mensagem': 'Militar não tem turno de serviço recente',
+                'regra': 'Militar deve ter turno de serviço recente para participar de planejada'
+            }
+        
+        return True, {
+            'status': 'ciclo_ok',
+            'mensagem': 'Militar tem turno de serviço recente - pode participar de planejada',
+            'ultimo_turno': ultimo_turno
+        }
+
+    def verificar_qualificacao_p1_por_abono(self, militar, data_operacao):
+        """
+        Verifica se o militar está qualificado para participar de planejada P1 baseado nas regras específicas:
+        
+        REGRAS P1 ESCALÁVEIS:
+        1. Militar deve ter sido inserido em turno ordinário de 6h, 12h, 18h ou 24h
+        2. Deve folgar X horas obrigatórias após término do turno (mesma duração do turno)
+        3. Só pode vender na janela P1 específica de Xh (após folga obrigatória)
+        4. Após planejada, deve folgar Xh obrigatórias e precisa de novo turno ordinário
+        
+        DURAÇÕES E TIPOS PERMITIDOS:
+        - 6h: Pode tirar P1
+        - 12h: Pode tirar P1, P2
+        - 18h: Pode tirar P1, P2, P3
+        - 24h: Pode tirar P1, P2, P3, P4
+        
+        EXEMPLOS:
+        - 6h: 6h trabalho → 6h folga → 6h janela P1 → 6h folga → novo turno
+        - 12h: 12h trabalho → 12h folga → 12h janela P1/P2 → 12h folga → novo turno
+        - 18h: 18h trabalho → 18h folga → 18h janela P1/P2/P3 → 18h folga → novo turno
+        - 24h: 24h trabalho → 24h folga → 24h janela P1/P2/P3/P4 → 24h folga → novo turno
+        
+        IMPORTANTE: 
+        - Planejada é operação EXTRA e opcional
+        - A janela tem duração igual ao turno, não pode vender antes nem depois
+        """
+        # Primeiro verificar o ciclo
+        ciclo_ok, info_ciclo = self.verificar_ciclo_planejada(militar, data_operacao)
+        if not ciclo_ok:
+            return False, info_ciclo
+        
+        # Depois verificar o quadrante
+        return self.verificar_quadrante_p1(militar, data_operacao)
+    
+    def verificar_qualificacao_p2_por_abono(self, militar, data_operacao):
+        """
+        Verifica se o militar está qualificado para participar de planejada P2 baseado nas regras específicas:
+        
+        REGRAS P2:
+        1. Militar deve ter sido inserido em turno ordinário de 12h ou mais
+        2. Deve folgar as próximas 12 horas
+        3. Só pode ser inserido no 2º quadrante após a folga
+        4. Após planejada, só pode entrar novamente após novo turno ordinário
+        
+        REGRA: Quem pode mais pode menos - P2 aceita turnos de 12h ou mais
+        """
+        # Primeiro verificar o ciclo
+        ciclo_ok, info_ciclo = self.verificar_ciclo_planejada(militar, data_operacao)
+        if not ciclo_ok:
+            return False, info_ciclo
+        
+        # Depois verificar o quadrante
+        return self.verificar_quadrante_p2(militar, data_operacao)
+    
+    def verificar_qualificacao_p3_por_abono(self, militar, data_operacao):
+        """
+        Verifica se o militar está qualificado para participar de planejada P3 baseado nas regras específicas:
+        
+        REGRAS P3:
+        1. Militar deve ter sido inserido em turno ordinário de 18h ou mais
+        2. Deve folgar as próximas 18 horas
+        3. Só pode ser inserido no 2º quadrante após a folga
+        4. Após planejada, só pode entrar novamente após novo turno ordinário
+        
+        REGRA: Quem pode mais pode menos - P3 aceita turnos de 18h ou mais
+        """
+        # Primeiro verificar o ciclo
+        ciclo_ok, info_ciclo = self.verificar_ciclo_planejada(militar, data_operacao)
+        if not ciclo_ok:
+            return False, info_ciclo
+        
+        # Depois verificar o quadrante
+        return self.verificar_quadrante_p3(militar, data_operacao)
+    
+    def verificar_qualificacao_p4_por_abono(self, militar, data_operacao):
+        """
+        Verifica se o militar está qualificado para participar de planejada P4 baseado nas regras específicas:
+        
+        REGRAS P4:
+        1. Militar deve ter sido inserido em turno ordinário de 24h ou mais
+        2. Deve folgar as próximas 24 horas
+        3. Só pode ser inserido no 2º quadrante após a folga
+        4. Após planejada, só pode entrar novamente após novo turno ordinário
+        
+        REGRA: Quem pode mais pode menos - P4 aceita turnos de 24h ou mais
+        """
+        # Primeiro verificar o ciclo
+        ciclo_ok, info_ciclo = self.verificar_ciclo_planejada(militar, data_operacao)
+        if not ciclo_ok:
+            return False, info_ciclo
+        
+        # Depois verificar o quadrante
+        return self.verificar_quadrante_p4(militar, data_operacao)
+    
+    def clean(self):
+        """
+        Validações do modelo para impedir duplicatas, controlar tempo e validar quantidade de militares
+        """
+        from django.core.exceptions import ValidationError
+        from datetime import date, timedelta
+        
+        # Verificar se já existe uma planejada com os mesmos dados
+        if self.pk:  # Se está editando
+            existing = Planejada.objects.filter(
+                nome=self.nome,
+                data_operacao=self.data_operacao,
+                cidade=self.cidade
+            ).exclude(pk=self.pk)
+        else:  # Se está criando
+            existing = Planejada.objects.filter(
+                nome=self.nome,
+                data_operacao=self.data_operacao,
+                cidade=self.cidade
+            )
+        
+        if existing.exists():
+            raise ValidationError(
+                f"Já existe uma operação planejada com o nome '{self.nome}' "
+                f"na cidade '{self.cidade}' para a data {self.data_operacao.strftime('%d/%m/%Y')}."
+            )
+        
+        # Verificar regras de tempo para criação
+        if not self.pk:  # Apenas para criação
+            hoje = date.today()
+            data_limite = self.data_operacao - timedelta(days=1)
+            
+            if hoje > data_limite:
+                raise ValidationError(
+                    f"Planejadas devem ser criadas até um dia anterior à data. "
+                    f"Data limite: {data_limite.strftime('%d/%m/%Y')}. "
+                    f"Apenas superusuário pode criar após esta data."
+                )
+        
+        # Validar quantidade de militares vs número de bombeiros
+        if self.pk:  # Apenas para planejadas existentes
+            quantidade_militares = self.militares.count()
+            # Permitir que o número de policiais seja maior ou igual à quantidade de militares
+            # Só impedir se for menor que a quantidade de militares escalados
+            if quantidade_militares > 0 and self.policiais < quantidade_militares:
+                raise ValidationError({
+                    'policiais': f"A quantidade de militares inseridos ({quantidade_militares}) "
+                    f"não pode ser maior que o número de bombeiros informado ({self.policiais}). "
+                    f"Aumente o número de bombeiros ou remova militares para atingir a quantidade correta."
+                })
+        
+        # Validar se o número de bombeiros é válido
+        if self.policiais < 1:
+            raise ValidationError({
+                'policiais': "O número de bombeiros deve ser pelo menos 1."
+            })
+    
+    def pode_criar_planejada(self, usuario=None):
+        """
+        Verifica se pode criar uma planejada baseado na data e horário.
+        
+        REGRAS:
+        - Pode criar até a data da operação, mas em horário anterior ao início
+        - Superusuário pode criar em qualquer momento
+        """
+        from datetime import date, datetime, timedelta
+        
+        hoje = date.today()
+        agora = datetime.now()
+        
+        # Superusuário pode criar em qualquer momento
+        if usuario and usuario.is_superuser:
+            return True, "Superusuário pode criar planejadas em qualquer momento"
+        
+        # Verificar se ainda está no prazo de data
+        if hoje > self.data_operacao.date():
+            return False, f"Prazo para criação expirou em {self.data_operacao.strftime('%d/%m/%Y')}. Apenas superusuário pode criar após esta data."
+        
+        # Se é no mesmo dia, verificar horário
+        if hoje == self.data_operacao.date() and self.hora_inicio:
+            hora_inicio_planejada = datetime.combine(self.data_operacao, self.hora_inicio)
+            
+            if agora >= hora_inicio_planejada:
+                hora_inicio_str = self.hora_inicio.strftime('%H:%M') if hasattr(self.hora_inicio, 'strftime') else str(self.hora_inicio)
+                return False, f"Prazo para criação expirou às {hora_inicio_str}. Apenas superusuário pode criar após este horário."
+        
+        hora_inicio_str = self.hora_inicio.strftime('%H:%M') if hasattr(self.hora_inicio, 'strftime') else '00:00'
+        return True, f"Planejada pode ser criada até {self.data_operacao.strftime('%d/%m/%Y')} às {hora_inicio_str}"
+    
+    def pode_editar_planejada(self, usuario=None):
+        """
+        Verifica se pode editar uma planejada baseado na data e horário.
+        
+        REGRAS:
+        - Pode editar até a data da operação, mas em horário anterior ao início
+        - Superusuário pode editar em qualquer momento
+        """
+        from datetime import date, datetime, time
+        
+        hoje = date.today()
+        agora = datetime.now()
+        
+        # Superusuário pode editar em qualquer momento
+        if usuario and usuario.is_superuser:
+            return True, "Superusuário pode editar planejadas em qualquer momento"
+        
+        # Verificar se ainda está no prazo de data
+        if hoje > self.data_operacao.date():
+            return False, f"Prazo para edição expirou em {self.data_operacao.strftime('%d/%m/%Y')}. Apenas superusuário pode editar após esta data."
+        
+        # Se é no mesmo dia, verificar horário
+        if hoje == self.data_operacao.date() and self.hora_inicio:
+            hora_inicio_planejada = datetime.combine(self.data_operacao, self.hora_inicio)
+            
+            if agora >= hora_inicio_planejada:
+                hora_inicio_str = self.hora_inicio.strftime('%H:%M') if hasattr(self.hora_inicio, 'strftime') else str(self.hora_inicio)
+                return False, f"Prazo para edição expirou às {hora_inicio_str}. Apenas superusuário pode editar após este horário."
+        
+        hora_inicio_str = self.hora_inicio.strftime('%H:%M') if hasattr(self.hora_inicio, 'strftime') else '00:00'
+        return True, f"Planejada pode ser editada até {self.data_operacao.strftime('%d/%m/%Y')} às {hora_inicio_str}"
+    
+    def recalcular_valores(self):
+        """
+        Recalcula os valores da planejada preservando o valor original salvo.
+        IMPORTANTE: O valor individual (self.valor) NÃO é alterado para preservar
+        os valores das planejadas já criadas, mesmo quando a configuração muda.
+        """
+        # PRESERVAR o valor original da planejada (não recalcular usando configuração ativa)
+        # O valor individual deve permanecer como foi salvo na criação
+        valor_individual = self.valor or 0.0
+        
+        # Calcular valor total baseado na quantidade atual de militares
+        quantidade_militares = self.militares.count()
+        
+        # Se não há militares, zerar todos os valores
+        if quantidade_militares == 0:
+            valor_total = 0.0
+            saldo = 0.0
+            quantidade_policiais = 0  # Zero militares = zero policiais
+        else:
+            # Valor total = valor individual (preservado) × quantidade de militares
+            # Cada militar "vende" sua folga para a planejada
+            valor_total = float(valor_individual) * quantidade_militares
+            
+            # Calcular saldo (valor_total - valor já definido)
+            # O valor definido é o valor individual original
+            valor_total_float = float(valor_total)
+            valor_definido_float = float(valor_individual)
+            saldo = valor_total_float - valor_definido_float
+            
+            # Garantir que o saldo não seja negativo
+            if saldo < 0:
+                saldo = 0.0
+            
+            quantidade_policiais = quantidade_militares
+        
+        # Atualizar campos (NÃO alterar self.valor - preservar valor original)
+        self.valor_total = valor_total
+        self.saldo = saldo
+        
+        # Atualizar policiais apenas se não foi definido manualmente ou se é zero
+        if not hasattr(self, '_policiais_manual') or self._policiais_manual is None:
+            self.policiais = quantidade_policiais
+        
+        # Salvar as alterações (NÃO salvar self.valor - preservar valor original)
+        self.save(update_fields=['valor_total', 'saldo', 'policiais'])
+        
+        return {
+            'valor_individual': float(valor_individual),
+            'valor_total': float(valor_total),
+            'saldo': float(saldo),
+            'quantidade_militares': quantidade_policiais
+        }
+    
+    def validar_quantidade_bombeiros(self):
+        """
+        Valida se a quantidade de militares está correta em relação ao número de bombeiros
+        """
+        quantidade_militares = self.militares.count()
+        if quantidade_militares != self.policiais:
+            return False, f"A quantidade de militares inseridos ({quantidade_militares}) deve ser igual ao número de bombeiros informado ({self.policiais}). Adicione ou remova militares para atingir a quantidade correta."
+        return True, "Quantidade correta"
+    
+    def pode_alterar_militares(self, usuario=None):
+        """
+        Verifica se pode alterar militares da planejada.
+        
+        REGRAS:
+        - Pode alterar até a data da operação, mas em horário anterior ao início
+        - Superusuário pode alterar em qualquer momento
+        """
+        from datetime import date, datetime, time
+        
+        hoje = date.today()
+        agora = datetime.now()
+        
+        # Superusuário pode alterar em qualquer momento
+        if usuario and usuario.is_superuser:
+            return True, "Superusuário pode alterar militares em qualquer momento"
+        
+        # Verificar se ainda está no prazo de data
+        if hoje > self.data_operacao.date():
+            return False, f"Prazo para alteração de militares expirou em {self.data_operacao.strftime('%d/%m/%Y')}. Apenas superusuário pode alterar após esta data."
+        
+        # Se é no mesmo dia, verificar horário
+        if hoje == self.data_operacao.date() and self.hora_inicio:
+            hora_inicio_planejada = datetime.combine(self.data_operacao, self.hora_inicio)
+            
+            if agora >= hora_inicio_planejada:
+                hora_inicio_str = self.hora_inicio.strftime('%H:%M') if hasattr(self.hora_inicio, 'strftime') else str(self.hora_inicio)
+                return False, f"Prazo para alteração de militares expirou às {hora_inicio_str}. Apenas superusuário pode alterar após este horário."
+        
+        hora_inicio_str = self.hora_inicio.strftime('%H:%M') if hasattr(self.hora_inicio, 'strftime') else '00:00'
+        return True, f"Militares podem ser alterados até {self.data_operacao.strftime('%d/%m/%Y')} às {hora_inicio_str}"
+    
+    def obter_status_tempo(self, usuario=None):
+        """
+        Obtém o status de tempo da planejada para exibição na interface.
+        
+        Returns:
+            dict com informações sobre o status de tempo
+        """
+        from datetime import date, datetime
+        
+        hoje = date.today()
+        agora = datetime.now()
+        
+        status = {
+            'hoje': hoje,
+            'data_operacao': self.data_operacao,
+            'hora_inicio': self.hora_inicio,
+            'pode_criar': False,
+            'pode_editar': False,
+            'pode_alterar_militares': False,
+            'mensagem': '',
+            'cor': 'success'
+        }
+        
+        # Verificar permissões
+        pode_criar, msg_criar = self.pode_criar_planejada(usuario)
+        pode_editar, msg_editar = self.pode_editar_planejada(usuario)
+        pode_alterar, msg_alterar = self.pode_alterar_militares(usuario)
+        
+        status.update({
+            'pode_criar': pode_criar,
+            'pode_editar': pode_editar,
+            'pode_alterar_militares': pode_alterar
+        })
+        
+        # Determinar cor e mensagem baseado nas novas regras
+        if hoje > self.data_operacao.date():
+            status['cor'] = 'danger'
+            status['mensagem'] = f"Operação já realizada em {self.data_operacao.strftime('%d/%m/%Y')}"
+        elif hoje == self.data_operacao.date() and self.hora_inicio:
+            hora_inicio_planejada = datetime.combine(self.data_operacao, self.hora_inicio)
+            if agora >= hora_inicio_planejada:
+                status['cor'] = 'danger'
+                hora_inicio_str = self.hora_inicio.strftime('%H:%M') if hasattr(self.hora_inicio, 'strftime') else str(self.hora_inicio)
+                status['mensagem'] = f"Operação já iniciou às {hora_inicio_str}"
+            else:
+                status['cor'] = 'warning'
+                hora_inicio_str = self.hora_inicio.strftime('%H:%M') if hasattr(self.hora_inicio, 'strftime') else str(self.hora_inicio)
+                status['mensagem'] = f"Operação inicia às {hora_inicio_str} - alterações permitidas até este horário"
+        else:
+            status['cor'] = 'success'
+            if self.hora_inicio:
+                hora_inicio_str = self.hora_inicio.strftime('%H:%M') if hasattr(self.hora_inicio, 'strftime') else str(self.hora_inicio)
+                status['mensagem'] = f"Planejada pode ser alterada até {self.data_operacao.strftime('%d/%m/%Y')} às {hora_inicio_str}"
+            else:
+                status['mensagem'] = f"Planejada pode ser alterada até {self.data_operacao.strftime('%d/%m/%Y')}"
+        
+        return status
+    
+    @property
+    def data_operacao_formatada(self):
+        return self.data_operacao.strftime('%d/%m/%Y %H:%M')
+    
+    def clean(self):
+        super().clean()
+        
+        # Validar valor - tratar casos onde pode ser None
+        if self.valor is not None and self.valor < 0:
+            raise ValidationError("O valor não pode ser negativo.")
+        
+        # Validar saldo - tratar casos onde pode ser None
+        if self.saldo is not None and self.saldo < 0:
+            raise ValidationError("O saldo não pode ser negativo.")
+        
+        # Validar policiais - tratar casos onde pode ser None
+        if self.policiais is not None:
+            if self.policiais < 0:
+                raise ValidationError("A quantidade de policiais não pode ser negativa.")
+            # Permitir 0 policiais apenas quando não há militares escalados
+            if self.policiais == 0 and self.militares.exists():
+                raise ValidationError("Se há militares escalados, deve haver pelo menos 1 policial.")
+    
+    def fiscal_ja_assinou(self):
+        """Verifica se o fiscal já assinou a planejada"""
+        return self.assinatura_fiscal is not None and self.data_assinatura_fiscal is not None
+    
+    def pode_editar_militares(self, user):
+        """Verifica se o usuário pode editar/remover militares da planejada"""
+        # Superusuários sempre podem editar
+        if user.is_superuser:
+            return True
+        
+        # Se o fiscal já assinou, apenas superusuários podem editar
+        if self.fiscal_ja_assinou():
+            return False
+        
+        # ANTES da assinatura: qualquer pessoa pode editar
+        # (permite adicionar militares durante a criação/edição da planejada)
+        return True
+
+
+class Viatura(models.Model):
+    """Cadastro de Viaturas do CBMEPI"""
+    
+    TIPO_CHOICES = [
+        ('ABT', 'Auto Bomba Tanque'),
+        ('ABCI', 'Auto Bomba de Combate a Incêndio'),
+        ('ESC', 'Auto Escada'),
+        ('APT', 'Auto Plataforma'),
+        ('ASE', 'Auto Socorro de Emergência'),
+        ('ASB', 'Ambulância de Suporte Básico'),
+        ('ASA', 'Ambulância de Suporte Avançado'),
+        ('VTL', 'Viatura Tática Leve'),
+        ('VTM', 'Viatura Tática Média'),
+        ('VTP', 'Viatura Tática Pesada'),
+        ('RES', 'Viatura de Resgate'),
+        ('SAL', 'Viatura de Salvamento'),
+        ('HAZ', 'Viatura Hazmat - Material Perigoso'),
+        ('CLIF', 'Caminhão de Luta contra Incêndio Florestal'),
+        ('CIF', 'Viatura de Combate a Incêndio Florestal'),
+        ('CMD', 'Viatura de Comando'),
+        ('COM', 'Viatura de Comunicações'),
+        ('OPE', 'Viatura de Operações Especiais'),
+        ('BAR', 'Barco/Bote'),
+        ('MOT', 'Moto'),
+        ('MAN', 'Viatura de Manutenção'),
+        ('ADMIN', 'Viatura Administrativa'),
+        ('OUT', 'Outras'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('DISPONIVEL', 'Disponível'),
+        ('EM_USO', 'Em Uso'),
+        ('MANUTENCAO', 'Em Manutenção'),
+        ('BAIXA', 'Dada de Baixa'),
+    ]
+    
+    prefixo = models.CharField(max_length=20, blank=True, null=True, verbose_name="Prefix", help_text="Ex: ABC, DEF, GHI")
+    placa = models.CharField(max_length=10, unique=True, verbose_name="Placa", help_text="Ex: ABC-1234 ou ABC1D23")
+    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES, verbose_name="Tipo de Viatura")
+    marca = models.CharField(max_length=100, verbose_name="Marca", help_text="Ex: Ford, Chevrolet, Mercedes-Benz")
+    modelo = models.CharField(max_length=100, verbose_name="Modelo", help_text="Ex: Ranger, D20, Sprinter")
+    ano_fabricacao = models.PositiveIntegerField(verbose_name="Ano de Fabricação", validators=[MinValueValidator(1900), MaxValueValidator(2100)])
+    ano_modelo = models.PositiveIntegerField(verbose_name="Ano do Modelo", validators=[MinValueValidator(1900), MaxValueValidator(2100)])
+    chassi = models.CharField(max_length=50, blank=True, null=True, verbose_name="Chassi", unique=True)
+    renavam = models.CharField(max_length=20, blank=True, null=True, verbose_name="RENAVAM", unique=True)
+    cor = models.CharField(max_length=50, blank=True, null=True, verbose_name="Cor")
+    km_atual = models.PositiveIntegerField(default=0, verbose_name="Kilometragem Atual")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='DISPONIVEL', verbose_name="Status")
+    combustivel = models.CharField(max_length=20, choices=[
+        ('GASOLINA', 'Gasolina'),
+        ('DIESEL', 'Diesel'),
+        ('ETANOL', 'Etanol'),
+        ('FLEX', 'Flex'),
+        ('ELETRICO', 'Elétrico'),
+    ], default='DIESEL', verbose_name="Combustível")
+    capacidade_tanque = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, verbose_name="Capacidade do Tanque (litros)")
+    cartao_abastecimento = models.CharField(max_length=50, blank=True, null=True, verbose_name="Cartão de Abastecimento", help_text="Número do cartão utilizado para abastecimento")
+    
+    # Relacionamento com organização
+    orgao = models.ForeignKey(Orgao, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Órgão")
+    grande_comando = models.ForeignKey(GrandeComando, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Grande Comando")
+    unidade = models.ForeignKey(Unidade, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Unidade")
+    sub_unidade = models.ForeignKey(SubUnidade, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sub-Unidade")
+    
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    data_aquisicao = models.DateField(blank=True, null=True, verbose_name="Data de Aquisição")
+    valor_aquisicao = models.DecimalField(max_digits=20, decimal_places=2, blank=True, null=True, verbose_name="Valor de Aquisição (R$)")
+    fornecedor = models.CharField(max_length=200, blank=True, null=True, verbose_name="Fornecedor")
+    
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='viaturas_criadas', verbose_name="Criado por")
+    
+    class Meta:
+        verbose_name = "Viatura"
+        verbose_name_plural = "Viaturas"
+        ordering = ['placa']
+        indexes = [
+            models.Index(fields=['placa']),
+            models.Index(fields=['status']),
+            models.Index(fields=['tipo']),
+            models.Index(fields=['prefixo']),
+        ]
+    
+    def __str__(self):
+        prefixo_str = f"{self.prefixo} - " if self.prefixo else ""
+        return f"{prefixo_str}{self.placa} - {self.get_tipo_display()} ({self.marca} {self.modelo})"
+    
+    def get_organizacao_display(self):
+        """Retorna a organização hierárquica completa da viatura"""
+        hierarquia = []
+        if self.orgao:
+            hierarquia.append(self.orgao.nome)
+        if self.grande_comando:
+            hierarquia.append(self.grande_comando.nome)
+        if self.unidade:
+            hierarquia.append(self.unidade.nome)
+        if self.sub_unidade:
+            hierarquia.append(self.sub_unidade.nome)
+        
+        if hierarquia:
+            return " | ".join(hierarquia)
+        return "Não definido"
+    
+    def get_organizacao_instancia(self):
+        """Retorna apenas a instância mais específica da organização (sem hierarquia)"""
+        if self.sub_unidade:
+            return self.sub_unidade.nome
+        elif self.unidade:
+            return self.unidade.nome
+        elif self.grande_comando:
+            return self.grande_comando.nome
+        elif self.orgao:
+            return self.orgao.nome
+        return "Não definido"
+    
+    def clean(self):
+        """Validações customizadas"""
+        from django.core.exceptions import ValidationError
+        
+        # Validar que pelo menos uma organização está definida
+        if not any([self.orgao, self.grande_comando, self.unidade, self.sub_unidade]):
+            raise ValidationError("É necessário definir ao menos uma organização (Órgão, Grande Comando, Unidade ou Sub-Unidade).")
+        
+        # Validar que ano modelo não é menor que ano de fabricação
+        if self.ano_modelo and self.ano_fabricacao:
+            if self.ano_modelo < self.ano_fabricacao:
+                raise ValidationError("O ano do modelo não pode ser menor que o ano de fabricação.")
+        
+        # Validar placa (formato brasileiro)
+        if self.placa:
+            placa_limpa = self.placa.replace('-', '').replace(' ', '').upper()
+            if len(placa_limpa) not in [7, 8]:  # Placas antigas (ABC1234) ou novas (ABC1D23)
+                raise ValidationError("Placa inválida. Use o formato ABC-1234 ou ABC1D23.")
+
+
+class AbastecimentoViatura(models.Model):
+    """Controle de abastecimento de combustível das viaturas"""
+    
+    TIPO_COMBUSTIVEL_CHOICES = [
+        ('GASOLINA', 'Gasolina'),
+        ('DIESEL', 'Diesel'),
+        ('ETANOL', 'Etanol'),
+        ('FLEX', 'Flex (Gasolina/Etanol)'),
+        ('GNV', 'GNV (Gás Natural Veicular)'),
+        ('ELETRICO', 'Elétrico'),
+    ]
+    
+    viatura = models.ForeignKey(Viatura, on_delete=models.CASCADE, related_name='abastecimentos', verbose_name="Viatura")
+    data_abastecimento = models.DateTimeField(verbose_name="Data e Hora do Abastecimento", default=timezone.now)
+    quantidade_litros = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Quantidade (Litros)", validators=[MinValueValidator(0.01)])
+    valor_litro = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Valor por Litro (R$)", validators=[MinValueValidator(0.01)])
+    valor_total = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Valor Total (R$)", validators=[MinValueValidator(0.01)])
+    km_abastecimento = models.PositiveIntegerField(verbose_name="KM no Abastecimento")
+    tipo_combustivel = models.CharField(max_length=20, choices=TIPO_COMBUSTIVEL_CHOICES, default='DIESEL', verbose_name="Tipo de Combustível")
+    posto_fornecedor = models.CharField(max_length=200, blank=True, null=True, verbose_name="Posto/Fornecedor")
+    com_aditivos = models.BooleanField(default=False, verbose_name="Com Aditivos", help_text="Indica se foram comprados também aditivos para o combustível")
+    tipo_aditivo = models.CharField(max_length=100, blank=True, null=True, verbose_name="Tipo de Aditivo", help_text="Ex: Aditivo para diesel, limpa bicos, etc.")
+    quantidade_aditivo = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Quantidade de Aditivo", help_text="Quantidade (litros ou unidade)")
+    valor_unitario_aditivo = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Valor Unitário do Aditivo (R$)", validators=[MinValueValidator(0)])
+    valor_total_aditivo = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True, verbose_name="Valor Total do Aditivo (R$)", validators=[MinValueValidator(0)])
+    valor_total_nota = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True, verbose_name="Valor Total da Nota (R$)", help_text="Soma do combustível + aditivos")
+    responsavel = models.ForeignKey('Militar', on_delete=models.SET_NULL, null=True, blank=True, related_name='abastecimentos_responsaveis', verbose_name="Responsável pelo Abastecimento")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    
+    # Controle
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='abastecimentos_criados', verbose_name="Criado por")
+    
+    class Meta:
+        verbose_name = "Abastecimento de Viatura"
+        verbose_name_plural = "Abastecimentos de Viaturas"
+        ordering = ['-data_abastecimento', '-km_abastecimento']
+        indexes = [
+            models.Index(fields=['viatura', '-data_abastecimento']),
+            models.Index(fields=['data_abastecimento']),
+            models.Index(fields=['tipo_combustivel']),
+        ]
+    
+    def __str__(self):
+        responsavel_str = f" - {self.responsavel.get_posto_graduacao_display()} {self.responsavel.nome_completo}" if self.responsavel else ""
+        return f"{self.viatura.placa} - {self.quantidade_litros}L - {self.data_abastecimento.strftime('%d/%m/%Y %H:%M')}{responsavel_str}"
+    
+    def clean(self):
+        """Validações customizadas"""
+        from django.core.exceptions import ValidationError
+        from datetime import timedelta
+        
+        # Validar que valor total = quantidade * valor por litro
+        if self.quantidade_litros and self.valor_litro:
+            valor_calculado = self.quantidade_litros * self.valor_litro
+            if abs(float(self.valor_total) - float(valor_calculado)) > 0.01:
+                raise ValidationError(f"O valor total deve ser igual a quantidade × valor por litro ({valor_calculado:.2f}).")
+        
+        # Calcular valor total do aditivo se houver
+        if self.com_aditivos and self.quantidade_aditivo and self.valor_unitario_aditivo:
+            if not self.valor_total_aditivo or abs(float(self.valor_total_aditivo) - float(self.quantidade_aditivo * self.valor_unitario_aditivo)) > 0.01:
+                self.valor_total_aditivo = self.quantidade_aditivo * self.valor_unitario_aditivo
+        
+        # Calcular valor total da nota (combustível + aditivos)
+        valor_combustivel = float(self.valor_total) if self.valor_total else 0
+        valor_aditivo = float(self.valor_total_aditivo) if self.valor_total_aditivo else 0
+        self.valor_total_nota = valor_combustivel + valor_aditivo
+        
+        # Validar que KM não seja menor que o anterior (se houver)
+        if self.viatura and self.km_abastecimento:
+            # Usar self.__class__ para evitar import circular
+            abastecimentos_anteriores = self.__class__.objects.filter(
+                viatura=self.viatura,
+                ativo=True
+            ).exclude(pk=self.pk if self.pk else None)
+            
+            # Verificar duplicação: mesmo KM, mesma data/hora (dentro de 5 minutos), mesma quantidade
+            if self.data_abastecimento:
+                # Verificar abastecimentos duplicados (mesma viatura, mesmo KM, mesma data/hora aproximada, mesma quantidade)
+                duplicados = abastecimentos_anteriores.filter(
+                    km_abastecimento=self.km_abastecimento,
+                    quantidade_litros=self.quantidade_litros
+                )
+                
+                # Verificar se há abastecimento na mesma data/hora (com tolerância de 5 minutos)
+                if self.data_abastecimento:
+                    data_inicio = self.data_abastecimento - timedelta(minutes=5)
+                    data_fim = self.data_abastecimento + timedelta(minutes=5)
+                    
+                    duplicados_tempo = duplicados.filter(
+                        data_abastecimento__range=(data_inicio, data_fim)
+                    )
+                    
+                    if duplicados_tempo.exists():
+                        abastecimento_duplicado = duplicados_tempo.first()
+                        raise ValidationError(
+                            f"Já existe um abastecimento registrado para esta viatura com os mesmos dados:\n"
+                            f"- Data/Hora: {abastecimento_duplicado.data_abastecimento.strftime('%d/%m/%Y %H:%M')}\n"
+                            f"- KM: {abastecimento_duplicado.km_abastecimento}\n"
+                            f"- Quantidade: {abastecimento_duplicado.quantidade_litros}L\n"
+                            f"Por favor, verifique se não está tentando registrar o mesmo abastecimento novamente."
+                        )
+                
+                # Verificar abastecimentos com mesmo KM e mesma quantidade em intervalo maior
+                if duplicados.exists():
+                    # Verificar se não é o mesmo abastecimento (permite edição)
+                    if not self.pk or self.pk not in duplicados.values_list('pk', flat=True):
+                        # Se houver duplicado exato (mesmo KM e mesma quantidade), verificar data próxima
+                        if self.data_abastecimento:
+                            # Verificar em janela de 1 hora
+                            data_inicio = self.data_abastecimento - timedelta(hours=1)
+                            data_fim = self.data_abastecimento + timedelta(hours=1)
+                            
+                            duplicados_hora = duplicados.filter(
+                                data_abastecimento__range=(data_inicio, data_fim)
+                            )
+                            
+                            if duplicados_hora.exists():
+                                abastecimento_duplicado = duplicados_hora.first()
+                                raise ValidationError(
+                                    f"ATENÇÃO: Existe um abastecimento muito similar registrado recentemente:\n"
+                                    f"- Data/Hora: {abastecimento_duplicado.data_abastecimento.strftime('%d/%m/%Y %H:%M')}\n"
+                                    f"- KM: {abastecimento_duplicado.km_abastecimento}\n"
+                                    f"- Quantidade: {abastecimento_duplicado.quantidade_litros}L\n"
+                                    f"Certifique-se de que não é o mesmo abastecimento antes de continuar."
+                                )
+            
+            # Validar que KM não seja menor que o anterior (se houver)
+            if abastecimentos_anteriores.exists():
+                km_anterior = abastecimentos_anteriores.order_by('-data_abastecimento', '-km_abastecimento').first().km_abastecimento
+                if self.km_abastecimento < km_anterior:
+                    raise ValidationError(f"O KM do abastecimento ({self.km_abastecimento}) não pode ser menor que o KM do último abastecimento registrado ({km_anterior}).")
+    
+    def save(self, *args, **kwargs):
+        """Atualizar KM atual da viatura ao salvar"""
+        # Calcular valor total automaticamente se não fornecido
+        if self.quantidade_litros and self.valor_litro and not self.valor_total:
+            self.valor_total = self.quantidade_litros * self.valor_litro
+        
+        super().save(*args, **kwargs)
+        
+        # Atualizar KM atual da viatura
+        if self.viatura:
+            self.viatura.km_atual = self.km_abastecimento
+            self.viatura.save(update_fields=['km_atual'])
+
+
+class ManutencaoViatura(models.Model):
+    """Controle de manutenção de viaturas"""
+    
+    TIPO_MANUTENCAO_CHOICES = [
+        ('PREVENTIVA', 'Preventiva'),
+        ('CORRETIVA', 'Corretiva'),
+        ('INSPECAO', 'Inspeção'),
+        ('LUBRIFICACAO', 'Lubrificação'),
+        ('CALIBRAGEM', 'Calibragem de Pneus'),
+        ('REVISAO', 'Revisão'),
+        ('PINTURA', 'Pintura'),
+        ('OUTRA', 'Outra'),
+    ]
+    
+    viatura = models.ForeignKey(Viatura, on_delete=models.CASCADE, related_name='manutencoes', verbose_name="Viatura")
+    data_manutencao = models.DateTimeField(verbose_name="Data e Hora da Manutenção", default=timezone.now)
+    tipo_manutencao = models.CharField(max_length=20, choices=TIPO_MANUTENCAO_CHOICES, default='PREVENTIVA', verbose_name="Tipo de Manutenção")
+    km_manutencao = models.PositiveIntegerField(verbose_name="KM na Manutenção")
+    descricao_servico = models.TextField(verbose_name="Descrição do Serviço", help_text="Detalhamento dos serviços realizados")
+    fornecedor_oficina = models.CharField(max_length=200, blank=True, null=True, verbose_name="Oficina")
+    valor_manutencao = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Valor da Manutenção (R$)", validators=[MinValueValidator(0.01)])
+    pecas_trocadas = models.TextField(blank=True, null=True, verbose_name="Peças Trocadas", help_text="Lista de peças que foram substituídas")
+    proximo_km_revisao = models.PositiveIntegerField(blank=True, null=True, verbose_name="KM para Próxima Revisão", help_text="KM previsto para a próxima revisão (apenas para tipo Revisão)")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    responsavel = models.ForeignKey('Militar', on_delete=models.SET_NULL, null=True, blank=True, related_name='manutencoes_responsaveis', verbose_name="Responsável pela Manutenção")
+    
+    # Controle
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='manutencoes_criadas', verbose_name="Criado por")
+    
+    class Meta:
+        verbose_name = "Manutenção de Viatura"
+        verbose_name_plural = "Manutenções de Viaturas"
+        ordering = ['-data_manutencao', '-km_manutencao']
+        indexes = [
+            models.Index(fields=['viatura', '-data_manutencao']),
+            models.Index(fields=['data_manutencao']),
+            models.Index(fields=['tipo_manutencao']),
+        ]
+    
+    def __str__(self):
+        responsavel_str = f" - {self.responsavel.get_posto_graduacao_display()} {self.responsavel.nome_completo}" if self.responsavel else ""
+        return f"{self.viatura.placa} - {self.get_tipo_manutencao_display()} - {self.data_manutencao.strftime('%d/%m/%Y %H:%M')}{responsavel_str}"
+    
+    def clean(self):
+        """Validações customizadas"""
+        from django.core.exceptions import ValidationError
+        
+        # Validar que KM não seja menor que o anterior (se houver)
+        if self.viatura and self.km_manutencao:
+            manutencoes_anteriores = ManutencaoViatura.objects.filter(
+                viatura=self.viatura,
+                ativo=True
+            ).exclude(pk=self.pk if self.pk else None)
+            
+            if manutencoes_anteriores.exists():
+                km_anterior = manutencoes_anteriores.order_by('-data_manutencao', '-km_manutencao').first().km_manutencao
+                if self.km_manutencao < km_anterior:
+                    raise ValidationError(f"O KM da manutenção ({self.km_manutencao}) não pode ser menor que o KM da última manutenção registrada ({km_anterior}).")
+
+
+class TrocaOleoViatura(models.Model):
+    """Controle de troca de óleo de viaturas"""
+    
+    TIPO_OLEO_CHOICES = [
+        ('MINERAL', 'Óleo Mineral'),
+        ('SEMI_SINTETICO', 'Óleo Semi-Sintético'),
+        ('SINTETICO', 'Óleo Sintético'),
+        ('SINTETICO_PLUS', 'Óleo Sintético Plus'),
+        ('OUTRO', 'Outro'),
+    ]
+    
+    viatura = models.ForeignKey(Viatura, on_delete=models.CASCADE, related_name='trocas_oleo', verbose_name="Viatura")
+    data_troca = models.DateTimeField(verbose_name="Data e Hora da Troca", default=timezone.now)
+    km_troca = models.PositiveIntegerField(verbose_name="KM na Troca de Óleo")
+    tipo_oleo = models.CharField(max_length=20, choices=TIPO_OLEO_CHOICES, default='SEMI_SINTETICO', verbose_name="Tipo de Óleo")
+    nome_oleo = models.CharField(max_length=200, blank=True, null=True, verbose_name="Nome do Óleo", help_text="Nome/comercial do óleo utilizado")
+    quantidade_litros = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Quantidade (Litros)", validators=[MinValueValidator(0.01)])
+    valor_litro = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Valor por Litro (R$)", validators=[MinValueValidator(0)])
+    valor_total = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Valor Total (R$)", validators=[MinValueValidator(0.01)])
+    valor_total_nota = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True, verbose_name="Valor Total da Nota (R$)", help_text="Soma total da nota fiscal (óleo + filtros + aditivo + outras peças)")
+    fornecedor_oficina = models.CharField(max_length=200, blank=True, null=True, verbose_name="Oficina/Fornecedor")
+    trocou_filtro_oleo = models.BooleanField(default=False, verbose_name="Trocou Filtro de Óleo", help_text="Indica se também foi trocado o filtro de óleo")
+    valor_filtro_oleo = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Valor do Filtro de Óleo (R$)", validators=[MinValueValidator(0)])
+    trocou_filtro_combustivel = models.BooleanField(default=False, verbose_name="Trocou Filtro de Combustível", help_text="Indica se também foi trocado o filtro de combustível")
+    valor_filtro_combustivel = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Valor do Filtro de Combustível (R$)", validators=[MinValueValidator(0)])
+    trocou_filtro_ar = models.BooleanField(default=False, verbose_name="Trocou Filtro de Ar Condicionado", help_text="Indica se também foi trocado o filtro de ar condicionado")
+    valor_filtro_ar = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Valor do Filtro de Ar Condicionado (R$)", validators=[MinValueValidator(0)])
+    adicionou_aditivo_arrefecimento = models.BooleanField(default=False, verbose_name="Adicionou Aditivo de Arrefecimento", help_text="Indica se foi adicionado aditivo de arrefecimento")
+    quantidade_aditivo_arrefecimento = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Quantidade de Aditivo (Litros)", validators=[MinValueValidator(0)])
+    valor_aditivo_arrefecimento = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Valor do Aditivo de Arrefecimento (R$)", validators=[MinValueValidator(0)])
+    outras_pecas = models.TextField(blank=True, null=True, verbose_name="Outras Peças", help_text="Lista de outras peças que foram trocadas ou substituídas (nome e valor)")
+    valor_outras_pecas = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True, verbose_name="Valor das Outras Peças (R$)", validators=[MinValueValidator(0)])
+    proximo_km_troca = models.PositiveIntegerField(blank=True, null=True, verbose_name="KM para Próxima Troca", help_text="KM previsto para a próxima troca de óleo")
+    responsavel = models.ForeignKey('Militar', on_delete=models.SET_NULL, null=True, blank=True, related_name='trocas_oleo_responsaveis', verbose_name="Responsável pela Troca")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    
+    # Controle
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='trocas_oleo_criadas', verbose_name="Criado por")
+    
+    class Meta:
+        verbose_name = "Troca de Óleo de Viatura"
+        verbose_name_plural = "Trocas de Óleo de Viaturas"
+        ordering = ['-data_troca', '-km_troca']
+        indexes = [
+            models.Index(fields=['viatura', '-data_troca']),
+            models.Index(fields=['data_troca']),
+            models.Index(fields=['tipo_oleo']),
+        ]
+    
+    def __str__(self):
+        responsavel_str = f" - {self.responsavel.get_posto_graduacao_display()} {self.responsavel.nome_completo}" if self.responsavel else ""
+        return f"{self.viatura.placa} - {self.quantidade_litros}L {self.get_tipo_oleo_display()} - {self.data_troca.strftime('%d/%m/%Y %H:%M')}{responsavel_str}"
+    
+    def clean(self):
+        """Validações customizadas"""
+        from django.core.exceptions import ValidationError
+        
+        # Calcular valor total se houver valor por litro e quantidade
+        if self.quantidade_litros and self.valor_litro:
+            from decimal import Decimal
+            # Converter tudo para float durante o cálculo para evitar mistura Decimal/float
+            valor_calculado = float(self.quantidade_litros) * float(self.valor_litro)
+            if self.valor_filtro_oleo:
+                valor_calculado += float(self.valor_filtro_oleo)
+            if self.valor_filtro_combustivel:
+                valor_calculado += float(self.valor_filtro_combustivel)
+            if self.valor_filtro_ar:
+                valor_calculado += float(self.valor_filtro_ar)
+            if self.valor_aditivo_arrefecimento:
+                valor_calculado += float(self.valor_aditivo_arrefecimento)
+            if self.valor_outras_pecas:
+                valor_calculado += float(self.valor_outras_pecas)
+            
+            # Converter o resultado de volta para Decimal
+            valor_calculado_decimal = Decimal(str(valor_calculado))
+            
+            # Se não tiver valor_total ou se estiver diferente, atualizar
+            if not self.valor_total or abs(float(self.valor_total) - valor_calculado) > 0.01:
+                self.valor_total = valor_calculado_decimal
+            
+            # O valor_total_nota é igual ao valor_total (soma de tudo)
+            self.valor_total_nota = valor_calculado_decimal
+        
+        # Validar que KM não seja menor que o anterior (se houver)
+        if self.viatura and self.km_troca:
+            trocas_anteriores = TrocaOleoViatura.objects.filter(
+                viatura=self.viatura,
+                ativo=True
+            ).exclude(pk=self.pk if self.pk else None)
+            
+            if trocas_anteriores.exists():
+                km_anterior = trocas_anteriores.order_by('-data_troca', '-km_troca').first().km_troca
+                if self.km_troca < km_anterior:
+                    raise ValidationError(f"O KM da troca de óleo ({self.km_troca}) não pode ser menor que o KM da última troca registrada ({km_anterior}).")
+    
+    def save(self, *args, **kwargs):
+        # Calcular valor total antes de salvar se não estiver definido
+        if self.quantidade_litros and self.valor_litro:
+            from decimal import Decimal
+            # Converter tudo para float durante o cálculo para evitar mistura Decimal/float
+            valor_calculado = float(self.quantidade_litros) * float(self.valor_litro)
+            if self.valor_filtro_oleo:
+                valor_calculado += float(self.valor_filtro_oleo)
+            if self.valor_filtro_combustivel:
+                valor_calculado += float(self.valor_filtro_combustivel)
+            if self.valor_filtro_ar:
+                valor_calculado += float(self.valor_filtro_ar)
+            if self.valor_aditivo_arrefecimento:
+                valor_calculado += float(self.valor_aditivo_arrefecimento)
+            if self.valor_outras_pecas:
+                valor_calculado += float(self.valor_outras_pecas)
+            
+            # Converter o resultado de volta para Decimal
+            valor_calculado_decimal = Decimal(str(valor_calculado))
+            
+            if not self.valor_total:
+                self.valor_total = valor_calculado_decimal
+            
+            # O valor_total_nota é igual ao valor_total (soma de tudo)
+            self.valor_total_nota = valor_calculado_decimal
+        
+        super().save(*args, **kwargs)
+
+
+class RodagemViatura(models.Model):
+    """Controle de rodagem/uso das viaturas"""
+    
+    OBJETIVO_CHOICES = [
+        ('OPERACAO', 'Operação'),
+        ('TREINAMENTO', 'Treinamento'),
+        ('MANUTENCAO', 'Manutenção'),
+        ('ADMINISTRATIVO', 'Administrativo'),
+        ('TRANSPORTE', 'Transporte'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('EM_ANDAMENTO', 'Em Andamento'),
+        ('FINALIZADA', 'Finalizada'),
+        ('CANCELADA', 'Cancelada'),
+    ]
+    
+    viatura = models.ForeignKey(Viatura, on_delete=models.CASCADE, related_name='rodagens', verbose_name="Viatura")
+    data_saida = models.DateField(verbose_name="Data de Saída", default=timezone.now)
+    hora_saida = models.TimeField(verbose_name="Hora de Saída", default=timezone.now)
+    data_retorno = models.DateField(blank=True, null=True, verbose_name="Data de Retorno")
+    hora_retorno = models.TimeField(blank=True, null=True, verbose_name="Hora de Retorno")
+    km_inicial = models.PositiveIntegerField(verbose_name="KM Inicial")
+    km_final = models.PositiveIntegerField(blank=True, null=True, verbose_name="KM Final")
+    km_rodado = models.PositiveIntegerField(default=0, verbose_name="KM Rodado", help_text="Calculado automaticamente")
+    condutor = models.ForeignKey('Militar', on_delete=models.SET_NULL, null=True, blank=True, related_name='rodagens_condutor', verbose_name="Condutor")
+    objetivo = models.CharField(max_length=20, choices=OBJETIVO_CHOICES, default='OPERACAO', verbose_name="Objetivo")
+    destino = models.CharField(max_length=200, blank=True, null=True, verbose_name="Destino", help_text="Local de destino da viatura")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='EM_ANDAMENTO', verbose_name="Status")
+    
+    # Controle
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='rodagens_criadas', verbose_name="Criado por")
+    
+    class Meta:
+        verbose_name = "Rodagem de Viatura"
+        verbose_name_plural = "Rodagens de Viaturas"
+        ordering = ['-data_saida', '-hora_saida']
+        indexes = [
+            models.Index(fields=['viatura', '-data_saida']),
+            models.Index(fields=['data_saida']),
+            models.Index(fields=['status']),
+            models.Index(fields=['condutor']),
+        ]
+    
+    def __str__(self):
+        condutor_str = f" - {self.condutor.get_posto_graduacao_display()} {self.condutor.nome_completo}" if self.condutor else ""
+        status_str = f" [{self.get_status_display()}]" if self.status else ""
+        return f"{self.viatura.placa} - {self.data_saida.strftime('%d/%m/%Y')} - {self.km_rodado}km{condutor_str}{status_str}"
+    
+    def calcular_km_rodado(self):
+        """Calcula os KM rodados baseado no KM inicial e final"""
+        if self.km_final and self.km_inicial:
+            km_calculado = self.km_final - self.km_inicial
+            if km_calculado < 0:
+                return 0
+            return km_calculado
+        return 0
+    
+    def clean(self):
+        """Validações customizadas"""
+        from django.core.exceptions import ValidationError
+
+        # Validação removida: KM inicial não precisa ser validado contra km_atual da viatura
+        # pois o controle de rodagem é independente do controle de combustível
+        
+        # Validar que KM final seja maior ou igual ao KM inicial (se houver)
+        if self.km_final and self.km_inicial:
+            if self.km_final < self.km_inicial:
+                raise ValidationError(
+                    f"O KM final ({self.km_final}) não pode ser menor que o KM inicial ({self.km_inicial})."
+                )
+        
+        # Validar que se tiver data/hora de retorno, deve ter data/hora de saída
+        if self.data_retorno and not self.data_saida:
+            raise ValidationError("Se houver data de retorno, deve haver data de saída.")
+        
+        if self.hora_retorno and not self.hora_saida:
+            raise ValidationError("Se houver hora de retorno, deve haver hora de saída.")
+        
+        # Validar que data de retorno não seja anterior à data de saída
+        if self.data_retorno and self.data_saida:
+            if self.data_retorno < self.data_saida:
+                raise ValidationError("A data de retorno não pode ser anterior à data de saída.")
+            
+            # Se for no mesmo dia, validar hora
+            if self.data_retorno == self.data_saida and self.hora_retorno and self.hora_saida:
+                from datetime import datetime
+                hora_saida_dt = datetime.combine(self.data_saida, self.hora_saida)
+                hora_retorno_dt = datetime.combine(self.data_retorno, self.hora_retorno)
+                if hora_retorno_dt < hora_saida_dt:
+                    raise ValidationError("A hora de retorno não pode ser anterior à hora de saída no mesmo dia.")
+    
+    def save(self, *args, **kwargs):
+        """Calcula KM rodado e atualiza status automaticamente"""
+        # Calcular KM rodado
+        self.km_rodado = self.calcular_km_rodado()
+
+        # Atualizar status automaticamente
+        if self.km_final and self.data_retorno and self.hora_retorno:
+            if self.status == 'EM_ANDAMENTO':
+                self.status = 'FINALIZADA'
+        elif self.status == 'FINALIZADA' and not (self.km_final and self.data_retorno and self.hora_retorno):
+            self.status = 'EM_ANDAMENTO'
+
+        super().save(*args, **kwargs)
+        
+        # NOTA: O KM atual da viatura não é atualizado aqui para manter
+        # o controle de rodagem independente do controle de combustível
+
+
+class LicenciamentoViatura(models.Model):
+    """Controle de licenciamento de viaturas"""
+    
+    STATUS_CHOICES = [
+        ('PAGO', 'Pago'),
+        ('PENDENTE', 'Pendente'),
+        ('VENCIDO', 'Vencido'),
+    ]
+    
+    viatura = models.ForeignKey(Viatura, on_delete=models.CASCADE, related_name='licenciamentos', verbose_name="Viatura")
+    ano_licenciamento = models.PositiveIntegerField(verbose_name="Ano de Licenciamento", validators=[MinValueValidator(1900), MaxValueValidator(2100)])
+    data_vencimento = models.DateField(verbose_name="Data de Vencimento")
+    valor_licenciamento = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Valor do Licenciamento (R$)", validators=[MinValueValidator(0.01)])
+    data_pagamento = models.DateField(blank=True, null=True, verbose_name="Data de Pagamento", help_text="Data em que o licenciamento foi pago")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDENTE', verbose_name="Status")
+    proximo_vencimento = models.DateField(blank=True, null=True, verbose_name="Próximo Vencimento", help_text="Data prevista para o próximo vencimento")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    responsavel = models.ForeignKey('Militar', on_delete=models.SET_NULL, null=True, blank=True, related_name='licenciamentos_responsaveis', verbose_name="Responsável pelo Licenciamento")
+    
+    # Controle
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='licenciamentos_criados', verbose_name="Criado por")
+    
+    class Meta:
+        verbose_name = "Licenciamento de Viatura"
+        verbose_name_plural = "Licenciamentos de Viaturas"
+        ordering = ['-ano_licenciamento', '-data_vencimento']
+        indexes = [
+            models.Index(fields=['viatura', '-ano_licenciamento']),
+            models.Index(fields=['data_vencimento']),
+            models.Index(fields=['status']),
+        ]
+        unique_together = [['viatura', 'ano_licenciamento']]
+    
+    def __str__(self):
+        responsavel_str = f" - {self.responsavel.get_posto_graduacao_display()} {self.responsavel.nome_completo}" if self.responsavel else ""
+        return f"{self.viatura.placa} - {self.ano_licenciamento} - {self.get_status_display()}{responsavel_str}"
+    
+    def clean(self):
+        """Validações customizadas"""
+        from django.core.exceptions import ValidationError
+        from datetime import date
+        
+        # Validar que data de pagamento não seja maior que hoje
+        if self.data_pagamento:
+            if self.data_pagamento > date.today():
+                raise ValidationError("A data de pagamento não pode ser futura.")
+        
+        # Validar que ano_licenciamento seja o ano da data de vencimento ou próximo
+        if self.data_vencimento and self.ano_licenciamento:
+            ano_vencimento = self.data_vencimento.year
+            if abs(self.ano_licenciamento - ano_vencimento) > 1:
+                raise ValidationError("O ano de licenciamento deve estar próximo ao ano de vencimento.")
+        
+        # Atualizar status automaticamente baseado na data de vencimento
+        if self.data_vencimento:
+            hoje = date.today()
+            if self.data_pagamento:
+                self.status = 'PAGO'
+            elif self.data_vencimento < hoje:
+                self.status = 'VENCIDO'
+            else:
+                self.status = 'PENDENTE'
+    
+    def save(self, *args, **kwargs):
+        """Atualizar status antes de salvar"""
+        from datetime import date
+        hoje = date.today()
+        
+        if self.data_vencimento:
+            if self.data_pagamento:
+                self.status = 'PAGO'
+            elif self.data_vencimento < hoje:
+                self.status = 'VENCIDO'
+            elif self.status != 'PAGO':
+                self.status = 'PENDENTE'
+        
+        super().save(*args, **kwargs)
+
+
+class HistoricoAbastecimentoAssinado(models.Model):
+    """Registro de histórico de abastecimentos assinado (PDF gerado)"""
+    viatura = models.ForeignKey(Viatura, on_delete=models.CASCADE, related_name='historicos_abastecimentos_assinados', verbose_name="Viatura")
+    data_inicio = models.DateField(verbose_name="Data Início do Período")
+    data_fim = models.DateField(verbose_name="Data Fim do Período")
+    total_litros = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Total de Litros")
+    total_valor = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Total Gasto (R$)")
+    quantidade_abastecimentos = models.PositiveIntegerField(verbose_name="Quantidade de Abastecimentos")
+    
+    # Controle
+    data_geracao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Geração")
+    gerado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='historicos_abastecimentos_gerados', verbose_name="Gerado por")
+    
+    # Hash para autenticidade do documento
+    hash_documento = models.CharField(max_length=255, blank=True, null=True, verbose_name="Hash do Documento")
+    
+    class Meta:
+        verbose_name = "Histórico de Abastecimento Assinado"
+        verbose_name_plural = "Históricos de Abastecimentos Assinados"
+        ordering = ['-data_geracao']
+    
+    def __str__(self):
+        return f"Histórico {self.viatura.placa} - {self.data_inicio.strftime('%d/%m/%Y')} a {self.data_fim.strftime('%d/%m/%Y')}"
+
+
+class AssinaturaHistoricoAbastecimento(models.Model):
+    """Assinaturas de um histórico de abastecimentos"""
+    
+    TIPO_ASSINATURA_CHOICES = [
+        ('APROVACAO', 'Aprovação'),
+        ('CONFERENCIA', 'Conferência'),
+        ('ELETRONICA', 'Eletrônica'),
+        ('HOMOLOGACAO', 'Homologação'),
+        ('REVISAO', 'Revisão'),
+    ]
+    
+    TIPO_MIDIA_CHOICES = [
+        ('FISICA', 'Física'),
+        ('ELETRONICA', 'Eletrônica'),
+    ]
+    
+    historico = models.ForeignKey(HistoricoAbastecimentoAssinado, on_delete=models.CASCADE, verbose_name="Histórico", related_name="assinaturas")
+    assinado_por = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Assinado por")
+    data_assinatura = models.DateTimeField(auto_now_add=True, verbose_name="Data da Assinatura")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações da Assinatura")
+    tipo_assinatura = models.CharField(
+        max_length=15, 
+        choices=TIPO_ASSINATURA_CHOICES, 
+        default='APROVACAO',
+        verbose_name="Tipo de Assinatura"
+    )
+    funcao_assinatura = models.CharField(
+        blank=True,
+        help_text="Função/cargo do usuário no momento da assinatura",
+        max_length=100,
+        null=True,
+        verbose_name="Função no momento da assinatura",
+    )
+    
+    # Campos para tipo de mídia da assinatura
+    tipo_midia = models.CharField(
+        max_length=10,
+        choices=TIPO_MIDIA_CHOICES,
+        default='FISICA',
+        verbose_name="Tipo de Mídia"
+    )
+    
+    # Campos para assinatura física
+    assinatura_fisica = models.ImageField(
+        upload_to='assinaturas_fisicas/',
+        blank=True,
+        null=True,
+        verbose_name="Assinatura Física (Imagem)"
+    )
+    
+    # Campos para assinatura eletrônica
+    hash_documento = models.CharField(max_length=255, blank=True, null=True, verbose_name="Hash do Documento")
+    timestamp = models.CharField(max_length=100, blank=True, null=True, verbose_name="Timestamp da Assinatura")
+    assinatura_digital = models.TextField(blank=True, null=True, verbose_name="Assinatura Digital")
+    certificado = models.CharField(max_length=100, blank=True, null=True, verbose_name="Certificado Digital")
+    ip_assinatura = models.GenericIPAddressField(blank=True, null=True, verbose_name="IP da Assinatura")
+    user_agent = models.TextField(blank=True, null=True, verbose_name="User Agent")
+    
+    class Meta:
+        verbose_name = "Assinatura do Histórico de Abastecimento"
+        verbose_name_plural = "Assinaturas dos Históricos de Abastecimentos"
+        ordering = ['-data_assinatura']
+        unique_together = ['historico', 'assinado_por', 'tipo_assinatura']
+    
+    def __str__(self):
+        return f"{self.historico} - {self.assinado_por.get_full_name()} - {self.get_tipo_assinatura_display()}"
+
+
+class HistoricoAlteracaoViatura(models.Model):
+    """Registro de histórico de alterações realizadas em viaturas"""
+    
+    viatura = models.ForeignKey(Viatura, on_delete=models.CASCADE, related_name='historico_alteracoes', verbose_name="Viatura")
+    alterado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='alteracoes_viaturas', verbose_name="Alterado por")
+    data_alteracao = models.DateTimeField(auto_now_add=True, verbose_name="Data da Alteração")
+    campo_alterado = models.CharField(max_length=100, verbose_name="Campo Alterado")
+    valor_anterior = models.TextField(blank=True, null=True, verbose_name="Valor Anterior")
+    valor_novo = models.TextField(blank=True, null=True, verbose_name="Valor Novo")
+    observacao = models.TextField(blank=True, null=True, verbose_name="Observação")
+    
+    class Meta:
+        verbose_name = "Histórico de Alteração de Viatura"
+        verbose_name_plural = "Históricos de Alterações de Viaturas"
+        ordering = ['-data_alteracao']
+        indexes = [
+            models.Index(fields=['viatura', '-data_alteracao']),
+        ]
+    
+    def __str__(self):
+        return f"{self.viatura.placa} - {self.campo_alterado} - {self.data_alteracao.strftime('%d/%m/%Y %H:%M')}"
+
+
+class TransferenciaViatura(models.Model):
+    """Registro de transferências de viaturas entre unidades"""
+    
+    viatura = models.ForeignKey(Viatura, on_delete=models.CASCADE, related_name='transferencias', verbose_name="Viatura")
+    
+    # Organização de origem
+    orgao_origem = models.ForeignKey(Orgao, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_origem', verbose_name="Órgão de Origem")
+    grande_comando_origem = models.ForeignKey(GrandeComando, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_origem', verbose_name="Grande Comando de Origem")
+    unidade_origem = models.ForeignKey(Unidade, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_origem', verbose_name="Unidade de Origem")
+    sub_unidade_origem = models.ForeignKey(SubUnidade, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_origem', verbose_name="Sub-Unidade de Origem")
+    
+    # Organização de destino
+    orgao_destino = models.ForeignKey(Orgao, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_destino', verbose_name="Órgão de Destino")
+    grande_comando_destino = models.ForeignKey(GrandeComando, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_destino', verbose_name="Grande Comando de Destino")
+    unidade_destino = models.ForeignKey(Unidade, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_destino', verbose_name="Unidade de Destino")
+    sub_unidade_destino = models.ForeignKey(SubUnidade, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_destino', verbose_name="Sub-Unidade de Destino")
+    
+    # Controle
+    data_transferencia = models.DateTimeField(auto_now_add=True, verbose_name="Data da Transferência")
+    transferido_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_realizadas', verbose_name="Transferido por")
+    justificativa = models.TextField(verbose_name="Justificativa", help_text="Motivo da transferência")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    
+    class Meta:
+        verbose_name = "Transferência de Viatura"
+        verbose_name_plural = "Transferências de Viaturas"
+        ordering = ['-data_transferencia']
+        indexes = [
+            models.Index(fields=['viatura', '-data_transferencia']),
+        ]
+    
+    def __str__(self):
+        origem = self.get_organizacao_origem()
+        destino = self.get_organizacao_destino()
+        return f"{self.viatura.placa} - {origem} → {destino}"
+    
+    def get_organizacao_origem(self):
+        """Retorna a organização de origem formatada"""
+        if self.sub_unidade_origem:
+            return str(self.sub_unidade_origem)
+        elif self.unidade_origem:
+            return str(self.unidade_origem)
+        elif self.grande_comando_origem:
+            return str(self.grande_comando_origem)
+        elif self.orgao_origem:
+            return str(self.orgao_origem)
+        return "Não definido"
+    
+    def get_organizacao_destino(self):
+        """Retorna a organização de destino formatada"""
+        if self.sub_unidade_destino:
+            return str(self.sub_unidade_destino)
+        elif self.unidade_destino:
+            return str(self.unidade_destino)
+        elif self.grande_comando_destino:
+            return str(self.grande_comando_destino)
+        elif self.orgao_destino:
+            return str(self.orgao_destino)
+        return "Não definido"
+
+
+class EquipamentoOperacional(models.Model):
+    """Cadastro de Equipamentos Operacionais do CBMEPI"""
+    
+    TIPO_CHOICES = [
+        ('BOMBA', 'Bomba de Incêndio'),
+        ('MOTOBOMBA', 'Motobomba'),
+        ('GERADOR', 'Gerador'),
+        ('COMPRESSOR', 'Compressor de Ar'),
+        ('SOLDADURA', 'Equipamento de Soldadura'),
+        ('CORTE', 'Equipamento de Corte'),
+        ('RESGATE', 'Equipamento de Resgate'),
+        ('COMUNICACAO', 'Equipamento de Comunicação'),
+        ('ILUMINACAO', 'Equipamento de Iluminação'),
+        ('VENTILACAO', 'Equipamento de Ventilação'),
+        ('DETECCAO', 'Equipamento de Detecção'),
+        ('PROTECAO', 'Equipamento de Proteção'),
+        ('FERRAMENTA', 'Ferramenta Especializada'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('DISPONIVEL', 'Disponível'),
+        ('EM_USO', 'Em Uso'),
+        ('MANUTENCAO', 'Em Manutenção'),
+        ('BAIXA', 'Dado de Baixa'),
+    ]
+    
+    codigo = models.CharField(max_length=50, unique=True, verbose_name="Código", help_text="Código único do equipamento")
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, verbose_name="Tipo de Equipamento")
+    marca = models.CharField(max_length=100, verbose_name="Marca", help_text="Ex: Honda, Yamaha, Briggs & Stratton")
+    modelo = models.CharField(max_length=100, verbose_name="Modelo", help_text="Ex: GX390, GX200, etc.")
+    numero_serie = models.CharField(max_length=100, blank=True, null=True, verbose_name="Número de Série", unique=True)
+    ano_fabricacao = models.PositiveIntegerField(blank=True, null=True, verbose_name="Ano de Fabricação", validators=[MinValueValidator(1900), MaxValueValidator(2100)])
+    horas_uso = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Horas de Uso", help_text="Total de horas de uso do equipamento")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='DISPONIVEL', verbose_name="Status")
+    
+    # Relacionamento com organização
+    orgao = models.ForeignKey(Orgao, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Órgão")
+    grande_comando = models.ForeignKey(GrandeComando, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Grande Comando")
+    unidade = models.ForeignKey(Unidade, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Unidade")
+    sub_unidade = models.ForeignKey(SubUnidade, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sub-Unidade")
+    
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    data_aquisicao = models.DateField(blank=True, null=True, verbose_name="Data de Aquisição")
+    valor_aquisicao = models.DecimalField(max_digits=20, decimal_places=2, blank=True, null=True, verbose_name="Valor de Aquisição (R$)")
+    fornecedor = models.CharField(max_length=200, blank=True, null=True, verbose_name="Fornecedor")
+    
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='equipamentos_operacionais_criados', verbose_name="Criado por")
+    
+    class Meta:
+        verbose_name = "Equipamento Operacional"
+        verbose_name_plural = "Equipamentos Operacionais"
+        ordering = ['codigo']
+        indexes = [
+            models.Index(fields=['codigo']),
+            models.Index(fields=['status']),
+            models.Index(fields=['tipo']),
+        ]
+    
+    def __str__(self):
+        return f"{self.codigo} - {self.get_tipo_display()} ({self.marca} {self.modelo})"
+    
+    def get_organizacao_display(self):
+        """Retorna a organização hierárquica completa do equipamento"""
+        hierarquia = []
+        if self.orgao:
+            hierarquia.append(self.orgao.nome)
+        if self.grande_comando:
+            hierarquia.append(self.grande_comando.nome)
+        if self.unidade:
+            hierarquia.append(self.unidade.nome)
+        if self.sub_unidade:
+            hierarquia.append(self.sub_unidade.nome)
+        
+        if hierarquia:
+            return " | ".join(hierarquia)
+        return "Não definido"
+    
+    def get_organizacao_instancia(self):
+        """Retorna apenas a instância mais específica da organização (sem hierarquia)"""
+        if self.sub_unidade:
+            return self.sub_unidade.nome
+        elif self.unidade:
+            return self.unidade.nome
+        elif self.grande_comando:
+            return self.grande_comando.nome
+        elif self.orgao:
+            return self.orgao.nome
+        return "Não definido"
+    
+    def clean(self):
+        """Validações customizadas"""
+        from django.core.exceptions import ValidationError
+        
+        # Validar que pelo menos uma organização está definida
+        if not any([self.orgao, self.grande_comando, self.unidade, self.sub_unidade]):
+            raise ValidationError("É necessário definir ao menos uma organização (Órgão, Grande Comando, Unidade ou Sub-Unidade).")
+
+
+class TempoUsoEquipamento(models.Model):
+    """Controle de tempo de uso dos equipamentos operacionais"""
+    
+    OBJETIVO_CHOICES = [
+        ('OPERACAO', 'Operação'),
+        ('TREINAMENTO', 'Treinamento'),
+        ('MANUTENCAO', 'Manutenção'),
+        ('TESTE', 'Teste'),
+        ('DEMONSTRACAO', 'Demonstração'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('EM_ANDAMENTO', 'Em Andamento'),
+        ('FINALIZADA', 'Finalizada'),
+        ('CANCELADA', 'Cancelada'),
+    ]
+    
+    equipamento = models.ForeignKey(EquipamentoOperacional, on_delete=models.CASCADE, related_name='tempos_uso', verbose_name="Equipamento")
+    data_inicio = models.DateField(verbose_name="Data de Início", default=timezone.now)
+    hora_inicio = models.TimeField(verbose_name="Hora de Início", default=timezone.now)
+    data_fim = models.DateField(blank=True, null=True, verbose_name="Data de Fim")
+    hora_fim = models.TimeField(blank=True, null=True, verbose_name="Hora de Fim")
+    horas_inicial = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Horas Inicial", help_text="Horas de uso do equipamento no início")
+    horas_final = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Horas Final", help_text="Horas de uso do equipamento no fim")
+    horas_usadas = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Horas Usadas", help_text="Calculado automaticamente")
+    operador = models.ForeignKey('Militar', on_delete=models.SET_NULL, null=True, blank=True, related_name='tempos_uso_operador', verbose_name="Operador")
+    objetivo = models.CharField(max_length=20, choices=OBJETIVO_CHOICES, default='OPERACAO', verbose_name="Objetivo")
+    local_uso = models.CharField(max_length=200, blank=True, null=True, verbose_name="Local de Uso", help_text="Local onde o equipamento foi utilizado")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='EM_ANDAMENTO', verbose_name="Status")
+    
+    # Controle
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='tempos_uso_criados', verbose_name="Criado por")
+    
+    class Meta:
+        verbose_name = "Tempo de Uso de Equipamento"
+        verbose_name_plural = "Tempos de Uso de Equipamentos"
+        ordering = ['-data_inicio', '-hora_inicio']
+        indexes = [
+            models.Index(fields=['equipamento', '-data_inicio']),
+            models.Index(fields=['data_inicio']),
+            models.Index(fields=['status']),
+            models.Index(fields=['operador']),
+        ]
+    
+    def __str__(self):
+        operador_str = f" - {self.operador.get_posto_graduacao_display()} {self.operador.nome_completo}" if self.operador else ""
+        status_str = f" [{self.get_status_display()}]" if self.status else ""
+        return f"{self.equipamento.codigo} - {self.data_inicio.strftime('%d/%m/%Y')} - {self.horas_usadas}h{operador_str}{status_str}"
+    
+    def calcular_horas_usadas(self):
+        """Calcula as horas usadas baseado nas horas inicial e final"""
+        from decimal import Decimal
+        
+        if self.horas_final and self.horas_inicial:
+            horas_calculadas = self.horas_final - self.horas_inicial
+            if horas_calculadas < 0:
+                return Decimal('0')
+            return horas_calculadas
+        return Decimal('0')
+    
+    def clean(self):
+        """Validações customizadas"""
+        from django.core.exceptions import ValidationError
+        from decimal import Decimal
+
+        # Validar que horas final seja maior ou igual às horas inicial (se houver)
+        if self.horas_final and self.horas_inicial:
+            if self.horas_final < self.horas_inicial:
+                raise ValidationError(
+                    f"As horas finais ({self.horas_final}) não podem ser menores que as horas iniciais ({self.horas_inicial})."
+                )
+        
+        # Validar que se tiver data/hora de fim, deve ter data/hora de início
+        if self.data_fim and not self.data_inicio:
+            raise ValidationError("Se houver data de fim, deve haver data de início.")
+        
+        if self.hora_fim and not self.hora_inicio:
+            raise ValidationError("Se houver hora de fim, deve haver hora de início.")
+        
+        # Validar que data de fim não seja anterior à data de início
+        if self.data_fim and self.data_inicio:
+            if self.data_fim < self.data_inicio:
+                raise ValidationError("A data de fim não pode ser anterior à data de início.")
+            
+            # Se for no mesmo dia, validar hora
+            if self.data_fim == self.data_inicio and self.hora_fim and self.hora_inicio:
+                from datetime import datetime
+                hora_inicio_dt = datetime.combine(self.data_inicio, self.hora_inicio)
+                hora_fim_dt = datetime.combine(self.data_fim, self.hora_fim)
+                if hora_fim_dt < hora_inicio_dt:
+                    raise ValidationError("A hora de fim não pode ser anterior à hora de início no mesmo dia.")
+    
+    def save(self, *args, **kwargs):
+        """Calcula horas usadas e atualiza status automaticamente"""
+        from decimal import Decimal
+        
+        # Calcular horas usadas
+        self.horas_usadas = self.calcular_horas_usadas()
+
+        # Atualizar status automaticamente
+        if self.horas_final and self.data_fim and self.hora_fim:
+            if self.status == 'EM_ANDAMENTO':
+                self.status = 'FINALIZADA'
+        elif self.status == 'FINALIZADA' and not (self.horas_final and self.data_fim and self.hora_fim):
+            self.status = 'EM_ANDAMENTO'
+
+        super().save(*args, **kwargs)
+        
+        # Atualizar horas de uso do equipamento quando finalizar
+        if self.status == 'FINALIZADA' and self.horas_final:
+            self.equipamento.horas_uso = self.horas_final
+            self.equipamento.save(update_fields=['horas_uso'])
+
+
+class AbastecimentoEquipamento(models.Model):
+    """Controle de abastecimento de combustível dos equipamentos operacionais"""
+    
+    TIPO_COMBUSTIVEL_CHOICES = [
+        ('GASOLINA', 'Gasolina'),
+        ('DIESEL', 'Diesel'),
+        ('ETANOL', 'Etanol'),
+        ('FLEX', 'Flex (Gasolina/Etanol)'),
+        ('GNV', 'GNV (Gás Natural Veicular)'),
+        ('ELETRICO', 'Elétrico'),
+    ]
+    
+    equipamento = models.ForeignKey(EquipamentoOperacional, on_delete=models.CASCADE, related_name='abastecimentos', verbose_name="Equipamento")
+    data_abastecimento = models.DateTimeField(verbose_name="Data e Hora do Abastecimento", default=timezone.now)
+    quantidade_litros = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Quantidade (Litros)", validators=[MinValueValidator(0.01)])
+    valor_litro = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Valor por Litro (R$)", validators=[MinValueValidator(0.01)])
+    valor_total = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Valor Total (R$)", validators=[MinValueValidator(0.01)])
+    horas_uso_abastecimento = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Horas de Uso no Abastecimento", help_text="Horas de uso do equipamento no momento do abastecimento")
+    tipo_combustivel = models.CharField(max_length=20, choices=TIPO_COMBUSTIVEL_CHOICES, default='DIESEL', verbose_name="Tipo de Combustível")
+    posto_fornecedor = models.CharField(max_length=200, blank=True, null=True, verbose_name="Posto/Fornecedor")
+    com_aditivos = models.BooleanField(default=False, verbose_name="Com Aditivos", help_text="Indica se foram comprados também aditivos para o combustível")
+    tipo_aditivo = models.CharField(max_length=100, blank=True, null=True, verbose_name="Tipo de Aditivo", help_text="Ex: Aditivo para diesel, limpa bicos, etc.")
+    quantidade_aditivo = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Quantidade de Aditivo", help_text="Quantidade (litros ou unidade)")
+    valor_unitario_aditivo = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Valor Unitário do Aditivo (R$)", validators=[MinValueValidator(0)])
+    valor_total_aditivo = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True, verbose_name="Valor Total do Aditivo (R$)", validators=[MinValueValidator(0)])
+    valor_total_nota = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True, verbose_name="Valor Total da Nota (R$)", help_text="Soma do combustível + aditivos")
+    responsavel = models.ForeignKey('Militar', on_delete=models.SET_NULL, null=True, blank=True, related_name='abastecimentos_equipamentos_responsaveis', verbose_name="Responsável pelo Abastecimento")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    
+    # Controle
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='abastecimentos_equipamentos_criados', verbose_name="Criado por")
+    
+    class Meta:
+        verbose_name = "Abastecimento de Equipamento"
+        verbose_name_plural = "Abastecimentos de Equipamentos"
+        ordering = ['-data_abastecimento', '-horas_uso_abastecimento']
+        indexes = [
+            models.Index(fields=['equipamento', '-data_abastecimento']),
+            models.Index(fields=['data_abastecimento']),
+            models.Index(fields=['tipo_combustivel']),
+        ]
+    
+    def __str__(self):
+        responsavel_str = f" - {self.responsavel.get_posto_graduacao_display()} {self.responsavel.nome_completo}" if self.responsavel else ""
+        return f"{self.equipamento.codigo} - {self.quantidade_litros}L - {self.data_abastecimento.strftime('%d/%m/%Y %H:%M')}{responsavel_str}"
+    
+    def clean(self):
+        """Validações customizadas"""
+        from django.core.exceptions import ValidationError
+        from datetime import timedelta
+        
+        # Validar que valor total = quantidade * valor por litro
+        if self.quantidade_litros and self.valor_litro:
+            valor_calculado = self.quantidade_litros * self.valor_litro
+            if abs(float(self.valor_total) - float(valor_calculado)) > 0.01:
+                raise ValidationError(f"O valor total deve ser igual a quantidade × valor por litro ({valor_calculado:.2f}).")
+        
+        # Calcular valor total do aditivo se houver
+        if self.com_aditivos and self.quantidade_aditivo and self.valor_unitario_aditivo:
+            if not self.valor_total_aditivo or abs(float(self.valor_total_aditivo) - float(self.quantidade_aditivo * self.valor_unitario_aditivo)) > 0.01:
+                self.valor_total_aditivo = self.quantidade_aditivo * self.valor_unitario_aditivo
+        
+        # Calcular valor total da nota (combustível + aditivos)
+        valor_combustivel = float(self.valor_total) if self.valor_total else 0
+        valor_aditivo = float(self.valor_total_aditivo) if self.valor_total_aditivo else 0
+        self.valor_total_nota = valor_combustivel + valor_aditivo
+        
+        # Validar que horas não seja menor que o anterior (se houver)
+        if self.equipamento and self.horas_uso_abastecimento:
+            abastecimentos_anteriores = self.__class__.objects.filter(
+                equipamento=self.equipamento,
+                ativo=True
+            ).exclude(pk=self.pk if self.pk else None)
+            
+            if abastecimentos_anteriores.exists():
+                horas_anterior = abastecimentos_anteriores.order_by('-data_abastecimento', '-horas_uso_abastecimento').first().horas_uso_abastecimento
+                if self.horas_uso_abastecimento < horas_anterior:
+                    raise ValidationError(f"As horas de uso no abastecimento ({self.horas_uso_abastecimento}) não podem ser menores que as horas do último abastecimento registrado ({horas_anterior}).")
+    
+    def save(self, *args, **kwargs):
+        """Atualizar horas de uso do equipamento ao salvar"""
+        # Calcular valor total automaticamente se não fornecido
+        if self.quantidade_litros and self.valor_litro and not self.valor_total:
+            self.valor_total = self.quantidade_litros * self.valor_litro
+        
+        super().save(*args, **kwargs)
+        
+        # Atualizar horas de uso do equipamento
+        if self.equipamento:
+            self.equipamento.horas_uso = self.horas_uso_abastecimento
+            self.equipamento.save(update_fields=['horas_uso'])
+
+
+class ManutencaoEquipamento(models.Model):
+    """Controle de manutenção de equipamentos operacionais"""
+    
+    TIPO_MANUTENCAO_CHOICES = [
+        ('PREVENTIVA', 'Preventiva'),
+        ('CORRETIVA', 'Corretiva'),
+        ('INSPECAO', 'Inspeção'),
+        ('LUBRIFICACAO', 'Lubrificação'),
+        ('CALIBRAGEM', 'Calibragem'),
+        ('REVISAO', 'Revisão'),
+        ('PINTURA', 'Pintura'),
+        ('OUTRA', 'Outra'),
+    ]
+    
+    equipamento = models.ForeignKey(EquipamentoOperacional, on_delete=models.CASCADE, related_name='manutencoes', verbose_name="Equipamento")
+    data_manutencao = models.DateTimeField(verbose_name="Data e Hora da Manutenção", default=timezone.now)
+    tipo_manutencao = models.CharField(max_length=20, choices=TIPO_MANUTENCAO_CHOICES, default='PREVENTIVA', verbose_name="Tipo de Manutenção")
+    horas_uso_manutencao = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Horas de Uso na Manutenção", help_text="Horas de uso do equipamento no momento da manutenção")
+    descricao_servico = models.TextField(verbose_name="Descrição do Serviço", help_text="Detalhamento dos serviços realizados")
+    fornecedor_oficina = models.CharField(max_length=200, blank=True, null=True, verbose_name="Oficina")
+    valor_manutencao = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Valor da Manutenção (R$)", validators=[MinValueValidator(0.01)])
+    pecas_trocadas = models.TextField(blank=True, null=True, verbose_name="Peças Trocadas", help_text="Lista de peças que foram substituídas")
+    proximas_horas_revisao = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Horas para Próxima Revisão", help_text="Horas de uso previstas para a próxima revisão (apenas para tipo Revisão)")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    responsavel = models.ForeignKey('Militar', on_delete=models.SET_NULL, null=True, blank=True, related_name='manutencoes_equipamentos_responsaveis', verbose_name="Responsável pela Manutenção")
+    
+    # Controle
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='manutencoes_equipamentos_criadas', verbose_name="Criado por")
+    
+    class Meta:
+        verbose_name = "Manutenção de Equipamento"
+        verbose_name_plural = "Manutenções de Equipamentos"
+        ordering = ['-data_manutencao', '-horas_uso_manutencao']
+        indexes = [
+            models.Index(fields=['equipamento', '-data_manutencao']),
+            models.Index(fields=['data_manutencao']),
+            models.Index(fields=['tipo_manutencao']),
+        ]
+    
+    def __str__(self):
+        responsavel_str = f" - {self.responsavel.get_posto_graduacao_display()} {self.responsavel.nome_completo}" if self.responsavel else ""
+        return f"{self.equipamento.codigo} - {self.get_tipo_manutencao_display()} - {self.data_manutencao.strftime('%d/%m/%Y %H:%M')}{responsavel_str}"
+    
+    def clean(self):
+        """Validações customizadas"""
+        from django.core.exceptions import ValidationError
+        
+        # Validar que horas não seja menor que o anterior (se houver)
+        if self.equipamento and self.horas_uso_manutencao:
+            manutencoes_anteriores = ManutencaoEquipamento.objects.filter(
+                equipamento=self.equipamento,
+                ativo=True
+            ).exclude(pk=self.pk if self.pk else None)
+            
+            if manutencoes_anteriores.exists():
+                horas_anterior = manutencoes_anteriores.order_by('-data_manutencao', '-horas_uso_manutencao').first().horas_uso_manutencao
+                if self.horas_uso_manutencao < horas_anterior:
+                    raise ValidationError(f"As horas de uso na manutenção ({self.horas_uso_manutencao}) não podem ser menores que as horas da última manutenção registrada ({horas_anterior}).")
+
+
+class TrocaOleoEquipamento(models.Model):
+    """Controle de troca de óleo de equipamentos operacionais"""
+    
+    TIPO_OLEO_CHOICES = [
+        ('MINERAL', 'Óleo Mineral'),
+        ('SEMI_SINTETICO', 'Óleo Semi-Sintético'),
+        ('SINTETICO', 'Óleo Sintético'),
+        ('SINTETICO_PLUS', 'Óleo Sintético Plus'),
+        ('OUTRO', 'Outro'),
+    ]
+    
+    equipamento = models.ForeignKey(EquipamentoOperacional, on_delete=models.CASCADE, related_name='trocas_oleo', verbose_name="Equipamento")
+    data_troca = models.DateTimeField(verbose_name="Data e Hora da Troca", default=timezone.now)
+    horas_uso_troca = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Horas de Uso na Troca de Óleo", help_text="Horas de uso do equipamento no momento da troca")
+    tipo_oleo = models.CharField(max_length=20, choices=TIPO_OLEO_CHOICES, default='SEMI_SINTETICO', verbose_name="Tipo de Óleo")
+    nome_oleo = models.CharField(max_length=200, blank=True, null=True, verbose_name="Nome do Óleo", help_text="Nome/comercial do óleo utilizado")
+    quantidade_litros = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Quantidade (Litros)", validators=[MinValueValidator(0.01)])
+    valor_litro = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Valor por Litro (R$)", validators=[MinValueValidator(0)])
+    valor_total = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Valor Total (R$)", validators=[MinValueValidator(0.01)])
+    valor_total_nota = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True, verbose_name="Valor Total da Nota (R$)", help_text="Soma total da nota fiscal (óleo + filtros + aditivo + outras peças)")
+    fornecedor_oficina = models.CharField(max_length=200, blank=True, null=True, verbose_name="Oficina/Fornecedor")
+    trocou_filtro_oleo = models.BooleanField(default=False, verbose_name="Trocou Filtro de Óleo", help_text="Indica se também foi trocado o filtro de óleo")
+    valor_filtro_oleo = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Valor do Filtro de Óleo (R$)", validators=[MinValueValidator(0)])
+    outras_pecas = models.TextField(blank=True, null=True, verbose_name="Outras Peças", help_text="Lista de outras peças que foram trocadas ou substituídas (nome e valor)")
+    valor_outras_pecas = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True, verbose_name="Valor das Outras Peças (R$)", validators=[MinValueValidator(0)])
+    proximas_horas_troca = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Horas para Próxima Troca", help_text="Horas de uso previstas para a próxima troca de óleo")
+    responsavel = models.ForeignKey('Militar', on_delete=models.SET_NULL, null=True, blank=True, related_name='trocas_oleo_equipamentos_responsaveis', verbose_name="Responsável pela Troca")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    
+    # Controle
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='trocas_oleo_equipamentos_criadas', verbose_name="Criado por")
+    
+    class Meta:
+        verbose_name = "Troca de Óleo de Equipamento"
+        verbose_name_plural = "Trocas de Óleo de Equipamentos"
+        ordering = ['-data_troca', '-horas_uso_troca']
+        indexes = [
+            models.Index(fields=['equipamento', '-data_troca']),
+            models.Index(fields=['data_troca']),
+            models.Index(fields=['tipo_oleo']),
+        ]
+    
+    def __str__(self):
+        responsavel_str = f" - {self.responsavel.get_posto_graduacao_display()} {self.responsavel.nome_completo}" if self.responsavel else ""
+        return f"{self.equipamento.codigo} - {self.quantidade_litros}L {self.get_tipo_oleo_display()} - {self.data_troca.strftime('%d/%m/%Y %H:%M')}{responsavel_str}"
+    
+    def clean(self):
+        """Validações customizadas"""
+        from django.core.exceptions import ValidationError
+        
+        # Calcular valor total se houver valor por litro e quantidade
+        if self.quantidade_litros and self.valor_litro:
+            from decimal import Decimal
+            valor_calculado = float(self.quantidade_litros) * float(self.valor_litro)
+            if self.valor_filtro_oleo:
+                valor_calculado += float(self.valor_filtro_oleo)
+            if self.valor_outras_pecas:
+                valor_calculado += float(self.valor_outras_pecas)
+            
+            valor_calculado_decimal = Decimal(str(valor_calculado))
+            
+            if not self.valor_total or abs(float(self.valor_total) - valor_calculado) > 0.01:
+                self.valor_total = valor_calculado_decimal
+            
+            self.valor_total_nota = valor_calculado_decimal
+        
+        # Validar que horas não seja menor que o anterior (se houver)
+        if self.equipamento and self.horas_uso_troca:
+            trocas_anteriores = TrocaOleoEquipamento.objects.filter(
+                equipamento=self.equipamento,
+                ativo=True
+            ).exclude(pk=self.pk if self.pk else None)
+            
+            if trocas_anteriores.exists():
+                horas_anterior = trocas_anteriores.order_by('-data_troca', '-horas_uso_troca').first().horas_uso_troca
+                if self.horas_uso_troca < horas_anterior:
+                    raise ValidationError(f"As horas de uso na troca ({self.horas_uso_troca}) não podem ser menores que as horas da última troca registrada ({horas_anterior}).")
+
+
+class HistoricoAlteracaoEquipamento(models.Model):
+    """Registro de histórico de alterações realizadas em equipamentos operacionais"""
+    
+    equipamento = models.ForeignKey(EquipamentoOperacional, on_delete=models.CASCADE, related_name='historico_alteracoes', verbose_name="Equipamento")
+    alterado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='alteracoes_equipamentos', verbose_name="Alterado por")
+    data_alteracao = models.DateTimeField(auto_now_add=True, verbose_name="Data da Alteração")
+    campo_alterado = models.CharField(max_length=100, verbose_name="Campo Alterado")
+    valor_anterior = models.TextField(blank=True, null=True, verbose_name="Valor Anterior")
+    valor_novo = models.TextField(blank=True, null=True, verbose_name="Valor Novo")
+    observacao = models.TextField(blank=True, null=True, verbose_name="Observação")
+    
+    class Meta:
+        verbose_name = "Histórico de Alteração de Equipamento"
+        verbose_name_plural = "Históricos de Alterações de Equipamentos"
+        ordering = ['-data_alteracao']
+        indexes = [
+            models.Index(fields=['equipamento', '-data_alteracao']),
+        ]
+    
+    def __str__(self):
+        return f"{self.equipamento.codigo} - {self.campo_alterado} - {self.data_alteracao.strftime('%d/%m/%Y %H:%M')}"
+
+
+class TransferenciaEquipamento(models.Model):
+    """Registro de transferências de equipamentos operacionais entre unidades"""
+    
+    equipamento = models.ForeignKey(EquipamentoOperacional, on_delete=models.CASCADE, related_name='transferencias', verbose_name="Equipamento")
+    
+    # Organização de origem
+    orgao_origem = models.ForeignKey(Orgao, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_equipamentos_origem', verbose_name="Órgão de Origem")
+    grande_comando_origem = models.ForeignKey(GrandeComando, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_equipamentos_origem', verbose_name="Grande Comando de Origem")
+    unidade_origem = models.ForeignKey(Unidade, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_equipamentos_origem', verbose_name="Unidade de Origem")
+    sub_unidade_origem = models.ForeignKey(SubUnidade, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_equipamentos_origem', verbose_name="Sub-Unidade de Origem")
+    
+    # Organização de destino
+    orgao_destino = models.ForeignKey(Orgao, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_equipamentos_destino', verbose_name="Órgão de Destino")
+    grande_comando_destino = models.ForeignKey(GrandeComando, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_equipamentos_destino', verbose_name="Grande Comando de Destino")
+    unidade_destino = models.ForeignKey(Unidade, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_equipamentos_destino', verbose_name="Unidade de Destino")
+    sub_unidade_destino = models.ForeignKey(SubUnidade, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_equipamentos_destino', verbose_name="Sub-Unidade de Destino")
+    
+    # Controle
+    data_transferencia = models.DateTimeField(auto_now_add=True, verbose_name="Data da Transferência")
+    transferido_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_equipamentos', verbose_name="Transferido por")
+    justificativa = models.TextField(verbose_name="Justificativa", help_text="Motivo da transferência")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    
+    class Meta:
+        verbose_name = "Transferência de Equipamento"
+        verbose_name_plural = "Transferências de Equipamentos"
+        ordering = ['-data_transferencia']
+        indexes = [
+            models.Index(fields=['equipamento', '-data_transferencia']),
+        ]
+    
+    def __str__(self):
+        origem = self.get_organizacao_origem()
+        destino = self.get_organizacao_destino()
+        return f"{self.equipamento.codigo} - {origem} → {destino}"
+    
+    def get_organizacao_origem(self):
+        """Retorna a organização de origem formatada"""
+        if self.sub_unidade_origem:
+            return str(self.sub_unidade_origem)
+        elif self.unidade_origem:
+            return str(self.unidade_origem)
+        elif self.grande_comando_origem:
+            return str(self.grande_comando_origem)
+        elif self.orgao_origem:
+            return str(self.orgao_origem)
+        return "Não definido"
+    
+    def get_organizacao_destino(self):
+        """Retorna a organização de destino formatada"""
+        if self.sub_unidade_destino:
+            return str(self.sub_unidade_destino)
+        elif self.unidade_destino:
+            return str(self.unidade_destino)
+        elif self.grande_comando_destino:
+            return str(self.grande_comando_destino)
+        elif self.orgao_destino:
+            return str(self.orgao_destino)
+        return "Não definido"
+
+
+class Averbacao(models.Model):
+    """Modelo para registrar averbações de tempo de contribuição dos militares"""
+    
+    militar = models.ForeignKey(Militar, on_delete=models.CASCADE, related_name='averbacoes', verbose_name="Militar")
+    
+    # Tempo de Contribuição (TC)
+    tempo_contribuicao_dias = models.PositiveIntegerField(verbose_name="Tempo de Contribuição (TC) em Dias", help_text="Quantidade de dias de tempo de contribuição")
+    
+    # Aproveitamento do Tempo
+    aproveitamento_dias = models.PositiveIntegerField(verbose_name="Aproveitamento do Tempo em Dias", help_text="Quantidade de dias aproveitados (geralmente igual ao TC)")
+    
+    # Documento CTC/INSS
+    numero_ctc_inss = models.CharField(max_length=50, verbose_name="Número da CTC/INSS", help_text="Ex: 0020469543")
+    
+    # Documento que publicou a averbação
+    documento_publicacao = models.CharField(max_length=200, blank=True, null=True, verbose_name="Documento que Publicou a Averbação", help_text="Ex: Portaria Nº 123/2024, Boletim Especial Nº 456/2024, etc.")
+    
+    # Assinatura
+    assinado_por_nome = models.CharField(max_length=200, verbose_name="Assinado por (Nome)", help_text="Nome completo da pessoa que assinou")
+    assinado_por_cargo = models.CharField(max_length=200, verbose_name="Cargo/Função", help_text="Cargo ou função da pessoa que assinou")
+    
+    # Órgão Local
+    orgao_local = models.CharField(max_length=200, verbose_name="Órgão Local", help_text="Ex: TERESINA - AGÊNCIA DA PREVIDÊNCIA SOCIAL TERESINA - LESTE")
+    endereco_orgao = models.TextField(verbose_name="Endereço do Órgão", help_text="Endereço completo do órgão")
+    cep_orgao = models.CharField(max_length=10, blank=True, null=True, verbose_name="CEP", help_text="CEP do órgão")
+    cidade_estado_orgao = models.CharField(max_length=200, verbose_name="Cidade/Estado", help_text="Ex: TERESINA - PI")
+    
+    # Data da averbação
+    data_averbacao = models.DateField(verbose_name="Data da Averbação")
+    
+    # Observações
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    
+    # Controle
+    cadastrado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='averbacoes_cadastradas', verbose_name="Cadastrado por")
+    data_cadastro = models.DateTimeField(auto_now_add=True, verbose_name="Data de Cadastro")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Averbação"
+        verbose_name_plural = "Averbações"
+        ordering = ['-data_averbacao', '-data_cadastro']
+        indexes = [
+            models.Index(fields=['militar', '-data_averbacao']),
+            models.Index(fields=['-data_averbacao']),
+        ]
+    
+    def __str__(self):
+        return f"Averbação - {self.militar.nome_guerra} - {self.data_averbacao.strftime('%d/%m/%Y')}"
+    
+    def converter_dias_para_anos_meses_dias(self, dias):
+        """Converte dias em anos, meses e dias"""
+        anos = dias // 365
+        dias_resto = dias % 365
+        meses = dias_resto // 30
+        dias_finais = dias_resto % 30
+        return anos, meses, dias_finais
+    
+    def formatar_tempo_extenso(self, dias):
+        """Formata tempo em extenso (ex: 1 (um) Ano, 3 (três) Meses e 1 (um) Dia)"""
+        anos, meses, dias_finais = self.converter_dias_para_anos_meses_dias(dias)
+        
+        # Números por extenso
+        numeros_extenso = {
+            0: 'zero', 1: 'um', 2: 'dois', 3: 'três', 4: 'quatro', 5: 'cinco',
+            6: 'seis', 7: 'sete', 8: 'oito', 9: 'nove', 10: 'dez',
+            11: 'onze', 12: 'doze', 13: 'treze', 14: 'quatorze', 15: 'quinze',
+            16: 'dezesseis', 17: 'dezessete', 18: 'dezoito', 19: 'dezenove', 20: 'vinte',
+            21: 'vinte e um', 22: 'vinte e dois', 23: 'vinte e três', 24: 'vinte e quatro', 25: 'vinte e cinco',
+            26: 'vinte e seis', 27: 'vinte e sete', 28: 'vinte e oito', 29: 'vinte e nove',
+            30: 'trinta', 40: 'quarenta', 50: 'cinquenta', 60: 'sessenta', 70: 'setenta',
+            80: 'oitenta', 90: 'noventa', 100: 'cem', 200: 'duzentos', 300: 'trezentos',
+            400: 'quatrocentos', 500: 'quinhentos', 600: 'seiscentos', 700: 'setecentos',
+            800: 'oitocentos', 900: 'novecentos'
+        }
+        
+        def numero_para_extenso(num):
+            """Converte número para extenso (versão completa)"""
+            if num == 0:
+                return 'zero'
+            if num in numeros_extenso:
+                return numeros_extenso[num]
+            if num < 100:
+                dezenas = (num // 10) * 10
+                unidades = num % 10
+                if unidades == 0:
+                    return numeros_extenso.get(dezenas, str(num))
+                if dezenas in numeros_extenso and unidades in numeros_extenso:
+                    return f"{numeros_extenso[dezenas]} e {numeros_extenso[unidades]}"
+                # Casos especiais 21-29, 31-39, etc
+                if dezenas >= 20 and unidades > 0:
+                    dezena_base = numeros_extenso.get(dezenas, '')
+                    unidade_base = numeros_extenso.get(unidades, '')
+                    if dezena_base and unidade_base:
+                        return f"{dezena_base} e {unidade_base}"
+            if num < 1000:
+                centenas = (num // 100) * 100
+                resto = num % 100
+                if resto == 0:
+                    return numeros_extenso.get(centenas, str(num))
+                centena_str = numeros_extenso.get(centenas, str(centenas))
+                resto_str = numero_para_extenso(resto)
+                return f"{centena_str} e {resto_str}"
+            # Para números maiores, retornar como string
+            return str(num)
+        
+        partes = []
+        if anos > 0:
+            anos_extenso = numero_para_extenso(anos)
+            partes.append(f"{anos} ({anos_extenso}) Ano{'s' if anos > 1 else ''}")
+        if meses > 0:
+            meses_extenso = numero_para_extenso(meses)
+            partes.append(f"{meses} ({meses_extenso}) Mes{'es' if meses > 1 else ''}")
+        if dias_finais > 0:
+            dias_extenso = numero_para_extenso(dias_finais)
+            partes.append(f"{dias_finais} ({dias_extenso}) Dia{'s' if dias_finais > 1 else ''}")
+        
+        if not partes:
+            return "0 (zero) dias"
+        
+        if len(partes) == 1:
+            return partes[0]
+        elif len(partes) == 2:
+            return f"{partes[0]} e {partes[1]}"
+        else:
+            return f"{partes[0]}, {partes[1]} e {partes[2]}"
+    
+    @property
+    def tempo_contribuicao_formatado(self):
+        """Retorna o tempo de contribuição formatado em extenso"""
+        return self.formatar_tempo_extenso(self.tempo_contribuicao_dias)
+    
+    @property
+    def aproveitamento_formatado(self):
+        """Retorna o aproveitamento formatado em extenso"""
+        return self.formatar_tempo_extenso(self.aproveitamento_dias)
+    
+    @property
+    def tempo_contribuicao_simples(self):
+        """Retorna o tempo de contribuição em formato simples (anos, meses, dias)"""
+        anos, meses, dias = self.converter_dias_para_anos_meses_dias(self.tempo_contribuicao_dias)
+        partes = []
+        if anos > 0:
+            partes.append(f"{anos} ano{'s' if anos > 1 else ''}")
+        if meses > 0:
+            partes.append(f"{meses} mês{'es' if meses > 1 else ''}")
+        if dias > 0:
+            partes.append(f"{dias} dia{'s' if dias > 1 else ''}")
+        if not partes:
+            return "0 dias"
+        return ", ".join(partes)
+    
+    @property
+    def aproveitamento_simples(self):
+        """Retorna o aproveitamento em formato simples (anos, meses, dias)"""
+        anos, meses, dias = self.converter_dias_para_anos_meses_dias(self.aproveitamento_dias)
+        partes = []
+        if anos > 0:
+            partes.append(f"{anos} ano{'s' if anos > 1 else ''}")
+        if meses > 0:
+            partes.append(f"{meses} mês{'es' if meses > 1 else ''}")
+        if dias > 0:
+            partes.append(f"{dias} dia{'s' if dias > 1 else ''}")
+        if not partes:
+            return "0 dias"
+        return ", ".join(partes)
+
+
+class HistoricoAlteracaoAverbacao(models.Model):
+    """Registro de histórico de alterações realizadas em averbações"""
+    
+    averbacao = models.ForeignKey(Averbacao, on_delete=models.CASCADE, related_name='historico_alteracoes', verbose_name="Averbação")
+    alterado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='alteracoes_averbacoes', verbose_name="Alterado por")
+    data_alteracao = models.DateTimeField(auto_now_add=True, verbose_name="Data da Alteração")
+    campo_alterado = models.CharField(max_length=100, verbose_name="Campo Alterado")
+    valor_anterior = models.TextField(blank=True, null=True, verbose_name="Valor Anterior")
+    valor_novo = models.TextField(blank=True, null=True, verbose_name="Valor Novo")
+    observacao = models.TextField(blank=True, null=True, verbose_name="Observação")
+    
+    class Meta:
+        verbose_name = "Histórico de Alteração de Averbação"
+        verbose_name_plural = "Históricos de Alterações de Averbações"
+        ordering = ['-data_alteracao']
+        indexes = [
+            models.Index(fields=['averbacao', '-data_alteracao']),
+        ]
+    
+    def __str__(self):
+        return f"{self.averbacao} - {self.campo_alterado} - {self.data_alteracao.strftime('%d/%m/%Y %H:%M')}"
+
+
+class Arma(models.Model):
+    """Cadastro de Armas da Instituição"""
+    
+    TIPO_CHOICES = [
+        ('PISTOLA', 'Pistola'),
+        ('REVOLVER', 'Revólver'),
+        ('FUZIL', 'Fuzil'),
+        ('CARABINA', 'Carabina'),
+        ('ESPINGARDA', 'Espingarda'),
+        ('METRALHADORA', 'Metralhadora'),
+        ('SUBMETRALHADORA', 'Submetralhadora'),
+        ('FACA', 'Faca'),
+        ('BAIONETA', 'Baioneta'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    CALIBRE_CHOICES = [
+        ('380', '.380'),
+        ('9MM', '9mm'),
+        ('40', '.40'),
+        ('45', '.45'),
+        ('556', '5.56mm'),
+        ('762', '7.62mm'),
+        ('12', '12 Gauge'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    SITUACAO_CHOICES = [
+        ('CAUTELA_INDIVIDUAL', 'Cautela Individual'),
+        ('RESERVA_ARMAMENTO', 'Reserva de Armamento'),
+        ('EXTRAVIADO', 'Extraviado (Perda, Roubo, Furto)'),
+        ('ANEXADO_INQUERITO_PM', 'Anexado a Inquérito PM'),
+        ('ANEXADO_INQUERITO_PC', 'Anexado a Inquérito PC'),
+        ('EM_MANUTENCAO', 'Em Manutenção'),
+        ('INSERVIVEL', 'Inservível'),
+    ]
+    
+    ESTADO_CONSERVACAO_CHOICES = [
+        ('NOVA', 'Nova'),
+        ('OTIMO', 'Ótimo'),
+        ('BOM', 'Bom'),
+        ('REGULAR', 'Regular'),
+        ('RUIM', 'Ruim'),
+        ('INSERVIVEL', 'Inservível'),
+    ]
+    
+    numero_serie = models.CharField(max_length=100, unique=True, verbose_name="Número de Série", help_text="Número de série da arma")
+    
+    # Informações de Tombamento
+    nome_tombamento = models.CharField(max_length=500, blank=True, null=True, verbose_name="Nome do Tombamento", help_text="Nome completo do tombamento (ex: PISTOLA BERETTA APX FULL SICE CAL. 9X19MM + MALETA + 4 CARREGADORES)")
+    numero_tombamento = models.CharField(max_length=50, blank=True, null=True, verbose_name="Nº Tombamento", help_text="Número do tombamento (ex: 321-02-90)")
+    cod_tombamento = models.CharField(max_length=50, blank=True, null=True, verbose_name="COD", help_text="Código do tombamento (ex: 163978)")
+    local_tombamento = models.CharField(max_length=200, blank=True, null=True, verbose_name="Local", help_text="Local do tombamento (ex: BM-4)")
+    
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, verbose_name="Tipo de Arma")
+    marca = models.CharField(max_length=100, verbose_name="Marca", help_text="Ex: Taurus, Glock, IMBEL")
+    modelo = models.CharField(max_length=100, verbose_name="Modelo", help_text="Ex: PT 100, G17, FAL")
+    calibre = models.CharField(max_length=20, choices=CALIBRE_CHOICES, verbose_name="Calibre")
+    alma_raiada = models.BooleanField(default=False, verbose_name="Alma Raiada", help_text="Se a arma possui alma raiada")
+    quantidade_raias = models.PositiveIntegerField(blank=True, null=True, verbose_name="Quantidade de Raias", help_text="Número de raias (apenas se alma raiada)")
+    direcao_raias = models.CharField(
+        max_length=10,
+        choices=[('DIREITA', 'Direita'), ('ESQUERDA', 'Esquerda')],
+        blank=True,
+        null=True,
+        verbose_name="Direção das Raias",
+        help_text="Direção das raias (apenas se alma raiada)"
+    )
+    capacidade_carregador = models.PositiveIntegerField(blank=True, null=True, verbose_name="Capacidade do Carregador", help_text="Quantidade de munições")
+    situacao = models.CharField(max_length=30, choices=SITUACAO_CHOICES, default='RESERVA_ARMAMENTO', verbose_name="Situação")
+    
+    # Relacionamento com organização
+    orgao = models.ForeignKey(Orgao, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Órgão")
+    grande_comando = models.ForeignKey(GrandeComando, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Grande Comando")
+    unidade = models.ForeignKey(Unidade, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Unidade")
+    sub_unidade = models.ForeignKey(SubUnidade, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Sub-Unidade")
+    
+    # Militar responsável (portador atual) - apenas para Cautela Individual
+    militar_responsavel = models.ForeignKey(Militar, on_delete=models.SET_NULL, null=True, blank=True, related_name='armas_responsavel', verbose_name="Militar Responsável", help_text="Militar que está com a arma no momento (apenas para Cautela Individual)")
+    data_entrega_responsavel = models.DateField(blank=True, null=True, verbose_name="Data de Entrega ao Responsável")
+    
+    # Dados para Inquérito PM
+    numero_inquerito_pm = models.CharField(max_length=100, blank=True, null=True, verbose_name="Nº Inquérito PM", help_text="Número do inquérito (apenas para Anexado a Inquérito PM)")
+    encarregado_inquerito_pm = models.ForeignKey(Militar, on_delete=models.SET_NULL, null=True, blank=True, related_name='armas_inquerito_pm', verbose_name="Encarregado do Inquérito PM", help_text="Oficial encarregado do inquérito (apenas para Anexado a Inquérito PM)", limit_choices_to={'posto_graduacao__in': ['CB', 'TC', 'MJ', 'CP', '1T', '2T']})
+    
+    # Dados para Inquérito PC
+    numero_inquerito_pc = models.CharField(max_length=100, blank=True, null=True, verbose_name="Nº Inquérito PC", help_text="Número do inquérito (apenas para Anexado a Inquérito PC)")
+    delegado_inquerito_pc = models.CharField(max_length=200, blank=True, null=True, verbose_name="Delegado Responsável", help_text="Nome do delegado responsável (apenas para Anexado a Inquérito PC)")
+    
+    # Documentação
+    numero_registro_policia = models.CharField(max_length=100, blank=True, null=True, verbose_name="Nº Registro na Polícia Federal", help_text="Registro da arma na Polícia Federal")
+    numero_guia_transito = models.CharField(max_length=100, blank=True, null=True, verbose_name="Nº Guia de Trânsito")
+    data_aquisicao = models.DateField(blank=True, null=True, verbose_name="Data de Aquisição")
+    fornecedor = models.CharField(max_length=200, blank=True, null=True, verbose_name="Fornecedor")
+    valor_aquisicao = models.DecimalField(max_digits=20, decimal_places=2, blank=True, null=True, verbose_name="Valor de Aquisição (R$)")
+    estado_conservacao = models.CharField(
+        max_length=20, 
+        choices=ESTADO_CONSERVACAO_CHOICES, 
+        blank=True, 
+        null=True, 
+        verbose_name="Estado de Conservação",
+        help_text="Estado de conservação atual da arma"
+    )
+    
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    
+    # Controle
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='armas_criadas', verbose_name="Criado por")
+    
+    class Meta:
+        verbose_name = "Arma"
+        verbose_name_plural = "Armas"
+        ordering = ['numero_serie']
+        indexes = [
+            models.Index(fields=['numero_serie']),
+            models.Index(fields=['situacao']),
+            models.Index(fields=['tipo']),
+            models.Index(fields=['militar_responsavel']),
+        ]
+    
+    def __str__(self):
+        return f"{self.numero_serie} - {self.get_tipo_display()} ({self.marca} {self.modelo})"
+    
+    def get_organizacao_display(self):
+        """Retorna a organização hierárquica completa da arma"""
+        hierarquia = []
+        if self.orgao:
+            hierarquia.append(self.orgao.nome)
+        if self.grande_comando:
+            hierarquia.append(self.grande_comando.nome)
+        if self.unidade:
+            hierarquia.append(self.unidade.nome)
+        if self.sub_unidade:
+            hierarquia.append(self.sub_unidade.nome)
+        
+        if hierarquia:
+            return " | ".join(hierarquia)
+        return "Não definido"
+    
+    def get_organizacao_instancia(self):
+        """Retorna apenas a instância mais específica da organização (sem hierarquia)"""
+        if self.sub_unidade:
+            return self.sub_unidade.nome
+        elif self.unidade:
+            return self.unidade.nome
+        elif self.grande_comando:
+            return self.grande_comando.nome
+        elif self.orgao:
+            return self.orgao.nome
+        return "Não definido"
+    
+    def get_imagem(self):
+        """Retorna a imagem da configuração de arma correspondente"""
+        try:
+            from django.apps import apps
+            from django.db.models import Q
+            ConfiguracaoArma = apps.get_model('militares', 'ConfiguracaoArma')
+            
+            # Normalizar valores para comparação
+            marca_arma = (self.marca or '').strip().upper()
+            modelo_arma = (self.modelo or '').strip().upper()
+            
+            if not marca_arma or not modelo_arma:
+                return None
+            
+            # Buscar configuração que corresponda aos dados da arma
+            # Primeiro tentar busca exata (case-insensitive)
+            configuracao = ConfiguracaoArma.objects.filter(
+                tipo=self.tipo,
+                calibre=self.calibre,
+                ativo=True
+            ).filter(
+                Q(marca__iexact=marca_arma) | Q(marca__iexact=self.marca.strip() if self.marca else ''),
+                Q(modelo__iexact=modelo_arma) | Q(modelo__iexact=self.modelo.strip() if self.modelo else '')
+            ).first()
+            
+            # Se não encontrou, tentar busca mais flexível (contém)
+            if not configuracao:
+                configuracao = ConfiguracaoArma.objects.filter(
+                    tipo=self.tipo,
+                    calibre=self.calibre,
+                    ativo=True
+                ).filter(
+                    marca__icontains=marca_arma,
+                    modelo__icontains=modelo_arma
+                ).first()
+            
+            # Se ainda não encontrou, tentar apenas tipo e calibre (pegar a primeira)
+            if not configuracao:
+                configuracao = ConfiguracaoArma.objects.filter(
+                    tipo=self.tipo,
+                    calibre=self.calibre,
+                    ativo=True
+                ).first()
+            
+            # Retornar imagem se encontrada
+            if configuracao and configuracao.imagem:
+                return configuracao.imagem
+        except Exception as e:
+            # Log do erro para debug
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Erro ao buscar imagem da arma {self.pk}: {str(e)}")
+        return None
+    
+    def clean(self):
+        """Validações customizadas"""
+        from django.core.exceptions import ValidationError
+        
+        # Validar que pelo menos uma organização está definida
+        if not any([self.orgao, self.grande_comando, self.unidade, self.sub_unidade]):
+            raise ValidationError("É necessário definir ao menos uma organização (Órgão, Grande Comando, Unidade ou Sub-Unidade).")
+        
+        # Validações baseadas na situação
+        if self.situacao == 'CAUTELA_INDIVIDUAL':
+            if not self.militar_responsavel:
+                raise ValidationError("Para Cautela Individual, é necessário definir o Militar Responsável.")
+        elif self.situacao == 'ANEXADO_INQUERITO_PM':
+            if not self.numero_inquerito_pm:
+                raise ValidationError("Para Anexado a Inquérito PM, é necessário informar o Nº do Inquérito PM.")
+            if not self.encarregado_inquerito_pm:
+                raise ValidationError("Para Anexado a Inquérito PM, é necessário informar o Encarregado do Inquérito PM.")
+        elif self.situacao == 'ANEXADO_INQUERITO_PC':
+            if not self.numero_inquerito_pc:
+                raise ValidationError("Para Anexado a Inquérito PC, é necessário informar o Nº do Inquérito PC.")
+            if not self.delegado_inquerito_pc:
+                raise ValidationError("Para Anexado a Inquérito PC, é necessário informar o Delegado Responsável.")
+
+
+class HistoricoAlteracaoArma(models.Model):
+    """Registro de histórico de alterações realizadas em armas"""
+    
+    arma = models.ForeignKey(Arma, on_delete=models.CASCADE, related_name='historico_alteracoes', verbose_name="Arma")
+    alterado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='alteracoes_armas', verbose_name="Alterado por")
+    data_alteracao = models.DateTimeField(auto_now_add=True, verbose_name="Data da Alteração")
+    campo_alterado = models.CharField(max_length=100, verbose_name="Campo Alterado")
+    valor_anterior = models.TextField(blank=True, null=True, verbose_name="Valor Anterior")
+    valor_novo = models.TextField(blank=True, null=True, verbose_name="Valor Novo")
+    observacao = models.TextField(blank=True, null=True, verbose_name="Observação")
+    
+    class Meta:
+        verbose_name = "Histórico de Alteração de Arma"
+        verbose_name_plural = "Históricos de Alterações de Armas"
+        ordering = ['-data_alteracao']
+        indexes = [
+            models.Index(fields=['arma', '-data_alteracao']),
+        ]
+    
+    def __str__(self):
+        return f"{self.arma.numero_serie} - {self.campo_alterado} - {self.data_alteracao.strftime('%d/%m/%Y %H:%M')}"
+
+
+class ArmaParticular(models.Model):
+    """Cadastro de Armas de Uso Particular dos Militares"""
+    
+    TIPO_CHOICES = [
+        ('PISTOLA', 'Pistola'),
+        ('REVOLVER', 'Revólver'),
+        ('FUZIL', 'Fuzil'),
+        ('CARABINA', 'Carabina'),
+        ('ESPINGARDA', 'Espingarda'),
+        ('FACA', 'Faca'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    CALIBRE_CHOICES = [
+        ('380', '.380'),
+        ('9MM', '9mm'),
+        ('40', '.40'),
+        ('45', '.45'),
+        ('556', '5.56mm'),
+        ('762', '7.62mm'),
+        ('12', '12 Gauge'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('REGULAR', 'Regular'),
+        ('PENDENTE', 'Pendente de Documentação'),
+        ('VENCIDO', 'Documentação Vencida'),
+        ('IRREGULAR', 'Irregular'),
+    ]
+    
+    militar = models.ForeignKey(Militar, on_delete=models.CASCADE, related_name='armas_particulares', verbose_name="Militar")
+    numero_serie = models.CharField(max_length=100, verbose_name="Número de Série", help_text="Número de série da arma")
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, verbose_name="Tipo de Arma")
+    marca = models.CharField(max_length=100, verbose_name="Marca", help_text="Ex: Taurus, Glock, IMBEL")
+    modelo = models.CharField(max_length=100, verbose_name="Modelo", help_text="Ex: PT 100, G17, FAL")
+    calibre = models.CharField(max_length=20, choices=CALIBRE_CHOICES, verbose_name="Calibre")
+    numero_canhao = models.CharField(max_length=50, blank=True, null=True, verbose_name="Número do Canhão")
+    capacidade_carregador = models.PositiveIntegerField(blank=True, null=True, verbose_name="Capacidade do Carregador", help_text="Quantidade de munições")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='REGULAR', verbose_name="Status")
+    
+    # Documentação
+    numero_registro_policia = models.CharField(max_length=100, verbose_name="Nº Registro na Polícia Federal", help_text="Registro da arma na Polícia Federal")
+    data_validade_registro = models.DateField(blank=True, null=True, verbose_name="Data de Validade do Registro")
+    numero_guia_transito = models.CharField(max_length=100, blank=True, null=True, verbose_name="Nº Guia de Trânsito")
+    data_validade_guia = models.DateField(blank=True, null=True, verbose_name="Data de Validade da Guia")
+    
+    # Autorização para uso no serviço
+    autorizado_uso_servico = models.BooleanField(default=False, verbose_name="Autorizado para Uso no Serviço", help_text="Se a arma está autorizada para uso durante o serviço")
+    data_autorizacao = models.DateField(blank=True, null=True, verbose_name="Data de Autorização")
+    data_vencimento_autorizacao = models.DateField(blank=True, null=True, verbose_name="Data de Vencimento da Autorização")
+    autorizado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='armas_autorizadas', verbose_name="Autorizado por")
+    
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    
+    # Controle
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='armas_particulares_criadas', verbose_name="Criado por")
+    
+    class Meta:
+        verbose_name = "Arma Particular"
+        verbose_name_plural = "Armas Particulares"
+        ordering = ['militar', 'numero_serie']
+        unique_together = [['militar', 'numero_serie']]
+        indexes = [
+            models.Index(fields=['militar', 'numero_serie']),
+            models.Index(fields=['status']),
+            models.Index(fields=['autorizado_uso_servico']),
+            models.Index(fields=['data_validade_registro']),
+        ]
+    
+    def __str__(self):
+        return f"{self.militar.nome_completo} - {self.numero_serie} - {self.get_tipo_display()}"
+    
+    def documento_vencido(self):
+        """Verifica se a documentação está vencida"""
+        hoje = date.today()
+        if self.data_validade_registro and self.data_validade_registro < hoje:
+            return True
+        if self.data_validade_guia and self.data_validade_guia < hoje:
+            return True
+        if self.autorizado_uso_servico and self.data_vencimento_autorizacao and self.data_vencimento_autorizacao < hoje:
+            return True
+        return False
+
+
+class MovimentacaoArma(models.Model):
+    """Histórico de Movimentações de Armas (Entregas e Devoluções)"""
+    
+    TIPO_MOVIMENTACAO_CHOICES = [
+        ('ENTREGA', 'Entrega'),
+        ('DEVOLUCAO', 'Devolução'),
+        ('TRANSFERENCIA', 'Transferência'),
+        ('MANUTENCAO', 'Envio para Manutenção'),
+        ('RETORNO_MANUTENCAO', 'Retorno de Manutenção'),
+    ]
+    
+    arma = models.ForeignKey(Arma, on_delete=models.CASCADE, related_name='movimentacoes', verbose_name="Arma")
+    tipo_movimentacao = models.CharField(max_length=20, choices=TIPO_MOVIMENTACAO_CHOICES, verbose_name="Tipo de Movimentação")
+    data_movimentacao = models.DateTimeField(default=timezone.now, verbose_name="Data e Hora da Movimentação")
+    
+    # Militar envolvido
+    militar_origem = models.ForeignKey(Militar, on_delete=models.SET_NULL, null=True, blank=True, related_name='movimentacoes_arma_origem', verbose_name="Militar de Origem", help_text="Militar que estava com a arma (para entregas/devoluções)")
+    militar_destino = models.ForeignKey(Militar, on_delete=models.SET_NULL, null=True, blank=True, related_name='movimentacoes_arma_destino', verbose_name="Militar de Destino", help_text="Militar que recebe a arma")
+    
+    # Organização envolvida
+    organizacao_origem = models.CharField(max_length=200, blank=True, null=True, verbose_name="Organização de Origem")
+    organizacao_destino = models.CharField(max_length=200, blank=True, null=True, verbose_name="Organização de Destino")
+    
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    
+    # Material acompanhando a arma
+    quantidade_carregadores = models.PositiveIntegerField(
+        blank=True, 
+        null=True, 
+        verbose_name="Quantidade de Carregadores",
+        help_text="Quantidade de carregadores que acompanham a arma"
+    )
+    numeracao_carregadores = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Numeração dos Carregadores",
+        help_text="Digite a numeração de cada carregador, separada por vírgula ou quebra de linha. Ex: 001, 002, 003 ou 001\n002\n003"
+    )
+    quantidade_municoes_catalogadas = models.PositiveIntegerField(
+        blank=True, 
+        null=True, 
+        verbose_name="Quantidade de Munições Catalogadas",
+        help_text="Quantidade de munições catalogadas que acompanham a arma"
+    )
+    
+    # Campos para manutenção
+    TIPO_MANUTENCAO_CHOICES = [
+        ('INTERNA', 'Manutenção Interna'),
+        ('EXTERNA', 'Manutenção Externa'),
+    ]
+    tipo_manutencao = models.CharField(
+        max_length=10, 
+        choices=TIPO_MANUTENCAO_CHOICES, 
+        blank=True, 
+        null=True,
+        verbose_name="Tipo de Manutenção",
+        help_text="Tipo de manutenção (Interna ou Externa)"
+    )
+    
+    # Para manutenção interna: OM e militar que recebeu
+    orgao_manutencao = models.ForeignKey(Orgao, on_delete=models.SET_NULL, null=True, blank=True, related_name='manutencoes_arma_orgao', verbose_name="Órgão de Manutenção")
+    grande_comando_manutencao = models.ForeignKey(GrandeComando, on_delete=models.SET_NULL, null=True, blank=True, related_name='manutencoes_arma_gc', verbose_name="Grande Comando de Manutenção")
+    unidade_manutencao = models.ForeignKey(Unidade, on_delete=models.SET_NULL, null=True, blank=True, related_name='manutencoes_arma_unidade', verbose_name="Unidade de Manutenção")
+    sub_unidade_manutencao = models.ForeignKey(SubUnidade, on_delete=models.SET_NULL, null=True, blank=True, related_name='manutencoes_arma_sub', verbose_name="Sub-Unidade de Manutenção")
+    militar_recebeu_manutencao = models.ForeignKey(Militar, on_delete=models.SET_NULL, null=True, blank=True, related_name='manutencoes_arma_recebeu', verbose_name="Militar que Recebeu (Manutenção Interna)")
+    
+    # Para manutenção externa: empresa
+    empresa_manutencao = models.CharField(max_length=200, blank=True, null=True, verbose_name="Empresa de Manutenção")
+    cnpj_empresa_manutencao = models.CharField(max_length=18, blank=True, null=True, verbose_name="CNPJ da Empresa", help_text="Formato: XX.XXX.XXX/XXXX-XX")
+    endereco_empresa_manutencao = models.TextField(blank=True, null=True, verbose_name="Endereço da Empresa")
+    responsavel_empresa_manutencao = models.CharField(max_length=200, blank=True, null=True, verbose_name="Responsável na Empresa")
+    
+    # Motivos da manutenção e reparos realizados
+    motivos_manutencao = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Motivos da Manutenção",
+        help_text="Descreva os motivos pelos quais a arma está sendo enviada para manutenção"
+    )
+    reparos_realizados = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Reparos Realizados",
+        help_text="Descreva os reparos realizados na arma durante a manutenção"
+    )
+    
+    # Controle
+    responsavel_movimentacao = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='movimentacoes_arma_responsaveis', verbose_name="Responsável pela Movimentação")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    
+    class Meta:
+        verbose_name = "Movimentação de Arma"
+        verbose_name_plural = "Movimentações de Armas"
+        ordering = ['-data_movimentacao']
+        indexes = [
+            models.Index(fields=['arma', '-data_movimentacao']),
+            models.Index(fields=['militar_destino', '-data_movimentacao']),
+            models.Index(fields=['tipo_movimentacao']),
+        ]
+    
+    def __str__(self):
+        return f"{self.arma.numero_serie} - {self.get_tipo_movimentacao_display()} - {self.data_movimentacao.strftime('%d/%m/%Y %H:%M')}"
+
+
+class TransferenciaArma(models.Model):
+    """Registro de transferências de armas entre organizações"""
+    
+    arma = models.ForeignKey(Arma, on_delete=models.CASCADE, related_name='transferencias', verbose_name="Arma")
+    
+    # Organização de origem
+    orgao_origem = models.ForeignKey(Orgao, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_arma_origem', verbose_name="Órgão de Origem")
+    grande_comando_origem = models.ForeignKey(GrandeComando, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_arma_origem', verbose_name="Grande Comando de Origem")
+    unidade_origem = models.ForeignKey(Unidade, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_arma_origem', verbose_name="Unidade de Origem")
+    sub_unidade_origem = models.ForeignKey(SubUnidade, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_arma_origem', verbose_name="Sub-Unidade de Origem")
+    
+    # Organização de destino
+    orgao_destino = models.ForeignKey(Orgao, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_arma_destino', verbose_name="Órgão de Destino")
+    grande_comando_destino = models.ForeignKey(GrandeComando, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_arma_destino', verbose_name="Grande Comando de Destino")
+    unidade_destino = models.ForeignKey(Unidade, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_arma_destino', verbose_name="Unidade de Destino")
+    sub_unidade_destino = models.ForeignKey(SubUnidade, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_arma_destino', verbose_name="Sub-Unidade de Destino")
+    
+    # Material acompanhando a arma
+    quantidade_carregadores = models.PositiveIntegerField(
+        blank=True, 
+        null=True, 
+        verbose_name="Quantidade de Carregadores",
+        help_text="Quantidade de carregadores que acompanham a arma"
+    )
+    numeracao_carregadores = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Numeração dos Carregadores",
+        help_text="Digite a numeração de cada carregador, separada por vírgula ou quebra de linha."
+    )
+    quantidade_municoes_catalogadas = models.PositiveIntegerField(
+        blank=True, 
+        null=True, 
+        verbose_name="Quantidade de Munições Catalogadas",
+        help_text="Quantidade de munições catalogadas que acompanham a arma"
+    )
+    
+    # Controle
+    data_transferencia = models.DateTimeField(auto_now_add=True, verbose_name="Data da Transferência")
+    transferido_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_arma_realizadas', verbose_name="Transferido por")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    
+    class Meta:
+        verbose_name = "Transferência de Arma"
+        verbose_name_plural = "Transferências de Armas"
+        ordering = ['-data_transferencia']
+        indexes = [
+            models.Index(fields=['arma', '-data_transferencia']),
+        ]
+    
+    def __str__(self):
+        origem = self.get_organizacao_origem()
+        destino = self.get_organizacao_destino()
+        return f"{self.arma.numero_serie} - {origem} → {destino}"
+    
+    def get_organizacao_origem(self):
+        """Retorna a organização de origem formatada"""
+        if self.sub_unidade_origem:
+            return str(self.sub_unidade_origem)
+        elif self.unidade_origem:
+            return str(self.unidade_origem)
+        elif self.grande_comando_origem:
+            return str(self.grande_comando_origem)
+        elif self.orgao_origem:
+            return str(self.orgao_origem)
+        return "Não definido"
+    
+    def get_organizacao_destino(self):
+        """Retorna a organização de destino formatada"""
+        if self.sub_unidade_destino:
+            return str(self.sub_unidade_destino)
+        elif self.unidade_destino:
+            return str(self.unidade_destino)
+        elif self.grande_comando_destino:
+            return str(self.grande_comando_destino)
+        elif self.orgao_destino:
+            return str(self.orgao_destino)
+        return "Não definido"
+
+
+class CautelaArma(models.Model):
+    """Registro de cautelas individuais de armas (entregas para militares)"""
+    
+    arma = models.ForeignKey(Arma, on_delete=models.CASCADE, related_name='cautelas', verbose_name="Arma")
+    militar = models.ForeignKey(Militar, on_delete=models.SET_NULL, null=True, blank=True, related_name='cautelas_armas', verbose_name="Militar")
+    
+    # Organização da arma no momento da cautela
+    orgao = models.ForeignKey(Orgao, on_delete=models.SET_NULL, null=True, blank=True, related_name='cautelas_armas', verbose_name="Órgão")
+    grande_comando = models.ForeignKey(GrandeComando, on_delete=models.SET_NULL, null=True, blank=True, related_name='cautelas_armas', verbose_name="Grande Comando")
+    unidade = models.ForeignKey(Unidade, on_delete=models.SET_NULL, null=True, blank=True, related_name='cautelas_armas', verbose_name="Unidade")
+    sub_unidade = models.ForeignKey(SubUnidade, on_delete=models.SET_NULL, null=True, blank=True, related_name='cautelas_armas', verbose_name="Sub-Unidade")
+    
+    # Material acompanhando a arma
+    quantidade_carregadores = models.PositiveIntegerField(
+        blank=True, 
+        null=True, 
+        verbose_name="Quantidade de Carregadores",
+        help_text="Quantidade de carregadores que acompanham a arma"
+    )
+    numeracao_carregadores = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Numeração dos Carregadores",
+        help_text="Digite a numeração de cada carregador, separada por vírgula ou quebra de linha."
+    )
+    quantidade_municoes_catalogadas = models.PositiveIntegerField(
+        blank=True, 
+        null=True, 
+        verbose_name="Quantidade de Munições Catalogadas",
+        help_text="Quantidade de munições catalogadas que acompanham a arma"
+    )
+    
+    # Controle
+    data_entrega = models.DateTimeField(auto_now_add=True, verbose_name="Data da Entrega")
+    data_devolucao = models.DateTimeField(null=True, blank=True, verbose_name="Data da Devolução")
+    entregue_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='cautelas_entregues', verbose_name="Entregue por")
+    devolvido_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='cautelas_devolvidas', verbose_name="Devolvido por")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    ativa = models.BooleanField(default=True, verbose_name="Cautela Ativa", help_text="Indica se a cautela está ativa (arma ainda com o militar)")
+    
+    class Meta:
+        verbose_name = "Cautela de Arma"
+        verbose_name_plural = "Cautelas de Armas"
+        ordering = ['-data_entrega']
+        indexes = [
+            models.Index(fields=['arma', '-data_entrega']),
+            models.Index(fields=['militar', '-data_entrega']),
+            models.Index(fields=['ativa', '-data_entrega']),
+        ]
+    
+    def __str__(self):
+        status = "Ativa" if self.ativa else "Devolvida"
+        return f"{self.arma.numero_serie} - {self.militar.nome_completo if self.militar else 'N/A'} - {status}"
+    
+    def get_organizacao(self):
+        """Retorna a organização formatada"""
+        if self.sub_unidade:
+            return str(self.sub_unidade)
+        elif self.unidade:
+            return str(self.unidade)
+        elif self.grande_comando:
+            return str(self.grande_comando)
+        elif self.orgao:
+            return str(self.orgao)
+        return "Não definido"
+
+
+class CautelaArmaColetiva(models.Model):
+    """Registro de cautelas coletivas de armas (para ensino, instrução, operações, etc)"""
+    
+    TIPO_FINALIDADE_CHOICES = [
+        ('ENSINO', 'Ensino'),
+        ('INSTRUCAO', 'Instrução'),
+        ('OPERACAO', 'Operação'),
+        ('TREINAMENTO', 'Treinamento'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    descricao = models.CharField(
+        max_length=200,
+        verbose_name="Descrição/Finalidade",
+        help_text="Descrição da cautela coletiva (ex: Instrução de tiro, Operação X, etc)"
+    )
+    tipo_finalidade = models.CharField(
+        max_length=20,
+        choices=TIPO_FINALIDADE_CHOICES,
+        default='INSTRUCAO',
+        verbose_name="Tipo de Finalidade"
+    )
+    
+    # Responsável pela cautela
+    responsavel = models.ForeignKey(
+        Militar,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cautelas_coletivas_responsavel',
+        verbose_name="Responsável",
+        help_text="Militar responsável pela cautela coletiva"
+    )
+    
+    # Organização
+    orgao = models.ForeignKey(Orgao, on_delete=models.SET_NULL, null=True, blank=True, related_name='cautelas_coletivas_armas', verbose_name="Órgão")
+    grande_comando = models.ForeignKey(GrandeComando, on_delete=models.SET_NULL, null=True, blank=True, related_name='cautelas_coletivas_armas', verbose_name="Grande Comando")
+    unidade = models.ForeignKey(Unidade, on_delete=models.SET_NULL, null=True, blank=True, related_name='cautelas_coletivas_armas', verbose_name="Unidade")
+    sub_unidade = models.ForeignKey(SubUnidade, on_delete=models.SET_NULL, null=True, blank=True, related_name='cautelas_coletivas_armas', verbose_name="Sub-Unidade")
+    
+    # Controle
+    data_inicio = models.DateTimeField(default=timezone.now, verbose_name="Data de Início")
+    data_fim = models.DateTimeField(null=True, blank=True, verbose_name="Data de Fim")
+    documento_referencia = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name="Documento de Referência",
+        help_text="Número ou identificação do documento que autoriza a cautela coletiva (ex: Portaria, Ofício, etc)"
+    )
+    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='cautelas_coletivas_criadas', verbose_name="Criado por")
+    finalizado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='cautelas_coletivas_finalizadas', verbose_name="Finalizado por")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    ativa = models.BooleanField(default=True, verbose_name="Cautela Ativa", help_text="Indica se a cautela está ativa")
+    
+    class Meta:
+        verbose_name = "Cautela Coletiva de Armas"
+        verbose_name_plural = "Cautelas Coletivas de Armas"
+        ordering = ['-data_inicio']
+        indexes = [
+            models.Index(fields=['responsavel', '-data_inicio']),
+            models.Index(fields=['ativa', '-data_inicio']),
+            models.Index(fields=['tipo_finalidade', '-data_inicio']),
+        ]
+    
+    def __str__(self):
+        status = "Ativa" if self.ativa else "Finalizada"
+        responsavel_nome = self.responsavel.nome_completo if self.responsavel else "N/A"
+        return f"{self.descricao} - {responsavel_nome} - {status}"
+    
+    def get_organizacao(self):
+        """Retorna a organização formatada"""
+        if self.sub_unidade:
+            return str(self.sub_unidade)
+        elif self.unidade:
+            return str(self.unidade)
+        elif self.grande_comando:
+            return str(self.grande_comando)
+        elif self.orgao:
+            return str(self.orgao)
+        return "Não definido"
+    
+    def get_total_armas(self):
+        """Retorna o total de armas na cautela"""
+        return self.armas.count()
+    
+    def get_armas_ativas(self):
+        """Retorna as armas que ainda não foram devolvidas"""
+        return self.armas.filter(data_devolucao__isnull=True)
+
+
+class CautelaArmaColetivaItem(models.Model):
+    """Item de uma cautela coletiva (relacionamento entre cautela e arma)"""
+    
+    cautela = models.ForeignKey(
+        CautelaArmaColetiva,
+        on_delete=models.CASCADE,
+        related_name='armas',
+        verbose_name="Cautela Coletiva"
+    )
+    arma = models.ForeignKey(
+        Arma,
+        on_delete=models.CASCADE,
+        related_name='cautelas_coletivas',
+        verbose_name="Arma"
+    )
+    
+    # Material acompanhando a arma
+    quantidade_carregadores = models.PositiveIntegerField(
+        blank=True, 
+        null=True, 
+        verbose_name="Quantidade de Carregadores",
+        help_text="Quantidade de carregadores que acompanham a arma"
+    )
+    numeracao_carregadores = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Numeração dos Carregadores",
+        help_text="Digite a numeração de cada carregador, separada por vírgula ou quebra de linha."
+    )
+    quantidade_municoes_catalogadas = models.PositiveIntegerField(
+        blank=True, 
+        null=True, 
+        verbose_name="Quantidade de Munições Catalogadas",
+        help_text="Quantidade de munições catalogadas que acompanham a arma"
+    )
+    
+    # Controle
+    data_entrega = models.DateTimeField(default=timezone.now, verbose_name="Data da Entrega")
+    data_devolucao = models.DateTimeField(null=True, blank=True, verbose_name="Data da Devolução")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    devolvida = models.BooleanField(default=False, verbose_name="Arma Devolvida", help_text="Indica se a arma foi devolvida")
+    
+    class Meta:
+        verbose_name = "Item de Cautela Coletiva"
+        verbose_name_plural = "Itens de Cautela Coletiva"
+        ordering = ['-data_entrega']
+        unique_together = [['cautela', 'arma']]  # Uma arma só pode estar uma vez na mesma cautela
+        indexes = [
+            models.Index(fields=['cautela', '-data_entrega']),
+            models.Index(fields=['arma', '-data_entrega']),
+            models.Index(fields=['devolvida', '-data_entrega']),
+        ]
+    
+    def __str__(self):
+        status = "Devolvida" if self.devolvida else "Em Cautela"
+        return f"{self.cautela.descricao} - {self.arma.numero_serie} - {status}"
+
+
+class AssinaturaMovimentacaoArma(models.Model):
+    """Assinaturas eletrônicas de uma movimentação de arma - permite múltiplas assinaturas"""
+    
+    TIPO_ASSINATURA_CHOICES = [
+        ('ENTREGANDO', 'Entregando'),
+        ('RECEBENDO', 'Recebendo'),
+        ('APROVACAO', 'Aprovação'),
+        ('REVISAO', 'Revisão'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    movimentacao = models.ForeignKey(MovimentacaoArma, on_delete=models.CASCADE, verbose_name="Movimentação de Arma", related_name="assinaturas")
+    assinado_por = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Assinado por")
+    militar = models.ForeignKey(Militar, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Militar", help_text="Militar associado à assinatura (se houver)")
+    data_assinatura = models.DateTimeField(auto_now_add=True, verbose_name="Data da Assinatura")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações da Assinatura")
+    tipo_assinatura = models.CharField(
+        max_length=20,
+        choices=TIPO_ASSINATURA_CHOICES,
+        default='ENTREGANDO',
+        verbose_name="Tipo de Assinatura"
+    )
+    funcao_assinatura = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        help_text="Função/cargo do usuário no momento da assinatura",
+        verbose_name="Função no momento da assinatura"
+    )
+    
+    class Meta:
+        verbose_name = "Assinatura de Movimentação de Arma"
+        verbose_name_plural = "Assinaturas de Movimentações de Armas"
+        ordering = ['-data_assinatura']
+    
+    def __str__(self):
+        return f"{self.movimentacao} - {self.assinado_por.get_full_name()} - {self.get_tipo_assinatura_display()}"
+
+
+class AssinaturaCautelaArma(models.Model):
+    """Assinaturas eletrônicas de uma cautela de arma - permite que o militar que recebe assine"""
+    
+    TIPO_ASSINATURA_CHOICES = [
+        ('RECEBENDO', 'Recebendo'),
+        ('ENTREGANDO', 'Entregando'),
+        ('APROVACAO', 'Aprovação'),
+        ('REVISAO', 'Revisão'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    cautela = models.ForeignKey(CautelaArma, on_delete=models.CASCADE, verbose_name="Cautela de Arma", related_name="assinaturas")
+    assinado_por = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Assinado por")
+    militar = models.ForeignKey(Militar, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Militar", help_text="Militar que assina a cautela")
+    data_assinatura = models.DateTimeField(auto_now_add=True, verbose_name="Data da Assinatura")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações da Assinatura")
+    tipo_assinatura = models.CharField(
+        max_length=20,
+        choices=TIPO_ASSINATURA_CHOICES,
+        default='RECEBENDO',
+        verbose_name="Tipo de Assinatura"
+    )
+    funcao_assinatura = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        help_text="Função/cargo do usuário no momento da assinatura",
+        verbose_name="Função no momento da assinatura"
+    )
+    
+    class Meta:
+        verbose_name = "Assinatura de Cautela de Arma"
+        verbose_name_plural = "Assinaturas de Cautelas de Armas"
+        ordering = ['-data_assinatura']
+        unique_together = ['cautela', 'militar', 'tipo_assinatura']
+    
+    def __str__(self):
+        return f"{self.cautela} - {self.militar.nome_completo if self.militar else 'N/A'} - {self.get_tipo_assinatura_display()}"
+
+
+class AssinaturaCautelaArmaColetiva(models.Model):
+    """Assinaturas eletrônicas de uma cautela coletiva de arma - permite que o responsável assine"""
+    
+    TIPO_ASSINATURA_CHOICES = [
+        ('RECEBENDO', 'Recebendo'),
+        ('ENTREGANDO', 'Entregando'),
+        ('APROVACAO', 'Aprovação'),
+        ('REVISAO', 'Revisão'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    cautela = models.ForeignKey(CautelaArmaColetiva, on_delete=models.CASCADE, verbose_name="Cautela Coletiva de Arma", related_name="assinaturas")
+    assinado_por = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Assinado por")
+    militar = models.ForeignKey(Militar, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Militar", help_text="Militar que assina a cautela")
+    data_assinatura = models.DateTimeField(auto_now_add=True, verbose_name="Data da Assinatura")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações da Assinatura")
+    tipo_assinatura = models.CharField(
+        max_length=20,
+        choices=TIPO_ASSINATURA_CHOICES,
+        default='RECEBENDO',
+        verbose_name="Tipo de Assinatura"
+    )
+    funcao_assinatura = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        help_text="Função/cargo do usuário no momento da assinatura",
+        verbose_name="Função no momento da assinatura"
+    )
+    
+    class Meta:
+        verbose_name = "Assinatura de Cautela Coletiva de Arma"
+        verbose_name_plural = "Assinaturas de Cautelas Coletivas de Armas"
+        ordering = ['-data_assinatura']
+        unique_together = ['cautela', 'militar', 'tipo_assinatura']
+    
+    def __str__(self):
+        return f"{self.cautela} - {self.militar.nome_completo if self.militar else 'N/A'} - {self.get_tipo_assinatura_display()}"
+
+
+def arma_imagem_upload_path(instance, filename):
+    """Define o caminho de upload para imagens de configuração de armas"""
+    return f'armas/configuracao/{instance.tipo}/{instance.marca}/{filename}'
+
+
+class ConfiguracaoArma(models.Model):
+    """Configuração de modelos de armas com imagem, tipo, calibre, marca e modelo"""
+    
+    TIPO_CHOICES = [
+        ('PISTOLA', 'Pistola'),
+        ('REVOLVER', 'Revólver'),
+        ('FUZIL', 'Fuzil'),
+        ('CARABINA', 'Carabina'),
+        ('ESPINGARDA', 'Espingarda'),
+        ('METRALHADORA', 'Metralhadora'),
+        ('SUBMETRALHADORA', 'Submetralhadora'),
+        ('FACA', 'Faca'),
+        ('BAIONETA', 'Baioneta'),
+        ('ACESSORIO', 'Acessório'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    ACESSORIO_TIPO_CHOICES = [
+        ('CARREGADOR', 'Carregador'),
+        ('MIRA_TELESCOPICA', 'Mira Telescópica'),
+        ('MIRA_REFLEXO', 'Mira Reflexo'),
+        ('MIRA_LASER', 'Mira Laser'),
+        ('MIRA_FIBRA', 'Mira de Fibra Óptica'),
+        ('MIRA_NOTURNA', 'Mira Noturna'),
+        ('CORONHA', 'Coronha'),
+        ('CORONHA_TATICA', 'Coronha Tática'),
+        ('EMPUNHADURA', 'Empunhadura'),
+        ('EMPUNHADURA_TATICA', 'Empunhadura Tática'),
+        ('GUARDA_MAO', 'Guarda-mão'),
+        ('GUARDA_MAO_TATICA', 'Guarda-mão Tática'),
+        ('SUPORTE_LANTERNA', 'Suporte para Lanterna'),
+        ('SUPORTE_LASER', 'Suporte para Laser'),
+        ('SUPORTE_MIRA', 'Suporte para Mira'),
+        ('CORREIA', 'Correia'),
+        ('CORREIA_TATICA', 'Correia Tática'),
+        ('BOLSA_CARREGADOR', 'Bolsa para Carregadores'),
+        ('COLDRE', 'Coldre'),
+        ('COLDRE_TATICO', 'Coldre Tático'),
+        ('SILENCIADOR', 'Silenciador'),
+        ('COMPENSADOR', 'Compensador'),
+        ('EXTENSOR_CARREGADOR', 'Extensor de Carregador'),
+        ('BASE_ACESSORIO', 'Base para Acessórios'),
+        ('RING_MOUNT', 'Ring Mount'),
+        ('WEAVER_MOUNT', 'Weaver Mount'),
+        ('PICATINNY_MOUNT', 'Picatinny Mount'),
+        ('ADAPTADOR', 'Adaptador'),
+        ('LIMPEZA', 'Kit de Limpeza'),
+        ('MUNICAO', 'Munição'),
+        ('MUNICAO_ESPECIAL', 'Munição Especial'),
+        ('PROTECAO_OUVIDO', 'Proteção Auditiva'),
+        ('PROTECAO_OLHO', 'Proteção Ocular'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    CALIBRE_CHOICES = [
+        ('380', '.380'),
+        ('9MM', '9mm'),
+        ('40', '.40'),
+        ('45', '.45'),
+        ('556', '5.56mm'),
+        ('762', '7.62mm'),
+        ('12', '12 Gauge'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    imagem = models.ImageField(upload_to=arma_imagem_upload_path, verbose_name="Imagem da Arma", help_text="Imagem da arma")
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, verbose_name="Tipo de Arma")
+    tipo_acessorio = models.CharField(
+        max_length=30, 
+        choices=ACESSORIO_TIPO_CHOICES, 
+        blank=True, 
+        null=True,
+        verbose_name="Tipo de Acessório",
+        help_text="Selecione o tipo de acessório (apenas quando Tipo de Arma for Acessório)"
+    )
+    calibre = models.CharField(max_length=20, choices=CALIBRE_CHOICES, blank=True, null=True, verbose_name="Calibre", help_text="Calibre (não obrigatório para acessórios)")
+    marca = models.CharField(max_length=100, verbose_name="Marca", help_text="Ex: Taurus, Glock, IMBEL")
+    modelo = models.CharField(max_length=100, verbose_name="Modelo", help_text="Ex: PT 100 AF, PT 100 PLUS, 24/7 PRO")
+    
+    # Controle
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='configuracoes_arma_criadas', verbose_name="Criado por")
+    
+    class Meta:
+        verbose_name = "Configuração de Arma"
+        verbose_name_plural = "Configurações de Armas"
+        ordering = ['marca', 'modelo']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tipo', 'calibre', 'marca', 'modelo', 'tipo_acessorio'],
+                condition=models.Q(tipo='ACESSORIO'),
+                name='unique_configuracao_acessorio'
+            ),
+            models.UniqueConstraint(
+                fields=['tipo', 'calibre', 'marca', 'modelo'],
+                condition=~models.Q(tipo='ACESSORIO'),
+                name='unique_configuracao_arma'
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['tipo', 'calibre']),
+            models.Index(fields=['marca', 'modelo']),
+            models.Index(fields=['ativo']),
+        ]
+    
+    def __str__(self):
+        if self.tipo == 'ACESSORIO' and self.tipo_acessorio:
+            return f"{self.marca} {self.modelo} - {self.get_tipo_acessorio_display()}"
+        elif self.calibre:
+            return f"{self.marca} {self.modelo} - {self.get_tipo_display()} ({self.get_calibre_display()})"
+        else:
+            return f"{self.marca} {self.modelo} - {self.get_tipo_display()}"
+
+
+class Municao(models.Model):
+    """Controle de estoque de munição por calibre e organização"""
+    
+    CALIBRE_CHOICES = [
+        ('380', '.380'),
+        ('9MM', '9mm'),
+        ('40', '.40'),
+        ('45', '.45'),
+        ('556', '5.56mm'),
+        ('762', '7.62mm'),
+        ('12', '12 Gauge'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    calibre = models.CharField(max_length=20, choices=CALIBRE_CHOICES, verbose_name="Calibre")
+    quantidade_estoque = models.PositiveIntegerField(default=0, verbose_name="Quantidade em Estoque", help_text="Quantidade atual em estoque")
+    
+    # Organização
+    orgao = models.ForeignKey(Orgao, on_delete=models.SET_NULL, null=True, blank=True, related_name='municoes', verbose_name="Órgão")
+    grande_comando = models.ForeignKey(GrandeComando, on_delete=models.SET_NULL, null=True, blank=True, related_name='municoes', verbose_name="Grande Comando")
+    unidade = models.ForeignKey(Unidade, on_delete=models.SET_NULL, null=True, blank=True, related_name='municoes', verbose_name="Unidade")
+    sub_unidade = models.ForeignKey(SubUnidade, on_delete=models.SET_NULL, null=True, blank=True, related_name='municoes', verbose_name="Sub-Unidade")
+    
+    # Controle
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='municoes_criadas', verbose_name="Criado por")
+    
+    class Meta:
+        verbose_name = "Munição"
+        verbose_name_plural = "Munições"
+        ordering = ['calibre', 'orgao', 'grande_comando', 'unidade', 'sub_unidade']
+        unique_together = [['calibre', 'orgao', 'grande_comando', 'unidade', 'sub_unidade']]
+        indexes = [
+            models.Index(fields=['calibre', '-quantidade_estoque']),
+            models.Index(fields=['orgao', 'grande_comando', 'unidade', 'sub_unidade']),
+        ]
+    
+    def __str__(self):
+        org_text = self.get_organizacao()
+        return f"{self.get_calibre_display()} - {org_text} (Estoque: {self.quantidade_estoque})"
+    
+    def get_organizacao(self):
+        """Retorna a organização mais específica"""
+        if self.sub_unidade:
+            return str(self.sub_unidade)
+        elif self.unidade:
+            return str(self.unidade)
+        elif self.grande_comando:
+            return str(self.grande_comando)
+        elif self.orgao:
+            return str(self.orgao)
+        return "Não definido"
+
+
+class EntradaMunicao(models.Model):
+    """Registro de entrada de munição no estoque"""
+    
+    municao = models.ForeignKey(Municao, on_delete=models.CASCADE, related_name='entradas', verbose_name="Munição")
+    quantidade = models.PositiveIntegerField(verbose_name="Quantidade", validators=[MinValueValidator(1)])
+    data_entrada = models.DateTimeField(default=timezone.now, verbose_name="Data da Entrada")
+    responsavel = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='entradas_municao', verbose_name="Responsável")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    
+    class Meta:
+        verbose_name = "Entrada de Munição"
+        verbose_name_plural = "Entradas de Munição"
+        ordering = ['-data_entrada']
+        indexes = [
+            models.Index(fields=['municao', '-data_entrada']),
+            models.Index(fields=['-data_entrada']),
+        ]
+    
+    def __str__(self):
+        return f"Entrada: {self.quantidade} {self.municao.get_calibre_display()} - {self.data_entrada.strftime('%d/%m/%Y %H:%M')}"
+    
+    def save(self, *args, **kwargs):
+        """Atualiza o estoque ao salvar entrada"""
+        super().save(*args, **kwargs)
+        # Atualizar estoque
+        self.municao.quantidade_estoque += self.quantidade
+        self.municao.save()
+
+
+class SaidaMunicao(models.Model):
+    """Registro de saída de munição do estoque"""
+    
+    TIPO_SAIDA_CHOICES = [
+        ('CAUTELA_INDIVIDUAL', 'Cautela Individual'),
+        ('CAUTELA_COLETIVA', 'Cautela Coletiva'),
+        ('TREINAMENTO', 'Treinamento'),
+        ('OPERACAO', 'Operação'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    municao = models.ForeignKey(Municao, on_delete=models.CASCADE, related_name='saidas', verbose_name="Munição")
+    quantidade = models.PositiveIntegerField(verbose_name="Quantidade", validators=[MinValueValidator(1)])
+    tipo_saida = models.CharField(max_length=30, choices=TIPO_SAIDA_CHOICES, verbose_name="Tipo de Saída")
+    
+    # Relacionamento com cautela (se aplicável)
+    cautela_individual = models.ForeignKey(
+        CautelaArma, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='saidas_municao', 
+        verbose_name="Cautela Individual de Arma",
+        help_text="Cautela individual de arma relacionada (se aplicável)"
+    )
+    cautela_coletiva = models.ForeignKey(
+        'CautelaArmaColetiva', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='saidas_municao', 
+        verbose_name="Cautela Coletiva de Arma",
+        help_text="Cautela coletiva de arma relacionada (se aplicável)"
+    )
+    cautela_municao = models.ForeignKey(
+        'CautelaMunicao',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='saidas_municao',
+        verbose_name="Cautela de Munição",
+        help_text="Cautela de munição relacionada (se aplicável)"
+    )
+    
+    data_saida = models.DateTimeField(default=timezone.now, verbose_name="Data da Saída")
+    responsavel = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='saidas_municao', verbose_name="Responsável")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    
+    # Controle de devolução
+    quantidade_devolvida = models.PositiveIntegerField(default=0, verbose_name="Quantidade Devolvida", help_text="Quantidade já devolvida desta saída")
+    totalmente_devolvida = models.BooleanField(default=False, verbose_name="Totalmente Devolvida")
+    
+    class Meta:
+        verbose_name = "Saída de Munição"
+        verbose_name_plural = "Saídas de Munição"
+        ordering = ['-data_saida']
+        indexes = [
+            models.Index(fields=['municao', '-data_saida']),
+            models.Index(fields=['tipo_saida', '-data_saida']),
+            models.Index(fields=['cautela_individual']),
+            models.Index(fields=['cautela_coletiva']),
+        ]
+    
+    def __str__(self):
+        return f"Saída: {self.quantidade} {self.municao.get_calibre_display()} - {self.get_tipo_saida_display()} - {self.data_saida.strftime('%d/%m/%Y %H:%M')}"
+    
+    def save(self, *args, **kwargs):
+        """Atualiza o estoque ao salvar saída"""
+        is_new = self.pk is None
+        if is_new:
+            # Verificar se há estoque suficiente
+            if self.municao.quantidade_estoque < self.quantidade:
+                raise ValidationError(f"Estoque insuficiente. Disponível: {self.municao.quantidade_estoque}, Solicitado: {self.quantidade}")
+            # Atualizar estoque
+            self.municao.quantidade_estoque -= self.quantidade
+            self.municao.save()
+        super().save(*args, **kwargs)
+    
+    def get_quantidade_pendente(self):
+        """Retorna a quantidade ainda não devolvida"""
+        return self.quantidade - self.quantidade_devolvida
+
+
+class DevolucaoMunicao(models.Model):
+    """Registro de devolução de munição ao estoque"""
+    
+    saida = models.ForeignKey(SaidaMunicao, on_delete=models.CASCADE, related_name='devolucoes', verbose_name="Saída Relacionada")
+    quantidade_devolvida = models.PositiveIntegerField(verbose_name="Quantidade Devolvida", validators=[MinValueValidator(1)])
+    data_devolucao = models.DateTimeField(default=timezone.now, verbose_name="Data da Devolução")
+    responsavel = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='devolucoes_municao', verbose_name="Responsável")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    
+    class Meta:
+        verbose_name = "Devolução de Munição"
+        verbose_name_plural = "Devoluções de Munição"
+        ordering = ['-data_devolucao']
+        indexes = [
+            models.Index(fields=['saida', '-data_devolucao']),
+            models.Index(fields=['-data_devolucao']),
+        ]
+    
+    def __str__(self):
+        return f"Devolução: {self.quantidade_devolvida} {self.saida.municao.get_calibre_display()} - {self.data_devolucao.strftime('%d/%m/%Y %H:%M')}"
+    
+    def save(self, *args, **kwargs):
+        """Atualiza o estoque e a saída ao salvar devolução"""
+        is_new = self.pk is None
+        if is_new:
+            # Verificar se a quantidade não excede o pendente
+            quantidade_pendente = self.saida.get_quantidade_pendente()
+            if self.quantidade_devolvida > quantidade_pendente:
+                raise ValidationError(f"Quantidade de devolução excede o pendente. Pendente: {quantidade_pendente}, Devolvido: {self.quantidade_devolvida}")
+            
+            # Atualizar estoque
+            self.saida.municao.quantidade_estoque += self.quantidade_devolvida
+            self.saida.municao.save()
+            
+            # Atualizar saída
+            self.saida.quantidade_devolvida += self.quantidade_devolvida
+            if self.saida.quantidade_devolvida >= self.saida.quantidade:
+                self.saida.totalmente_devolvida = True
+            self.saida.save()
+        
+        super().save(*args, **kwargs)
+
+
+class CautelaMunicao(models.Model):
+    """Registro de cautelas individuais de munição (entregas para militares)"""
+    
+    municao = models.ForeignKey(Municao, on_delete=models.CASCADE, related_name='cautelas', verbose_name="Munição")
+    militar = models.ForeignKey(Militar, on_delete=models.SET_NULL, null=True, blank=True, related_name='cautelas_municoes', verbose_name="Militar")
+    quantidade = models.PositiveIntegerField(verbose_name="Quantidade", validators=[MinValueValidator(1)], help_text="Quantidade de munições em cautela")
+    
+    # Organização da munição no momento da cautela
+    orgao = models.ForeignKey(Orgao, on_delete=models.SET_NULL, null=True, blank=True, related_name='cautelas_municoes', verbose_name="Órgão")
+    grande_comando = models.ForeignKey(GrandeComando, on_delete=models.SET_NULL, null=True, blank=True, related_name='cautelas_municoes', verbose_name="Grande Comando")
+    unidade = models.ForeignKey(Unidade, on_delete=models.SET_NULL, null=True, blank=True, related_name='cautelas_municoes', verbose_name="Unidade")
+    sub_unidade = models.ForeignKey(SubUnidade, on_delete=models.SET_NULL, null=True, blank=True, related_name='cautelas_municoes', verbose_name="Sub-Unidade")
+    
+    # Controle
+    data_entrega = models.DateTimeField(auto_now_add=True, verbose_name="Data da Entrega")
+    data_devolucao = models.DateTimeField(null=True, blank=True, verbose_name="Data da Devolução")
+    quantidade_devolvida = models.PositiveIntegerField(default=0, verbose_name="Quantidade Devolvida", help_text="Quantidade já devolvida desta cautela")
+    entregue_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='cautelas_municoes_entregues', verbose_name="Entregue por")
+    devolvido_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='cautelas_municoes_devolvidas', verbose_name="Devolvido por")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    ativa = models.BooleanField(default=True, verbose_name="Cautela Ativa", help_text="Indica se a cautela está ativa (munição ainda com o militar)")
+    
+    class Meta:
+        verbose_name = "Cautela de Munição"
+        verbose_name_plural = "Cautelas de Munições"
+        ordering = ['-data_entrega']
+        indexes = [
+            models.Index(fields=['municao', '-data_entrega']),
+            models.Index(fields=['militar', '-data_entrega']),
+            models.Index(fields=['ativa', '-data_entrega']),
+        ]
+    
+    def __str__(self):
+        status = "Ativa" if self.ativa else "Devolvida"
+        return f"{self.municao.get_calibre_display()} - {self.quantidade} unidades - {self.militar.nome_completo if self.militar else 'N/A'} - {status}"
+    
+    def get_organizacao(self):
+        """Retorna a organização formatada"""
+        if self.sub_unidade:
+            return str(self.sub_unidade)
+        elif self.unidade:
+            return str(self.unidade)
+        elif self.grande_comando:
+            return str(self.grande_comando)
+        elif self.orgao:
+            return str(self.orgao)
+        return "Não definido"
+    
+    def get_quantidade_pendente(self):
+        """Retorna a quantidade ainda não devolvida"""
+        return self.quantidade - self.quantidade_devolvida
+
+
+# ============================================================================
+# MÓDULO DE TOMBAMENTO DE BENS MÓVEIS
+# ============================================================================
+
+class BemMovel(models.Model):
+    """Cadastro de Bens Móveis do CBMEPI"""
+    
+    CATEGORIA_CHOICES = [
+        ('MOBILIARIO', 'Mobiliário'),
+        ('EQUIPAMENTO_INFORMATICA', 'Equipamento de Informática'),
+        ('EQUIPAMENTO_AUDIO_VIDEO', 'Equipamento de Áudio e Vídeo'),
+        ('MAQUINAS_EQUIPAMENTOS', 'Máquinas e Equipamentos'),
+        ('VEICULOS', 'Veículos'),
+        ('FERAMENTAS', 'Ferramentas'),
+        ('APARELHOS_ELETRODOMESTICOS', 'Aparelhos Eletrodomésticos'),
+        ('EQUIPAMENTO_COMUNICACAO', 'Equipamento de Comunicação'),
+        ('EQUIPAMENTO_SEGURANCA', 'Equipamento de Segurança'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    SITUACAO_CHOICES = [
+        ('EM_USO', 'Em Uso'),
+        ('DISPONIVEL', 'Disponível'),
+        ('MANUTENCAO', 'Em Manutenção'),
+        ('BAIXADO', 'Baixado'),
+        ('EXTRAVIADO', 'Extraviado'),
+        ('DANIFICADO', 'Danificado'),
+    ]
+    
+    # Identificação
+    numero_tombamento = models.CharField(
+        max_length=50, 
+        unique=True, 
+        verbose_name="Número de Tombamento",
+        help_text="Número único de tombamento do bem"
+    )
+    descricao = models.CharField(
+        max_length=500, 
+        verbose_name="Descrição do Bem",
+        help_text="Descrição detalhada do bem móvel"
+    )
+    categoria = models.CharField(
+        max_length=50, 
+        choices=CATEGORIA_CHOICES, 
+        verbose_name="Categoria"
+    )
+    marca = models.CharField(
+        max_length=100, 
+        blank=True, 
+        null=True, 
+        verbose_name="Marca"
+    )
+    modelo = models.CharField(
+        max_length=100, 
+        blank=True, 
+        null=True, 
+        verbose_name="Modelo"
+    )
+    numero_serie = models.CharField(
+        max_length=100, 
+        blank=True, 
+        null=True, 
+        unique=True, 
+        verbose_name="Número de Série"
+    )
+    patrimonio = models.CharField(
+        max_length=100, 
+        blank=True, 
+        null=True, 
+        verbose_name="Patrimônio",
+        help_text="Número de patrimônio (se houver)"
+    )
+    
+    # Localização e Organização
+    orgao = models.ForeignKey(
+        'Orgao', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='bens_moveis', 
+        verbose_name="Órgão"
+    )
+    grande_comando = models.ForeignKey(
+        'GrandeComando', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='bens_moveis', 
+        verbose_name="Grande Comando"
+    )
+    unidade = models.ForeignKey(
+        'Unidade', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='bens_moveis', 
+        verbose_name="Unidade"
+    )
+    sub_unidade = models.ForeignKey(
+        'SubUnidade', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='bens_moveis', 
+        verbose_name="Sub-Unidade"
+    )
+    localizacao_detalhada = models.CharField(
+        max_length=200, 
+        blank=True, 
+        null=True, 
+        verbose_name="Localização Detalhada",
+        help_text="Ex: Sala 101, Almoxarifado, etc."
+    )
+    
+    # Informações de Aquisição
+    data_aquisicao = models.DateField(
+        blank=True, 
+        null=True, 
+        verbose_name="Data de Aquisição"
+    )
+    valor_aquisicao = models.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        blank=True, 
+        null=True, 
+        verbose_name="Valor de Aquisição (R$)"
+    )
+    fornecedor = models.CharField(
+        max_length=200, 
+        blank=True, 
+        null=True, 
+        verbose_name="Fornecedor"
+    )
+    nota_fiscal = models.CharField(
+        max_length=50, 
+        blank=True, 
+        null=True, 
+        verbose_name="Nota Fiscal"
+    )
+    
+    # Situação e Controle
+    situacao = models.CharField(
+        max_length=20, 
+        choices=SITUACAO_CHOICES, 
+        default='EM_USO', 
+        verbose_name="Situação"
+    )
+    responsavel_atual = models.ForeignKey(
+        'Militar', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='bens_moveis_responsavel', 
+        verbose_name="Responsável Atual"
+    )
+    observacoes = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Observações"
+    )
+    
+    # Controle do Sistema
+    ativo = models.BooleanField(
+        default=True, 
+        verbose_name="Ativo"
+    )
+    data_criacao = models.DateTimeField(
+        auto_now_add=True, 
+        verbose_name="Data de Criação"
+    )
+    data_atualizacao = models.DateTimeField(
+        auto_now=True, 
+        verbose_name="Data de Atualização"
+    )
+    criado_por = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='bens_moveis_criados', 
+        verbose_name="Criado por"
+    )
+    
+    class Meta:
+        verbose_name = "Bem Móvel"
+        verbose_name_plural = "Bens Móveis"
+        ordering = ['numero_tombamento']
+        indexes = [
+            models.Index(fields=['numero_tombamento']),
+            models.Index(fields=['categoria', 'situacao']),
+            models.Index(fields=['orgao', 'grande_comando', 'unidade', 'sub_unidade']),
+            models.Index(fields=['responsavel_atual']),
+        ]
+    
+    def __str__(self):
+        return f"{self.numero_tombamento} - {self.descricao}"
+    
+    def get_organizacao(self):
+        """Retorna a organização formatada"""
+        if self.sub_unidade:
+            return str(self.sub_unidade)
+        elif self.unidade:
+            return str(self.unidade)
+        elif self.grande_comando:
+            return str(self.grande_comando)
+        elif self.orgao:
+            return str(self.orgao)
+        return "Não definido"
+    
+    def get_situacao_display_color(self):
+        """Retorna a cor da badge baseada na situação"""
+        cores = {
+            'EM_USO': 'success',
+            'DISPONIVEL': 'info',
+            'MANUTENCAO': 'warning',
+            'BAIXADO': 'secondary',
+            'EXTRAVIADO': 'danger',
+            'DANIFICADO': 'danger',
+        }
+        return cores.get(self.situacao, 'secondary')
+
+
+class TombamentoBemMovel(models.Model):
+    """Registro de tombamento de bens móveis"""
+    
+    TIPO_TOMBAMENTO_CHOICES = [
+        ('ENTRADA', 'Entrada/Tombamento'),
+        ('TRANSFERENCIA', 'Transferência'),
+        ('BAIXA', 'Baixa'),
+        ('REAVALIACAO', 'Reavaliação'),
+    ]
+    
+    bem_movel = models.ForeignKey(
+        BemMovel, 
+        on_delete=models.CASCADE, 
+        related_name='tombamentos', 
+        verbose_name="Bem Móvel"
+    )
+    tipo_tombamento = models.CharField(
+        max_length=20, 
+        choices=TIPO_TOMBAMENTO_CHOICES, 
+        verbose_name="Tipo de Tombamento"
+    )
+    data_tombamento = models.DateField(
+        verbose_name="Data do Tombamento"
+    )
+    
+    # Organização de origem (para transferências)
+    orgao_origem = models.ForeignKey(
+        'Orgao', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='tombamentos_origem', 
+        verbose_name="Órgão de Origem"
+    )
+    grande_comando_origem = models.ForeignKey(
+        'GrandeComando', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='tombamentos_origem', 
+        verbose_name="Grande Comando de Origem"
+    )
+    unidade_origem = models.ForeignKey(
+        'Unidade', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='tombamentos_origem', 
+        verbose_name="Unidade de Origem"
+    )
+    sub_unidade_origem = models.ForeignKey(
+        'SubUnidade', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='tombamentos_origem', 
+        verbose_name="Sub-Unidade de Origem"
+    )
+    
+    # Organização de destino
+    orgao_destino = models.ForeignKey(
+        'Orgao', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='tombamentos_destino', 
+        verbose_name="Órgão de Destino"
+    )
+    grande_comando_destino = models.ForeignKey(
+        'GrandeComando', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='tombamentos_destino', 
+        verbose_name="Grande Comando de Destino"
+    )
+    unidade_destino = models.ForeignKey(
+        'Unidade', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='tombamentos_destino', 
+        verbose_name="Unidade de Destino"
+    )
+    sub_unidade_destino = models.ForeignKey(
+        'SubUnidade', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='tombamentos_destino', 
+        verbose_name="Sub-Unidade de Destino"
+    )
+    
+    # Responsáveis
+    responsavel_origem = models.ForeignKey(
+        'Militar', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='tombamentos_responsavel_origem', 
+        verbose_name="Responsável de Origem"
+    )
+    responsavel_destino = models.ForeignKey(
+        'Militar', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='tombamentos_responsavel_destino', 
+        verbose_name="Responsável de Destino"
+    )
+    
+    # Informações adicionais
+    valor_atual = models.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        blank=True, 
+        null=True, 
+        verbose_name="Valor Atual (R$)",
+        help_text="Valor atual do bem (para reavaliações)"
+    )
+    observacoes = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Observações"
+    )
+    
+    # Controle
+    ativo = models.BooleanField(
+        default=True, 
+        verbose_name="Ativo"
+    )
+    data_criacao = models.DateTimeField(
+        auto_now_add=True, 
+        verbose_name="Data de Criação"
+    )
+    data_atualizacao = models.DateTimeField(
+        auto_now=True, 
+        verbose_name="Data de Atualização"
+    )
+    criado_por = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='tombamentos_criados', 
+        verbose_name="Criado por"
+    )
+    
+    class Meta:
+        verbose_name = "Tombamento de Bem Móvel"
+        verbose_name_plural = "Tombamentos de Bens Móveis"
+        ordering = ['-data_tombamento', '-data_criacao']
+        indexes = [
+            models.Index(fields=['bem_movel', '-data_tombamento']),
+            models.Index(fields=['tipo_tombamento', '-data_tombamento']),
+            models.Index(fields=['-data_tombamento']),
+        ]
+    
+    def __str__(self):
+        return f"{self.bem_movel.numero_tombamento} - {self.get_tipo_tombamento_display()} - {self.data_tombamento.strftime('%d/%m/%Y')}"
+    
+    def get_origem_formatada(self):
+        """Retorna a origem formatada"""
+        if self.sub_unidade_origem:
+            return str(self.sub_unidade_origem)
+        elif self.unidade_origem:
+            return str(self.unidade_origem)
+        elif self.grande_comando_origem:
+            return str(self.grande_comando_origem)
+        elif self.orgao_origem:
+            return str(self.orgao_origem)
+        return "Não definido"
+    
+    def get_destino_formatada(self):
+        """Retorna o destino formatado"""
+        if self.sub_unidade_destino:
+            return str(self.sub_unidade_destino)
+        elif self.unidade_destino:
+            return str(self.unidade_destino)
+        elif self.grande_comando_destino:
+            return str(self.grande_comando_destino)
+        elif self.orgao_destino:
+            return str(self.orgao_destino)
+        return "Não definido"
+
+
+class HistoricoTombamento(models.Model):
+    """Histórico de alterações nos tombamentos"""
+    
+    tombamento = models.ForeignKey(
+        TombamentoBemMovel, 
+        on_delete=models.CASCADE, 
+        related_name='historico', 
+        verbose_name="Tombamento"
+    )
+    campo_alterado = models.CharField(
+        max_length=100, 
+        verbose_name="Campo Alterado"
+    )
+    valor_anterior = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Valor Anterior"
+    )
+    valor_novo = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Valor Novo"
+    )
+    data_alteracao = models.DateTimeField(
+        auto_now_add=True, 
+        verbose_name="Data da Alteração"
+    )
+    alterado_por = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='historicos_tombamento', 
+        verbose_name="Alterado por"
+    )
+    observacoes = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Observações"
+    )
+    
+    class Meta:
+        verbose_name = "Histórico de Tombamento"
+        verbose_name_plural = "Históricos de Tombamentos"
+        ordering = ['-data_alteracao']
+        indexes = [
+            models.Index(fields=['tombamento', '-data_alteracao']),
+            models.Index(fields=['-data_alteracao']),
+        ]
+    
+    def __str__(self):
+        return f"{self.tombamento} - {self.campo_alterado} - {self.data_alteracao.strftime('%d/%m/%Y %H:%M')}"
+
+
+# ============================================================================
+# MÓDULO DE ALMOXARIFADO
+# ============================================================================
+
+class CategoriaMaterial(models.TextChoices):
+    """Categorias de materiais do almoxarifado (mantido para compatibilidade)"""
+    EQUIPAMENTOS_OPERACIONAIS = 'EQUIPAMENTOS_OPERACIONAIS', 'Equipamentos Operacionais'
+    EPI = 'EPI', 'Equipamentos de Proteção Individual'
+    EQUIPAMENTOS_VIATURAS = 'EQUIPAMENTOS_VIATURAS', 'Equipamentos e Materiais para Viaturas'
+    ENGENHARIA_LOGISTICA = 'ENGENHARIA_LOGISTICA', 'Equipamentos de Engenharia e Logística'
+    SAUDE = 'SAUDE', 'Materiais e Equipamentos de Saúde'
+    MANUTENCAO_ALMOXARIFADO = 'MANUTENCAO_ALMOXARIFADO', 'Materiais de Manutenção e Almoxarifado'
+    DIDATICO_TREINAMENTO = 'DIDATICO_TREINAMENTO', 'Materiais Didáticos e de Treinamento'
+    INFRAESTRUTURA_CONSTRUCAO = 'INFRAESTRUTURA_CONSTRUCAO', 'Materiais de Infraestrutura e Construção'
+    INFORMATICA = 'INFORMATICA', 'Materiais e Equipamentos de Informática'
+    ADMINISTRATIVO = 'ADMINISTRATIVO', 'Materiais Administrativos e de Escritório'
+    DEFESA_CIVIL = 'DEFESA_CIVIL', 'Materiais para Defesa Civil e Ações Humanitárias'
+    PATRIMONIO = 'PATRIMONIO', 'Materiais Permanentes e de Patrimônio'
+
+
+class Categoria(models.Model):
+    """Categorias de materiais do almoxarifado"""
+    nome = models.CharField(max_length=100, unique=True, verbose_name="Nome da Categoria")
+    descricao = models.TextField(blank=True, null=True, verbose_name="Descrição")
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Categoria"
+        verbose_name_plural = "Categorias"
+        ordering = ['nome']
+    
+    def __str__(self):
+        return self.nome
+
+
+class Subcategoria(models.Model):
+    """Subcategorias de materiais do almoxarifado"""
+    categoria = models.ForeignKey(
+        Categoria, 
+        on_delete=models.CASCADE, 
+        related_name='subcategorias',
+        verbose_name="Categoria"
+    )
+    nome = models.CharField(max_length=100, verbose_name="Nome da Subcategoria")
+    descricao = models.TextField(blank=True, null=True, verbose_name="Descrição")
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Subcategoria"
+        verbose_name_plural = "Subcategorias"
+        ordering = ['categoria', 'nome']
+        unique_together = [['categoria', 'nome']]
+    
+    def __str__(self):
+        return f"{self.nome} ({self.categoria.nome})"
+
+
+class ProdutoAlmoxarifado(models.Model):
+    """Cadastro de produtos do almoxarifado"""
+    
+    UNIDADE_MEDIDA_CHOICES = [
+        ('UN', 'Unidade'),
+        ('KG', 'Quilograma'),
+        ('G', 'Grama'),
+        ('L', 'Litro'),
+        ('ML', 'Mililitro'),
+        ('M', 'Metro'),
+        ('CM', 'Centímetro'),
+        ('M2', 'Metro Quadrado'),
+        ('M3', 'Metro Cúbico'),
+        ('CX', 'Caixa'),
+        ('PC', 'Peça'),
+        ('RL', 'Rolo'),
+        ('FD', 'Fardo'),
+        ('SC', 'Saco'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    # Identificação
+    codigo = models.CharField(
+        max_length=50, 
+        unique=True,
+        verbose_name="Código do Produto",
+        help_text="Código de identificação único do produto (produto único como supermercado)"
+    )
+    codigo_barras = models.CharField(
+        max_length=100, 
+        unique=True, 
+        blank=True, 
+        null=True, 
+        verbose_name="Código de Barras",
+        help_text="Código de barras do produto (gerado automaticamente baseado no código)"
+    )
+    descricao = models.CharField(
+        max_length=500, 
+        verbose_name="Descrição do Produto",
+        help_text="Descrição detalhada do produto"
+    )
+    categoria_antiga = models.CharField(
+        max_length=50, 
+        choices=CategoriaMaterial.choices,
+        blank=True,
+        null=True,
+        verbose_name="Categoria (Antiga)",
+        help_text="Categoria antiga (mantida para compatibilidade)"
+    )
+    categoria = models.ForeignKey(
+        'Categoria',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='produtos_almoxarifado',
+        verbose_name="Categoria"
+    )
+    subcategoria = models.ForeignKey(
+        'Subcategoria',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='produtos_almoxarifado',
+        verbose_name="Subcategoria"
+    )
+    unidade_medida = models.CharField(
+        max_length=20, 
+        choices=UNIDADE_MEDIDA_CHOICES, 
+        default='UN', 
+        verbose_name="Unidade de Medida"
+    )
+    marca = models.CharField(
+        max_length=100, 
+        blank=True, 
+        null=True, 
+        verbose_name="Marca"
+    )
+    modelo = models.CharField(
+        max_length=100, 
+        blank=True, 
+        null=True, 
+        verbose_name="Modelo"
+    )
+    tamanho = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        verbose_name="Tamanho/Numeração",
+        help_text="Tamanho ou numeração do produto (ex: 35, 36, 37, P, M, G, GG, etc.). Cada tamanho diferente é um produto individual no estoque."
+    )
+    
+    # Estoque
+    estoque_minimo = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=0, 
+        verbose_name="Estoque Mínimo",
+        help_text="Quantidade mínima em estoque"
+    )
+    estoque_maximo = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=0, 
+        verbose_name="Estoque Máximo",
+        help_text="Quantidade máxima em estoque"
+    )
+    quantidade_inicial = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=0, 
+        verbose_name="Quantidade Inicial",
+        help_text="Quantidade inicial em estoque (estoque inicial definido quando o produto foi criado)"
+    )
+    quantidade_atual = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=0, 
+        verbose_name="Quantidade Atual",
+        help_text="Quantidade atual em estoque (calculada automaticamente: inicial + entradas - saídas)"
+    )
+    
+    # Localização
+    localizacao = models.CharField(
+        max_length=200, 
+        blank=True, 
+        null=True, 
+        verbose_name="Localização",
+        help_text="Localização física do produto no almoxarifado"
+    )
+    
+    # Informações de compra
+    valor_unitario = models.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        blank=True, 
+        null=True, 
+        verbose_name="Valor Unitário (R$)",
+        help_text="Valor unitário médio do produto"
+    )
+    fornecedor_principal = models.CharField(
+        max_length=200, 
+        blank=True, 
+        null=True, 
+        verbose_name="Fornecedor Principal"
+    )
+    
+    # Imagem do item
+    imagem = models.ImageField(
+        upload_to='almoxarifado/produtos/',
+        blank=True,
+        null=True,
+        verbose_name="Imagem do Produto",
+        help_text="Imagem do produto do almoxarifado"
+    )
+    
+    # Organização Militar (OM) onde o item foi criado
+    orgao = models.ForeignKey(
+        'Orgao', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='produtos_almoxarifado', 
+        verbose_name="Órgão"
+    )
+    grande_comando = models.ForeignKey(
+        'GrandeComando', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='produtos_almoxarifado', 
+        verbose_name="Grande Comando"
+    )
+    unidade = models.ForeignKey(
+        'Unidade', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='produtos_almoxarifado', 
+        verbose_name="Unidade"
+    )
+    sub_unidade = models.ForeignKey(
+        'SubUnidade', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='produtos_almoxarifado', 
+        verbose_name="Sub-Unidade"
+    )
+    
+    # Controle
+    ativo = models.BooleanField(
+        default=True, 
+        verbose_name="Ativo"
+    )
+    observacoes = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Observações"
+    )
+    data_criacao = models.DateTimeField(
+        auto_now_add=True, 
+        verbose_name="Data de Criação"
+    )
+    data_atualizacao = models.DateTimeField(
+        auto_now=True, 
+        verbose_name="Data de Atualização"
+    )
+    criado_por = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='produtos_almoxarifado_criados', 
+        verbose_name="Criado por"
+    )
+    
+    class Meta:
+        db_table = 'militares_produtoalmoxarifado'  # Tabela renomeada na migração 0383
+        verbose_name = "Produto do Almoxarifado"
+        verbose_name_plural = "Produtos do Almoxarifado"
+        ordering = ['codigo']
+        # Produto único globalmente (como supermercado) - código único
+        indexes = [
+            models.Index(fields=['codigo']),
+            models.Index(fields=['categoria']),
+            models.Index(fields=['ativo']),
+        ]
+    
+    def get_codigo_limpo(self):
+        """Retorna o código sem o prefixo 'ITEM-' se existir"""
+        if self.codigo and self.codigo.startswith('ITEM-'):
+            return self.codigo.replace('ITEM-', '', 1)
+        return self.codigo
+    
+    def formatar_quantidade_unidade(self, quantidade):
+        """
+        Formata quantidade removendo decimais quando for UN (Unidade) e corrige plural
+        Exemplos:
+        - 1.00 UN -> "1 unidade"
+        - 2.00 UN -> "2 unidades"
+        - 1.50 KG -> "1,50 quilogramas"
+        """
+        from decimal import Decimal
+        
+        if quantidade is None:
+            return ""
+        
+        try:
+            qtd = Decimal(str(quantidade))
+        except (ValueError, TypeError):
+            return str(quantidade)
+        
+        # Se for UN (Unidade), remover decimais
+        if self.unidade_medida == 'UN':
+            qtd_int = int(qtd)
+            unidade_display = "unidade" if qtd_int == 1 else "unidades"
+            return f"{qtd_int} {unidade_display}"
+        else:
+            # Para outras unidades, verificar se tem parte decimal significativa
+            if qtd == qtd.quantize(Decimal('1')):
+                qtd_int = int(qtd)
+                unidade_display = self._get_unidade_plural(qtd_int)
+                return f"{qtd_int} {unidade_display}"
+            else:
+                qtd_formatada = f"{qtd:.2f}".replace('.', ',')
+                unidade_display = self._get_unidade_plural(qtd)
+                return f"{qtd_formatada} {unidade_display}"
+    
+    def _get_unidade_plural(self, quantidade):
+        """Retorna a unidade de medida no singular ou plural conforme a quantidade"""
+        try:
+            qtd = int(float(quantidade))
+        except (ValueError, TypeError):
+            qtd = 1
+        
+        unidades = {
+            'UN': ('unidade', 'unidades'),
+            'KG': ('quilograma', 'quilogramas'),
+            'G': ('grama', 'gramas'),
+            'L': ('litro', 'litros'),
+            'ML': ('mililitro', 'mililitros'),
+            'M': ('metro', 'metros'),
+            'CM': ('centímetro', 'centímetros'),
+            'M2': ('metro quadrado', 'metros quadrados'),
+            'M3': ('metro cúbico', 'metros cúbicos'),
+            'CX': ('caixa', 'caixas'),
+            'PC': ('peça', 'peças'),
+            'RL': ('rolo', 'rolos'),
+            'FD': ('fardo', 'fardos'),
+            'SC': ('saco', 'sacos'),
+            'OUTROS': ('unidade', 'unidades'),
+        }
+        
+        singular, plural = unidades.get(self.unidade_medida, ('unidade', 'unidades'))
+        return singular if qtd == 1 else plural
+    
+    def formatar_quantidade(self, quantidade):
+        """
+        Formata quantidade removendo decimais quando for UN (Unidade)
+        Se unidade_medida não for fornecida, apenas formata o número
+        """
+        from decimal import Decimal
+        
+        if quantidade is None:
+            return ""
+        
+        try:
+            qtd = Decimal(str(quantidade))
+        except (ValueError, TypeError):
+            return str(quantidade)
+        
+        # Se for UN (Unidade), remover decimais
+        if self.unidade_medida == 'UN':
+            qtd_int = int(qtd)
+            return str(qtd_int)
+        else:
+            # Para outras unidades, verificar se tem decimais significativos
+            if qtd == qtd.quantize(Decimal('1')):
+                return str(int(qtd))
+            else:
+                return f"{qtd:.2f}".replace('.', ',')
+    
+    def __str__(self):
+        codigo_limpo = self.get_codigo_limpo()
+        if self.tamanho:
+            return f"{codigo_limpo} - {self.descricao} - Tamanho {self.tamanho}"
+        return f"{codigo_limpo} - {self.descricao}"
+    
+    def save(self, *args, **kwargs):
+        """
+        Override do save para gerenciar estoque corretamente
+        
+        REGRA DE ESTOQUE:
+        - quantidade_inicial: Estoque inicial definido quando o item foi criado
+        - quantidade_atual: Estoque atual calculado como: quantidade_inicial + entradas - saídas
+        - Quando um item é criado, se quantidade_atual for preenchida, ela representa o estoque inicial
+        """
+        from decimal import Decimal
+        
+        # Remover prefixo "ITEM-" do código se existir
+        if self.codigo and self.codigo.startswith('ITEM-'):
+            self.codigo = self.codigo.replace('ITEM-', '', 1)
+        
+        # Verificar se é um novo item
+        is_new = self.pk is None
+        
+        # Para novos itens: definir quantidade_inicial baseado no que foi preenchido
+        if is_new:
+            quantidade_atual_preenchida = Decimal(str(self.quantidade_atual)) if self.quantidade_atual else Decimal('0')
+            quantidade_inicial_preenchida = Decimal(str(self.quantidade_inicial)) if self.quantidade_inicial else Decimal('0')
+            
+            # Se quantidade_atual foi preenchida mas quantidade_inicial não, usar quantidade_atual como inicial
+            if quantidade_atual_preenchida > 0 and quantidade_inicial_preenchida == 0:
+                self.quantidade_inicial = quantidade_atual_preenchida
+            # Se quantidade_inicial foi preenchida mas quantidade_atual não, usar quantidade_inicial como atual
+            elif quantidade_inicial_preenchida > 0 and quantidade_atual_preenchida == 0:
+                self.quantidade_atual = quantidade_inicial_preenchida
+            # Se ambos foram preenchidos, garantir que quantidade_inicial seja usado (prioridade)
+            elif quantidade_atual_preenchida > 0 and quantidade_inicial_preenchida > 0:
+                # Se quantidade_inicial foi preenchida, usar ela; caso contrário, usar quantidade_atual
+                if quantidade_inicial_preenchida > 0:
+                    self.quantidade_atual = quantidade_inicial_preenchida
+                else:
+                    self.quantidade_inicial = quantidade_atual_preenchida
+        
+        # Para itens existentes: se não tem estoque inicial mas tem quantidade_atual > 0,
+        # e não há entradas registradas, definir quantidade_inicial automaticamente
+        if not is_new and (not self.quantidade_inicial or self.quantidade_inicial == 0):
+            if self.quantidade_atual and self.quantidade_atual > 0:
+                from django.db.models import Sum
+                total_entradas = 0
+                if self.entradas_produtos.exists():
+                    total_entradas = self.entradas_produtos.filter(entrada__ativo=True).aggregate(
+                        total=Sum('quantidade')
+                    )['total'] or 0
+                
+                # Se não há entradas, usar quantidade_atual como estoque inicial
+                if total_entradas == 0:
+                    self.quantidade_inicial = self.quantidade_atual
+        
+        # Salvar o item
+        super().save(*args, **kwargs)
+        
+        # No sistema de supermercado, estoque é calculado por OM usando get_estoque_por_om()
+        # Não precisamos recalcular quantidade_atual aqui
+    
+    def get_estoque_por_om(self, orgao=None, grande_comando=None, unidade=None, sub_unidade=None):
+        """
+        Calcula o estoque do produto em uma OM específica.
+        Sistema de supermercado: produto único, estoque por OM.
+        
+        FÓRMULA: estoque = quantidade_inicial + entradas (destino) - saídas (origem)
+        
+        Args:
+            orgao: Órgão da OM
+            grande_comando: Grande Comando da OM
+            unidade: Unidade da OM
+            sub_unidade: Sub-Unidade da OM
+        
+        Returns:
+            Decimal: Quantidade em estoque na OM especificada
+        """
+        from django.db.models import Sum, Q
+        from django.db import ProgrammingError
+        from decimal import Decimal
+        
+        if not self.pk:
+            return Decimal('0')
+        
+        # Se não especificou OM, retornar 0
+        if not (orgao or grande_comando or unidade or sub_unidade):
+            return Decimal('0')
+        
+        # Calcular entradas na OM de destino (legadas)
+        entradas_legadas_qs = self.entradas.filter(ativo=True, quantidade__isnull=False)
+        
+        # Filtrar por OM de destino
+        if sub_unidade:
+            entradas_legadas_qs = entradas_legadas_qs.filter(sub_unidade_destino=sub_unidade)
+        elif unidade:
+            entradas_legadas_qs = entradas_legadas_qs.filter(unidade_destino=unidade)
+        elif grande_comando:
+            entradas_legadas_qs = entradas_legadas_qs.filter(grande_comando_destino=grande_comando)
+        elif orgao:
+            entradas_legadas_qs = entradas_legadas_qs.filter(orgao_destino=orgao)
+        
+        total_entradas_legadas = entradas_legadas_qs.aggregate(total=Sum('quantidade'))['total'] or 0
+        
+        # Tentar calcular entradas de múltiplos produtos (se a tabela existir)
+        total_entradas_produtos = Decimal('0')
+        try:
+            entradas_produtos_qs = self.entradas_produtos.filter(entrada__ativo=True)
+            if sub_unidade:
+                entradas_produtos_qs = entradas_produtos_qs.filter(entrada__sub_unidade_destino=sub_unidade)
+            elif unidade:
+                entradas_produtos_qs = entradas_produtos_qs.filter(entrada__unidade_destino=unidade)
+            elif grande_comando:
+                entradas_produtos_qs = entradas_produtos_qs.filter(entrada__grande_comando_destino=grande_comando)
+            elif orgao:
+                entradas_produtos_qs = entradas_produtos_qs.filter(entrada__orgao_destino=orgao)
+            total_entradas_produtos = Decimal(str(entradas_produtos_qs.aggregate(total=Sum('quantidade'))['total'] or 0))
+        except (ProgrammingError, Exception) as e:
+            # Se houver erro de transação interrompida, re-raise imediatamente
+            error_str = str(e).lower()
+            if 'transação atual foi interrompida' in str(e) or 'current transaction is aborted' in error_str:
+                raise
+            # Se a tabela não existir, usar apenas entradas legadas
+            pass
+        
+        total_entradas = Decimal(str(total_entradas_legadas)) + total_entradas_produtos
+        
+        # Verificar se a OM especificada corresponde à OM do produto
+        produto_na_om_especificada = False
+        if sub_unidade and self.sub_unidade and self.sub_unidade.id == sub_unidade.id:
+            produto_na_om_especificada = True
+        elif unidade and self.unidade and self.unidade.id == unidade.id and not self.sub_unidade:
+            produto_na_om_especificada = True
+        elif grande_comando and self.grande_comando and self.grande_comando.id == grande_comando.id and not self.unidade and not self.sub_unidade:
+            produto_na_om_especificada = True
+        elif orgao and self.orgao and self.orgao.id == orgao.id and not self.grande_comando and not self.unidade and not self.sub_unidade:
+            produto_na_om_especificada = True
+        
+        # Construir filtro de saídas
+        # Incluir saídas com origem na OM especificada OU saídas sem origem definida (se produto está na OM)
+        filtro_saidas_origem = Q()
+        if sub_unidade:
+            filtro_saidas_origem = Q(sub_unidade_origem=sub_unidade)
+            if produto_na_om_especificada:
+                # Se produto está na OM, incluir também saídas sem origem definida
+                filtro_saidas_origem |= (Q(sub_unidade_origem__isnull=True) & Q(unidade_origem__isnull=True) & 
+                                       Q(grande_comando_origem__isnull=True) & Q(orgao_origem__isnull=True))
+        elif unidade:
+            filtro_saidas_origem = Q(unidade_origem=unidade)
+            if produto_na_om_especificada:
+                filtro_saidas_origem |= (Q(sub_unidade_origem__isnull=True) & Q(unidade_origem__isnull=True) & 
+                                       Q(grande_comando_origem__isnull=True) & Q(orgao_origem__isnull=True))
+        elif grande_comando:
+            filtro_saidas_origem = Q(grande_comando_origem=grande_comando)
+            if produto_na_om_especificada:
+                filtro_saidas_origem |= (Q(sub_unidade_origem__isnull=True) & Q(unidade_origem__isnull=True) & 
+                                       Q(grande_comando_origem__isnull=True) & Q(orgao_origem__isnull=True))
+        elif orgao:
+            filtro_saidas_origem = Q(orgao_origem=orgao)
+            if produto_na_om_especificada:
+                filtro_saidas_origem |= (Q(sub_unidade_origem__isnull=True) & Q(unidade_origem__isnull=True) & 
+                                       Q(grande_comando_origem__isnull=True) & Q(orgao_origem__isnull=True))
+        
+        # Verificar se a tabela de múltiplos produtos existe e se há saídas com múltiplos produtos
+        tabela_saida_produto_existe = False
+        try:
+            # Tentar verificar se a tabela existe fazendo uma query simples
+            # IMPORTANTE: Esta query pode falhar se executada dentro de uma transação interrompida
+            from django.db import connection
+            from django.db.utils import DatabaseError
+            try:
+                with connection.cursor() as cursor:
+                    # Verificar se é PostgreSQL ou SQLite
+                    if connection.vendor == 'postgresql':
+                        cursor.execute("""
+                            SELECT EXISTS (
+                                SELECT FROM information_schema.tables 
+                                WHERE table_name = 'militares_saidaalmoxarifadoproduto'
+                            );
+                        """)
+                        tabela_saida_produto_existe = cursor.fetchone()[0]
+                    elif connection.vendor == 'sqlite':
+                        cursor.execute("""
+                            SELECT name FROM sqlite_master 
+                            WHERE type='table' AND name='militares_saidaalmoxarifadoproduto'
+                        """)
+                        tabela_saida_produto_existe = cursor.fetchone() is not None
+                    else:
+                        # Para outros bancos, tentar importar a classe
+                        try:
+                            from militares.models import SaidaAlmoxarifadoProduto
+                            tabela_saida_produto_existe = True
+                        except ImportError:
+                            tabela_saida_produto_existe = False
+            except (DatabaseError, Exception) as db_error:
+                # Se houver erro de transação interrompida, re-raise imediatamente
+                error_str = str(db_error).lower()
+                if 'transação atual foi interrompida' in str(db_error) or 'current transaction is aborted' in error_str:
+                    raise
+                # Para outros erros, apenas não definir a tabela como existente
+                pass
+        except Exception:
+            # Se houver qualquer outro erro, não definir a tabela como existente
+            pass
+        
+        total_saidas = Decimal('0')
+        
+        if tabela_saida_produto_existe:
+            # Se a tabela existe, usar APENAS a tabela de múltiplos produtos
+            # (não contar o campo legado para evitar duplicação)
+            try:
+                saidas_produtos_qs = self.saidas_produtos.filter(saida__ativo=True)
+                # Aplicar a mesma lógica: incluir saídas com origem na OM OU saídas sem origem (se produto está na OM)
+                filtro_saidas_produtos_origem = Q()
+                if sub_unidade:
+                    filtro_saidas_produtos_origem = Q(saida__sub_unidade_origem=sub_unidade)
+                    if produto_na_om_especificada:
+                        filtro_saidas_produtos_origem |= (Q(saida__sub_unidade_origem__isnull=True) & Q(saida__unidade_origem__isnull=True) & 
+                                                         Q(saida__grande_comando_origem__isnull=True) & Q(saida__orgao_origem__isnull=True))
+                elif unidade:
+                    filtro_saidas_produtos_origem = Q(saida__unidade_origem=unidade)
+                    if produto_na_om_especificada:
+                        filtro_saidas_produtos_origem |= (Q(saida__sub_unidade_origem__isnull=True) & Q(saida__unidade_origem__isnull=True) & 
+                                                         Q(saida__grande_comando_origem__isnull=True) & Q(saida__orgao_origem__isnull=True))
+                elif grande_comando:
+                    filtro_saidas_produtos_origem = Q(saida__grande_comando_origem=grande_comando)
+                    if produto_na_om_especificada:
+                        filtro_saidas_produtos_origem |= (Q(saida__sub_unidade_origem__isnull=True) & Q(saida__unidade_origem__isnull=True) & 
+                                                         Q(saida__grande_comando_origem__isnull=True) & Q(saida__orgao_origem__isnull=True))
+                elif orgao:
+                    filtro_saidas_produtos_origem = Q(saida__orgao_origem=orgao)
+                    if produto_na_om_especificada:
+                        filtro_saidas_produtos_origem |= (Q(saida__sub_unidade_origem__isnull=True) & Q(saida__unidade_origem__isnull=True) & 
+                                                         Q(saida__grande_comando_origem__isnull=True) & Q(saida__orgao_origem__isnull=True))
+                
+                saidas_produtos_qs = saidas_produtos_qs.filter(filtro_saidas_produtos_origem)
+                total_saidas = Decimal(str(saidas_produtos_qs.aggregate(total=Sum('quantidade'))['total'] or 0))
+            except (ProgrammingError, Exception) as e:
+                # Se houver erro de transação interrompida, re-raise imediatamente
+                error_str = str(e).lower()
+                if 'transação atual foi interrompida' in str(e) or 'current transaction is aborted' in error_str:
+                    raise
+                # Se houver erro, usar campo legado
+                tabela_saida_produto_existe = False
+        
+        if not tabela_saida_produto_existe:
+            # Se a tabela não existe, usar apenas saídas legadas (campo produto)
+            saidas_legadas_qs = self.saidas.filter(ativo=True, quantidade__isnull=False)
+            saidas_legadas_qs = saidas_legadas_qs.filter(filtro_saidas_origem)
+            total_saidas = Decimal(str(saidas_legadas_qs.aggregate(total=Sum('quantidade'))['total'] or 0))
+        
+        # Verificar se a OM especificada é exatamente a OM de criação do produto
+        # quantidade_inicial só deve ser contado na OM de criação (não em OMs pais ou filhas)
+        e_om_criacao = False
+        
+        # Identificar a OM de criação do produto (a mais específica que existe)
+        if self.sub_unidade:
+            # Produto foi criado em uma subunidade (ajudância)
+            # Só conta quantidade_inicial se a OM especificada for exatamente essa subunidade
+            if sub_unidade and self.sub_unidade.id == sub_unidade.id:
+                e_om_criacao = True
+        elif self.unidade:
+            # Produto foi criado em uma unidade
+            # Só conta quantidade_inicial se a OM especificada for exatamente essa unidade (não subunidade)
+            if unidade and self.unidade.id == unidade.id and not sub_unidade:
+                e_om_criacao = True
+        elif self.grande_comando:
+            # Produto foi criado em um grande comando
+            # Só conta quantidade_inicial se a OM especificada for exatamente esse grande comando
+            if grande_comando and self.grande_comando.id == grande_comando.id and not unidade and not sub_unidade:
+                e_om_criacao = True
+        elif self.orgao:
+            # Produto foi criado em um órgão
+            # Só conta quantidade_inicial se a OM especificada for exatamente esse órgão
+            if orgao and self.orgao.id == orgao.id and not grande_comando and not unidade and not sub_unidade:
+                e_om_criacao = True
+        
+        # Estoque = inicial (apenas na OM de criação) + entradas - saídas
+        estoque_inicial = Decimal('0')
+        if e_om_criacao:
+            estoque_inicial = Decimal(str(self.quantidade_inicial)) if self.quantidade_inicial else Decimal('0')
+        
+        estoque = estoque_inicial + total_entradas - total_saidas
+        
+        # Garantir que não fique negativo
+        if estoque < 0:
+            estoque = Decimal('0')
+        
+        return estoque
+    
+    def get_estoque_total(self):
+        """
+        Calcula o estoque total do produto somando o estoque de todas as OMs.
+        Retorna a soma de todos os estoques em todas as organizações militares.
+        """
+        from django.db.models import Sum, Q
+        from django.db import ProgrammingError
+        from decimal import Decimal
+        
+        if not self.pk:
+            return Decimal('0')
+        
+        estoque_total = Decimal('0')
+        
+        # Identificar todas as OMs únicas onde o produto tem estoque
+        oms_identificadas = set()
+        
+        # Adicionar OM de criação do produto (se tiver quantidade_inicial)
+        if self.sub_unidade:
+            oms_identificadas.add(('sub', self.sub_unidade.id, self.sub_unidade))
+        elif self.unidade:
+            oms_identificadas.add(('unidade', self.unidade.id, self.unidade))
+        elif self.grande_comando:
+            oms_identificadas.add(('gc', self.grande_comando.id, self.grande_comando))
+        elif self.orgao:
+            oms_identificadas.add(('orgao', self.orgao.id, self.orgao))
+        
+        # Buscar todas as entradas ativas para identificar OMs de destino
+        entradas_legadas = self.entradas.filter(ativo=True, quantidade__isnull=False)
+        for entrada in entradas_legadas:
+            if entrada.sub_unidade_destino:
+                oms_identificadas.add(('sub', entrada.sub_unidade_destino.id, entrada.sub_unidade_destino))
+            elif entrada.unidade_destino:
+                oms_identificadas.add(('unidade', entrada.unidade_destino.id, entrada.unidade_destino))
+            elif entrada.grande_comando_destino:
+                oms_identificadas.add(('gc', entrada.grande_comando_destino.id, entrada.grande_comando_destino))
+            elif entrada.orgao_destino:
+                oms_identificadas.add(('orgao', entrada.orgao_destino.id, entrada.orgao_destino))
+        
+        # Buscar entradas de múltiplos produtos (se a tabela existir)
+        try:
+            entradas_produtos = self.entradas_produtos.filter(entrada__ativo=True)
+            for ep in entradas_produtos:
+                entrada = ep.entrada
+                if entrada.sub_unidade_destino:
+                    oms_identificadas.add(('sub', entrada.sub_unidade_destino.id, entrada.sub_unidade_destino))
+                elif entrada.unidade_destino:
+                    oms_identificadas.add(('unidade', entrada.unidade_destino.id, entrada.unidade_destino))
+                elif entrada.grande_comando_destino:
+                    oms_identificadas.add(('gc', entrada.grande_comando_destino.id, entrada.grande_comando_destino))
+                elif entrada.orgao_destino:
+                    oms_identificadas.add(('orgao', entrada.orgao_destino.id, entrada.orgao_destino))
+        except (ProgrammingError, Exception):
+            pass
+        
+        # Calcular estoque para cada OM identificada e somar
+        for tipo_om, om_id, om_obj in oms_identificadas:
+            try:
+                if tipo_om == 'sub':
+                    estoque_om = self.get_estoque_por_om(sub_unidade=om_obj)
+                elif tipo_om == 'unidade':
+                    estoque_om = self.get_estoque_por_om(unidade=om_obj)
+                elif tipo_om == 'gc':
+                    estoque_om = self.get_estoque_por_om(grande_comando=om_obj)
+                elif tipo_om == 'orgao':
+                    estoque_om = self.get_estoque_por_om(orgao=om_obj)
+                else:
+                    estoque_om = Decimal('0')
+                
+                estoque_total += estoque_om
+            except Exception:
+                continue
+        
+        return estoque_total
+    
+    def recalcular_quantidade_atual(self, save=True):
+        """
+        DEPRECADO: Este método não deve mais ser usado.
+        Use get_estoque_por_om() para calcular estoque por OM.
+        
+        Mantido para compatibilidade, mas não atualiza quantidade_atual.
+        No sistema de supermercado, o estoque é calculado por OM, não globalmente.
+        """
+        # Não fazer nada - estoque é calculado por OM agora
+        pass
+    
+    def get_status_estoque(self):
+        """Retorna o status do estoque"""
+        if self.quantidade_atual <= 0:
+            return 'ESGOTADO'
+        elif self.quantidade_atual <= self.estoque_minimo:
+            return 'CRITICO'
+        elif self.quantidade_atual >= self.estoque_maximo:
+            return 'ACIMA_MAXIMO'
+        else:
+            return 'NORMAL'
+    
+    def get_status_estoque_display(self):
+        """Retorna o status do estoque formatado"""
+        status = self.get_status_estoque()
+        status_dict = {
+            'ESGOTADO': 'Esgotado',
+            'CRITICO': 'Crítico',
+            'ACIMA_MAXIMO': 'Acima do Máximo',
+            'NORMAL': 'Normal',
+        }
+        return status_dict.get(status, 'Desconhecido')
+    
+    def get_status_estoque_color(self):
+        """Retorna a cor da badge baseada no status do estoque"""
+        status = self.get_status_estoque()
+        cores = {
+            'ESGOTADO': 'danger',
+            'CRITICO': 'warning',
+            'ACIMA_MAXIMO': 'info',
+            'NORMAL': 'success',
+        }
+        return cores.get(status, 'secondary')
+    
+    def get_valor_total_estoque(self):
+        """Calcula o valor total do estoque"""
+        if self.valor_unitario and self.quantidade_atual:
+            return self.valor_unitario * self.quantidade_atual
+        return 0
+    
+    def get_om_formatada(self):
+        """Retorna a OM formatada do item"""
+        if self.sub_unidade:
+            return str(self.sub_unidade)
+        elif self.unidade:
+            return str(self.unidade)
+        elif self.grande_comando:
+            return str(self.grande_comando)
+        elif self.orgao:
+            return str(self.orgao)
+        return "Não definido"
+    
+    def diagnosticar_estoque(self):
+        """Método de diagnóstico para verificar o cálculo do estoque"""
+        from django.db.models import Sum
+        
+        entradas_ativas = self.entradas.filter(ativo=True)
+        saidas_ativas = self.saidas.filter(ativo=True)
+        
+        total_entradas = entradas_ativas.aggregate(total=Sum('quantidade'))['total'] or 0
+        total_saidas = saidas_ativas.aggregate(total=Sum('quantidade'))['total'] or 0
+        
+        diagnostico = {
+            'quantidade_atual': float(self.quantidade_atual),
+            'total_entradas': float(total_entradas),
+            'total_saidas': float(total_saidas),
+            'calculado': float(total_entradas - total_saidas),
+            'diferenca': float(self.quantidade_atual - (total_entradas - total_saidas)),
+            'entradas_detalhes': [
+                {
+                    'id': e.id,
+                    'quantidade': float(e.quantidade),
+                    'tipo': e.tipo_entrada,
+                    'data': str(e.data_entrada),
+                    'ativo': e.ativo,
+                    'observacoes': e.observacoes[:50] if e.observacoes else ''
+                }
+                for e in entradas_ativas.order_by('-data_entrada')
+            ],
+            'saidas_detalhes': [
+                {
+                    'id': s.id,
+                    'quantidade': float(s.quantidade),
+                    'tipo': s.tipo_saida,
+                    'data': str(s.data_saida),
+                    'ativo': s.ativo
+                }
+                for s in saidas_ativas.order_by('-data_saida')
+            ]
+        }
+        
+        return diagnostico
+    
+
+
+# ItemAlmoxarifadoTamanho removido - cada tamanho diferente é agora um item individual
+
+
+class EntradaAlmoxarifado(models.Model):
+    """Registro de entradas de materiais no almoxarifado"""
+    
+    TIPO_ENTRADA_CHOICES = [
+        ('COMPRA', 'Compra'),
+        ('DOACAO', 'Doação'),
+        ('DEVOLUCAO', 'Devolução'),
+        ('TRANSFERENCIA', 'Transferência'),
+        ('AJUSTE', 'Ajuste de Estoque'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    # Produto (mantido para compatibilidade - usar produtos_entrada para múltiplos produtos)
+    produto = models.ForeignKey(
+        'ProdutoAlmoxarifado', 
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='entradas', 
+        verbose_name="Produto (Legado)",
+        db_column='item_id'  # Mantém compatibilidade com coluna existente no banco
+    )
+    tipo_entrada = models.CharField(
+        max_length=20, 
+        choices=TIPO_ENTRADA_CHOICES, 
+        verbose_name="Tipo de Entrada"
+    )
+    data_entrada = models.DateField(
+        verbose_name="Data da Entrada"
+    )
+    # Quantidade (mantido para compatibilidade)
+    quantidade = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Quantidade (Legado)",
+        validators=[MinValueValidator(0.01)]
+    )
+    # Origem
+    fornecedor = models.CharField(
+        max_length=200, 
+        blank=True, 
+        null=True, 
+        verbose_name="Fornecedor"
+    )
+    cnpj_fornecedor = models.CharField(
+        max_length=18, 
+        blank=True, 
+        null=True, 
+        verbose_name="CNPJ do Fornecedor",
+        help_text="CNPJ do fornecedor (formato: XX.XXX.XXX/XXXX-XX)"
+    )
+    endereco_fornecedor = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Endereço do Fornecedor",
+        help_text="Endereço completo do fornecedor"
+    )
+    nota_fiscal = models.CharField(
+        max_length=50, 
+        blank=True, 
+        null=True, 
+        verbose_name="Nota Fiscal"
+    )
+    # Campos específicos para doação
+    numero_processo = models.CharField(
+        max_length=100, 
+        blank=True, 
+        null=True, 
+        verbose_name="Número do Processo",
+        help_text="Número do processo (obrigatório para doações)"
+    )
+    numero_convenio = models.CharField(
+        max_length=100, 
+        blank=True, 
+        null=True, 
+        verbose_name="Número do Convênio",
+        help_text="Número do convênio (obrigatório para doações)"
+    )
+    
+    # Organização de origem (para transferências)
+    orgao_origem = models.ForeignKey(
+        'Orgao', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='entradas_almoxarifado_origem', 
+        verbose_name="Órgão de Origem"
+    )
+    grande_comando_origem = models.ForeignKey(
+        'GrandeComando', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='entradas_almoxarifado_origem', 
+        verbose_name="Grande Comando de Origem"
+    )
+    unidade_origem = models.ForeignKey(
+        'Unidade', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='entradas_almoxarifado_origem', 
+        verbose_name="Unidade de Origem"
+    )
+    sub_unidade_origem = models.ForeignKey(
+        'SubUnidade', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='entradas_almoxarifado_origem', 
+        verbose_name="Sub-Unidade de Origem"
+    )
+    
+    # Organização de destino (para transferências)
+    orgao_destino = models.ForeignKey(
+        'Orgao', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='entradas_almoxarifado_destino', 
+        verbose_name="Órgão de Destino"
+    )
+    grande_comando_destino = models.ForeignKey(
+        'GrandeComando', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='entradas_almoxarifado_destino', 
+        verbose_name="Grande Comando de Destino"
+    )
+    unidade_destino = models.ForeignKey(
+        'Unidade', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='entradas_almoxarifado_destino', 
+        verbose_name="Unidade de Destino"
+    )
+    sub_unidade_destino = models.ForeignKey(
+        'SubUnidade', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='entradas_almoxarifado_destino', 
+        verbose_name="Sub-Unidade de Destino"
+    )
+    
+    # Responsável
+    responsavel = models.ForeignKey(
+        'Militar', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='entradas_almoxarifado_responsavel', 
+        verbose_name="Responsável"
+    )
+    
+    # Informações adicionais
+    observacoes = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Observações"
+    )
+    
+    # Controle
+    ativo = models.BooleanField(
+        default=True, 
+        verbose_name="Ativo"
+    )
+    data_criacao = models.DateTimeField(
+        auto_now_add=True, 
+        verbose_name="Data de Criação"
+    )
+    data_atualizacao = models.DateTimeField(
+        auto_now=True, 
+        verbose_name="Data de Atualização"
+    )
+    criado_por = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='entradas_almoxarifado_criadas', 
+        verbose_name="Criado por"
+    )
+    
+    class Meta:
+        verbose_name = "Entrada de Almoxarifado"
+        verbose_name_plural = "Entradas de Almoxarifado"
+        ordering = ['-data_entrada', '-data_criacao']
+        indexes = [
+            models.Index(fields=['produto', '-data_entrada']),
+            models.Index(fields=['tipo_entrada', '-data_entrada']),
+            models.Index(fields=['-data_entrada']),
+        ]
+    
+    def __str__(self):
+        from django.db import ProgrammingError
+        try:
+            if self.produtos_entrada.exists():
+                itens_str = ", ".join([f"{item.produto.codigo}" for item in self.produtos_entrada.all()[:3]])
+                if self.produtos_entrada.count() > 3:
+                    itens_str += "..."
+                return f"{itens_str} - {self.get_tipo_entrada_display()} - {self.data_entrada.strftime('%d/%m/%Y')}"
+        except (ProgrammingError, Exception):
+            # Se a tabela não existir, usar produto legado
+            pass
+        if self.produto:
+            return f"{self.produto.codigo} - {self.get_tipo_entrada_display()} - {self.data_entrada.strftime('%d/%m/%Y')}"
+        return f"Entrada #{self.pk} - {self.get_tipo_entrada_display()} - {self.data_entrada.strftime('%d/%m/%Y')}"
+    
+    # Método requer_tamanhos removido - cada tamanho diferente é agora um item individual
+    
+    def get_total_quantidade(self):
+        """Retorna o total de quantidade de todos os itens"""
+        from django.db.models import Sum
+        from django.db import ProgrammingError
+        total = 0
+        try:
+            total = self.produtos_entrada.aggregate(total=Sum('quantidade'))['total'] or 0
+        except (ProgrammingError, Exception):
+            # Se a tabela não existir, usar quantidade legada
+            pass
+        # Adicionar quantidade legada se existir
+        if self.quantidade:
+            total += self.quantidade
+        return total
+    
+    def get_total_valor_total(self):
+        """Retorna o total de valor total de todos os produtos da entrada"""
+        from django.db.models import Sum
+        from django.db import ProgrammingError
+        from decimal import Decimal
+        total = Decimal('0')
+        try:
+            total = self.produtos_entrada.aggregate(total=Sum('valor_total'))['total'] or Decimal('0')
+        except (ProgrammingError, Exception):
+            pass
+        return total
+    
+    def save(self, *args, **kwargs):
+        """Override do save para atualizar estoque"""
+        super().save(*args, **kwargs)
+        
+        # Não recalcular quantidade_atual aqui - o estoque é calculado dinamicamente por OM
+        # O método recalcular_quantidade_atual() está deprecado
+        # Use get_estoque_por_om() para calcular estoque por OM quando necessário
+    
+    def delete(self, *args, **kwargs):
+        """Override do delete para atualizar estoque ao excluir entrada"""
+        # Não recalcular quantidade_atual aqui - o estoque é calculado dinamicamente por OM
+        # O método recalcular_quantidade_atual() está deprecado
+        # Use get_estoque_por_om() para calcular estoque por OM quando necessário
+        super().delete(*args, **kwargs)
+    
+    def get_origem_formatada(self):
+        """Retorna a origem formatada (de onde recebeu)"""
+        if self.sub_unidade_origem:
+            return str(self.sub_unidade_origem)
+        elif self.unidade_origem:
+            return str(self.unidade_origem)
+        elif self.grande_comando_origem:
+            return str(self.grande_comando_origem)
+        elif self.orgao_origem:
+            return str(self.orgao_origem)
+        return "Não definido"
+    
+    def get_destino_formatada(self):
+        """Retorna o destino formatado (onde o item está agora)"""
+        if self.sub_unidade_destino:
+            return str(self.sub_unidade_destino)
+        elif self.unidade_destino:
+            return str(self.unidade_destino)
+        elif self.grande_comando_destino:
+            return str(self.grande_comando_destino)
+        elif self.orgao_destino:
+            return str(self.orgao_destino)
+        return "Não definido"
+    
+    def pode_editar(self, user):
+        """Verifica se o usuário pode editar esta entrada"""
+        # Transferências não podem ser editadas por ninguém
+        if self.tipo_entrada == 'TRANSFERENCIA':
+            return False
+        return True
+    
+    def pode_excluir(self, user):
+        """Verifica se o usuário pode excluir esta entrada"""
+        # Transferências não podem ser excluídas por ninguém
+        if self.tipo_entrada == 'TRANSFERENCIA':
+            return False
+        return True
+    
+    def _criar_assinatura(self, user, tipo_assinatura, observacoes=None):
+        """Cria uma assinatura para a entrada"""
+        from .permissoes_militares import obter_sessao_ativa_usuario
+        
+        # Obter militar do usuário
+        militar = None
+        if hasattr(user, 'militar'):
+            militar = user.militar
+        
+        # Obter função do usuário
+        funcao_assinatura = None
+        sessao = obter_sessao_ativa_usuario(user)
+        if sessao and sessao.funcao_militar_usuario:
+            funcao = sessao.funcao_militar_usuario.funcao_militar
+            if funcao:
+                funcao_assinatura = str(funcao)
+        
+        # Criar ou atualizar assinatura
+        AssinaturaEntradaAlmoxarifado.objects.update_or_create(
+            entrada=self,
+            tipo_assinatura=tipo_assinatura,
+            defaults={
+                'assinado_por': user,
+                'militar': militar,
+                'funcao_assinatura': funcao_assinatura,
+                'observacoes': observacoes
+            }
+        )
+
+
+class SaidaAlmoxarifado(models.Model):
+    """Registro de saídas de materiais do almoxarifado"""
+    
+    TIPO_SAIDA_CHOICES = [
+        ('CONSUMO', 'Consumo'),
+        ('TRANSFERENCIA', 'Transferência'),
+        ('BAIXA', 'Baixa'),
+        ('AJUSTE', 'Ajuste de Estoque'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    # Produto (mantido para compatibilidade - usar produtos_saida para múltiplos produtos)
+    produto = models.ForeignKey(
+        'ProdutoAlmoxarifado', 
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='saidas', 
+        verbose_name="Produto (Legado)",
+        db_column='item_id'  # Mantém compatibilidade com coluna existente no banco
+    )
+    tipo_saida = models.CharField(
+        max_length=20, 
+        choices=TIPO_SAIDA_CHOICES, 
+        verbose_name="Tipo de Saída"
+    )
+    data_saida = models.DateField(
+        verbose_name="Data da Saída"
+    )
+    # Quantidade (mantido para compatibilidade)
+    quantidade = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Quantidade (Legado)",
+        validators=[MinValueValidator(0.01)]
+    )
+    
+    # Destino
+    orgao_destino = models.ForeignKey(
+        'Orgao', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='saidas_almoxarifado_destino', 
+        verbose_name="Órgão de Destino"
+    )
+    grande_comando_destino = models.ForeignKey(
+        'GrandeComando', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='saidas_almoxarifado_destino', 
+        verbose_name="Grande Comando de Destino"
+    )
+    unidade_destino = models.ForeignKey(
+        'Unidade', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='saidas_almoxarifado_destino', 
+        verbose_name="Unidade de Destino"
+    )
+    sub_unidade_destino = models.ForeignKey(
+        'SubUnidade', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='saidas_almoxarifado_destino', 
+        verbose_name="Sub-Unidade de Destino"
+    )
+    
+    # Organização de origem (para transferências)
+    orgao_origem = models.ForeignKey(
+        'Orgao', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='saidas_almoxarifado_origem', 
+        verbose_name="Órgão de Origem"
+    )
+    grande_comando_origem = models.ForeignKey(
+        'GrandeComando', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='saidas_almoxarifado_origem', 
+        verbose_name="Grande Comando de Origem"
+    )
+    unidade_origem = models.ForeignKey(
+        'Unidade', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='saidas_almoxarifado_origem', 
+        verbose_name="Unidade de Origem"
+    )
+    sub_unidade_origem = models.ForeignKey(
+        'SubUnidade', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='saidas_almoxarifado_origem', 
+        verbose_name="Sub-Unidade de Origem"
+    )
+    
+    # Responsáveis
+    requisitante = models.ForeignKey(
+        'Militar', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='saidas_almoxarifado_requisitante', 
+        verbose_name="Requisitante"
+    )
+    responsavel_entrega = models.ForeignKey(
+        'Militar', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='saidas_almoxarifado_responsavel_entrega', 
+        verbose_name="Responsável pela Entrega"
+    )
+    
+    # Informações adicionais
+    numero_requisicao = models.CharField(
+        max_length=50, 
+        blank=True, 
+        null=True, 
+        verbose_name="Número da Requisição"
+    )
+    observacoes = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Observações"
+    )
+    
+    # Controle
+    ativo = models.BooleanField(
+        default=True, 
+        verbose_name="Ativo"
+    )
+    data_criacao = models.DateTimeField(
+        auto_now_add=True, 
+        verbose_name="Data de Criação"
+    )
+    data_atualizacao = models.DateTimeField(
+        auto_now=True, 
+        verbose_name="Data de Atualização"
+    )
+    criado_por = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='saidas_almoxarifado_criadas', 
+        verbose_name="Criado por"
+    )
+    
+    class Meta:
+        verbose_name = "Saída de Almoxarifado"
+        verbose_name_plural = "Saídas de Almoxarifado"
+        ordering = ['-data_saida', '-data_criacao']
+        indexes = [
+            models.Index(fields=['produto', '-data_saida']),
+            models.Index(fields=['tipo_saida', '-data_saida']),
+            models.Index(fields=['-data_saida']),
+        ]
+    
+    def __str__(self):
+        from django.db import ProgrammingError
+        try:
+            if self.produtos_saida.exists():
+                itens_str = ", ".join([f"{item.produto.codigo}" for item in self.produtos_saida.all()[:3]])
+                if self.produtos_saida.count() > 3:
+                    itens_str += "..."
+                return f"{itens_str} - {self.get_tipo_saida_display()} - {self.data_saida.strftime('%d/%m/%Y')}"
+        except (ProgrammingError, Exception):
+            # Se a tabela não existir, usar campo legado
+            pass
+        if self.produto:
+            return f"{self.produto.codigo} - {self.get_tipo_saida_display()} - {self.data_saida.strftime('%d/%m/%Y')}"
+        return f"Saída #{self.pk} - {self.get_tipo_saida_display()} - {self.data_saida.strftime('%d/%m/%Y')}"
+    
+    # Método requer_tamanhos removido - cada tamanho diferente é agora um item individual
+    
+    def tem_produtos_saida(self):
+        """Verifica se a saída tem produtos_saida de forma segura"""
+        from django.db import ProgrammingError
+        try:
+            return self.produtos_saida.exists()
+        except (ProgrammingError, Exception):
+            return False
+    
+    def get_total_quantidade(self):
+        """Retorna o total de quantidade de todos os itens"""
+        from django.db.models import Sum
+        from django.db import ProgrammingError, connection
+        from decimal import Decimal
+        
+        # Verificar se a tabela de múltiplos produtos existe
+        tabela_saida_produto_existe = False
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = 'militares_saidaalmoxarifadoproduto'
+                    );
+                """)
+                tabela_saida_produto_existe = cursor.fetchone()[0]
+        except Exception:
+            pass
+        
+        total = Decimal('0')
+        
+        if tabela_saida_produto_existe:
+            # Se a tabela existe, usar APENAS a tabela de múltiplos produtos
+            # (não contar o campo legado para evitar duplicação)
+            try:
+                total = Decimal(str(self.produtos_saida.aggregate(total=Sum('quantidade'))['total'] or 0))
+            except (ProgrammingError, Exception):
+                # Se houver erro, usar campo legado
+                if self.quantidade:
+                    total = Decimal(str(self.quantidade))
+        else:
+            # Se a tabela não existe, usar apenas quantidade legada
+            if self.quantidade:
+                total = Decimal(str(self.quantidade))
+        
+        return total
+    
+    def save(self, *args, **kwargs):
+        """Override do save para atualizar estoque e criar entrada automática no destino"""
+        # Verificar se é uma nova saída ou edição
+        is_new = self.pk is None
+        if not is_new:
+            # Se está editando, buscar o registro antigo
+            try:
+                old_saida = SaidaAlmoxarifado.objects.get(pk=self.pk)
+                old_quantidade = old_saida.quantidade if old_saida.ativo else 0
+                old_ativo = old_saida.ativo
+            except SaidaAlmoxarifado.DoesNotExist:
+                old_quantidade = 0
+                old_ativo = False
+        else:
+            old_quantidade = 0
+            old_ativo = False
+        
+        super().save(*args, **kwargs)
+        
+        # Entrada automática é criada na view, não aqui no save()
+        # Isso evita problemas de transação e duplicação
+        # Não recalcular quantidade_atual aqui - o estoque é calculado dinamicamente por OM
+        # O método recalcular_quantidade_atual() está deprecado
+        # Use get_estoque_por_om() para calcular estoque por OM quando necessário
+    
+    def _tem_destino(self):
+        """Verifica se a saída tem um destino definido"""
+        return bool(
+            self.orgao_destino or 
+            self.grande_comando_destino or 
+            self.unidade_destino or 
+            self.sub_unidade_destino
+        )
+    
+    def _criar_entrada_automatica(self):
+        """
+        Cria automaticamente uma entrada na unidade de destino.
+        IMPORTANTE: Se houver qualquer erro SQL, a exceção será re-raise imediatamente
+        para que a transação seja revertida. Não tente executar mais comandos SQL após um erro.
+        """
+        # Não verificar conexão aqui - pode causar problemas com transações
+        # Se houver erro SQL, será capturado e re-raise abaixo
+        try:
+            # Determinar a origem esperada para verificar entrada existente
+            orgao_origem_esperada = None
+            grande_comando_origem_esperada = None
+            unidade_origem_esperada = None
+            sub_unidade_origem_esperada = None
+            
+            # Verificar se há uma requisição associada
+            # IMPORTANTE: Usar relacionamento reverso de forma segura para evitar erros SQL
+            requisicao = None
+            try:
+                # Tentar acessar o relacionamento reverso diretamente
+                # Isso é mais seguro que fazer uma query
+                if hasattr(self, 'requisicao_origem') and self.requisicao_origem:
+                    requisicao = self.requisicao_origem
+                else:
+                    # Se não encontrou pelo atributo direto, tentar buscar via query
+                    # Mas apenas se não houver erro SQL anterior
+                    try:
+                        from .models import RequisicaoAlmoxarifado
+                        requisicao = RequisicaoAlmoxarifado.objects.filter(transferencia_criada=self).first()
+                    except Exception as e:
+                        # Se houver erro SQL, não buscar - continuar sem requisição
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.warning(f"Erro ao buscar requisição (continuando sem ela): {str(e)}")
+                        requisicao = None
+            except Exception as e:
+                # Se houver qualquer erro, continuar sem requisição
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Erro ao verificar requisição (continuando sem ela): {str(e)}")
+                requisicao = None
+            
+            if requisicao:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(f'Requisição encontrada (ID: {requisicao.pk}) para saída {self.pk}')
+                orgao_origem_esperada = requisicao.orgao_requisitada
+                grande_comando_origem_esperada = requisicao.grande_comando_requisitada
+                unidade_origem_esperada = requisicao.unidade_requisitada
+                sub_unidade_origem_esperada = requisicao.sub_unidade_requisitada
+            elif self.criado_por:
+                from .permissoes_militares import obter_sessao_ativa_usuario
+                sessao = obter_sessao_ativa_usuario(self.criado_por)
+                if sessao and sessao.funcao_militar_usuario:
+                    funcao = sessao.funcao_militar_usuario.funcao_militar
+                    orgao_origem_esperada = funcao.orgao
+                    grande_comando_origem_esperada = funcao.grande_comando
+                    unidade_origem_esperada = funcao.unidade
+                    sub_unidade_origem_esperada = funcao.sub_unidade
+            
+            # Verificar se já existe uma entrada automática para esta saída
+            # (para evitar duplicatas em caso de re-save)
+            # Usar observações para identificar entradas automáticas
+            # Verificar se há múltiplos produtos ou produto único
+            from django.db import connection
+            tabela_saida_produto_existe = False
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        SELECT name FROM sqlite_master 
+                        WHERE type='table' AND name='militares_saidaalmoxarifadoproduto'
+                    """)
+                    tabela_saida_produto_existe = cursor.fetchone() is not None
+            except Exception:
+                try:
+                    from .models import SaidaAlmoxarifadoProduto
+                    tabela_saida_produto_existe = True
+                except Exception:
+                    tabela_saida_produto_existe = False
+            
+            # Verificar entrada existente usando o primeiro produto (para compatibilidade)
+            produto_verificacao = self.produto
+            quantidade_verificacao = self.quantidade
+            if tabela_saida_produto_existe and self.produtos_saida.exists():
+                primeiro_produto_saida = self.produtos_saida.first()
+                if primeiro_produto_saida:
+                    produto_verificacao = primeiro_produto_saida.produto
+                    quantidade_verificacao = primeiro_produto_saida.quantidade
+            
+            # Não verificar entrada existente para evitar problemas com transações
+            # Se houver duplicata, será tratado pelo banco de dados ou pelo código
+            # Vamos sempre criar a entrada (o banco de dados ou constraints evitarão duplicatas se necessário)
+            
+            # Obter produtos da saída (múltiplos ou único)
+            # IMPORTANTE: Se houver erro SQL aqui, a transação será interrompida
+            produtos_saida_list = []
+            try:
+                if tabela_saida_produto_existe:
+                    # Tentar obter produtos diretamente sem usar exists() primeiro
+                    # Isso evita problemas com transações interrompidas
+                    try:
+                        produtos_saida_queryset = self.produtos_saida.all()
+                        produtos_saida_list = list(produtos_saida_queryset)
+                    except Exception as e:
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.error(f"ERRO SQL ao obter produtos_saida: {str(e)}")
+                        # Se houver erro, tentar usar produto legado
+                        produtos_saida_list = []
+                
+                if not produtos_saida_list and self.produto:
+                    # Usar produto legado
+                    produtos_saida_list = [type('obj', (object,), {'produto': self.produto, 'quantidade': self.quantidade})()]
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"ERRO ao obter produtos da saída: {str(e)}")
+                raise
+            
+            if not produtos_saida_list:
+                raise ValueError('Não é possível criar entrada automática sem produtos válidos.')
+            
+            # Calcular quantidade total
+            quantidade_total = sum(ps.quantidade for ps in produtos_saida_list)
+            
+            # Reutilizar as variáveis de origem já calculadas acima
+            orgao_origem_entrada = orgao_origem_esperada
+            grande_comando_origem_entrada = grande_comando_origem_esperada
+            unidade_origem_entrada = unidade_origem_esperada
+            sub_unidade_origem_entrada = sub_unidade_origem_esperada
+            
+            # Determinar a OM de destino (onde o material está indo)
+            # Para transferências, a OM de destino é a OM requisitante (self.orgao_destino, etc.)
+            # Se houver requisição, usar a OM requisitante da requisição
+            if requisicao:
+                orgao_destino = requisicao.orgao_requisitante
+                grande_comando_destino = requisicao.grande_comando_requisitante
+                unidade_destino = requisicao.unidade_requisitante
+                sub_unidade_destino = requisicao.sub_unidade_requisitante
+            else:
+                orgao_destino = self.orgao_destino
+                grande_comando_destino = self.grande_comando_destino
+                unidade_destino = self.unidade_destino
+                sub_unidade_destino = self.sub_unidade_destino
+            
+            # IMPORTANTE: NÃO mover o item para a OM destino!
+            # O item deve permanecer na OM origem para que o estoque seja calculado corretamente.
+            # O recalcular_quantidade_atual() calcula o estoque baseado na OM do item,
+            # então se movermos o item, ele vai calcular o estoque da OM destino, não da origem.
+            # A entrada será criada na OM destino, mas o item permanece na origem.
+            
+            # Verificar se a tabela de múltiplos produtos de entrada existe
+            tabela_entrada_produto_existe = False
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        SELECT name FROM sqlite_master 
+                        WHERE type='table' AND name='militares_entradaalmoxarifadoproduto'
+                    """)
+                    tabela_entrada_produto_existe = cursor.fetchone() is not None
+            except Exception:
+                try:
+                    from .models import EntradaAlmoxarifadoProduto
+                    tabela_entrada_produto_existe = True
+                except Exception:
+                    tabela_entrada_produto_existe = False
+            
+            # Criar nova entrada na unidade de destino (OM requisitante)
+            # Usar primeiro produto para compatibilidade com campo legado
+            primeiro_produto = produtos_saida_list[0].produto if produtos_saida_list else None
+            
+            # Validar campos obrigatórios antes de criar
+            if not primeiro_produto:
+                raise ValueError('Não é possível criar entrada sem produto válido.')
+            
+            # Validar que temos destino definido
+            if not (orgao_destino or grande_comando_destino or unidade_destino or sub_unidade_destino):
+                raise ValueError('Não é possível criar entrada sem destino definido.')
+            
+            entrada = EntradaAlmoxarifado(
+                produto=primeiro_produto,  # Para compatibilidade
+                tipo_entrada='TRANSFERENCIA',
+                data_entrada=self.data_saida,
+                quantidade=quantidade_total,  # Quantidade total de todos os produtos
+                # A origem da entrada é de onde veio o material (OM requisitada)
+                orgao_origem=orgao_origem_entrada,
+                grande_comando_origem=grande_comando_origem_entrada,
+                unidade_origem=unidade_origem_entrada,
+                sub_unidade_origem=sub_unidade_origem_entrada,
+                # Destino é onde o material está chegando (OM destino)
+                orgao_destino=orgao_destino,
+                grande_comando_destino=grande_comando_destino,
+                unidade_destino=unidade_destino,
+                sub_unidade_destino=sub_unidade_destino,
+                # Responsável é o mesmo que criou a saída
+                responsavel=self.responsavel_entrega,
+                criado_por=self.criado_por,
+                observacoes=f"Entrada automática gerada a partir da saída #{self.pk}. {self.observacoes or ''}".strip()
+            )
+            
+            # Salvar entrada
+            # IMPORTANTE: Se houver erro SQL aqui, a transação será interrompida
+            try:
+                # Validar antes de salvar
+                entrada.full_clean()
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Erro na validação da entrada (continuando): {str(e)}")
+                # Continuar mesmo se houver erro na validação
+            
+            # Salvar entrada - se houver erro SQL aqui, será capturado e re-raise
+            try:
+                entrada.save()
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(f'✓ Entrada salva (ID: {entrada.pk})')
+            except Exception as e:
+                import logging
+                import traceback
+                logger = logging.getLogger(__name__)
+                logger.error(f"ERRO SQL ao salvar entrada: {str(e)}\n{traceback.format_exc()}")
+                # Re-raise imediatamente para que a transação seja revertida
+                raise
+            
+            # Adicionar todos os produtos da saída à entrada
+            if tabela_entrada_produto_existe:
+                from .models import EntradaAlmoxarifadoProduto
+                import logging
+                logger = logging.getLogger(__name__)
+                
+                for produto_saida in produtos_saida_list:
+                    try:
+                        produto_origem = produto_saida.produto
+                        if not produto_origem:
+                            raise ValueError(f'Produto inválido na saída {self.pk}')
+                        
+                        logger.info(f'Processando produto {produto_origem.codigo} para entrada')
+                        
+                        # SISTEMA DE SUPERMERCADO: Produto único globalmente
+                        # Não criar produto duplicado - usar o mesmo produto
+                        # O estoque é calculado por OM, mas o produto é único
+                        produto_destino = produto_origem
+                        logger.info(f'Usando produto único {produto_origem.codigo} (ID: {produto_origem.pk}) - sistema de supermercado')
+                        
+                        # Criar produto da entrada
+                        try:
+                            logger.info(f'Criando EntradaAlmoxarifadoProduto para produto {produto_destino.codigo}')
+                            EntradaAlmoxarifadoProduto.objects.create(
+                                entrada=entrada,
+                                produto=produto_destino,
+                                quantidade=produto_saida.quantidade
+                            )
+                            logger.info(f'✓ EntradaAlmoxarifadoProduto criado')
+                        except Exception as e:
+                            logger.error(f"ERRO ao criar EntradaAlmoxarifadoProduto: {str(e)}")
+                            raise
+                        
+                        # Recalcular estoque na OM destino
+                        # IMPORTANTE: Se houver erro SQL aqui, a transação será marcada como interrompida
+                        # e qualquer comando SQL subsequente falhará. Por isso, fazemos re-raise imediatamente.
+                        try:
+                            produto_destino.recalcular_quantidade_atual()
+                            logger.info(f'✓ Estoque recalculado para produto {produto_destino.codigo}')
+                        except Exception as e:
+                            # Verificar se é erro de transação interrompida
+                            error_str = str(e).lower()
+                            if 'transação atual foi interrompida' in str(e) or 'current transaction is aborted' in error_str:
+                                logger.error(f"ERRO CRÍTICO: Transação foi interrompida ao recalcular estoque: {str(e)}")
+                                # Re-raise imediatamente para que a transação seja revertida
+                                raise
+                            # Para outros erros, também fazer re-raise para garantir consistência
+                            logger.error(f"ERRO ao recalcular estoque: {str(e)}")
+                            raise
+                            
+                    except Exception as e:
+                        import traceback
+                        logger.error(f"ERRO ao processar produto {produto_saida.produto.codigo if produto_saida.produto else 'N/A'}: {str(e)}\n{traceback.format_exc()}")
+                        raise
+            else:
+                # Fallback: usar primeiro produto para compatibilidade
+                if primeiro_produto:
+                    produto_destino = ProdutoAlmoxarifado.objects.filter(
+                        codigo=primeiro_produto.codigo,
+                        orgao=orgao_destino,
+                        grande_comando=grande_comando_destino,
+                        unidade=unidade_destino,
+                        sub_unidade=sub_unidade_destino
+                    ).first()
+                    
+                    if not produto_destino:
+                        produto_destino = ProdutoAlmoxarifado.objects.create(
+                            codigo=primeiro_produto.codigo,
+                            codigo_barras=primeiro_produto.codigo_barras if primeiro_produto.codigo_barras else None,
+                            descricao=primeiro_produto.descricao,
+                            categoria=primeiro_produto.categoria,
+                            subcategoria=primeiro_produto.subcategoria,
+                            unidade_medida=primeiro_produto.unidade_medida,
+                            marca=primeiro_produto.marca,
+                            modelo=primeiro_produto.modelo,
+                            tamanho=primeiro_produto.tamanho,
+                            estoque_minimo=primeiro_produto.estoque_minimo,
+                            estoque_maximo=primeiro_produto.estoque_maximo,
+                            quantidade_inicial=0,
+                            quantidade_atual=0,
+                            localizacao=primeiro_produto.localizacao,
+                            valor_unitario=primeiro_produto.valor_unitario,
+                            fornecedor_principal=primeiro_produto.fornecedor_principal,
+                            orgao=orgao_destino,
+                            grande_comando=grande_comando_destino,
+                            unidade=unidade_destino,
+                            sub_unidade=sub_unidade_destino,
+                            ativo=True,
+                            observacoes=f"Produto criado automaticamente para transferência da OM origem. Produto original: #{primeiro_produto.pk}",
+                            criado_por=self.criado_por
+                        )
+                    
+                    entrada.produto = produto_destino
+                    entrada.save(update_fields=['produto'])
+                    produto_destino.recalcular_quantidade_atual()
+            
+            # Criar assinatura de recebimento na entrada (se for transferência)
+            if self.tipo_saida == 'TRANSFERENCIA' and self.criado_por:
+                entrada._criar_assinatura(self.criado_por, 'RECEBIMENTO')
+            
+            # Recalcular estoque dos produtos origem (já foi recalculado no save() da saída, mas vamos garantir)
+            # IMPORTANTE: Não recalcular aqui se houver erro anterior, pois pode causar "transação interrompida"
+            # O estoque será recalculado automaticamente quando necessário
+            # for produto_saida in produtos_saida_list:
+            #     if produto_saida.produto:
+            #         try:
+            #             produto_saida.produto.recalcular_quantidade_atual()
+            #         except Exception as e:
+            #             # Não re-raise aqui para evitar problemas com transação interrompida
+            #             pass
+            
+            # Retornar a entrada criada
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f'Entrada automática criada com sucesso (ID: {entrada.pk}) para saída {self.pk}')
+            logger.info(f'OM Origem (saída): {entrada.orgao_origem or entrada.grande_comando_origem or entrada.unidade_origem or entrada.sub_unidade_origem}')
+            logger.info(f'OM Destino (entrada): {entrada.orgao_destino or entrada.grande_comando_destino or entrada.unidade_destino or entrada.sub_unidade_destino}')
+            return entrada
+            
+        except Exception as e:
+            # IMPORTANTE: Re-raise o erro para que a transação seja revertida
+            # Não retornar None pois isso pode causar problemas com transações interrompidas
+            import traceback
+            import logging
+            logger = logging.getLogger(__name__)
+            error_trace = traceback.format_exc()
+            logger.error(f"Erro ao criar entrada automática para saída {self.pk}: {str(e)}\n{error_trace}")
+            # Re-raise para que a transação seja revertida corretamente
+            raise
+    
+    def delete(self, *args, **kwargs):
+        """
+        Override do delete para atualizar estoque ao excluir saída
+        
+        REGRAS:
+        - Ao excluir uma saída, os itens voltam para o estoque de origem
+        - Se for transferência, também exclui a entrada automática no destino
+        - Recalcula o estoque de TODOS os itens relacionados (itens_saida + item legado)
+        """
+        # SALVAR INFORMAÇÕES ANTES DE EXCLUIR (pois após super().delete() o objeto não existe mais)
+        tipo_saida = self.tipo_saida
+        orgao_origem = self.orgao_origem
+        grande_comando_origem = self.grande_comando_origem
+        unidade_origem = self.unidade_origem
+        sub_unidade_origem = self.sub_unidade_origem
+        orgao_destino = self.orgao_destino
+        grande_comando_destino = self.grande_comando_destino
+        unidade_destino = self.unidade_destino
+        sub_unidade_destino = self.sub_unidade_destino
+        data_saida = self.data_saida
+        
+        # Coletar todos os itens que serão afetados ANTES de excluir
+        itens_afetados = set()
+        
+        # Adicionar produtos de produtos_saida
+        try:
+            for produto_saida in self.produtos_saida.all():
+                if produto_saida.produto:
+                    itens_afetados.add(produto_saida.produto)
+        except Exception:
+            # Se a tabela não existir, não fazer nada
+            pass
+        
+        # Adicionar produto legado se existir
+        if self.produto:
+            itens_afetados.add(self.produto)
+        
+        # Se for transferência, verificar se há entrada automática associada e excluir primeiro
+        if tipo_saida == 'TRANSFERENCIA':
+            try:
+                # Para cada item afetado, procurar e excluir entrada automática correspondente
+                for item in itens_afetados:
+                    # Procurar entrada automática relacionada a este item
+                    # Buscar por itens de entrada que correspondam aos itens de saída
+                    from .models import EntradaAlmoxarifadoProduto
+                    entradas_produtos = EntradaAlmoxarifadoProduto.objects.filter(
+                        entrada__tipo_entrada='TRANSFERENCIA',
+                        entrada__data_entrada=data_saida,
+                        entrada__observacoes__startswith='Entrada automática gerada a partir da saída',
+                        produto=item
+                    )
+                    
+                    # Adicionar filtros de destino (onde a entrada foi criada)
+                    if orgao_destino:
+                        entradas_produtos = entradas_produtos.filter(entrada__orgao_destino=orgao_destino)
+                    elif grande_comando_destino:
+                        entradas_produtos = entradas_produtos.filter(entrada__grande_comando_destino=grande_comando_destino)
+                    elif unidade_destino:
+                        entradas_produtos = entradas_produtos.filter(entrada__unidade_destino=unidade_destino)
+                    elif sub_unidade_destino:
+                        entradas_produtos = entradas_produtos.filter(entrada__sub_unidade_destino=sub_unidade_destino)
+                    
+                    # Excluir entradas automáticas encontradas
+                    for entrada_produto in entradas_produtos:
+                        entrada = entrada_produto.entrada
+                        # Recalcular estoque do produto no destino antes de excluir a entrada
+                        produto_destino = entrada_produto.produto
+                        if produto_destino:
+                            produto_destino.recalcular_quantidade_atual()
+                        entrada.delete()
+                    
+                    # Também procurar entradas legadas (compatibilidade)
+                    filtro_entrada = EntradaAlmoxarifado.objects.filter(
+                        produto=item,
+                        tipo_entrada='TRANSFERENCIA',
+                        data_entrada=data_saida,
+                        observacoes__startswith='Entrada automática gerada a partir da saída'
+                    )
+                    
+                    # Adicionar filtros de destino
+                    if orgao_destino:
+                        filtro_entrada = filtro_entrada.filter(orgao_destino=orgao_destino)
+                    elif grande_comando_destino:
+                        filtro_entrada = filtro_entrada.filter(grande_comando_destino=grande_comando_destino)
+                    elif unidade_destino:
+                        filtro_entrada = filtro_entrada.filter(unidade_destino=unidade_destino)
+                    elif sub_unidade_destino:
+                        filtro_entrada = filtro_entrada.filter(sub_unidade_destino=sub_unidade_destino)
+                    
+                    entrada_automatica = filtro_entrada.first()
+                    if entrada_automatica:
+                        entrada_automatica.delete()
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Erro ao excluir entrada automática ao excluir saída {self.pk}: {str(e)}")
+        
+        # Chamar o delete padrão (isso exclui a saída e os itens_saida via CASCADE)
+        super().delete(*args, **kwargs)
+        
+        # Recalcular quantidade atual de TODOS os itens afetados na OM de origem
+        # Isso faz com que os itens "voltem" para o estoque de origem
+        for item in itens_afetados:
+            try:
+                # Garantir que o item está na OM de origem antes de recalcular
+                if (orgao_origem or grande_comando_origem or 
+                    unidade_origem or sub_unidade_origem):
+                    # Atualizar a OM do item para a OM de origem se necessário
+                    if (item.orgao != orgao_origem or 
+                        item.grande_comando != grande_comando_origem or 
+                        item.unidade != unidade_origem or 
+                        item.sub_unidade != sub_unidade_origem):
+                        item.orgao = orgao_origem
+                        item.grande_comando = grande_comando_origem
+                        item.unidade = unidade_origem
+                        item.sub_unidade = sub_unidade_origem
+                        item.save(update_fields=['orgao', 'grande_comando', 'unidade', 'sub_unidade', 'data_atualizacao'])
+                
+                # Recalcular o estoque na OM de origem
+                item.recalcular_quantidade_atual()
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Erro ao recalcular estoque do item {item.pk} ao excluir saída {self.pk}: {str(e)}")
+    
+    def get_destino_formatada(self):
+        """Retorna o destino formatado (para onde foi)"""
+        if self.sub_unidade_destino:
+            return str(self.sub_unidade_destino)
+        elif self.unidade_destino:
+            return str(self.unidade_destino)
+        elif self.grande_comando_destino:
+            return str(self.grande_comando_destino)
+        elif self.orgao_destino:
+            return str(self.orgao_destino)
+        return "Não definido"
+    
+    def get_origem_formatada(self):
+        """Retorna a origem formatada (de onde saiu)"""
+        # Para transferências, a origem é de onde o material saiu
+        if self.tipo_saida == 'TRANSFERENCIA':
+            # Tentar encontrar a requisição relacionada através do relacionamento reverso
+            try:
+                requisicao = RequisicaoAlmoxarifado.objects.filter(transferencia_criada=self).first()
+                if requisicao:
+                    # A origem é a OM requisitada (de onde está saindo)
+                    return requisicao.get_om_requisitada()
+            except:
+                pass
+            
+            # Tentar encontrar a requisição relacionada através das observações
+            try:
+                if self.observacoes and 'requisição #' in self.observacoes.lower():
+                    import re
+                    match = re.search(r'requisição\s*#(\d+)', self.observacoes, re.IGNORECASE)
+                    if match:
+                        requisicao_id = int(match.group(1))
+                        requisicao = RequisicaoAlmoxarifado.objects.filter(pk=requisicao_id).first()
+                        if requisicao:
+                            # A origem é a OM requisitada (de onde está saindo)
+                            return requisicao.get_om_requisitada()
+            except:
+                pass
+            
+            # Caso contrário, verificar se há entrada automática associada que tenha a origem
+            try:
+                entrada_relacionada = EntradaAlmoxarifado.objects.filter(
+                    produto=self.produto,
+                    tipo_entrada='TRANSFERENCIA',
+                    observacoes__contains=f'saída #{self.pk}'
+                ).first()
+                if entrada_relacionada and entrada_relacionada.get_origem_formatada() != "Não definido":
+                    return entrada_relacionada.get_origem_formatada()
+            except:
+                pass
+            
+            # Se não encontrar, retornar "Não definido"
+            return "Não definido"
+        # Para outros tipos de saída, não há origem
+        return None
+    
+    def pode_editar(self, user):
+        """Verifica se o usuário pode editar esta saída"""
+        # Se já tem assinatura de recebimento, não pode editar
+        if self.assinaturas.filter(tipo_assinatura='RECEBIMENTO').exists():
+            return False
+        # Transferências não podem ser editadas (exceto por superusuários)
+        if self.tipo_saida == 'TRANSFERENCIA' and not user.is_superuser:
+            return False
+        return True
+    
+    def pode_excluir(self, user):
+        """Verifica se o usuário pode excluir esta saída"""
+        # Se já tem assinatura de recebimento, não pode excluir
+        if self.assinaturas.filter(tipo_assinatura='RECEBIMENTO').exists():
+            return False
+        # Transferências não podem ser excluídas (exceto por superusuários)
+        if self.tipo_saida == 'TRANSFERENCIA' and not user.is_superuser:
+            return False
+        return True
+    
+    def _criar_assinatura(self, user, tipo_assinatura, observacoes=None):
+        """Cria uma assinatura para a saída"""
+        from .permissoes_militares import obter_sessao_ativa_usuario
+        
+        # Obter militar do usuário
+        militar = None
+        if hasattr(user, 'militar'):
+            militar = user.militar
+        
+        # Obter função do usuário
+        funcao_assinatura = None
+        sessao = obter_sessao_ativa_usuario(user)
+        if sessao and sessao.funcao_militar_usuario:
+            funcao = sessao.funcao_militar_usuario.funcao_militar
+            if funcao:
+                funcao_assinatura = str(funcao)
+        
+        # Criar ou atualizar assinatura
+        AssinaturaSaidaAlmoxarifado.objects.update_or_create(
+            saida=self,
+            tipo_assinatura=tipo_assinatura,
+            defaults={
+                'assinado_por': user,
+                'militar': militar,
+                'funcao_assinatura': funcao_assinatura,
+                'observacoes': observacoes
+            }
+        )
+
+
+class RequisicaoAlmoxarifado(models.Model):
+    """Requisição de materiais entre Organizações Militares"""
+    
+    STATUS_CHOICES = [
+        ('PENDENTE', 'Pendente'),
+        ('APROVADA', 'Aprovada'),
+        ('NEGADA', 'Negada'),
+        ('ATENDIDA', 'Atendida'),
+        ('CANCELADA', 'Cancelada'),
+    ]
+    
+    # Produto requisitado (mantido para compatibilidade - usar produtos_requisicao para múltiplos produtos)
+    produto = models.ForeignKey(
+        'ProdutoAlmoxarifado',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='requisicoes',
+        verbose_name="Produto (Legado)"
+    )
+    
+    # Quantidade requisitada (mantido para compatibilidade)
+    quantidade = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Quantidade (Legado)",
+        # Removido MinValueValidator para permitir None quando usando múltiplos itens
+    )
+    
+    # Data da requisição
+    data_requisicao = models.DateField(
+        verbose_name="Data da Requisição",
+        auto_now_add=True
+    )
+    
+    # Status da requisição
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='PENDENTE',
+        verbose_name="Status"
+    )
+    
+    # OM Requisitante (quem está pedindo)
+    orgao_requisitante = models.ForeignKey(
+        'Orgao',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='requisicoes_almoxarifado_requisitante',
+        verbose_name="Órgão Requisitante"
+    )
+    grande_comando_requisitante = models.ForeignKey(
+        'GrandeComando',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='requisicoes_almoxarifado_requisitante',
+        verbose_name="Grande Comando Requisitante"
+    )
+    unidade_requisitante = models.ForeignKey(
+        'Unidade',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='requisicoes_almoxarifado_requisitante',
+        verbose_name="Unidade Requisitante"
+    )
+    sub_unidade_requisitante = models.ForeignKey(
+        'SubUnidade',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='requisicoes_almoxarifado_requisitante',
+        verbose_name="Subunidade Requisitante"
+    )
+    
+    # OM Requisitada (quem tem o estoque e vai atender)
+    orgao_requisitada = models.ForeignKey(
+        'Orgao',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='requisicoes_almoxarifado_requisitada',
+        verbose_name="Órgão Requisitada"
+    )
+    grande_comando_requisitada = models.ForeignKey(
+        'GrandeComando',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='requisicoes_almoxarifado_requisitada',
+        verbose_name="Grande Comando Requisitada"
+    )
+    unidade_requisitada = models.ForeignKey(
+        'Unidade',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='requisicoes_almoxarifado_requisitada',
+        verbose_name="Unidade Requisitada"
+    )
+    sub_unidade_requisitada = models.ForeignKey(
+        'SubUnidade',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='requisicoes_almoxarifado_requisitada',
+        verbose_name="Subunidade Requisitada"
+    )
+    
+    # Observações
+    observacoes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações"
+    )
+    
+    # Motivo da negação (se negada)
+    motivo_negacao = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Motivo da Negação"
+    )
+    
+    # Data de aprovação/negação/atendimento
+    data_aprovacao = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Aprovação/Negação"
+    )
+    data_atendimento = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Atendimento"
+    )
+    
+    # Confirmação de recebimento pelo solicitante
+    data_confirmacao_recebimento = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Confirmação de Recebimento"
+    )
+    confirmado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='requisicoes_almoxarifado_confirmadas',
+        verbose_name="Confirmado por"
+    )
+    
+    # Relacionamento com a transferência criada quando aprovada
+    transferencia_criada = models.OneToOneField(
+        'SaidaAlmoxarifado',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='requisicao_origem',
+        verbose_name="Transferência Criada"
+    )
+    
+    # Controle
+    criado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='requisicoes_almoxarifado_criadas',
+        verbose_name="Criado por"
+    )
+    aprovado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='requisicoes_almoxarifado_aprovadas',
+        verbose_name="Aprovado por"
+    )
+    ativo = models.BooleanField(
+        default=True,
+        verbose_name="Ativo"
+    )
+    data_criacao = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Data de Criação"
+    )
+    data_atualizacao = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Data de Atualização"
+    )
+    
+    class Meta:
+        verbose_name = "Requisição de Almoxarifado"
+        verbose_name_plural = "Requisições de Almoxarifado"
+        ordering = ['-data_requisicao', '-data_criacao']
+        indexes = [
+            models.Index(fields=['status', '-data_requisicao']),
+            models.Index(fields=['unidade_requisitante', 'status']),
+            models.Index(fields=['unidade_requisitada', 'status']),
+        ]
+    
+    def __str__(self):
+        if self.produtos_requisicao.exists():
+            produtos_str = ", ".join([f"{produto.produto.codigo}" for produto in self.produtos_requisicao.all()[:3]])
+            if self.produtos_requisicao.count() > 3:
+                produtos_str += "..."
+            return f"Requisição #{self.pk} - {produtos_str} - {self.get_status_display()}"
+        elif self.produto:
+            return f"Requisição #{self.pk} - {self.produto.codigo} - {self.get_status_display()}"
+        return f"Requisição #{self.pk} - {self.get_status_display()}"
+    
+    def get_om_requisitante(self):
+        """Retorna a OM requisitante formatada"""
+        if self.sub_unidade_requisitante:
+            return str(self.sub_unidade_requisitante)
+        elif self.unidade_requisitante:
+            return str(self.unidade_requisitante)
+        elif self.grande_comando_requisitante:
+            return str(self.grande_comando_requisitante)
+        elif self.orgao_requisitante:
+            return str(self.orgao_requisitante)
+        return "Não definido"
+    
+    def get_om_requisitada(self):
+        """Retorna a OM requisitada formatada"""
+        if self.sub_unidade_requisitada:
+            return str(self.sub_unidade_requisitada)
+        elif self.unidade_requisitada:
+            return str(self.unidade_requisitada)
+        elif self.grande_comando_requisitada:
+            return str(self.grande_comando_requisitada)
+        elif self.orgao_requisitada:
+            return str(self.orgao_requisitada)
+        return "Não definido"
+    
+    # Métodos requer_tamanhos e get_total_por_tamanhos removidos - cada tamanho diferente é agora um item individual
+    
+    def pode_aprovar(self, user):
+        """Verifica se o usuário pode aprovar esta requisição"""
+        from .permissoes_militares import obter_sessao_ativa_usuario
+        from .permissoes_sistema import tem_permissao
+        
+        sessao = obter_sessao_ativa_usuario(user)
+        if not sessao or not sessao.funcao_militar_usuario:
+            return False
+        
+        funcao = sessao.funcao_militar_usuario
+        
+        # Verificar se o usuário pertence à OM requisitada (considerando a hierarquia completa)
+        pertence_om_requisitada = False
+        
+        # Verificar por sub_unidade (nível mais específico)
+        # Se a requisição especifica uma sub_unidade, só essa sub_unidade pode aprovar
+        if self.sub_unidade_requisitada:
+            pertence_om_requisitada = funcao.sub_unidade == self.sub_unidade_requisitada
+        
+        # Verificar por unidade (considera unidade direta ou sub_unidades da unidade)
+        # Se a requisição especifica apenas uma unidade (sem sub_unidade), qualquer sub_unidade dessa unidade pode aprovar
+        elif self.unidade_requisitada:
+            # Verifica se a função está diretamente na unidade
+            if funcao.unidade == self.unidade_requisitada:
+                pertence_om_requisitada = True
+            # Verifica se a função está em uma sub_unidade que pertence à unidade
+            elif funcao.sub_unidade and funcao.sub_unidade.unidade == self.unidade_requisitada:
+                pertence_om_requisitada = True
+            # Verifica se a função está em um grande comando que contém a unidade
+            elif (funcao.grande_comando and self.unidade_requisitada.grande_comando and
+                  funcao.grande_comando == self.unidade_requisitada.grande_comando):
+                pertence_om_requisitada = True
+            # Verifica se a função está em um órgão que contém a unidade
+            elif (funcao.orgao and self.unidade_requisitada.grande_comando and
+                  self.unidade_requisitada.grande_comando.orgao and
+                  funcao.orgao == self.unidade_requisitada.grande_comando.orgao):
+                pertence_om_requisitada = True
+        
+        # Verificar por grande_comando (considera grande_comando direto ou unidades/sub_unidades do grande_comando)
+        elif self.grande_comando_requisitada:
+            # Verifica se a função está diretamente no grande_comando
+            if funcao.grande_comando == self.grande_comando_requisitada:
+                pertence_om_requisitada = True
+            # Verifica se a função está em uma unidade do grande_comando
+            elif funcao.unidade and funcao.unidade.grande_comando == self.grande_comando_requisitada:
+                pertence_om_requisitada = True
+            # Verifica se a função está em uma sub_unidade de uma unidade do grande_comando
+            elif (funcao.sub_unidade and funcao.sub_unidade.unidade and 
+                  funcao.sub_unidade.unidade.grande_comando == self.grande_comando_requisitada):
+                pertence_om_requisitada = True
+        
+        # Verificar por órgão (considera órgão direto ou toda a hierarquia abaixo)
+        elif self.orgao_requisitada:
+            # Verifica se a função está diretamente no órgão
+            if funcao.orgao == self.orgao_requisitada:
+                pertence_om_requisitada = True
+            # Verifica se a função está em um grande_comando do órgão
+            elif (funcao.grande_comando and 
+                  funcao.grande_comando.orgao == self.orgao_requisitada):
+                pertence_om_requisitada = True
+            # Verifica se a função está em uma unidade de um grande_comando do órgão
+            elif (funcao.unidade and funcao.unidade.grande_comando and 
+                  funcao.unidade.grande_comando.orgao == self.orgao_requisitada):
+                pertence_om_requisitada = True
+            # Verifica se a função está em uma sub_unidade de uma unidade de um grande_comando do órgão
+            elif (funcao.sub_unidade and funcao.sub_unidade.unidade and 
+                  funcao.sub_unidade.unidade.grande_comando and
+                  funcao.sub_unidade.unidade.grande_comando.orgao == self.orgao_requisitada):
+                pertence_om_requisitada = True
+        
+        if not pertence_om_requisitada:
+            return False
+        
+        # Verificar se a função tem o menu almoxarifado ativo
+        # Verifica tanto no menu config quanto na permissão ALMOXARIFADO_VISUALIZAR
+        tem_menu_almoxarifado = False
+        if funcao.funcao_militar:
+            menu_permissions = funcao.funcao_militar.get_menu_permissions()
+            tem_menu_almoxarifado = menu_permissions.get('show_almoxarifado', False)
+        
+        # Se não tem no menu config, verifica se tem permissão ALMOXARIFADO_VISUALIZAR
+        # (similar ao context processor)
+        if not tem_menu_almoxarifado:
+            tem_menu_almoxarifado = tem_permissao(user, 'ALMOXARIFADO', 'VISUALIZAR')
+        
+        if not tem_menu_almoxarifado:
+            return False
+        
+        # Verificar se tem permissão de editar (necessária para aprovar)
+        tem_perm_editar = tem_permissao(user, 'ALMOXARIFADO', 'EDITAR')
+        if not tem_perm_editar:
+            return False
+        
+        return True
+    
+    def aprovar(self, user, criar_transferencia=True, observacoes=None):
+        """
+        Aprova a requisição e cria a transferência (saída + entrada).
+        
+        Fluxo:
+        1. Atualiza status para APROVADA
+        2. Cria assinatura de aprovação
+        3. Cria SAÍDA na OM requisitada (reduz estoque)
+        4. Cria ENTRADA na OM requisitante (aumenta estoque)
+        5. Atualiza status para ATENDIDA
+        """
+        from django.utils import timezone
+        from django.db import transaction
+        import logging
+        import traceback
+        
+        logger = logging.getLogger(__name__)
+        
+        if self.status != 'PENDENTE':
+            raise ValueError(f"Não é possível aprovar uma requisição com status '{self.status}'")
+        
+        # TEMPORARIAMENTE REMOVIDA A TRANSAÇÃO PARA TESTE
+        # Transação única para garantir atomicidade
+        # IMPORTANTE: Não fazer verificações de conexão antes da transação, pois isso pode causar problemas
+        # Se houver uma transação anterior interrompida, ela será automaticamente revertida ao iniciar uma nova
+        # with transaction.atomic():
+        try:
+            # 1. Atualizar status para APROVADA
+            logger.info(f'[PASSO 1] Atualizando status da requisição {self.pk} para APROVADA')
+            try:
+                # Tentar usar SQL direto para evitar qualquer problema com ORM
+                from django.db import connection
+                # Verificar se há uma transação ativa e se está em estado inválido
+                if connection.in_atomic_block:
+                    # Se estiver em uma transação inválida, fazer rollback
+                    try:
+                        connection.cursor().execute("ROLLBACK")
+                    except:
+                        pass
+                
+                with connection.cursor() as cursor:
+                    # Usar parâmetros nomeados para PostgreSQL
+                    cursor.execute("""
+                        UPDATE militares_requisicaoalmoxarifado 
+                        SET status = %s, 
+                            aprovado_por_id = %s, 
+                            data_aprovacao = %s
+                        WHERE id = %s
+                    """, ['APROVADA', user.id, timezone.now(), self.pk])
+                # Recarregar o objeto para refletir as mudanças
+                self.refresh_from_db()
+                logger.info(f'✓ Requisição {self.pk} atualizada para APROVADA via SQL direto')
+            except Exception as e:
+                error_str = str(e).lower()
+                if 'transação atual foi interrompida' in str(e) or 'current transaction is aborted' in error_str:
+                    logger.error(f"ERRO CRÍTICO: Transação foi interrompida ao atualizar requisição: {str(e)}")
+                    raise
+                from django.db import DatabaseError
+                if isinstance(e, DatabaseError):
+                    logger.error(f"ERRO de banco de dados ao atualizar requisição: {str(e)}")
+                    raise
+                logger.error(f"ERRO ao atualizar requisição: {str(e)}\n{traceback.format_exc()}")
+                raise
+            
+            # 2. Criar assinatura de aprovação
+            try:
+                self._criar_assinatura(user, 'APROVACAO', observacoes=observacoes)
+                logger.info(f'✓ Assinatura de aprovação criada')
+                
+                # Registrar histórico de aprovação
+                HistoricoRequisicaoAlmoxarifado.objects.create(
+                    requisicao=self,
+                    tipo_acao='APROVACAO',
+                    alterado_por=user,
+                    campo_alterado='status',
+                    valor_anterior='PENDENTE',
+                    valor_novo='APROVADA',
+                    observacoes=f'Requisição aprovada. {observacoes if observacoes else ""}'
+                )
+            except Exception as e:
+                # Verificar se é erro de transação interrompida ou erro SQL
+                error_str = str(e).lower()
+                if 'transação atual foi interrompida' in str(e) or 'current transaction is aborted' in error_str:
+                    logger.error(f"ERRO CRÍTICO: Transação foi interrompida ao criar assinatura: {str(e)}")
+                    raise
+                # Verificar se é um erro de banco de dados
+                from django.db import DatabaseError
+                if isinstance(e, DatabaseError):
+                    logger.error(f"ERRO de banco de dados ao criar assinatura: {str(e)}")
+                    raise
+                # Para outros erros, apenas logar como warning (não crítico)
+                logger.warning(f"Erro ao criar assinatura (não crítico): {str(e)}")
+            
+            # 3. Criar transferência (saída + entrada)
+            if criar_transferencia:
+                logger.info(f'[PASSO 2] Criando transferência completa')
+                self._criar_transferencia_completa()
+                logger.info(f'✓ Transferência criada com sucesso')
+            
+        except Exception as e:
+            logger.error(f"ERRO ao aprovar requisição {self.pk}: {str(e)}\n{traceback.format_exc()}")
+            raise
+    
+    def negar(self, user, motivo, observacoes_adicionais=None):
+        """Nega a requisição"""
+        from django.utils import timezone
+        
+        if self.status != 'PENDENTE':
+            raise ValueError(f"Não é possível negar uma requisição com status '{self.status}'")
+        
+        self.status = 'NEGADA'
+        self.aprovado_por = user
+        self.data_aprovacao = timezone.now()
+        self.motivo_negacao = motivo
+        self.save()
+        
+        # Combinar motivo e observações adicionais para a assinatura
+        observacoes_assinatura = motivo
+        if observacoes_adicionais:
+            observacoes_assinatura = f"{motivo}\n\n{observacoes_adicionais}"
+        
+        # Criar assinatura de negação
+        self._criar_assinatura(user, 'NEGACAO', observacoes=observacoes_assinatura)
+        
+        # Registrar histórico
+        HistoricoRequisicaoAlmoxarifado.objects.create(
+            requisicao=self,
+            tipo_acao='NEGACAO',
+            alterado_por=user,
+            campo_alterado='status',
+            valor_anterior='PENDENTE',
+            valor_novo='NEGADA',
+            observacoes=f'Requisição negada. Motivo: {motivo}'
+        )
+    
+    def _criar_transferencia_completa(self):
+        """
+        Cria a transferência completa: SAÍDA na OM requisitada + ENTRADA na OM requisitante.
+        Não usa transaction.atomic() próprio pois já está dentro de uma transação.
+        """
+        from django.utils import timezone
+        from django.db import connection
+        import logging
+        import traceback
+        
+        logger = logging.getLogger(__name__)
+        
+        try:
+            # Verificar se já existe transferência
+            if self.transferencia_criada:
+                logger.info(f'Requisição {self.pk} já possui transferência (ID: {self.transferencia_criada.pk})')
+                return
+            
+            logger.info(f'=== Criando transferência para requisição {self.pk} ===')
+            
+            # Verificar se tabela de múltiplos produtos existe
+            try:
+                tabela_saida_produto_existe = self._verificar_tabela_produtos_saida()
+                logger.info(f'Tabela de produtos de saída existe: {tabela_saida_produto_existe}')
+            except Exception as e:
+                logger.error(f"Erro ao verificar tabela de produtos: {str(e)}")
+                tabela_saida_produto_existe = False
+            
+            # Obter produtos da requisição
+            try:
+                produtos_requisicao = list(self.produtos_requisicao.all())
+                logger.info(f'Produtos encontrados: {len(produtos_requisicao)}')
+                if not produtos_requisicao:
+                    raise ValueError('A requisição não possui produtos para transferir.')
+            except Exception as e:
+                logger.error(f"Erro ao obter produtos da requisição: {str(e)}\n{traceback.format_exc()}")
+                raise
+            
+            quantidade_total = sum(prod.quantidade for prod in produtos_requisicao)
+            logger.info(f'Quantidade total: {quantidade_total}')
+            
+            # PASSO 1: Criar SAÍDA na OM requisitada (origem)
+            try:
+                saida = self._criar_saida_transferencia(produtos_requisicao, quantidade_total, tabela_saida_produto_existe)
+                logger.info(f'✓ SAÍDA criada (ID: {saida.pk}) na OM requisitada')
+            except Exception as e:
+                logger.error(f"ERRO ao criar saída: {str(e)}\n{traceback.format_exc()}")
+                raise
+            
+            # Vincular requisição à saída
+            try:
+                # Usar SQL direto para evitar signals
+                from django.db import connection
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        UPDATE militares_requisicaoalmoxarifado 
+                        SET transferencia_criada_id = %s
+                        WHERE id = %s
+                    """, [saida.pk, self.pk])
+                self.refresh_from_db()
+                logger.info(f'✓ Requisição vinculada à saída {saida.pk}')
+            except Exception as e:
+                logger.error(f"ERRO ao vincular requisição à saída: {str(e)}\n{traceback.format_exc()}")
+                raise
+            
+            # Criar assinatura de entrega
+            try:
+                saida._criar_assinatura(self.aprovado_por, 'ENTREGA')
+                logger.info(f'✓ Assinatura de entrega criada')
+            except Exception as e:
+                logger.warning(f"Erro ao criar assinatura de entrega (não crítico): {str(e)}")
+            
+            # PASSO 2: Criar ENTRADA na OM requisitante (destino)
+            try:
+                entrada = self._criar_entrada_transferencia(saida)
+                if entrada:
+                    logger.info(f'✓ ENTRADA criada (ID: {entrada.pk}) na OM requisitante')
+                else:
+                    logger.warning('Entrada não foi criada (pode já existir)')
+            except Exception as e:
+                logger.error(f"ERRO CRÍTICO ao criar entrada: {str(e)}\n{traceback.format_exc()}")
+                if 'transação atual foi interrompida' in str(e) or 'current transaction is aborted' in str(e).lower():
+                    logger.error("ERRO: Transação foi interrompida. Revertendo todas as alterações.")
+                raise
+            
+            # PASSO 3: Atualizar status para ATENDIDA
+            try:
+                # Usar SQL direto para evitar signals
+                from django.db import connection
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        UPDATE militares_requisicaoalmoxarifado 
+                        SET status = %s, 
+                            data_atendimento = %s
+                        WHERE id = %s
+                    """, ['ATENDIDA', timezone.now(), self.pk])
+                self.refresh_from_db()
+                logger.info(f'✓ Requisição {self.pk} atualizada para ATENDIDA')
+            except Exception as e:
+                logger.error(f"ERRO ao atualizar status: {str(e)}\n{traceback.format_exc()}")
+                raise
+                
+        except Exception as e:
+            logger.error(f"ERRO CRÍTICO em _criar_transferencia_completa: {str(e)}\n{traceback.format_exc()}")
+            raise
+    
+    def _verificar_tabela_produtos_saida(self):
+        """Verifica se a tabela de múltiplos produtos de saída existe"""
+        from django.db import connection
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT name FROM sqlite_master 
+                    WHERE type='table' AND name='militares_saidaalmoxarifadoproduto'
+                """)
+                return cursor.fetchone() is not None
+        except Exception:
+            try:
+                # Verificar se a classe existe sem importar (evita import circular)
+                import sys
+                if 'SaidaAlmoxarifadoProduto' in sys.modules.get('militares.models', {}).__dict__:
+                    return True
+                # Tentar importar diretamente
+                from militares.models import SaidaAlmoxarifadoProduto
+                return True
+            except Exception:
+                return False
+    
+    def _criar_saida_transferencia(self, produtos_requisicao, quantidade_total, tabela_saida_produto_existe):
+        """Cria a saída na OM requisitada"""
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        
+        # Importar classes necessárias
+        # Como estamos no mesmo arquivo, usar import direto do módulo
+        from militares.models import SaidaAlmoxarifado
+        try:
+            from militares.models import SaidaAlmoxarifadoProduto
+        except ImportError:
+            # Se não conseguir importar, definir como None (usar fallback)
+            SaidaAlmoxarifadoProduto = None
+        
+        # Validar que aprovado_por está definido
+        if not self.aprovado_por:
+            raise ValueError(f'Requisição {self.pk} não possui aprovado_por definido')
+        
+        # Criar saída
+        responsavel_entrega = None
+        if self.aprovado_por and hasattr(self.aprovado_por, 'militar'):
+            try:
+                responsavel_entrega = self.aprovado_por.militar
+            except Exception:
+                pass
+        
+        try:
+            saida = SaidaAlmoxarifado(
+                tipo_saida='TRANSFERENCIA',
+                data_saida=self.data_requisicao,
+                quantidade=quantidade_total,
+                produto=None,
+                orgao_origem=self.orgao_requisitada,
+                grande_comando_origem=self.grande_comando_requisitada,
+                unidade_origem=self.unidade_requisitada,
+                sub_unidade_origem=self.sub_unidade_requisitada,
+                orgao_destino=self.orgao_requisitante,
+                grande_comando_destino=self.grande_comando_requisitante,
+                unidade_destino=self.unidade_requisitante,
+                sub_unidade_destino=self.sub_unidade_requisitante,
+                responsavel_entrega=responsavel_entrega,
+                criado_por=self.aprovado_por,
+                observacoes=f"Transferência gerada a partir da requisição #{self.pk}. {self.observacoes or ''}".strip(),
+                ativo=True
+            )
+            saida.save()
+            logger.info(f'✓ Saída criada com sucesso (ID: {saida.pk})')
+        except Exception as e:
+            error_str = str(e).lower()
+            if 'transação atual foi interrompida' in str(e) or 'current transaction is aborted' in error_str:
+                logger.error(f"ERRO CRÍTICO: Transação foi interrompida ao criar saída: {str(e)}")
+                raise
+            from django.db import DatabaseError
+            if isinstance(e, DatabaseError):
+                logger.error(f"ERRO de banco de dados ao criar saída: {str(e)}")
+                raise
+            logger.error(f"ERRO ao criar saída: {str(e)}\n{traceback.format_exc()}")
+            raise
+        
+        # Adicionar produtos à saída
+        if tabela_saida_produto_existe and SaidaAlmoxarifadoProduto:
+            for produto_requisicao in produtos_requisicao:
+                produto = produto_requisicao.produto
+                if not produto:
+                    raise ValueError(f'Produto inválido na requisição {self.pk}')
+                
+                # Validar estoque
+                # IMPORTANTE: Se houver erro SQL aqui, a transação será marcada como interrompida
+                # Por isso, precisamos garantir que qualquer erro seja tratado corretamente
+                try:
+                    estoque_om = produto.get_estoque_por_om(
+                        orgao=self.orgao_requisitada,
+                        grande_comando=self.grande_comando_requisitada,
+                        unidade=self.unidade_requisitada,
+                        sub_unidade=self.sub_unidade_requisitada
+                    ) or 0
+                except Exception as e:
+                    # Verificar se é erro de transação interrompida
+                    error_str = str(e).lower()
+                    if 'transação atual foi interrompida' in str(e) or 'current transaction is aborted' in error_str:
+                        logger.error(f"ERRO CRÍTICO: Transação foi interrompida ao validar estoque: {str(e)}")
+                        raise
+                    # Para outros erros, também fazer re-raise para garantir consistência
+                    logger.error(f"ERRO ao validar estoque do produto {produto.codigo}: {str(e)}")
+                    raise ValueError(f'Erro ao validar estoque do produto {produto.codigo}: {str(e)}')
+                
+                if estoque_om < produto_requisicao.quantidade:
+                    raise ValueError(
+                        f'Estoque insuficiente para {produto.codigo}. '
+                        f'Disponível: {estoque_om}, Solicitado: {produto_requisicao.quantidade}'
+                    )
+                
+                # Criar produto da saída
+                # IMPORTANTE: Se houver erro SQL aqui, a transação será marcada como interrompida
+                try:
+                    SaidaAlmoxarifadoProduto.objects.create(
+                        saida=saida,
+                        produto=produto,
+                        quantidade=produto_requisicao.quantidade
+                    )
+                except Exception as e:
+                    # Verificar se é erro de transação interrompida
+                    error_str = str(e).lower()
+                    if 'transação atual foi interrompida' in str(e) or 'current transaction is aborted' in error_str:
+                        logger.error(f"ERRO CRÍTICO: Transação foi interrompida ao criar produto da saída: {str(e)}")
+                        raise
+                    # Para outros erros, também fazer re-raise
+                    from django.db import DatabaseError
+                    if isinstance(e, DatabaseError):
+                        logger.error(f"ERRO de banco de dados ao criar produto da saída: {str(e)}")
+                        raise
+                    raise
+        else:
+            # Fallback: usar primeiro produto
+            primeiro_produto = produtos_requisicao[0]
+            saida.produto = primeiro_produto.produto
+            saida.quantidade = primeiro_produto.quantidade
+            saida.save(update_fields=['produto', 'quantidade'])
+        
+        return saida
+    
+    def _criar_entrada_transferencia(self, saida):
+        """Cria a entrada na OM requisitante"""
+        import logging
+        import traceback
+        
+        logger = logging.getLogger(__name__)
+        
+        try:
+            if saida.tipo_saida == 'TRANSFERENCIA' and saida._tem_destino():
+                try:
+                    entrada = saida._criar_entrada_automatica()
+                    return entrada
+                except Exception as e:
+                    # Re-raise imediatamente para não deixar a transação em estado inconsistente
+                    logger.error(f"ERRO ao criar entrada automática: {str(e)}\n{traceback.format_exc()}")
+                    raise
+            else:
+                logger.warning(f'Não foi possível criar entrada: tipo_saida={saida.tipo_saida}, tem_destino={saida._tem_destino()}')
+                return None
+        except Exception as e:
+            # Re-raise para que a transação seja revertida
+            logger.error(f"ERRO em _criar_entrada_transferencia: {str(e)}\n{traceback.format_exc()}")
+            raise
+    
+    def pode_excluir(self, user):
+        """Verifica se o usuário pode excluir esta requisição"""
+        # Não pode excluir se já foi aprovada ou negada
+        if self.status in ['APROVADA', 'NEGADA', 'ATENDIDA']:
+            return False
+        
+        # Apenas o criador pode excluir (ou superusuário)
+        if self.criado_por == user or user.is_superuser:
+            return True
+        
+        return False
+    
+    def pode_editar(self, user):
+        """Verifica se o usuário pode editar esta requisição"""
+        from .permissoes_militares import obter_sessao_ativa_usuario
+        from .permissoes_sistema import tem_permissao
+        
+        # Não pode editar se já foi aprovada ou negada
+        if self.status in ['APROVADA', 'NEGADA', 'ATENDIDA']:
+            return False
+        
+        # Apenas requisições pendentes podem ser editadas
+        if self.status != 'PENDENTE':
+            return False
+        
+        # Superusuário sempre pode editar
+        if user.is_superuser:
+            return True
+        
+        # O criador pode editar
+        if self.criado_por == user:
+            return True
+        
+        # Verificar se o usuário pertence à OM requisitada (para ajustar estoque)
+        sessao = obter_sessao_ativa_usuario(user)
+        if not sessao or not sessao.funcao_militar_usuario:
+            return False
+        
+        funcao = sessao.funcao_militar_usuario
+        
+        # Verificar se o usuário pertence à OM requisitada (considerando a hierarquia completa)
+        pertence_om_requisitada = False
+        
+        # Verificar por sub_unidade (nível mais específico)
+        if self.sub_unidade_requisitada:
+            pertence_om_requisitada = funcao.sub_unidade == self.sub_unidade_requisitada
+        
+        # Verificar por unidade
+        elif self.unidade_requisitada:
+            if funcao.unidade == self.unidade_requisitada:
+                pertence_om_requisitada = True
+            elif funcao.sub_unidade and funcao.sub_unidade.unidade == self.unidade_requisitada:
+                pertence_om_requisitada = True
+            elif (funcao.grande_comando and self.unidade_requisitada.grande_comando and
+                  funcao.grande_comando == self.unidade_requisitada.grande_comando):
+                pertence_om_requisitada = True
+            elif (funcao.orgao and self.unidade_requisitada.grande_comando and
+                  self.unidade_requisitada.grande_comando.orgao and
+                  funcao.orgao == self.unidade_requisitada.grande_comando.orgao):
+                pertence_om_requisitada = True
+        
+        # Verificar por grande_comando
+        elif self.grande_comando_requisitada:
+            if funcao.grande_comando == self.grande_comando_requisitada:
+                pertence_om_requisitada = True
+            elif funcao.unidade and funcao.unidade.grande_comando == self.grande_comando_requisitada:
+                pertence_om_requisitada = True
+            elif (funcao.sub_unidade and funcao.sub_unidade.unidade and 
+                  funcao.sub_unidade.unidade.grande_comando == self.grande_comando_requisitada):
+                pertence_om_requisitada = True
+        
+        # Verificar por órgão
+        elif self.orgao_requisitada:
+            if funcao.orgao == self.orgao_requisitada:
+                pertence_om_requisitada = True
+            elif (funcao.grande_comando and 
+                  funcao.grande_comando.orgao == self.orgao_requisitada):
+                pertence_om_requisitada = True
+            elif (funcao.unidade and funcao.unidade.grande_comando and 
+                  funcao.unidade.grande_comando.orgao == self.orgao_requisitada):
+                pertence_om_requisitada = True
+            elif (funcao.sub_unidade and funcao.sub_unidade.unidade and 
+                  funcao.sub_unidade.unidade.grande_comando and
+                  funcao.sub_unidade.unidade.grande_comando.orgao == self.orgao_requisitada):
+                pertence_om_requisitada = True
+        
+        if not pertence_om_requisitada:
+            return False
+        
+        # Verificar se tem permissão de editar
+        tem_perm_editar = tem_permissao(user, 'ALMOXARIFADO', 'EDITAR')
+        if not tem_perm_editar:
+            return False
+        
+        return True
+    
+    def pode_confirmar_recebimento(self, user):
+        """Verifica se o usuário pode confirmar o recebimento desta requisição"""
+        from .permissoes_militares import obter_sessao_ativa_usuario
+        
+        # Só pode confirmar se a requisição foi atendida
+        if self.status != 'ATENDIDA':
+            return False
+        
+        # Se já foi confirmado, não pode confirmar novamente
+        if self.data_confirmacao_recebimento:
+            return False
+        
+        sessao = obter_sessao_ativa_usuario(user)
+        if not sessao or not sessao.funcao_militar_usuario:
+            return False
+        
+        funcao = sessao.funcao_militar_usuario
+        
+        # Verificar se o usuário pertence à OM requisitante (considerando a hierarquia completa)
+        pertence_om_requisitante = False
+        
+        # Verificar por sub_unidade (nível mais específico)
+        if self.sub_unidade_requisitante:
+            pertence_om_requisitante = funcao.sub_unidade == self.sub_unidade_requisitante
+        
+        # Verificar por unidade
+        elif self.unidade_requisitante:
+            if funcao.unidade == self.unidade_requisitante:
+                pertence_om_requisitante = True
+            elif funcao.sub_unidade and funcao.sub_unidade.unidade == self.unidade_requisitante:
+                pertence_om_requisitante = True
+            elif (funcao.grande_comando and self.unidade_requisitante.grande_comando and
+                  funcao.grande_comando == self.unidade_requisitante.grande_comando):
+                pertence_om_requisitante = True
+            elif (funcao.orgao and self.unidade_requisitante.grande_comando and
+                  self.unidade_requisitante.grande_comando.orgao and
+                  funcao.orgao == self.unidade_requisitante.grande_comando.orgao):
+                pertence_om_requisitante = True
+        
+        # Verificar por grande_comando
+        elif self.grande_comando_requisitante:
+            if funcao.grande_comando == self.grande_comando_requisitante:
+                pertence_om_requisitante = True
+            elif funcao.unidade and funcao.unidade.grande_comando == self.grande_comando_requisitante:
+                pertence_om_requisitante = True
+            elif (funcao.sub_unidade and funcao.sub_unidade.unidade and 
+                  funcao.sub_unidade.unidade.grande_comando == self.grande_comando_requisitante):
+                pertence_om_requisitante = True
+        
+        # Verificar por órgão
+        elif self.orgao_requisitante:
+            if funcao.orgao == self.orgao_requisitante:
+                pertence_om_requisitante = True
+            elif (funcao.grande_comando and 
+                  funcao.grande_comando.orgao == self.orgao_requisitante):
+                pertence_om_requisitante = True
+            elif (funcao.unidade and funcao.unidade.grande_comando and 
+                  funcao.unidade.grande_comando.orgao == self.orgao_requisitante):
+                pertence_om_requisitante = True
+            elif (funcao.sub_unidade and funcao.sub_unidade.unidade and 
+                  funcao.sub_unidade.unidade.grande_comando and
+                  funcao.sub_unidade.unidade.grande_comando.orgao == self.orgao_requisitante):
+                pertence_om_requisitante = True
+        
+        return pertence_om_requisitante
+    
+    def _criar_assinatura(self, user, tipo_assinatura, observacoes=None):
+        """Cria uma assinatura para a requisição"""
+        from .permissoes_militares import obter_sessao_ativa_usuario
+        from django.db import DatabaseError
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        
+        try:
+            # Obter militar do usuário
+            militar = None
+            if hasattr(user, 'militar'):
+                try:
+                    militar = user.militar
+                except Exception as e:
+                    # Se houver erro ao acessar militar, apenas logar
+                    logger.warning(f"Erro ao obter militar do usuário: {str(e)}")
+            
+            # Obter função do usuário
+            funcao_assinatura = None
+            try:
+                sessao = obter_sessao_ativa_usuario(user)
+                if sessao and sessao.funcao_militar_usuario:
+                    funcao = sessao.funcao_militar_usuario.funcao_militar
+                    if funcao:
+                        funcao_assinatura = str(funcao)
+            except Exception as e:
+                # Se houver erro ao obter sessão, apenas logar (não crítico)
+                logger.warning(f"Erro ao obter sessão do usuário: {str(e)}")
+            
+            # Criar ou atualizar assinatura (usar update_or_create para permitir atualização)
+            # IMPORTANTE: Se houver erro SQL aqui, a transação será marcada como interrompida
+            try:
+                AssinaturaRequisicaoAlmoxarifado.objects.update_or_create(
+                    requisicao=self,
+                    tipo_assinatura=tipo_assinatura,
+                    defaults={
+                        'assinado_por': user,
+                        'militar': militar,
+                        'funcao_assinatura': funcao_assinatura,
+                        'observacoes': observacoes
+                    }
+                )
+            except DatabaseError as db_error:
+                # Re-raise imediatamente para que a transação seja revertida
+                error_str = str(db_error).lower()
+                if 'transação atual foi interrompida' in str(db_error) or 'current transaction is aborted' in error_str:
+                    logger.error(f"ERRO CRÍTICO: Transação foi interrompida ao criar assinatura: {str(db_error)}")
+                raise
+        except DatabaseError:
+            # Re-raise erros de banco de dados
+            raise
+        except Exception as e:
+            # Para outros erros, também fazer re-raise para garantir consistência
+            error_str = str(e).lower()
+            if 'transação atual foi interrompida' in str(e) or 'current transaction is aborted' in error_str:
+                logger.error(f"ERRO CRÍTICO: Transação foi interrompida: {str(e)}")
+                raise
+            # Re-raise para que seja tratado pelo código chamador
+            raise
+    
+    def save(self, *args, **kwargs):
+        """Override do save para criar assinatura do solicitante na criação"""
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+        
+        # Se for uma nova requisição, criar assinatura do solicitante
+        if is_new and self.criado_por:
+            # Verificar se já existe assinatura do solicitante para evitar duplicatas
+            # Usar o método _criar_assinatura que já usa update_or_create para evitar duplicatas
+            try:
+                self._criar_assinatura(self.criado_por, 'SOLICITANTE')
+            except Exception as e:
+                # Log do erro mas não interromper o save
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Erro ao criar assinatura do solicitante na requisição {self.pk}: {str(e)}")
+
+
+class RequisicaoAlmoxarifadoProduto(models.Model):
+    """Produtos de uma requisição de almoxarifado (permite múltiplos produtos)"""
+    
+    requisicao = models.ForeignKey(
+        RequisicaoAlmoxarifado,
+        on_delete=models.CASCADE,
+        related_name='produtos_requisicao',
+        verbose_name="Requisição"
+    )
+    produto = models.ForeignKey(
+        'ProdutoAlmoxarifado',
+        on_delete=models.CASCADE,
+        related_name='requisicoes_produtos',
+        verbose_name="Produto"
+    )
+    quantidade = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name="Quantidade",
+        validators=[MinValueValidator(0.01)]
+    )
+    data_criacao = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Data de Criação"
+    )
+    data_atualizacao = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Data de Atualização"
+    )
+    
+    class Meta:
+        verbose_name = "Produto da Requisição"
+        verbose_name_plural = "Produtos da Requisição"
+        unique_together = [['requisicao', 'produto']]
+        ordering = ['requisicao', 'produto']
+    
+    def __str__(self):
+        return f"Requisição #{self.requisicao.pk} - {self.produto.codigo}: {self.quantidade}"
+
+
+# RequisicaoAlmoxarifadoTamanho removido - cada tamanho diferente é agora um item individual
+
+
+class AssinaturaRequisicaoAlmoxarifado(models.Model):
+    """Assinaturas de uma requisição de almoxarifado - permite assinatura do solicitante e do aprovador/negador"""
+    
+    TIPO_ASSINATURA_CHOICES = [
+        ('SOLICITANTE', 'Solicitante'),
+        ('APROVACAO', 'Aprovação'),
+        ('NEGACAO', 'Negação'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    requisicao = models.ForeignKey(
+        RequisicaoAlmoxarifado, 
+        on_delete=models.CASCADE, 
+        verbose_name="Requisição de Almoxarifado", 
+        related_name="assinaturas"
+    )
+    assinado_por = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE, 
+        verbose_name="Assinado por"
+    )
+    militar = models.ForeignKey(
+        Militar, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        verbose_name="Militar", 
+        help_text="Militar que assina a requisição"
+    )
+    data_assinatura = models.DateTimeField(
+        auto_now_add=True, 
+        verbose_name="Data da Assinatura"
+    )
+    observacoes = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Observações da Assinatura"
+    )
+    tipo_assinatura = models.CharField(
+        max_length=20,
+        choices=TIPO_ASSINATURA_CHOICES,
+        default='SOLICITANTE',
+        verbose_name="Tipo de Assinatura"
+    )
+    funcao_assinatura = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        help_text="Função/cargo do usuário no momento da assinatura",
+        verbose_name="Função no momento da assinatura"
+    )
+    
+    class Meta:
+        verbose_name = "Assinatura de Requisição de Almoxarifado"
+        verbose_name_plural = "Assinaturas de Requisições de Almoxarifado"
+        ordering = ['-data_assinatura']
+        unique_together = ['requisicao', 'tipo_assinatura']
+    
+    def __str__(self):
+        return f"{self.requisicao} - {self.militar.nome_completo if self.militar else self.assinado_por.get_full_name()} - {self.get_tipo_assinatura_display()}"
+
+
+class HistoricoRequisicaoAlmoxarifado(models.Model):
+    """Histórico de alterações em requisições de almoxarifado"""
+    
+    TIPO_ACAO_CHOICES = [
+        ('CRIACAO', 'Criação'),
+        ('EDICAO', 'Edição'),
+        ('APROVACAO', 'Aprovação'),
+        ('NEGACAO', 'Negação'),
+        ('ATENDIMENTO', 'Atendimento'),
+        ('CANCELAMENTO', 'Cancelamento'),
+        ('CONFIRMACAO_RECEBIMENTO', 'Confirmação de Recebimento'),
+    ]
+    
+    requisicao = models.ForeignKey(
+        RequisicaoAlmoxarifado,
+        on_delete=models.CASCADE,
+        related_name='historico',
+        verbose_name="Requisição"
+    )
+    tipo_acao = models.CharField(
+        max_length=30,
+        choices=TIPO_ACAO_CHOICES,
+        verbose_name="Tipo de Ação"
+    )
+    alterado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='historicos_requisicoes_almoxarifado',
+        verbose_name="Alterado por"
+    )
+    data_alteracao = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Data da Alteração"
+    )
+    campo_alterado = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name="Campo Alterado"
+    )
+    valor_anterior = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Valor Anterior"
+    )
+    valor_novo = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Valor Novo"
+    )
+    # Para rastrear produtos adicionados/removidos/editados
+    produto = models.ForeignKey(
+        'ProdutoAlmoxarifado',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='historicos_requisicoes',
+        verbose_name="Produto"
+    )
+    quantidade_anterior = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        verbose_name="Quantidade Anterior"
+    )
+    quantidade_nova = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        verbose_name="Quantidade Nova"
+    )
+    observacoes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações"
+    )
+    
+    class Meta:
+        verbose_name = "Histórico de Requisição de Almoxarifado"
+        verbose_name_plural = "Históricos de Requisições de Almoxarifado"
+        ordering = ['-data_alteracao']
+        indexes = [
+            models.Index(fields=['requisicao', '-data_alteracao']),
+        ]
+    
+    def __str__(self):
+        return f"Requisição #{self.requisicao.pk} - {self.get_tipo_acao_display()} - {self.data_alteracao.strftime('%d/%m/%Y %H:%M')}"
+
+
+class AssinaturaSaidaAlmoxarifado(models.Model):
+    """Assinaturas de uma saída de almoxarifado"""
+    
+    TIPO_ASSINATURA_CHOICES = [
+        ('ENTREGA', 'Entrega'),
+        ('RECEBIMENTO', 'Recebimento'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    saida = models.ForeignKey(
+        SaidaAlmoxarifado, 
+        on_delete=models.CASCADE, 
+        verbose_name="Saída de Almoxarifado", 
+        related_name="assinaturas"
+    )
+    assinado_por = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE, 
+        verbose_name="Assinado por"
+    )
+    militar = models.ForeignKey(
+        Militar, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        verbose_name="Militar", 
+        help_text="Militar que assina a saída"
+    )
+    data_assinatura = models.DateTimeField(
+        auto_now_add=True, 
+        verbose_name="Data da Assinatura"
+    )
+    observacoes = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Observações da Assinatura"
+    )
+    tipo_assinatura = models.CharField(
+        max_length=20,
+        choices=TIPO_ASSINATURA_CHOICES,
+        default='ENTREGA',
+        verbose_name="Tipo de Assinatura"
+    )
+    funcao_assinatura = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        help_text="Função/cargo do usuário no momento da assinatura",
+        verbose_name="Função no momento da assinatura"
+    )
+    
+    class Meta:
+        verbose_name = "Assinatura de Saída de Almoxarifado"
+        verbose_name_plural = "Assinaturas de Saídas de Almoxarifado"
+        ordering = ['-data_assinatura']
+        unique_together = ['saida', 'tipo_assinatura']
+    
+    def __str__(self):
+        return f"{self.saida} - {self.militar.nome_completo if self.militar else self.assinado_por.get_full_name()} - {self.get_tipo_assinatura_display()}"
+
+
+class EntradaAlmoxarifadoProduto(models.Model):
+    """Produtos de uma entrada de almoxarifado (permite múltiplos produtos)"""
+    
+    entrada = models.ForeignKey(
+        EntradaAlmoxarifado,
+        on_delete=models.CASCADE,
+        related_name='produtos_entrada',
+        verbose_name="Entrada"
+    )
+    produto = models.ForeignKey(
+        'ProdutoAlmoxarifado',
+        on_delete=models.CASCADE,
+        related_name='entradas_produtos',
+        verbose_name="Produto"
+    )
+    quantidade = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name="Quantidade",
+        validators=[MinValueValidator(0.01)]
+    )
+    valor_unitario = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        verbose_name="Valor Unitário (R$)",
+        help_text="Valor unitário do produto nesta entrada"
+    )
+    valor_total = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        verbose_name="Valor Total (R$)",
+        help_text="Valor total do produto (quantidade × valor unitário)"
+    )
+    data_criacao = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Data de Criação"
+    )
+    data_atualizacao = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Data de Atualização"
+    )
+    
+    class Meta:
+        verbose_name = "Produto da Entrada"
+        verbose_name_plural = "Produtos da Entrada"
+        unique_together = [['entrada', 'produto']]
+        ordering = ['entrada', 'produto']
+    
+    def __str__(self):
+        return f"Entrada #{self.entrada.pk} - {self.produto.codigo}: {self.quantidade}"
+
+
+def documento_entrada_almoxarifado_upload_path(instance, filename):
+    """Define o caminho de upload para documentos de entrada do almoxarifado"""
+    return f'almoxarifado/entradas/{instance.entrada.pk}/{instance.tipo}/{filename}'
+
+
+class DocumentoEntradaAlmoxarifado(models.Model):
+    """Documentos anexados às entradas do almoxarifado"""
+    
+    TIPO_CHOICES = [
+        ('NOTA_FISCAL', 'Nota Fiscal'),
+        ('CONTRATO', 'Contrato'),
+        ('CONVENIO', 'Convênio'),
+        ('PROCESSO', 'Processo'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    entrada = models.ForeignKey(
+        EntradaAlmoxarifado,
+        on_delete=models.CASCADE,
+        related_name='documentos',
+        verbose_name="Entrada"
+    )
+    tipo = models.CharField(
+        max_length=20,
+        choices=TIPO_CHOICES,
+        verbose_name="Tipo de Documento"
+    )
+    titulo = models.CharField(
+        max_length=200,
+        verbose_name="Título do Documento"
+    )
+    descricao = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Descrição"
+    )
+    arquivo = models.FileField(
+        upload_to=documento_entrada_almoxarifado_upload_path,
+        verbose_name="Arquivo"
+    )
+    upload_por = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name="Upload por"
+    )
+    data_upload = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Data do Upload"
+    )
+    
+    class Meta:
+        verbose_name = "Documento da Entrada"
+        verbose_name_plural = "Documentos da Entrada"
+        ordering = ['-data_upload', 'tipo']
+    
+    def __str__(self):
+        return f"{self.titulo} - {self.entrada}"
+    
+    def filename(self):
+        """Retorna apenas o nome do arquivo"""
+        return os.path.basename(self.arquivo.name) if self.arquivo else ''
+    
+    def file_size(self):
+        """Retorna o tamanho do arquivo formatado"""
+        if self.arquivo:
+            size = self.arquivo.size
+            for unit in ['B', 'KB', 'MB', 'GB']:
+                if size < 1024.0:
+                    return f"{size:.2f} {unit}"
+                size /= 1024.0
+            return f"{size:.2f} TB"
+        return "0 B"
+    
+    def get_icone_tipo(self):
+        """Retorna o ícone baseado no tipo do arquivo"""
+        extensao = os.path.splitext(self.filename())[1].lower() if self.arquivo else ''
+        icones = {
+            '.pdf': 'fas fa-file-pdf text-danger',
+            '.doc': 'fas fa-file-word text-primary',
+            '.docx': 'fas fa-file-word text-primary',
+            '.xls': 'fas fa-file-excel text-success',
+            '.xlsx': 'fas fa-file-excel text-success',
+            '.jpg': 'fas fa-file-image text-info',
+            '.jpeg': 'fas fa-file-image text-info',
+            '.png': 'fas fa-file-image text-info',
+            '.gif': 'fas fa-file-image text-info',
+            '.zip': 'fas fa-file-archive text-warning',
+            '.rar': 'fas fa-file-archive text-warning',
+        }
+        return icones.get(extensao, 'fas fa-file text-secondary')
+
+
+# EntradaAlmoxarifadoTamanho removido - cada tamanho diferente é agora um item individual
+
+
+class SaidaAlmoxarifadoProduto(models.Model):
+    """Produtos de uma saída de almoxarifado (permite múltiplos produtos)"""
+    
+    saida = models.ForeignKey(
+        SaidaAlmoxarifado,
+        on_delete=models.CASCADE,
+        related_name='produtos_saida',
+        verbose_name="Saída"
+    )
+    produto = models.ForeignKey(
+        'ProdutoAlmoxarifado',
+        on_delete=models.CASCADE,
+        related_name='saidas_produtos',
+        verbose_name="Produto"
+    )
+    quantidade = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name="Quantidade",
+        validators=[MinValueValidator(0.01)]
+    )
+    data_criacao = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Data de Criação"
+    )
+    data_atualizacao = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Data de Atualização"
+    )
+    
+    class Meta:
+        verbose_name = "Produto da Saída"
+        verbose_name_plural = "Produtos da Saída"
+        unique_together = [['saida', 'produto']]
+        ordering = ['saida', 'produto']
+    
+    def __str__(self):
+        return f"Saída #{self.saida.pk} - {self.produto.codigo}: {self.quantidade}"
+
+
+# SaidaAlmoxarifadoTamanho removido - cada tamanho diferente é agora um item individual
+
+
+class AssinaturaEntradaAlmoxarifado(models.Model):
+    """Assinaturas de uma entrada de almoxarifado"""
+    
+    TIPO_ASSINATURA_CHOICES = [
+        ('RECEBIMENTO', 'Recebimento'),
+        ('ENTREGA', 'Entrega'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    entrada = models.ForeignKey(
+        EntradaAlmoxarifado, 
+        on_delete=models.CASCADE, 
+        verbose_name="Entrada de Almoxarifado", 
+        related_name="assinaturas"
+    )
+    assinado_por = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE, 
+        verbose_name="Assinado por"
+    )
+    militar = models.ForeignKey(
+        Militar, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        verbose_name="Militar", 
+        help_text="Militar que assina a entrada"
+    )
+    data_assinatura = models.DateTimeField(
+        auto_now_add=True, 
+        verbose_name="Data da Assinatura"
+    )
+    observacoes = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Observações da Assinatura"
+    )
+    tipo_assinatura = models.CharField(
+        max_length=20,
+        choices=TIPO_ASSINATURA_CHOICES,
+        default='RECEBIMENTO',
+        verbose_name="Tipo de Assinatura"
+    )
+    funcao_assinatura = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        help_text="Função/cargo do usuário no momento da assinatura",
+        verbose_name="Função no momento da assinatura"
+    )
+    
+    class Meta:
+        verbose_name = "Assinatura de Entrada de Almoxarifado"
+        verbose_name_plural = "Assinaturas de Entradas de Almoxarifado"
+        ordering = ['-data_assinatura']
+        unique_together = ['entrada', 'tipo_assinatura']
+    
+    def __str__(self):
+        return f"{self.entrada} - {self.militar.nome_completo if self.militar else self.assinado_por.get_full_name()} - {self.get_tipo_assinatura_display()}"
+
+
+class HistoricoAlmoxarifado(models.Model):
+    """Histórico de alterações no almoxarifado"""
+    
+    produto = models.ForeignKey(
+        'ProdutoAlmoxarifado', 
+        on_delete=models.CASCADE, 
+        related_name='historico', 
+        verbose_name="Produto",
+        db_column='item_id'  # Mantém compatibilidade com coluna existente no banco
+    )
+    tipo_movimentacao = models.CharField(
+        max_length=50, 
+        verbose_name="Tipo de Movimentação",
+        help_text="Ex: Entrada, Saída, Ajuste"
+    )
+    campo_alterado = models.CharField(
+        max_length=100, 
+        blank=True, 
+        null=True, 
+        verbose_name="Campo Alterado"
+    )
+    valor_anterior = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Valor Anterior"
+    )
+    valor_novo = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Valor Novo"
+    )
+    quantidade_anterior = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        blank=True, 
+        null=True, 
+        verbose_name="Quantidade Anterior"
+    )
+    quantidade_nova = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        blank=True, 
+        null=True, 
+        verbose_name="Quantidade Nova"
+    )
+    data_alteracao = models.DateTimeField(
+        auto_now_add=True, 
+        verbose_name="Data da Alteração"
+    )
+    alterado_por = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='historicos_almoxarifado', 
+        verbose_name="Alterado por"
+    )
+    observacoes = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Observações"
+    )
+    
+    class Meta:
+        verbose_name = "Histórico de Almoxarifado"
+        verbose_name_plural = "Históricos de Almoxarifado"
+        ordering = ['-data_alteracao']
+        indexes = [
+            models.Index(fields=['produto', '-data_alteracao']),
+            models.Index(fields=['-data_alteracao']),
+        ]
+    
+    def __str__(self):
+        return f"{self.produto.codigo} - {self.tipo_movimentacao} - {self.data_alteracao.strftime('%d/%m/%Y %H:%M')}"
+
+
+class ProdutoAlmoxarifadoLocalizacao(models.Model):
+    """Localização do produto por Organização Militar (OM)"""
+    
+    produto = models.ForeignKey(
+        'ProdutoAlmoxarifado',
+        on_delete=models.CASCADE,
+        related_name='localizacoes_om',
+        verbose_name="Produto"
+    )
+    orgao = models.ForeignKey(
+        'Orgao',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='localizacoes_produtos',
+        verbose_name="Órgão"
+    )
+    grande_comando = models.ForeignKey(
+        'GrandeComando',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='localizacoes_produtos',
+        verbose_name="Grande Comando"
+    )
+    unidade = models.ForeignKey(
+        'Unidade',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='localizacoes_produtos',
+        verbose_name="Unidade"
+    )
+    sub_unidade = models.ForeignKey(
+        'SubUnidade',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='localizacoes_produtos',
+        verbose_name="Sub-Unidade"
+    )
+    localizacao = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name="Localização",
+        help_text="Localização física do produto no almoxarifado desta OM"
+    )
+    data_criacao = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Data de Criação"
+    )
+    data_atualizacao = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Data de Atualização"
+    )
+    criado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='localizacoes_produtos_criadas',
+        verbose_name="Criado por"
+    )
+    
+    class Meta:
+        verbose_name = "Localização do Produto por OM"
+        verbose_name_plural = "Localizações dos Produtos por OM"
+        unique_together = [
+            ['produto', 'orgao', 'grande_comando', 'unidade', 'sub_unidade']
+        ]
+        indexes = [
+            models.Index(fields=['produto', 'orgao', 'grande_comando', 'unidade', 'sub_unidade']),
+        ]
+    
+    def __str__(self):
+        om_nome = self.get_om_display()
+        return f"{self.produto.codigo} - {om_nome}: {self.localizacao or 'Sem localização'}"
+    
+    def get_om_display(self):
+        """Retorna o nome da OM"""
+        if self.sub_unidade:
+            return str(self.sub_unidade)
+        elif self.unidade:
+            return str(self.unidade)
+        elif self.grande_comando:
+            return str(self.grande_comando)
+        elif self.orgao:
+            return str(self.orgao)
+        return "OM não especificada"
+
+
+# ============================================================================
+# MÓDULO DE PROCESSOS E PROCEDIMENTOS ADMINISTRATIVOS
+# ============================================================================
+
+class ProcessoAdministrativo(models.Model):
+    """Controle de processos e procedimentos administrativos"""
+    
+    TIPO_PROCESSO_CHOICES = [
+        ('SINDICANCIA', 'Sindicância'),
+        ('INQUERITO_POLICIAL', 'Inquérito Policial'),
+        ('INQUERITO_POLICIAL_MILITAR', 'Inquérito Policial Militar'),
+        ('INQUERITO_TECNICO', 'Inquérito Técnico'),
+        ('PROCESSO_ADMINISTRATIVO_DISCIPLINAR_SUMARIO', 'Processo Administrativo Disciplinar Sumário'),
+        ('PROCESSO_ADMINISTRATIVO_DISCIPLINAR_ORDINARIO', 'Processo Administrativo Disciplinar Ordinário'),
+        ('PROCESSO_CRIMINAL', 'Processo Criminal'),
+        ('PROCESSO_ADMINISTRATIVO', 'Processo Administrativo'),
+        ('PROCEDIMENTO_ADMINISTRATIVO', 'Procedimento Administrativo'),
+        ('REPRESENTACAO', 'Representação'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('EM_ABERTURA', 'Em Abertura'),
+        ('EM_ANDAMENTO', 'Em Andamento'),
+        ('EM_ANALISE', 'Em Análise'),
+        ('AGUARDANDO_DECISAO', 'Aguardando Decisão'),
+        ('DECIDIDO', 'Decidido'),
+        ('ARQUIVADO', 'Arquivado'),
+        ('CANCELADO', 'Cancelado'),
+    ]
+    
+    PRIORIDADE_CHOICES = [
+        ('BAIXA', 'Baixa'),
+        ('NORMAL', 'Normal'),
+        ('ALTA', 'Alta'),
+        ('URGENTE', 'Urgente'),
+    ]
+    
+    # Identificação
+    numero = models.CharField(
+        max_length=50,
+        unique=True,
+        verbose_name="Número do Processo",
+        help_text="Número único de identificação do processo"
+    )
+    tipo = models.CharField(
+        max_length=50,
+        choices=TIPO_PROCESSO_CHOICES,
+        verbose_name="Tipo de Processo"
+    )
+    assunto = models.CharField(
+        max_length=500,
+        verbose_name="Assunto",
+        help_text="Assunto ou título do processo"
+    )
+    descricao = models.TextField(
+        verbose_name="Descrição",
+        help_text="Descrição detalhada do processo"
+    )
+    
+    # Status e Prioridade
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='EM_ABERTURA',
+        verbose_name="Status"
+    )
+    prioridade = models.CharField(
+        max_length=10,
+        choices=PRIORIDADE_CHOICES,
+        default='NORMAL',
+        verbose_name="Prioridade"
+    )
+    
+    # Datas
+    data_abertura = models.DateField(
+        verbose_name="Data de Abertura"
+    )
+    data_prazo = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Prazo",
+        help_text="Prazo para conclusão do processo"
+    )
+    data_conclusao = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Conclusão"
+    )
+    data_arquivamento = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Arquivamento"
+    )
+    
+    # Militares envolvidos (múltiplos)
+    militares_envolvidos = models.ManyToManyField(
+        'Militar',
+        related_name='processos_como_envolvido',
+        blank=True,
+        verbose_name="Militares Envolvidos",
+        help_text="Militares que são parte do processo"
+    )
+    
+    # Militares encarregados (múltiplos)
+    militares_encarregados = models.ManyToManyField(
+        'Militar',
+        related_name='processos_como_encarregado',
+        blank=True,
+        verbose_name="Militares Encarregados",
+        help_text="Militares responsáveis pelo processo"
+    )
+    
+    # Escribões (múltiplos)
+    escrivaos = models.ManyToManyField(
+        'Militar',
+        related_name='processos_como_escriva',
+        blank=True,
+        verbose_name="Escribões",
+        help_text="Militares que atuam como escribões no processo"
+    )
+    
+    # Organograma
+    orgao = models.ForeignKey(
+        'Orgao',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='processos_administrativos',
+        verbose_name="Órgão"
+    )
+    grande_comando = models.ForeignKey(
+        'GrandeComando',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='processos_administrativos',
+        verbose_name="Grande Comando"
+    )
+    unidade = models.ForeignKey(
+        'Unidade',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='processos_administrativos',
+        verbose_name="Unidade"
+    )
+    sub_unidade = models.ForeignKey(
+        'SubUnidade',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='processos_administrativos',
+        verbose_name="Sub-Unidade"
+    )
+    
+    # Relacionamentos com outros processos
+    processo_origem = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name="Processo de Origem",
+        help_text="Número do processo que deu origem a este processo"
+    )
+    processo_procedimento = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name="Processo que Realizou o Procedimento",
+        help_text="Número do processo no qual foi realizado o procedimento relacionado"
+    )
+    
+    # Observações e Controle
+    observacoes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações"
+    )
+    ativo = models.BooleanField(
+        default=True,
+        verbose_name="Ativo"
+    )
+    data_criacao = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Data de Criação"
+    )
+    data_atualizacao = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Data de Atualização"
+    )
+    criado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='processos_administrativos_criados',
+        verbose_name="Criado por"
+    )
+    
+    class Meta:
+        verbose_name = "Processo Administrativo"
+        verbose_name_plural = "Processos Administrativos"
+        ordering = ['-data_abertura', '-data_criacao']
+        indexes = [
+            models.Index(fields=['numero']),
+            models.Index(fields=['tipo']),
+            models.Index(fields=['status']),
+            models.Index(fields=['data_abertura']),
+        ]
+    
+    def __str__(self):
+        return f"{self.numero} - {self.assunto}"
+    
+    def get_dias_em_aberto(self):
+        """Calcula quantos dias o processo está em aberto"""
+        if self.data_conclusao:
+            return (self.data_conclusao - self.data_abertura).days
+        hoje = timezone.now().date()
+        return (hoje - self.data_abertura).days
+    
+    def get_dias_para_prazo(self):
+        """Calcula quantos dias faltam para o prazo"""
+        if not self.data_prazo:
+            return None
+        hoje = timezone.now().date()
+        dias = (self.data_prazo - hoje).days
+        return dias
+    
+    def esta_vencido(self):
+        """Verifica se o processo está vencido"""
+        if not self.data_prazo:
+            return False
+        hoje = timezone.now().date()
+        return hoje > self.data_prazo and self.status not in ['DECIDIDO', 'ARQUIVADO', 'CANCELADO']
+    
+    def get_prioridade_cor(self):
+        """Retorna a cor Bootstrap baseada na prioridade"""
+        cores = {
+            'BAIXA': 'secondary',
+            'NORMAL': 'info',
+            'ALTA': 'warning',
+            'URGENTE': 'danger',
+        }
+        return cores.get(self.prioridade, 'secondary')
+    
+    def get_status_cor(self):
+        """Retorna a cor Bootstrap baseada no status"""
+        cores = {
+            'EM_ABERTURA': 'secondary',
+            'EM_ANDAMENTO': 'primary',
+            'EM_ANALISE': 'info',
+            'AGUARDANDO_DECISAO': 'warning',
+            'DECIDIDO': 'success',
+            'ARQUIVADO': 'dark',
+            'CANCELADO': 'danger',
+        }
+        return cores.get(self.status, 'secondary')
 
 

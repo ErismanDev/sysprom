@@ -1,0 +1,256 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Armas Particulares - Lista{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-user-shield me-2 text-primary"></i>Armas Particulares
+                    </h2>
+                    <p class="text-muted mb-0">Gerenciar cadastro de armas particulares dos militares</p>
+                </div>
+                <div>
+                    <a href="{% url 'militares:arma_particular_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Nova Arma Particular
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Cards de Estatísticas -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-gun fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_armas }}</h4>
+                            <p class="mb-0">Total de Armas</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card success">
+                        <div class="card-body text-center">
+                            <i class="fas fa-check-circle fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ armas_regulares }}</h4>
+                            <p class="mb-0">Regulares</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card info">
+                        <div class="card-body text-center">
+                            <i class="fas fa-shield-check fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ armas_autorizadas }}</h4>
+                            <p class="mb-0">Autorizadas</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card warning">
+                        <div class="card-body text-center">
+                            <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ armas_vencidas }}</h4>
+                            <p class="mb-0">Documentação Vencida</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Pesquisa</label>
+                            <input type="text" name="search" class="form-control" 
+                                   value="{{ search }}" placeholder="Nº série, militar, matrícula...">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Tipo</label>
+                            <select name="tipo" class="form-select">
+                                <option value="">Todos</option>
+                                {% for tipo_val, tipo_nome in tipos %}
+                                    <option value="{{ tipo_val }}" {% if tipo == tipo_val %}selected{% endif %}>
+                                        {{ tipo_nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-select">
+                                <option value="">Todos</option>
+                                {% for status_val, status_nome in status_list %}
+                                    <option value="{{ status_val }}" {% if status == status_val %}selected{% endif %}>
+                                        {{ status_nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Autorizado</label>
+                            <select name="autorizado" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="1" {% if autorizado == '1' %}selected{% endif %}>Sim</option>
+                                <option value="0" {% if autorizado == '0' %}selected{% endif %}>Não</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Ativo</label>
+                            <select name="ativo" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="1" {% if ativo == '1' %}selected{% endif %}>Sim</option>
+                                <option value="0" {% if ativo == '0' %}selected{% endif %}>Não</option>
+                            </select>
+                        </div>
+                        <div class="col-md-1 d-flex align-items-end gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search"></i>
+                            </button>
+                            <a href="{% url 'militares:arma_particular_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times"></i>
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Lista de Armas Particulares -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Lista de Armas Particulares
+                    </h6>
+                    <div>
+                        <a href="{% url 'militares:arma_particular_create' %}" class="btn btn-success btn-sm">
+                            <i class="fas fa-plus me-2"></i>Nova Arma Particular
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if armas_particulares %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Militar</th>
+                                        <th>Nº Série</th>
+                                        <th>Tipo</th>
+                                        <th>Marca/Modelo</th>
+                                        <th>Calibre</th>
+                                        <th>Status</th>
+                                        <th>Autorizado</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for arma in armas_particulares %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ arma.militar.get_posto_graduacao_display }} {{ arma.militar.nome_completo }}</strong><br>
+                                                <small class="text-muted">Mat: {{ arma.militar.matricula }}{% if arma.militar.cpf %} | CPF: {{ arma.militar.cpf }}{% endif %}</small>
+                                            </td>
+                                            <td><strong>{{ arma.numero_serie }}</strong></td>
+                                            <td>{{ arma.get_tipo_display }}</td>
+                                            <td>{{ arma.marca }} {{ arma.modelo }}</td>
+                                            <td>{{ arma.get_calibre_display }}</td>
+                                            <td>
+                                                {% if arma.status == 'REGULAR' %}
+                                                    <span class="badge bg-success">{{ arma.get_status_display }}</span>
+                                                {% elif arma.status == 'PENDENTE' %}
+                                                    <span class="badge bg-warning text-dark">{{ arma.get_status_display }}</span>
+                                                {% elif arma.status == 'VENCIDO' %}
+                                                    <span class="badge bg-danger">{{ arma.get_status_display }}</span>
+                                                {% elif arma.status == 'IRREGULAR' %}
+                                                    <span class="badge bg-dark">{{ arma.get_status_display }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if arma.autorizado_uso_servico %}
+                                                    <span class="badge bg-info">Sim</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Não</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <a href="{% url 'militares:arma_particular_detail' arma.pk %}" 
+                                                   class="btn btn-sm btn-info" title="Visualizar">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                <a href="{% url 'militares:arma_particular_update' arma.pk %}" 
+                                                   class="btn btn-sm btn-primary" title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <a href="{% url 'militares:arma_particular_delete' arma.pk %}" 
+                                                   class="btn btn-sm btn-danger" title="Excluir">
+                                                    <i class="fas fa-trash"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if is_paginated %}
+                            <nav aria-label="Paginação">
+                                <ul class="pagination justify-content-center mt-4">
+                                    {% if page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}{% if tipo %}&tipo={{ tipo }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if autorizado %}&autorizado={{ autorizado }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">
+                                                <i class="fas fa-angle-double-left"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if tipo %}&tipo={{ tipo }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if autorizado %}&autorizado={{ autorizado }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">
+                                                <i class="fas fa-angle-left"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                    
+                                    <li class="page-item disabled">
+                                        <span class="page-link">
+                                            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                                        </span>
+                                    </li>
+                                    
+                                    {% if page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if tipo %}&tipo={{ tipo }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if autorizado %}&autorizado={{ autorizado }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">
+                                                <i class="fas fa-angle-right"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if tipo %}&tipo={{ tipo }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if autorizado %}&autorizado={{ autorizado }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">
+                                                <i class="fas fa-angle-double-right"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Nenhuma arma particular encontrada.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+

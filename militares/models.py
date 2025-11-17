@@ -17640,7 +17640,7 @@ class Arma(models.Model):
     delegado_inquerito_pc = models.CharField(max_length=200, blank=True, null=True, verbose_name="Delegado Responsável", help_text="Nome do delegado responsável (apenas para Anexado a Inquérito PC)")
     
     # Documentação
-    numero_registro_policia = models.CharField(max_length=100, blank=True, null=True, verbose_name="Nº Registro na Polícia Federal", help_text="Registro da arma na Polícia Federal")
+    numero_registro_policia = models.CharField(max_length=100, blank=True, null=True, verbose_name="Nº Registro SIGMA", help_text="Número do registro SIGMA")
     numero_guia_transito = models.CharField(max_length=100, blank=True, null=True, verbose_name="Nº Guia de Trânsito")
     data_aquisicao = models.DateField(blank=True, null=True, verbose_name="Data de Aquisição")
     fornecedor = models.CharField(max_length=200, blank=True, null=True, verbose_name="Fornecedor")
@@ -17842,12 +17842,15 @@ class ArmaParticular(models.Model):
     marca = models.CharField(max_length=100, verbose_name="Marca", help_text="Ex: Taurus, Glock, IMBEL")
     modelo = models.CharField(max_length=100, verbose_name="Modelo", help_text="Ex: PT 100, G17, FAL")
     calibre = models.CharField(max_length=20, choices=CALIBRE_CHOICES, verbose_name="Calibre")
+    alma_raiada = models.BooleanField(default=False, verbose_name="Alma Raiada", help_text="Se a arma possui alma raiada")
+    quantidade_raias = models.PositiveIntegerField(blank=True, null=True, verbose_name="Quantidade de Raias", help_text="Número de raias (apenas se alma raiada)")
+    direcao_raias = models.CharField(max_length=10, choices=[("DIREITA", "Direita"), ("ESQUERDA", "Esquerda")], blank=True, null=True, verbose_name="Direção das Raias", help_text="Direção das raias (apenas se alma raiada)")
     numero_canhao = models.CharField(max_length=50, blank=True, null=True, verbose_name="Número do Canhão")
     capacidade_carregador = models.PositiveIntegerField(blank=True, null=True, verbose_name="Capacidade do Carregador", help_text="Quantidade de munições")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='REGULAR', verbose_name="Status")
     
     # Documentação
-    numero_registro_policia = models.CharField(max_length=100, verbose_name="Nº Registro na Polícia Federal", help_text="Registro da arma na Polícia Federal")
+    numero_registro_policia = models.CharField(max_length=100, verbose_name="Nº Registro SIGMA", help_text="Número do registro SIGMA")
     data_validade_registro = models.DateField(blank=True, null=True, verbose_name="Data de Validade do Registro")
     numero_guia_transito = models.CharField(max_length=100, blank=True, null=True, verbose_name="Nº Guia de Trânsito")
     data_validade_guia = models.DateField(blank=True, null=True, verbose_name="Data de Validade da Guia")

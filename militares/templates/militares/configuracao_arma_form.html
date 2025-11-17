@@ -1,0 +1,558 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if object %}Editar{% else %}Nova{% endif %} Configuração de Arma{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-{% if object %}edit{% else %}plus{% endif %} me-2"></i>
+                        {% if object %}Editar{% else %}Nova{% endif %} Configuração de Arma
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                <label for="{{ form.imagem.id_for_label }}" class="form-label">
+                                    Imagem da Arma <span class="text-danger">*</span>
+                                </label>
+                                {{ form.imagem }}
+                                {% if form.imagem.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.imagem.errors }}</div>
+                                {% endif %}
+                                {% if object and object.imagem %}
+                                    <div class="mt-2">
+                                        <small class="text-muted">Imagem atual:</small><br>
+                                        <img src="{{ object.imagem.url }}" 
+                                             alt="{{ object.marca }} {{ object.modelo }}" 
+                                             class="img-thumbnail" 
+                                             style="max-height: 200px; cursor: pointer;"
+                                             data-bs-toggle="modal" 
+                                             data-bs-target="#caracteristicasArmaModal">
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.tipo.id_for_label }}" class="form-label">
+                                    Tipo <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    {{ form.tipo }}
+                                    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#adicionarTipoModal" title="Adicionar novo tipo">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+                                {% if form.tipo.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.tipo.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3" id="tipo-acessorio-campo" style="display: none;">
+                                <label for="{{ form.tipo_acessorio.id_for_label }}" class="form-label">
+                                    Tipo de Acessório <span class="text-danger">*</span>
+                                </label>
+                                {{ form.tipo_acessorio }}
+                                {% if form.tipo_acessorio.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.tipo_acessorio.errors }}</div>
+                                {% endif %}
+                                {% if form.tipo_acessorio.help_text %}
+                                    <small class="form-text text-muted">{{ form.tipo_acessorio.help_text }}</small>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3" id="calibre-campo">
+                                <label for="{{ form.calibre.id_for_label }}" class="form-label">
+                                    Calibre <span class="text-danger" id="calibre-required">*</span>
+                                </label>
+                                <div class="input-group">
+                                    {{ form.calibre }}
+                                    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#adicionarCalibreModal" title="Adicionar novo calibre">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+                                {% if form.calibre.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.calibre.errors }}</div>
+                                {% endif %}
+                                {% if form.calibre.help_text %}
+                                    <small class="form-text text-muted">{{ form.calibre.help_text }}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.marca.id_for_label }}" class="form-label">
+                                    Marca <span class="text-danger">*</span>
+                                </label>
+                                {{ form.marca }}
+                                {% if form.marca.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.marca.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.modelo.id_for_label }}" class="form-label">
+                                    Modelo <span class="text-danger">*</span>
+                                </label>
+                                {{ form.modelo }}
+                                {% if form.modelo.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.modelo.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                <div class="form-check">
+                                    {{ form.ativo }}
+                                    <label class="form-check-label" for="{{ form.ativo.id_for_label }}">
+                                        Ativo
+                                    </label>
+                                </div>
+                                {% if form.ativo.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.ativo.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'militares:configuracao_arma_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-times me-2"></i>Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Salvar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tipoSelect = document.getElementById('id_tipo');
+    const tipoAcessorioCampo = document.getElementById('tipo-acessorio-campo');
+    const tipoAcessorioSelect = document.getElementById('id_tipo_acessorio');
+    const calibreCampo = document.getElementById('calibre-campo');
+    const calibreSelect = document.getElementById('id_calibre');
+    const calibreRequired = document.getElementById('calibre-required');
+    
+    function toggleCamposAcessorio() {
+        const tipo = tipoSelect ? tipoSelect.value : '';
+        
+        if (tipo === 'ACESSORIO') {
+            // Mostrar campo de tipo de acessório
+            if (tipoAcessorioCampo) tipoAcessorioCampo.style.display = 'block';
+            if (tipoAcessorioSelect) tipoAcessorioSelect.required = true;
+            
+            // Calibre não obrigatório para acessórios
+            if (calibreRequired) calibreRequired.style.display = 'none';
+            if (calibreSelect) calibreSelect.required = false;
+        } else {
+            // Esconder campo de tipo de acessório
+            if (tipoAcessorioCampo) tipoAcessorioCampo.style.display = 'none';
+            if (tipoAcessorioSelect) {
+                tipoAcessorioSelect.required = false;
+                tipoAcessorioSelect.value = '';
+            }
+            
+            // Calibre obrigatório para armas
+            if (calibreRequired) calibreRequired.style.display = 'inline';
+            if (calibreSelect) calibreSelect.required = true;
+        }
+    }
+    
+    // Inicializar ao carregar
+    toggleCamposAcessorio();
+    
+    // Escutar mudanças no tipo
+    if (tipoSelect) {
+        tipoSelect.addEventListener('change', toggleCamposAcessorio);
+    }
+    
+    // Garantir que os botões de abrir modal funcionem
+    const btnAbrirTipoModal = document.querySelector('button[data-bs-target="#adicionarTipoModal"]');
+    if (btnAbrirTipoModal) {
+        btnAbrirTipoModal.addEventListener('click', function(e) {
+            e.preventDefault();
+            const modalElement = document.getElementById('adicionarTipoModal');
+            if (modalElement) {
+                if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    const modal = new bootstrap.Modal(modalElement);
+                    modal.show();
+                } else if (typeof $ !== 'undefined' && $.fn.modal) {
+                    $(modalElement).modal('show');
+                } else {
+                    // Fallback manual
+                    modalElement.style.display = 'block';
+                    modalElement.classList.add('show');
+                    document.body.classList.add('modal-open');
+                    const backdrop = document.createElement('div');
+                    backdrop.className = 'modal-backdrop fade show';
+                    document.body.appendChild(backdrop);
+                }
+            }
+        });
+    }
+    
+    const btnAbrirCalibreModal = document.querySelector('button[data-bs-target="#adicionarCalibreModal"]');
+    if (btnAbrirCalibreModal) {
+        btnAbrirCalibreModal.addEventListener('click', function(e) {
+            e.preventDefault();
+            const modalElement = document.getElementById('adicionarCalibreModal');
+            if (modalElement) {
+                if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    const modal = new bootstrap.Modal(modalElement);
+                    modal.show();
+                } else if (typeof $ !== 'undefined' && $.fn.modal) {
+                    $(modalElement).modal('show');
+                } else {
+                    // Fallback manual
+                    modalElement.style.display = 'block';
+                    modalElement.classList.add('show');
+                    document.body.classList.add('modal-open');
+                    const backdrop = document.createElement('div');
+                    backdrop.className = 'modal-backdrop fade show';
+                    document.body.appendChild(backdrop);
+                }
+            }
+        });
+    }
+    
+    // Função para adicionar novo tipo
+    function adicionarNovoTipo() {
+        const valorInput = document.getElementById('novo_tipo_valor');
+        const displayInput = document.getElementById('novo_tipo_display');
+        
+        if (!valorInput || !displayInput || !tipoSelect) {
+            console.error('Elementos não encontrados para adicionar tipo');
+            return;
+        }
+        
+        const valor = valorInput.value.trim().toUpperCase();
+        const display = displayInput.value.trim();
+        
+        if (!valor || !display) {
+            alert('Por favor, preencha todos os campos.');
+            return;
+        }
+        
+        // Verificar se já existe
+        const existe = Array.from(tipoSelect.options).some(opt => opt.value === valor);
+        if (existe) {
+            alert('Este tipo já existe na lista.');
+            return;
+        }
+        
+        // Adicionar ao select
+        const option = new Option(display, valor, true, true);
+        tipoSelect.add(option);
+        
+        // Limpar formulário e fechar modal
+        valorInput.value = '';
+        displayInput.value = '';
+        const modalElement = document.getElementById('adicionarTipoModal');
+        if (modalElement) {
+            const modal = bootstrap.Modal.getInstance(modalElement);
+            if (modal) {
+                modal.hide();
+            } else {
+                // Se o modal não foi inicializado, usar jQuery ou método alternativo
+                $(modalElement).modal('hide');
+            }
+        }
+    }
+    
+    // Função para adicionar novo calibre
+    function adicionarNovoCalibre() {
+        const valorInput = document.getElementById('novo_calibre_valor');
+        const displayInput = document.getElementById('novo_calibre_display');
+        
+        if (!valorInput || !displayInput || !calibreSelect) {
+            console.error('Elementos não encontrados para adicionar calibre');
+            return;
+        }
+        
+        const valor = valorInput.value.trim().toUpperCase();
+        const display = displayInput.value.trim();
+        
+        if (!valor || !display) {
+            alert('Por favor, preencha todos os campos.');
+            return;
+        }
+        
+        // Verificar se já existe
+        const existe = Array.from(calibreSelect.options).some(opt => opt.value === valor);
+        if (existe) {
+            alert('Este calibre já existe na lista.');
+            return;
+        }
+        
+        // Adicionar ao select
+        const option = new Option(display, valor, true, true);
+        calibreSelect.add(option);
+        
+        // Limpar formulário e fechar modal
+        valorInput.value = '';
+        displayInput.value = '';
+        const modalElement = document.getElementById('adicionarCalibreModal');
+        if (modalElement) {
+            const modal = bootstrap.Modal.getInstance(modalElement);
+            if (modal) {
+                modal.hide();
+            } else {
+                // Se o modal não foi inicializado, usar jQuery ou método alternativo
+                $(modalElement).modal('hide');
+            }
+        }
+    }
+    
+    // Adicionar event listeners usando delegação de eventos
+    document.addEventListener('click', function(e) {
+        // Verificar se o clique foi no botão ou em algum elemento filho dele
+        const btnTipo = e.target.closest('#btnSalvarTipo');
+        const btnCalibre = e.target.closest('#btnSalvarCalibre');
+        
+        if (btnTipo) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Adicionando novo tipo...');
+            adicionarNovoTipo();
+            return false;
+        }
+        
+        if (btnCalibre) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Adicionando novo calibre...');
+            adicionarNovoCalibre();
+            return false;
+        }
+    });
+    
+    // Também adicionar listeners diretos quando os elementos estiverem disponíveis
+    setTimeout(function() {
+        const btnSalvarTipo = document.getElementById('btnSalvarTipo');
+        if (btnSalvarTipo) {
+            console.log('Botão salvar tipo encontrado, adicionando listener');
+            btnSalvarTipo.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Botão salvar tipo clicado');
+                adicionarNovoTipo();
+            });
+        } else {
+            console.warn('Botão btnSalvarTipo não encontrado');
+        }
+        
+        const btnSalvarCalibre = document.getElementById('btnSalvarCalibre');
+        if (btnSalvarCalibre) {
+            console.log('Botão salvar calibre encontrado, adicionando listener');
+            btnSalvarCalibre.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Botão salvar calibre clicado');
+                adicionarNovoCalibre();
+            });
+        } else {
+            console.warn('Botão btnSalvarCalibre não encontrado');
+        }
+    }, 500);
+    
+    // Limpar formulários ao fechar modais
+    const adicionarTipoModal = document.getElementById('adicionarTipoModal');
+    if (adicionarTipoModal) {
+        adicionarTipoModal.addEventListener('hidden.bs.modal', function() {
+            const valorInput = document.getElementById('novo_tipo_valor');
+            const displayInput = document.getElementById('novo_tipo_display');
+            if (valorInput) valorInput.value = '';
+            if (displayInput) displayInput.value = '';
+        });
+    }
+    
+    const adicionarCalibreModal = document.getElementById('adicionarCalibreModal');
+    if (adicionarCalibreModal) {
+        adicionarCalibreModal.addEventListener('hidden.bs.modal', function() {
+            const valorInput = document.getElementById('novo_calibre_valor');
+            const displayInput = document.getElementById('novo_calibre_display');
+            if (valorInput) valorInput.value = '';
+            if (displayInput) displayInput.value = '';
+        });
+    }
+});
+</script>
+
+<!-- Modal para Adicionar Novo Tipo -->
+<div class="modal fade" id="adicionarTipoModal" tabindex="-1" aria-labelledby="adicionarTipoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="adicionarTipoModalLabel">
+                    <i class="fas fa-plus me-2"></i>Adicionar Novo Tipo
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formAdicionarTipo">
+                    <div class="mb-3">
+                        <label for="novo_tipo_valor" class="form-label">Código (valor interno) <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="novo_tipo_valor" required 
+                               placeholder="Ex: PISTOLA_ESPECIAL" style="text-transform: uppercase;">
+                        <small class="form-text text-muted">Use letras maiúsculas e underscore (ex: PISTOLA_ESPECIAL)</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="novo_tipo_display" class="form-label">Nome (exibição) <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="novo_tipo_display" required 
+                               placeholder="Ex: Pistola Especial">
+                        <small class="form-text text-muted">Nome que será exibido na lista</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" id="btnSalvarTipo">
+                    <i class="fas fa-save me-2"></i>Adicionar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Adicionar Novo Calibre -->
+<div class="modal fade" id="adicionarCalibreModal" tabindex="-1" aria-labelledby="adicionarCalibreModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="adicionarCalibreModalLabel">
+                    <i class="fas fa-plus me-2"></i>Adicionar Novo Calibre
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formAdicionarCalibre">
+                    <div class="mb-3">
+                        <label for="novo_calibre_valor" class="form-label">Código (valor interno) <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="novo_calibre_valor" required 
+                               placeholder="Ex: 10MM" style="text-transform: uppercase;">
+                        <small class="form-text text-muted">Use letras maiúsculas e números (ex: 10MM, 357)</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="novo_calibre_display" class="form-label">Nome (exibição) <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="novo_calibre_display" required 
+                               placeholder="Ex: 10mm">
+                        <small class="form-text text-muted">Nome que será exibido na lista</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" id="btnSalvarCalibre">
+                    <i class="fas fa-save me-2"></i>Adicionar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Modal de Características da Arma -->
+{% if object and object.imagem %}
+<div class="modal fade" id="caracteristicasArmaModal" tabindex="-1" aria-labelledby="caracteristicasArmaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="caracteristicasArmaModalLabel">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Características da Arma
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <img src="{{ object.imagem.url }}" 
+                             alt="{{ object.marca }} {{ object.modelo }}" 
+                             class="img-fluid rounded">
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-primary mb-3">
+                            <i class="fas fa-gun me-2"></i>Informações da Arma
+                        </h6>
+                        <table class="table table-borderless">
+                            <tbody>
+                                <tr>
+                                    <td class="fw-bold" style="width: 40%;">Tipo:</td>
+                                    <td>{{ object.get_tipo_display }}</td>
+                                </tr>
+                                {% if object.tipo == 'ACESSORIO' and object.tipo_acessorio %}
+                                <tr>
+                                    <td class="fw-bold">Tipo de Acessório:</td>
+                                    <td>{{ object.get_tipo_acessorio_display }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if object.calibre %}
+                                <tr>
+                                    <td class="fw-bold">Calibre:</td>
+                                    <td>{{ object.get_calibre_display }}</td>
+                                </tr>
+                                {% endif %}
+                                <tr>
+                                    <td class="fw-bold">Marca:</td>
+                                    <td>{{ object.marca }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-bold">Modelo:</td>
+                                    <td>{{ object.modelo }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-bold">Status:</td>
+                                    <td>
+                                        {% if object.ativo %}
+                                            <span class="badge bg-success">Ativo</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Inativo</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% if object.data_criacao %}
+                                <tr>
+                                    <td class="fw-bold">Data de Criação:</td>
+                                    <td>{{ object.data_criacao|date:'d/m/Y H:i' }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if object.criado_por %}
+                                <tr>
+                                    <td class="fw-bold">Criado por:</td>
+                                    <td>{{ object.criado_por.get_full_name|default:object.criado_por.username }}</td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+

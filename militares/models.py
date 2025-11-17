@@ -6472,6 +6472,20 @@ class FuncaoMilitar(models.Model):
                 permissoes_dict['show_logs'] = True
             elif modulo == 'SUBMENU_ADMINISTRACAO':
                 permissoes_dict['show_administracao'] = True
+            elif modulo == 'SUBMENU_TITULOS_PUBLICACAO':
+                permissoes_dict['show_titulos_publicacao'] = True
+            elif modulo == 'SUBMENU_ORGAOS':
+                permissoes_dict['show_usuarios'] = True
+                permissoes_dict['show_administracao'] = True
+            elif modulo == 'SUBMENU_ORGANOGRAMA':
+                permissoes_dict['show_usuarios'] = True
+                permissoes_dict['show_administracao'] = True
+            elif modulo == 'SUBMENU_GRANDES_COMANDOS':
+                permissoes_dict['show_grandes_comandos'] = True
+            elif modulo == 'SUBMENU_UNIDADES':
+                permissoes_dict['show_unidades'] = True
+            elif modulo == 'SUBMENU_SUB_UNIDADES':
+                permissoes_dict['show_sub_unidades'] = True
             elif modulo == 'SUBMENU_NOTAS_LISTA':
                 permissoes_dict['notas_lista'] = True
             elif modulo == 'NOTAS_VISUALIZAR':

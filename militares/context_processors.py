@@ -639,7 +639,8 @@ def menu_permissions_processor(request):
             'show_almanaques', 'show_promocoes', 'show_calendarios', 'show_comissoes', 'show_meus_votos',
             'show_intersticios', 'show_gerenciar_intersticios', 'show_gerenciar_previsao',
             'show_medalhas_concessoes', 'show_medalhas_propostas', 'show_elegiveis', 'show_propostas',
-            'show_configuracoes', 'show_usuarios', 'show_permissoes', 'show_logs', 'show_titulos_publicacao', 'show_administracao'
+            'show_configuracoes', 'show_usuarios', 'show_permissoes', 'show_logs', 'show_titulos_publicacao', 'show_administracao',
+            'show_grandes_comandos', 'show_unidades', 'show_sub_unidades'
         ]
         
         for chave in chaves_menu:
@@ -843,6 +844,18 @@ def menu_permissions_processor(request):
                     menu_permissions['show_administracao'] = True
                 elif permissao.modulo == 'SUBMENU_TITULOS_PUBLICACAO':
                     menu_permissions['show_titulos_publicacao'] = True
+                elif permissao.modulo == 'SUBMENU_ORGAOS':
+                    menu_permissions['show_usuarios'] = True  # Órgãos aparecem com show_usuarios
+                    menu_permissions['show_administracao'] = True
+                elif permissao.modulo == 'SUBMENU_ORGANOGRAMA':
+                    menu_permissions['show_usuarios'] = True  # Organograma aparece com show_usuarios
+                    menu_permissions['show_administracao'] = True
+                elif permissao.modulo == 'SUBMENU_GRANDES_COMANDOS':
+                    menu_permissions['show_grandes_comandos'] = True
+                elif permissao.modulo == 'SUBMENU_UNIDADES':
+                    menu_permissions['show_unidades'] = True
+                elif permissao.modulo == 'SUBMENU_SUB_UNIDADES':
+                    menu_permissions['show_sub_unidades'] = True
             # Mapear permissões granulares para ações específicas (não apenas VISUALIZAR)
             elif permissao.modulo == 'INATIVOS' and permissao.acesso == 'REATIVAR':
                 menu_permissions['INATIVOS_REATIVAR'] = True

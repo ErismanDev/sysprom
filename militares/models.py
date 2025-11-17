@@ -17556,24 +17556,79 @@ class Arma(models.Model):
     TIPO_CHOICES = [
         ('PISTOLA', 'Pistola'),
         ('REVOLVER', 'Revólver'),
-        ('FUZIL', 'Fuzil'),
+        ('GARRUCHA', 'Garrucha'),
         ('CARABINA', 'Carabina'),
-        ('ESPINGARDA', 'Espingarda'),
-        ('METRALHADORA', 'Metralhadora'),
+        ('RIFLE', 'Rifle'),
+        ('FUZIL', 'Fuzil'),
+        ('CARABINA_TATICA_PCC', 'Carabina Tática (PCC)'),
+        ('ESPINGARDA_ALMA_LISA', 'Espingarda (alma lisa)'),
+        ('ESCOPETA_PUMP', 'Escopeta Pump'),
+        ('ESPINGARDA_SEMIAUTOMATICA', 'Espingarda Semiautomática'),
         ('SUBMETRALHADORA', 'Submetralhadora'),
+        ('METRALHADORA_LEVE', 'Metralhadora Leve'),
+        ('METRALHADORA_MEDIA', 'Metralhadora Média'),
+        ('METRALHADORA_PESADA', 'Metralhadora Pesada'),
+        ('RIFLE_PRECISAO_SNIPER', 'Rifle de Precisão (Sniper)'),
+        ('FUZIL_ANTIMATERIAL_50', 'Fuzil Antimaterial (.50)'),
+        ('LANCADOR_GRANADAS_37_38', 'Lançador de Granadas 37/38 mm'),
+        ('LANCADOR_GRANADAS_40', 'Lançador de Granadas 40 mm'),
+        ('ARMA_ELASTOMERO', 'Arma de Elastômero (menos letal)'),
+        ('PISTOLA_CHOQUE_TASER', 'Pistola de Choque (Taser)'),
+        ('ARMA_PRESSAO_AIRGUN', 'Arma de Pressão (airgun)'),
+        ('ARMA_AIRSOFT', 'Arma de Airsoft'),
+        ('ARMA_COMBINADA', 'Arma Combinada (duas almas)'),
+        ('ARMA_HISTORICA_COLECIONAVEL', 'Arma Histórica / Colecionável'),
         ('FACA', 'Faca'),
         ('BAIONETA', 'Baioneta'),
         ('OUTROS', 'Outros'),
     ]
     
     CALIBRE_CHOICES = [
-        ('380', '.380'),
-        ('9MM', '9mm'),
-        ('40', '.40'),
-        ('45', '.45'),
-        ('556', '5.56mm'),
-        ('762', '7.62mm'),
-        ('12', '12 Gauge'),
+        ('22_LR', '.22 LR'),
+        ('22_WMR', '.22 WMR'),
+        ('25_ACP', '.25 ACP'),
+        ('32_SW', '.32 S&W'),
+        ('32_SW_LONG', '.32 S&W Long'),
+        ('32_ACP', '.32 ACP (7.65 mm)'),
+        ('38_SHORT', '.38 Short'),
+        ('38_SPECIAL', '.38 Special'),
+        ('38_SPECIAL_P', '.38 Special +P'),
+        ('357_MAGNUM', '.357 Magnum'),
+        ('380_ACP', '.380 ACP'),
+        ('9MM_LUGER', '9x19 mm (9 mm Luger)'),
+        ('40_SW', '.40 S&W'),
+        ('45_ACP', '.45 ACP'),
+        ('44_SPECIAL', '.44 Special'),
+        ('44_MAGNUM', '.44 Magnum'),
+        ('454_CASULL', '.454 Casull'),
+        ('500_SW_MAGNUM', '.500 S&W Magnum'),
+        ('30_30_WIN', '.30-30 Winchester'),
+        ('38_SPL_CARABINA', '.38 SPL (carabina)'),
+        ('556_NATO', '5.56x45 mm NATO'),
+        ('223_REM', '.223 Remington'),
+        ('762x39', '7.62x39 mm'),
+        ('762x51_NATO', '7.62x51 mm NATO'),
+        ('308_WIN', '.308 Winchester'),
+        ('270_WIN', '.270 Winchester'),
+        ('30_06_SPRING', '.30-06 Springfield'),
+        ('300_WIN_MAG', '.300 Win Mag'),
+        ('50_BMG', '.50 BMG'),
+        ('12_GAUGE', 'Calibre 12'),
+        ('20_GAUGE', 'Calibre 20'),
+        ('24_GAUGE', 'Calibre 24'),
+        ('28_GAUGE', 'Calibre 28'),
+        ('32_GAUGE', 'Calibre 32'),
+        ('36_GAUGE_410', 'Calibre 36 (.410)'),
+        ('16_GAUGE', 'Calibre 16'),
+        ('37_38_MM', '37/38 mm (menos letal)'),
+        ('40_MM', '40 mm (menos letal)'),
+        ('ELASTOMERO_12', 'Elastômero Calibre 12 (borracha)'),
+        ('FESTIM', 'Munição de Festim'),
+        ('SUB_SONICA', 'Munição Sub-sônica'),
+        ('TRACANTE', 'Munição Tracante'),
+        ('FRANGIVEL', 'Munição Frangível'),
+        ('HOLLOW_POINT', 'Munição Hollow Point (expansiva)'),
+        ('FMJ', 'Munição FMJ (blindada)'),
         ('OUTROS', 'Outros'),
     ]
     
@@ -17604,7 +17659,7 @@ class Arma(models.Model):
     cod_tombamento = models.CharField(max_length=50, blank=True, null=True, verbose_name="COD", help_text="Código do tombamento (ex: 163978)")
     local_tombamento = models.CharField(max_length=200, blank=True, null=True, verbose_name="Local", help_text="Local do tombamento (ex: BM-4)")
     
-    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, verbose_name="Tipo de Arma")
+    tipo = models.CharField(max_length=30, choices=TIPO_CHOICES, verbose_name="Tipo de Arma")
     marca = models.CharField(max_length=100, verbose_name="Marca", help_text="Ex: Taurus, Glock, IMBEL")
     modelo = models.CharField(max_length=100, verbose_name="Modelo", help_text="Ex: PT 100, G17, FAL")
     calibre = models.CharField(max_length=20, choices=CALIBRE_CHOICES, verbose_name="Calibre")
@@ -17811,21 +17866,78 @@ class ArmaParticular(models.Model):
     TIPO_CHOICES = [
         ('PISTOLA', 'Pistola'),
         ('REVOLVER', 'Revólver'),
-        ('FUZIL', 'Fuzil'),
+        ('GARRUCHA', 'Garrucha'),
         ('CARABINA', 'Carabina'),
-        ('ESPINGARDA', 'Espingarda'),
+        ('RIFLE', 'Rifle'),
+        ('FUZIL', 'Fuzil'),
+        ('CARABINA_TATICA_PCC', 'Carabina Tática (PCC)'),
+        ('ESPINGARDA_ALMA_LISA', 'Espingarda (alma lisa)'),
+        ('ESCOPETA_PUMP', 'Escopeta Pump'),
+        ('ESPINGARDA_SEMIAUTOMATICA', 'Espingarda Semiautomática'),
+        ('SUBMETRALHADORA', 'Submetralhadora'),
+        ('METRALHADORA_LEVE', 'Metralhadora Leve'),
+        ('METRALHADORA_MEDIA', 'Metralhadora Média'),
+        ('METRALHADORA_PESADA', 'Metralhadora Pesada'),
+        ('RIFLE_PRECISAO_SNIPER', 'Rifle de Precisão (Sniper)'),
+        ('FUZIL_ANTIMATERIAL_50', 'Fuzil Antimaterial (.50)'),
+        ('LANCADOR_GRANADAS_37_38', 'Lançador de Granadas 37/38 mm'),
+        ('LANCADOR_GRANADAS_40', 'Lançador de Granadas 40 mm'),
+        ('ARMA_ELASTOMERO', 'Arma de Elastômero (menos letal)'),
+        ('PISTOLA_CHOQUE_TASER', 'Pistola de Choque (Taser)'),
+        ('ARMA_PRESSAO_AIRGUN', 'Arma de Pressão (airgun)'),
+        ('ARMA_AIRSOFT', 'Arma de Airsoft'),
+        ('ARMA_COMBINADA', 'Arma Combinada (duas almas)'),
+        ('ARMA_HISTORICA_COLECIONAVEL', 'Arma Histórica / Colecionável'),
         ('FACA', 'Faca'),
         ('OUTROS', 'Outros'),
     ]
     
     CALIBRE_CHOICES = [
-        ('380', '.380'),
-        ('9MM', '9mm'),
-        ('40', '.40'),
-        ('45', '.45'),
-        ('556', '5.56mm'),
-        ('762', '7.62mm'),
-        ('12', '12 Gauge'),
+        ('22_LR', '.22 LR'),
+        ('22_WMR', '.22 WMR'),
+        ('25_ACP', '.25 ACP'),
+        ('32_SW', '.32 S&W'),
+        ('32_SW_LONG', '.32 S&W Long'),
+        ('32_ACP', '.32 ACP (7.65 mm)'),
+        ('38_SHORT', '.38 Short'),
+        ('38_SPECIAL', '.38 Special'),
+        ('38_SPECIAL_P', '.38 Special +P'),
+        ('357_MAGNUM', '.357 Magnum'),
+        ('380_ACP', '.380 ACP'),
+        ('9MM_LUGER', '9x19 mm (9 mm Luger)'),
+        ('40_SW', '.40 S&W'),
+        ('45_ACP', '.45 ACP'),
+        ('44_SPECIAL', '.44 Special'),
+        ('44_MAGNUM', '.44 Magnum'),
+        ('454_CASULL', '.454 Casull'),
+        ('500_SW_MAGNUM', '.500 S&W Magnum'),
+        ('30_30_WIN', '.30-30 Winchester'),
+        ('38_SPL_CARABINA', '.38 SPL (carabina)'),
+        ('556_NATO', '5.56x45 mm NATO'),
+        ('223_REM', '.223 Remington'),
+        ('762x39', '7.62x39 mm'),
+        ('762x51_NATO', '7.62x51 mm NATO'),
+        ('308_WIN', '.308 Winchester'),
+        ('270_WIN', '.270 Winchester'),
+        ('30_06_SPRING', '.30-06 Springfield'),
+        ('300_WIN_MAG', '.300 Win Mag'),
+        ('50_BMG', '.50 BMG'),
+        ('12_GAUGE', 'Calibre 12'),
+        ('20_GAUGE', 'Calibre 20'),
+        ('24_GAUGE', 'Calibre 24'),
+        ('28_GAUGE', 'Calibre 28'),
+        ('32_GAUGE', 'Calibre 32'),
+        ('36_GAUGE_410', 'Calibre 36 (.410)'),
+        ('16_GAUGE', 'Calibre 16'),
+        ('37_38_MM', '37/38 mm (menos letal)'),
+        ('40_MM', '40 mm (menos letal)'),
+        ('ELASTOMERO_12', 'Elastômero Calibre 12 (borracha)'),
+        ('FESTIM', 'Munição de Festim'),
+        ('SUB_SONICA', 'Munição Sub-sônica'),
+        ('TRACANTE', 'Munição Tracante'),
+        ('FRANGIVEL', 'Munição Frangível'),
+        ('HOLLOW_POINT', 'Munição Hollow Point (expansiva)'),
+        ('FMJ', 'Munição FMJ (blindada)'),
         ('OUTROS', 'Outros'),
     ]
     
@@ -17838,7 +17950,7 @@ class ArmaParticular(models.Model):
     
     militar = models.ForeignKey(Militar, on_delete=models.CASCADE, related_name='armas_particulares', verbose_name="Militar")
     numero_serie = models.CharField(max_length=100, verbose_name="Número de Série", help_text="Número de série da arma")
-    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, verbose_name="Tipo de Arma")
+    tipo = models.CharField(max_length=30, choices=TIPO_CHOICES, verbose_name="Tipo de Arma")
     marca = models.CharField(max_length=100, verbose_name="Marca", help_text="Ex: Taurus, Glock, IMBEL")
     modelo = models.CharField(max_length=100, verbose_name="Modelo", help_text="Ex: PT 100, G17, FAL")
     calibre = models.CharField(max_length=20, choices=CALIBRE_CHOICES, verbose_name="Calibre")
@@ -18426,13 +18538,28 @@ class ConfiguracaoArma(models.Model):
     TIPO_CHOICES = [
         ('PISTOLA', 'Pistola'),
         ('REVOLVER', 'Revólver'),
-        ('FUZIL', 'Fuzil'),
+        ('GARRUCHA', 'Garrucha'),
         ('CARABINA', 'Carabina'),
-        ('ESPINGARDA', 'Espingarda'),
-        ('METRALHADORA', 'Metralhadora'),
+        ('RIFLE', 'Rifle'),
+        ('FUZIL', 'Fuzil'),
+        ('CARABINA_TATICA_PCC', 'Carabina Tática (PCC)'),
+        ('ESPINGARDA_ALMA_LISA', 'Espingarda (alma lisa)'),
+        ('ESCOPETA_PUMP', 'Escopeta Pump'),
+        ('ESPINGARDA_SEMIAUTOMATICA', 'Espingarda Semiautomática'),
         ('SUBMETRALHADORA', 'Submetralhadora'),
-        ('FACA', 'Faca'),
-        ('BAIONETA', 'Baioneta'),
+        ('METRALHADORA_LEVE', 'Metralhadora Leve'),
+        ('METRALHADORA_MEDIA', 'Metralhadora Média'),
+        ('METRALHADORA_PESADA', 'Metralhadora Pesada'),
+        ('RIFLE_PRECISAO_SNIPER', 'Rifle de Precisão (Sniper)'),
+        ('FUZIL_ANTIMATERIAL_50', 'Fuzil Antimaterial (.50)'),
+        ('LANCADOR_GRANADAS_37_38', 'Lançador de Granadas 37/38 mm'),
+        ('LANCADOR_GRANADAS_40', 'Lançador de Granadas 40 mm'),
+        ('ARMA_ELASTOMERO', 'Arma de Elastômero (menos letal)'),
+        ('PISTOLA_CHOQUE_TASER', 'Pistola de Choque (Taser)'),
+        ('ARMA_PRESSAO_AIRGUN', 'Arma de Pressão (airgun)'),
+        ('ARMA_AIRSOFT', 'Arma de Airsoft'),
+        ('ARMA_COMBINADA', 'Arma Combinada (duas almas)'),
+        ('ARMA_HISTORICA_COLECIONAVEL', 'Arma Histórica / Colecionável'),
         ('ACESSORIO', 'Acessório'),
         ('OUTROS', 'Outros'),
     ]
@@ -18475,18 +18602,56 @@ class ConfiguracaoArma(models.Model):
     ]
     
     CALIBRE_CHOICES = [
-        ('380', '.380'),
-        ('9MM', '9mm'),
-        ('40', '.40'),
-        ('45', '.45'),
-        ('556', '5.56mm'),
-        ('762', '7.62mm'),
-        ('12', '12 Gauge'),
+        ('22_LR', '.22 LR'),
+        ('22_WMR', '.22 WMR'),
+        ('25_ACP', '.25 ACP'),
+        ('32_SW', '.32 S&W'),
+        ('32_SW_LONG', '.32 S&W Long'),
+        ('32_ACP', '.32 ACP (7.65 mm)'),
+        ('38_SHORT', '.38 Short'),
+        ('38_SPECIAL', '.38 Special'),
+        ('38_SPECIAL_P', '.38 Special +P'),
+        ('357_MAGNUM', '.357 Magnum'),
+        ('380_ACP', '.380 ACP'),
+        ('9MM_LUGER', '9x19 mm (9 mm Luger)'),
+        ('40_SW', '.40 S&W'),
+        ('45_ACP', '.45 ACP'),
+        ('44_SPECIAL', '.44 Special'),
+        ('44_MAGNUM', '.44 Magnum'),
+        ('454_CASULL', '.454 Casull'),
+        ('500_SW_MAGNUM', '.500 S&W Magnum'),
+        ('30_30_WIN', '.30-30 Winchester'),
+        ('38_SPL_CARABINA', '.38 SPL (carabina)'),
+        ('556_NATO', '5.56x45 mm NATO'),
+        ('223_REM', '.223 Remington'),
+        ('762x39', '7.62x39 mm'),
+        ('762x51_NATO', '7.62x51 mm NATO'),
+        ('308_WIN', '.308 Winchester'),
+        ('270_WIN', '.270 Winchester'),
+        ('30_06_SPRING', '.30-06 Springfield'),
+        ('300_WIN_MAG', '.300 Win Mag'),
+        ('50_BMG', '.50 BMG'),
+        ('12_GAUGE', 'Calibre 12'),
+        ('20_GAUGE', 'Calibre 20'),
+        ('24_GAUGE', 'Calibre 24'),
+        ('28_GAUGE', 'Calibre 28'),
+        ('32_GAUGE', 'Calibre 32'),
+        ('36_GAUGE_410', 'Calibre 36 (.410)'),
+        ('16_GAUGE', 'Calibre 16'),
+        ('37_38_MM', '37/38 mm (menos letal)'),
+        ('40_MM', '40 mm (menos letal)'),
+        ('ELASTOMERO_12', 'Elastômero Calibre 12 (borracha)'),
+        ('FESTIM', 'Munição de Festim'),
+        ('SUB_SONICA', 'Munição Sub-sônica'),
+        ('TRACANTE', 'Munição Tracante'),
+        ('FRANGIVEL', 'Munição Frangível'),
+        ('HOLLOW_POINT', 'Munição Hollow Point (expansiva)'),
+        ('FMJ', 'Munição FMJ (blindada)'),
         ('OUTROS', 'Outros'),
     ]
     
     imagem = models.ImageField(upload_to=arma_imagem_upload_path, verbose_name="Imagem da Arma", help_text="Imagem da arma")
-    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, verbose_name="Tipo de Arma")
+    tipo = models.CharField(max_length=30, choices=TIPO_CHOICES, verbose_name="Tipo de Arma")
     tipo_acessorio = models.CharField(
         max_length=30, 
         choices=ACESSORIO_TIPO_CHOICES, 
@@ -18540,13 +18705,51 @@ class Municao(models.Model):
     """Controle de estoque de munição por calibre e organização"""
     
     CALIBRE_CHOICES = [
-        ('380', '.380'),
-        ('9MM', '9mm'),
-        ('40', '.40'),
-        ('45', '.45'),
-        ('556', '5.56mm'),
-        ('762', '7.62mm'),
-        ('12', '12 Gauge'),
+        ('22_LR', '.22 LR'),
+        ('22_WMR', '.22 WMR'),
+        ('25_ACP', '.25 ACP'),
+        ('32_SW', '.32 S&W'),
+        ('32_SW_LONG', '.32 S&W Long'),
+        ('32_ACP', '.32 ACP (7.65 mm)'),
+        ('38_SHORT', '.38 Short'),
+        ('38_SPECIAL', '.38 Special'),
+        ('38_SPECIAL_P', '.38 Special +P'),
+        ('357_MAGNUM', '.357 Magnum'),
+        ('380_ACP', '.380 ACP'),
+        ('9MM_LUGER', '9x19 mm (9 mm Luger)'),
+        ('40_SW', '.40 S&W'),
+        ('45_ACP', '.45 ACP'),
+        ('44_SPECIAL', '.44 Special'),
+        ('44_MAGNUM', '.44 Magnum'),
+        ('454_CASULL', '.454 Casull'),
+        ('500_SW_MAGNUM', '.500 S&W Magnum'),
+        ('30_30_WIN', '.30-30 Winchester'),
+        ('38_SPL_CARABINA', '.38 SPL (carabina)'),
+        ('556_NATO', '5.56x45 mm NATO'),
+        ('223_REM', '.223 Remington'),
+        ('762x39', '7.62x39 mm'),
+        ('762x51_NATO', '7.62x51 mm NATO'),
+        ('308_WIN', '.308 Winchester'),
+        ('270_WIN', '.270 Winchester'),
+        ('30_06_SPRING', '.30-06 Springfield'),
+        ('300_WIN_MAG', '.300 Win Mag'),
+        ('50_BMG', '.50 BMG'),
+        ('12_GAUGE', 'Calibre 12'),
+        ('20_GAUGE', 'Calibre 20'),
+        ('24_GAUGE', 'Calibre 24'),
+        ('28_GAUGE', 'Calibre 28'),
+        ('32_GAUGE', 'Calibre 32'),
+        ('36_GAUGE_410', 'Calibre 36 (.410)'),
+        ('16_GAUGE', 'Calibre 16'),
+        ('37_38_MM', '37/38 mm (menos letal)'),
+        ('40_MM', '40 mm (menos letal)'),
+        ('ELASTOMERO_12', 'Elastômero Calibre 12 (borracha)'),
+        ('FESTIM', 'Munição de Festim'),
+        ('SUB_SONICA', 'Munição Sub-sônica'),
+        ('TRACANTE', 'Munição Tracante'),
+        ('FRANGIVEL', 'Munição Frangível'),
+        ('HOLLOW_POINT', 'Munição Hollow Point (expansiva)'),
+        ('FMJ', 'Munição FMJ (blindada)'),
         ('OUTROS', 'Outros'),
     ]
     
@@ -18568,27 +18771,144 @@ class Municao(models.Model):
         verbose_name = "Munição"
         verbose_name_plural = "Munições"
         ordering = ['calibre', 'orgao', 'grande_comando', 'unidade', 'sub_unidade']
-        unique_together = [['calibre', 'orgao', 'grande_comando', 'unidade', 'sub_unidade']]
+    
+    def __str__(self):
+        org_str = ''
+        if self.sub_unidade:
+            org_str = f" - {self.sub_unidade.nome}"
+        elif self.unidade:
+            org_str = f" - {self.unidade.nome}"
+        elif self.grande_comando:
+            org_str = f" - {self.grande_comando.nome}"
+        elif self.orgao:
+            org_str = f" - {self.orgao.nome}"
+        return f"{self.get_calibre_display()}{org_str}"
+    
+    def get_organizacao(self):
+        """Retorna a organização formatada"""
+        if self.sub_unidade:
+            return f"Sub-Unidade: {self.sub_unidade.nome}"
+        elif self.unidade:
+            return f"Unidade: {self.unidade.nome}"
+        elif self.grande_comando:
+            return f"GC: {self.grande_comando.nome}"
+        elif self.orgao:
+            return f"Órgão: {self.orgao.nome}"
+        return "Não definido"
+
+
+def municao_imagem_upload_path(instance, filename):
+    """Gera o caminho de upload para imagens de configuração de munição"""
+    return f'configuracoes/municoes/{instance.calibre}/{filename}'
+
+
+class ConfiguracaoMunicao(models.Model):
+    """Configuração de tipos de munição com imagem, calibre, marca e modelo"""
+    
+    CALIBRE_CHOICES = [
+        ('22_LR', '.22 LR'),
+        ('22_WMR', '.22 WMR'),
+        ('25_ACP', '.25 ACP'),
+        ('32_SW', '.32 S&W'),
+        ('32_SW_LONG', '.32 S&W Long'),
+        ('32_ACP', '.32 ACP (7.65 mm)'),
+        ('38_SHORT', '.38 Short'),
+        ('38_SPECIAL', '.38 Special'),
+        ('38_SPECIAL_P', '.38 Special +P'),
+        ('357_MAGNUM', '.357 Magnum'),
+        ('380_ACP', '.380 ACP'),
+        ('9MM_LUGER', '9x19 mm (9 mm Luger)'),
+        ('40_SW', '.40 S&W'),
+        ('45_ACP', '.45 ACP'),
+        ('44_SPECIAL', '.44 Special'),
+        ('44_MAGNUM', '.44 Magnum'),
+        ('454_CASULL', '.454 Casull'),
+        ('500_SW_MAGNUM', '.500 S&W Magnum'),
+        ('30_30_WIN', '.30-30 Winchester'),
+        ('38_SPL_CARABINA', '.38 SPL (carabina)'),
+        ('556_NATO', '5.56x45 mm NATO'),
+        ('223_REM', '.223 Remington'),
+        ('762x39', '7.62x39 mm'),
+        ('762x51_NATO', '7.62x51 mm NATO'),
+        ('308_WIN', '.308 Winchester'),
+        ('270_WIN', '.270 Winchester'),
+        ('30_06_SPRING', '.30-06 Springfield'),
+        ('300_WIN_MAG', '.300 Win Mag'),
+        ('50_BMG', '.50 BMG'),
+        ('12_GAUGE', 'Calibre 12'),
+        ('20_GAUGE', 'Calibre 20'),
+        ('24_GAUGE', 'Calibre 24'),
+        ('28_GAUGE', 'Calibre 28'),
+        ('32_GAUGE', 'Calibre 32'),
+        ('36_GAUGE_410', 'Calibre 36 (.410)'),
+        ('16_GAUGE', 'Calibre 16'),
+        ('37_38_MM', '37/38 mm (menos letal)'),
+        ('40_MM', '40 mm (menos letal)'),
+        ('ELASTOMERO_12', 'Elastômero Calibre 12 (borracha)'),
+        ('FESTIM', 'Munição de Festim'),
+        ('SUB_SONICA', 'Munição Sub-sônica'),
+        ('TRACANTE', 'Munição Tracante'),
+        ('FRANGIVEL', 'Munição Frangível'),
+        ('HOLLOW_POINT', 'Munição Hollow Point (expansiva)'),
+        ('FMJ', 'Munição FMJ (blindada)'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    TIPO_MUNICAO_CHOICES = [
+        ('FMJ', 'FMJ (Full Metal Jacket)'),
+        ('HP', 'HP (Hollow Point)'),
+        ('JHP', 'JHP (Jacketed Hollow Point)'),
+        ('SP', 'SP (Soft Point)'),
+        ('BT', 'BT (Boat Tail)'),
+        ('TRACER', 'Tracer (Rastreadora)'),
+        ('INCENDIARIA', 'Incendiária'),
+        ('PERFURANTE', 'Perfurante'),
+        ('FRANGIVEL', 'Frangível'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    imagem = models.ImageField(
+        upload_to=municao_imagem_upload_path, 
+        verbose_name="Imagem da Munição", 
+        help_text="Imagem da munição",
+        blank=True,
+        null=True
+    )
+    calibre = models.CharField(max_length=20, choices=CALIBRE_CHOICES, verbose_name="Calibre")
+    tipo_municao = models.CharField(
+        max_length=20, 
+        choices=TIPO_MUNICAO_CHOICES, 
+        verbose_name="Tipo de Munição",
+        help_text="Tipo de projétil"
+    )
+    marca = models.CharField(max_length=100, verbose_name="Marca", help_text="Ex: CBC, Magtech, Federal")
+    modelo = models.CharField(max_length=100, verbose_name="Modelo/Tipo", help_text="Ex: FMJ 115gr, HP 124gr")
+    descricao = models.TextField(blank=True, null=True, verbose_name="Descrição", help_text="Descrição adicional da munição")
+    
+    # Controle
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='configuracoes_municao_criadas', verbose_name="Criado por")
+    
+    class Meta:
+        verbose_name = "Configuração de Munição"
+        verbose_name_plural = "Configurações de Munições"
+        ordering = ['calibre', 'marca', 'modelo']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['calibre', 'tipo_municao', 'marca', 'modelo'],
+                name='unique_configuracao_municao'
+            ),
+        ]
         indexes = [
-            models.Index(fields=['calibre', '-quantidade_estoque']),
-            models.Index(fields=['orgao', 'grande_comando', 'unidade', 'sub_unidade']),
+            models.Index(fields=['calibre', 'tipo_municao']),
+            models.Index(fields=['marca', 'modelo']),
+            models.Index(fields=['ativo']),
         ]
     
     def __str__(self):
-        org_text = self.get_organizacao()
-        return f"{self.get_calibre_display()} - {org_text} (Estoque: {self.quantidade_estoque})"
-    
-    def get_organizacao(self):
-        """Retorna a organização mais específica"""
-        if self.sub_unidade:
-            return str(self.sub_unidade)
-        elif self.unidade:
-            return str(self.unidade)
-        elif self.grande_comando:
-            return str(self.grande_comando)
-        elif self.orgao:
-            return str(self.orgao)
-        return "Não definido"
+        return f"{self.marca} {self.modelo} - {self.get_calibre_display()} ({self.get_tipo_municao_display()})"
 
 
 class EntradaMunicao(models.Model):

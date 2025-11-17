@@ -1,0 +1,361 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Cautelas de Munição - Lista{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-shield-alt me-2 text-primary"></i>Cautelas de Munição
+                    </h2>
+                    <p class="text-muted mb-0">Registro de cautelas (entregas temporárias) de munição</p>
+                </div>
+                <div>
+                    {% if 'ARMAS_CRIAR' in menu_permissions or user.is_superuser %}
+                    <a href="{% url 'militares:cautela_municao_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Nova Cautela
+                    </a>
+                    {% endif %}
+                    {% if 'ARMAS_VISUALIZAR' in menu_permissions or user.is_superuser %}
+                    <a href="{% url 'militares:municao_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-boxes me-2"></i>Estoque
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Buscar Militar</label>
+                            <div class="position-relative">
+                                <input type="text" 
+                                       id="buscarMilitar" 
+                                       class="form-control" 
+                                       placeholder="Digite nome ou CPF do militar..."
+                                       autocomplete="off">
+                                <input type="hidden" id="militar_id_hidden" name="militar" value="{{ request.GET.militar }}">
+                                <div id="autocompleteMilitar" class="autocomplete-dropdown" style="display: none;"></div>
+                            </div>
+                            <small class="form-text text-muted">Digite o nome ou CPF para buscar e filtrar</small>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-select">
+                                <option value="">Todas</option>
+                                <option value="ativa" {% if request.GET.status == 'ativa' %}selected{% endif %}>Ativas</option>
+                                <option value="devolvida" {% if request.GET.status == 'devolvida' %}selected{% endif %}>Devolvidas</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Munição</label>
+                            <select name="municao" class="form-select">
+                                <option value="">Todas</option>
+                                {% for municao in municoes %}
+                                    <option value="{{ municao.pk }}" {% if request.GET.municao == municao.pk|stringformat:"s" %}selected{% endif %}>
+                                        {{ municao.get_calibre_display }} - {{ municao.get_organizacao }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <div>
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-search me-2"></i>Filtrar
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <div>
+                                <a href="{% url 'militares:cautela_municao_list' %}" class="btn btn-outline-secondary w-100">
+                                    <i class="fas fa-times me-2"></i>Limpar
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Lista de Cautelas -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Lista de Cautelas
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if cautelas %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Munição</th>
+                                        <th>Militar</th>
+                                        <th class="text-end">Quantidade</th>
+                                        <th>Data Entrega</th>
+                                        <th>Data Devolução</th>
+                                        <th>Devolvido</th>
+                                        <th>Organização</th>
+                                        <th>Status</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for cautela in cautelas %}
+                                        <tr>
+                                            <td>
+                                                <a href="{% url 'militares:municao_detail' cautela.municao.pk %}">
+                                                    <strong>{{ cautela.municao.get_calibre_display }}</strong>
+                                                </a>
+                                                <br>
+                                                <small class="text-muted">{{ cautela.municao.get_organizacao }}</small>
+                                            </td>
+                                            <td>
+                                                {% if cautela.militar %}
+                                                    <a href="{% url 'militares:militar_detail' cautela.militar.pk %}">
+                                                        {{ cautela.militar.get_posto_graduacao_display }} BM {{ cautela.militar.nome_completo }}
+                                                    </a>
+                                                {% else %}
+                                                    N/A
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-end">
+                                                <strong>{{ cautela.quantidade }}</strong>
+                                            </td>
+                                            <td>{{ cautela.data_entrega|date:"d/m/Y H:i" }}</td>
+                                            <td>
+                                                {% if cautela.data_devolucao %}
+                                                    {{ cautela.data_devolucao|date:"d/m/Y H:i" }}
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-end">
+                                                <span class="badge {% if cautela.quantidade_devolvida == cautela.quantidade %}bg-success{% elif cautela.quantidade_devolvida > 0 %}bg-warning{% else %}bg-secondary{% endif %}">
+                                                    {{ cautela.quantidade_devolvida }}/{{ cautela.quantidade }}
+                                                </span>
+                                            </td>
+                                            <td>{{ cautela.get_organizacao }}</td>
+                                            <td>
+                                                {% if cautela.ativa %}
+                                                    <span class="badge bg-success">Ativa</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Devolvida</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if 'ARMAS_VISUALIZAR' in menu_permissions or user.is_superuser %}
+                                                <a href="{% url 'militares:cautela_municao_detail' cautela.pk %}" 
+                                                   class="btn btn-sm btn-outline-primary" 
+                                                   title="Ver detalhes">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                {% endif %}
+                                                {% if cautela.ativa %}
+                                                    {% if 'ARMAS_EDITAR' in menu_permissions or user.is_superuser %}
+                                                    <button type="button" 
+                                                            class="btn btn-sm btn-outline-warning" 
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#devolverCautelaModal{{ cautela.pk }}"
+                                                            title="Devolver">
+                                                        <i class="fas fa-undo"></i>
+                                                    </button>
+                                                    {% endif %}
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if is_paginated %}
+                            <nav aria-label="Paginação">
+                                <ul class="pagination justify-content-center">
+                                    {% if page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.militar %}&militar={{ request.GET.militar }}{% endif %}{% if request.GET.municao %}&municao={{ request.GET.municao }}{% endif %}">Primeira</a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.militar %}&militar={{ request.GET.militar }}{% endif %}{% if request.GET.municao %}&municao={{ request.GET.municao }}{% endif %}">Anterior</a>
+                                        </li>
+                                    {% endif %}
+                                    <li class="page-item active">
+                                        <span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+                                    </li>
+                                    {% if page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.militar %}&militar={{ request.GET.militar }}{% endif %}{% if request.GET.municao %}&municao={{ request.GET.municao }}{% endif %}">Próxima</a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.militar %}&militar={{ request.GET.militar }}{% endif %}{% if request.GET.municao %}&municao={{ request.GET.municao }}{% endif %}">Última</a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>Nenhuma cautela encontrada.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modais de Devolução -->
+{% for cautela in cautelas %}
+    {% if cautela.ativa %}
+        <div class="modal fade" id="devolverCautelaModal{{ cautela.pk }}" tabindex="-1" aria-labelledby="devolverCautelaModalLabel{{ cautela.pk }}" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="devolverCautelaModalLabel{{ cautela.pk }}">
+                            <i class="fas fa-undo me-2"></i>Devolver Cautela de Munição
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    </div>
+                    <form method="post" action="{% url 'militares:cautela_municao_devolver' cautela.pk %}">
+                        {% csrf_token %}
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <p><strong>Munição:</strong> {{ cautela.municao.get_calibre_display }}</p>
+                                <p><strong>Militar:</strong> {{ cautela.militar.get_posto_graduacao_display }} BM {{ cautela.militar.nome_completo }}</p>
+                                <p><strong>Quantidade Total:</strong> {{ cautela.quantidade }}</p>
+                                <p><strong>Quantidade Pendente:</strong> {{ cautela.get_quantidade_pendente }}</p>
+                            </div>
+                            <div class="mb-3">
+                                <label for="quantidade_devolvida{{ cautela.pk }}" class="form-label">
+                                    Quantidade a Devolver <span class="text-danger">*</span>
+                                </label>
+                                <input type="number" 
+                                       class="form-control" 
+                                       id="quantidade_devolvida{{ cautela.pk }}" 
+                                       name="quantidade_devolvida" 
+                                       min="1" 
+                                       max="{{ cautela.get_quantidade_pendente }}" 
+                                       value="{{ cautela.get_quantidade_pendente }}"
+                                       required>
+                                <small class="form-text text-muted">Máximo: {{ cautela.get_quantidade_pendente }}</small>
+                            </div>
+                            <div class="mb-3">
+                                <label for="observacoes{{ cautela.pk }}" class="form-label">Observações</label>
+                                <textarea class="form-control" 
+                                          id="observacoes{{ cautela.pk }}" 
+                                          name="observacoes" 
+                                          rows="3"></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-warning">
+                                <i class="fas fa-undo me-2"></i>Devolver
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+{% endfor %}
+
+<script>
+// Autocomplete de militar (similar ao de cautelas de armas)
+document.addEventListener('DOMContentLoaded', function() {
+    const buscarMilitarInput = document.getElementById('buscarMilitar');
+    const militarIdHidden = document.getElementById('militar_id_hidden');
+    const autocompleteDiv = document.getElementById('autocompleteMilitar');
+    
+    if (buscarMilitarInput && militarIdHidden && autocompleteDiv) {
+        let timeout;
+        buscarMilitarInput.addEventListener('input', function() {
+            clearTimeout(timeout);
+            const query = this.value.trim();
+            
+            if (query.length < 2) {
+                autocompleteDiv.style.display = 'none';
+                return;
+            }
+            
+            timeout = setTimeout(() => {
+                fetch(`/militares/militar-autocomplete/?q=${encodeURIComponent(query)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.results && data.results.length > 0) {
+                            autocompleteDiv.innerHTML = '';
+                            data.results.forEach(item => {
+                                const div = document.createElement('div');
+                                div.className = 'autocomplete-item';
+                                div.textContent = item.text;
+                                div.addEventListener('click', function() {
+                                    buscarMilitarInput.value = item.text;
+                                    militarIdHidden.value = item.id;
+                                    autocompleteDiv.style.display = 'none';
+                                });
+                                autocompleteDiv.appendChild(div);
+                            });
+                            autocompleteDiv.style.display = 'block';
+                        } else {
+                            autocompleteDiv.style.display = 'none';
+                        }
+                    });
+            }, 300);
+        });
+        
+        document.addEventListener('click', function(e) {
+            if (!autocompleteDiv.contains(e.target) && e.target !== buscarMilitarInput) {
+                autocompleteDiv.style.display = 'none';
+            }
+        });
+    }
+    
+    // Garantir que os modais de devolução funcionem
+    // Inicializar modais do Bootstrap manualmente se necessário
+    document.querySelectorAll('[data-bs-target^="#devolverCautelaModal"]').forEach(function(button) {
+        button.addEventListener('click', function(e) {
+            const targetId = this.getAttribute('data-bs-target');
+            if (targetId) {
+                const modalElement = document.querySelector(targetId);
+                if (modalElement) {
+                    // Se o Bootstrap estiver disponível, garantir que o modal seja inicializado
+                    if (typeof bootstrap !== 'undefined') {
+                        // Verificar se já existe uma instância do modal
+                        let modal = bootstrap.Modal.getInstance(modalElement);
+                        if (!modal) {
+                            // Criar nova instância se não existir
+                            modal = new bootstrap.Modal(modalElement);
+                        }
+                        // Mostrar o modal
+                        modal.show();
+                    } else if (typeof $ !== 'undefined') {
+                        // Fallback: usar jQuery se Bootstrap não estiver disponível
+                        $(modalElement).modal('show');
+                    } else {
+                        console.error('Bootstrap não está disponível');
+                    }
+                } else {
+                    console.error('Modal não encontrado:', targetId);
+                }
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
+

@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load militares_extras %}
 {% block title %}Funções do Usuário{% endblock %}
 {% block content %}
 <div class="container-fluid mt-4">
@@ -36,14 +37,6 @@
                     </div>
                 </div>
                 <div class="col-md-3">
-                    <div class="card bg-danger text-white">
-                        <div class="card-body text-center">
-                            <h5>{{ funcoes_suspensas.count }}</h5>
-                            <small>Funções Suspensas</small>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
                     <div class="card bg-info text-white">
                         <div class="card-body text-center">
                             <h5>{{ funcoes.count }}</h5>
@@ -59,11 +52,11 @@
                 <table class="table table-hover">
                     <thead class="table-light">
                         <tr>
-                            <th>Função</th>
-                            <th>Tipo</th>
+                            <th>Função Militar</th>
+                            <th>Grupo</th>
                             <th>Status</th>
-                            <th>Período</th>
-                            <th>Duração</th>
+                            <th>Detalhes</th>
+                            <th>Datas</th>
                             <th class="text-center">Ações</th>
                         </tr>
                     </thead>
@@ -71,49 +64,47 @@
                         {% for funcao in funcoes %}
                         <tr>
                             <td>
-                                <strong>{{ funcao.cargo_funcao.nome }}</strong>
-                                {% if funcao.descricao %}
-                                    <br><small class="text-muted">{{ funcao.descricao|truncatechars:50 }}</small>
+                                <strong>{{ funcao.funcao_militar.nome }}</strong>
+                                {% if funcao.funcao_militar.descricao %}
+                                    <br><small class="text-muted">{{ funcao.funcao_militar.descricao|truncatechars:50 }}</small>
                                 {% endif %}
                             </td>
                             <td>
-                                <span class="badge bg-secondary">{{ funcao.get_tipo_funcao_display }}</span>
+                                <span class="badge bg-secondary">{{ funcao.funcao_militar.get_grupo_display }}</span>
                             </td>
                             <td>
-                                {% if funcao.status == 'ATIVO' %}
+                                {% if funcao.ativo %}
                                     <span class="badge bg-success"><i class="fas fa-check-circle"></i> Ativo</span>
-                                {% elif funcao.status == 'INATIVO' %}
-                                    <span class="badge bg-warning text-dark"><i class="fas fa-pause"></i> Inativo</span>
                                 {% else %}
-                                    <span class="badge bg-danger"><i class="fas fa-ban"></i> Suspenso</span>
+                                    <span class="badge bg-warning text-dark"><i class="fas fa-pause"></i> Inativo</span>
                                 {% endif %}
                             </td>
                             <td>
                                 <small>
-                                    <strong>Início:</strong> {{ funcao.data_inicio|date:"d/m/Y" }}<br>
-                                    {% if funcao.data_fim %}
-                                        <strong>Fim:</strong> {{ funcao.data_fim|date:"d/m/Y" }}
-                                    {% else %}
-                                        <strong>Fim:</strong> <span class="text-success">Em andamento</span>
-                                    {% endif %}
+                                    <strong>Nível:</strong> {{ funcao.funcao_militar.get_nivel_display }}<br>
+                                    <strong>Acesso:</strong> {{ funcao.funcao_militar.get_acesso_display }}
                                 </small>
                             </td>
                             <td>
                                 <small>
-                                    {% if funcao.duracao_dias > 0 %}
-                                        {{ funcao.duracao_dias }} dias
-                                    {% else %}
-                                        <span class="text-muted">-</span>
-                                    {% endif %}
+                                    <strong>Criado:</strong> {{ funcao.data_criacao|date:"d/m/Y" }}<br>
+                                    <strong>Atualizado:</strong> {{ funcao.data_atualizacao|date:"d/m/Y" }}
                                 </small>
                             </td>
                             <td class="text-center">
-                                <a href="{% url 'militares:usuario_funcao_edit' usuario.pk funcao.pk %}" class="btn btn-sm btn-outline-primary rounded-circle" title="Editar">
-                                    <i class="fas fa-edit"></i>
-                                </a>
-                                <a href="{% url 'militares:usuario_funcao_delete' usuario.pk funcao.pk %}" class="btn btn-sm btn-outline-danger rounded-circle" title="Excluir">
-                                    <i class="fas fa-trash"></i>
-                                </a>
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'militares:usuario_funcao_edit' usuario.pk funcao.pk %}" 
+                                       class="btn btn-sm btn-outline-primary" title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    {% if user.is_superuser or user|tem_funcao_especifica:"Administrador do Sistema,Administrador" %}
+                                        <a href="{% url 'militares:usuario_funcao_delete' usuario.pk funcao.pk %}" 
+                                           class="btn btn-sm btn-outline-danger" title="Excluir"
+                                           onclick="return confirm('Tem certeza que deseja excluir esta função?')">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    {% endif %}
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}

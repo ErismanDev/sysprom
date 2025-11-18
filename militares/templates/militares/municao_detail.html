@@ -1,0 +1,209 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Detalhes da Munição{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-boxes me-2 text-primary"></i>{{ municao.get_calibre_display }}
+                    </h2>
+                    <p class="text-muted mb-0">{{ municao.get_organizacao }}</p>
+                </div>
+                <div>
+                    <a href="{% url 'militares:municao_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Voltar
+                    </a>
+                </div>
+            </div>
+            
+            <div class="row">
+                <!-- Informações Principais -->
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-info-circle me-2"></i>Informações
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-borderless">
+                                <tr>
+                                    <th width="40%">Calibre:</th>
+                                    <td><strong>{{ municao.get_calibre_display }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <th>Organização:</th>
+                                    <td>{{ municao.get_organizacao }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Estoque Atual:</th>
+                                    <td>
+                                        <span class="badge {% if municao.quantidade_estoque > 0 %}bg-success{% else %}bg-danger{% endif %} fs-6">
+                                            {{ municao.quantidade_estoque }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Cadastrado em:</th>
+                                    <td>{{ municao.data_criacao|date:"d/m/Y H:i" }}</td>
+                                </tr>
+                                {% if municao.criado_por %}
+                                <tr>
+                                    <th>Cadastrado por:</th>
+                                    <td>{{ municao.criado_por.get_full_name|default:municao.criado_por.username }}</td>
+                                </tr>
+                                {% endif %}
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Estatísticas -->
+                <div class="col-md-8 mb-4">
+                    <div class="card">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-chart-bar me-2"></i>Estatísticas
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row text-center">
+                                <div class="col-md-3">
+                                    <div class="p-3 bg-light rounded">
+                                        <h4 class="text-success mb-1">{{ total_entradas }}</h4>
+                                        <small class="text-muted">Total Entradas</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="p-3 bg-light rounded">
+                                        <h4 class="text-warning mb-1">{{ total_saidas }}</h4>
+                                        <small class="text-muted">Total Saídas</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="p-3 bg-light rounded">
+                                        <h4 class="text-info mb-1">{{ total_devolvidas }}</h4>
+                                        <small class="text-muted">Total Devolvidas</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="p-3 bg-light rounded">
+                                        <h4 class="{% if saldo >= 0 %}text-success{% else %}text-danger{% endif %} mb-1">{{ saldo }}</h4>
+                                        <small class="text-muted">Saldo</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Entradas Recentes -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-arrow-down text-success me-2"></i>Entradas Recentes
+                    </h6>
+                    <a href="{% url 'militares:entrada_municao_list' %}?municao={{ municao.pk }}" class="btn btn-sm btn-success">
+                        <i class="fas fa-list me-1"></i>Ver Todas
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if entradas %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Data</th>
+                                        <th>Quantidade</th>
+                                        <th>Responsável</th>
+                                        <th>Observações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for entrada in entradas %}
+                                        <tr>
+                                            <td>{{ entrada.data_entrada|date:"d/m/Y H:i" }}</td>
+                                            <td><strong>{{ entrada.quantidade }}</strong></td>
+                                            <td>{{ entrada.responsavel.get_full_name|default:entrada.responsavel.username }}</td>
+                                            <td>{{ entrada.observacoes|truncatewords:10|default:"-" }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted mb-0">Nenhuma entrada registrada.</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Saídas Recentes -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-arrow-up text-warning me-2"></i>Saídas Recentes
+                    </h6>
+                    <a href="{% url 'militares:saida_municao_list' %}?municao={{ municao.pk }}" class="btn btn-sm btn-warning">
+                        <i class="fas fa-list me-1"></i>Ver Todas
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if saidas %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Data</th>
+                                        <th>Quantidade</th>
+                                        <th>Tipo</th>
+                                        <th>Cautela</th>
+                                        <th>Devolvido</th>
+                                        <th>Responsável</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for saida in saidas %}
+                                        <tr>
+                                            <td>{{ saida.data_saida|date:"d/m/Y H:i" }}</td>
+                                            <td><strong>{{ saida.quantidade }}</strong></td>
+                                            <td>{{ saida.get_tipo_saida_display }}</td>
+                                            <td>
+                                                {% if saida.cautela_individual %}
+                                                    <a href="{% url 'militares:cautela_arma_detail' saida.cautela_individual.pk %}">
+                                                        Cautela #{{ saida.cautela_individual.pk }}
+                                                    </a>
+                                                {% elif saida.cautela_coletiva %}
+                                                    <a href="{% url 'militares:cautela_arma_coletiva_detail' saida.cautela_coletiva.pk %}">
+                                                        Cautela Coletiva #{{ saida.cautela_coletiva.pk }}
+                                                    </a>
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <span class="badge {% if saida.totalmente_devolvida %}bg-success{% else %}bg-warning{% endif %}">
+                                                    {{ saida.quantidade_devolvida }}/{{ saida.quantidade }}
+                                                </span>
+                                            </td>
+                                            <td>{{ saida.responsavel.get_full_name|default:saida.responsavel.username }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted mb-0">Nenhuma saída registrada.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

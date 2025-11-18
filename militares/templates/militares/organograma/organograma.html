@@ -1,0 +1,623 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Organograma{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Cabeçalho -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h4 class="mb-0">
+                                <i class="fas fa-sitemap me-2"></i>Organograma Institucional
+                            </h4>
+                            <small class="opacity-75">
+                                <i class="fas fa-cog me-1"></i>Estrutura hierárquica completa
+                            </small>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <div class="btn-group" role="group">
+                                <a href="{% url 'militares:orgao_list' %}" class="btn btn-light btn-sm">
+                                    <i class="fas fa-building me-1"></i>Órgãos
+                                </a>
+                                <a href="{% url 'militares:grande_comando_list' %}" class="btn btn-light btn-sm">
+                                    <i class="fas fa-flag me-1"></i>Grandes Comandos
+                                </a>
+                                <a href="{% url 'militares:unidade_list' %}" class="btn btn-light btn-sm">
+                                    <i class="fas fa-building me-1"></i>Unidades
+                                </a>
+                                <a href="{% url 'militares:sub_unidade_list' %}" class="btn btn-light btn-sm">
+                                    <i class="fas fa-home me-1"></i>Sub-Unidades
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filtros por Instância -->
+            <div class="card mb-3">
+                <div class="card-body py-2">
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Filtro por instância">
+                            <button type="button" class="btn btn-outline-primary active" data-instancia-filter="todos">Todas Instâncias</button>
+                            <button type="button" class="btn btn-outline-primary" data-instancia-filter="orgao">Órgãos</button>
+                            <button type="button" class="btn btn-outline-success" data-instancia-filter="grande_comando">Grandes Comandos</button>
+                            <button type="button" class="btn btn-outline-info" data-instancia-filter="unidade">Unidades</button>
+                            <button type="button" class="btn btn-outline-warning" data-instancia-filter="sub_unidade">Sub-Unidades</button>
+                        </div>
+                        <div class="ms-auto d-flex align-items-center gap-2">
+                            <i class="fas fa-search text-muted"></i>
+                            <input type="text" id="organograma-search" class="form-control form-control-sm" placeholder="Buscar por nome ou sigla..." style="max-width: 280px;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cards de Estatísticas -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-building fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_orgaos }}</h4>
+                            <p class="mb-0">Órgãos</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card success">
+                        <div class="card-body text-center">
+                            <i class="fas fa-flag fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_grandes_comandos }}</h4>
+                            <p class="mb-0">Grandes Comandos</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card info">
+                        <div class="card-body text-center">
+                            <i class="fas fa-building fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_unidades }}</h4>
+                            <p class="mb-0">Unidades</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card warning">
+                        <div class="card-body text-center">
+                            <i class="fas fa-home fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_sub_unidades }}</h4>
+                            <p class="mb-0">Sub-Unidades</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Organograma -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-sitemap me-2"></i>Estrutura Organizacional
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if orgaos %}
+                        <div class="organograma-container">
+                            <!-- Órgãos lado a lado -->
+                            <div class="orgaos-level">
+                                {% for orgao in orgaos %}
+                                    <div class="orgao-card" data-instancia="orgao" data-nome="{{ orgao.nome|lower }}" data-sigla="{{ orgao.sigla|lower }}">
+                                        <!-- Órgão -->
+                                        <div class="card bg-primary text-white">
+                                            <div class="card-body text-center">
+                                                <h5 class="card-title mb-2">
+                                                    <i class="fas fa-building me-2"></i>{{ orgao.nome }}
+                                                </h5>
+                                                <p class="card-text mb-2">
+                                                    <span class="badge bg-light text-dark">{{ orgao.sigla }}</span>
+                                                </p>
+                                                {% if orgao.endereco or orgao.cidade %}
+                                                    <div class="mt-2">
+                                                        {% if orgao.endereco %}
+                                                            <small class="d-block text-light">
+                                                                <i class="fas fa-map-marker-alt me-1"></i>{{ orgao.endereco|truncatechars:50 }}
+                                                            </small>
+                                                        {% endif %}
+                                                        {% if orgao.cidade %}
+                                                            <small class="d-block text-light opacity-75">
+                                                                <i class="fas fa-city me-1"></i>{{ orgao.get_cidade_display }}
+                                                            </small>
+                                                        {% endif %}
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    
+                                    <!-- Grandes Comandos -->
+                                    {% if orgao.grandes_comandos.all %}
+                                        <div class="grandes-comandos-level">
+                                            {% for grande_comando in orgao.grandes_comandos.all %}
+                                                {% if grande_comando.ativo %}
+                                                    <div class="grande-comando-card" data-instancia="grande_comando" data-nome="{{ grande_comando.nome|lower }}" data-sigla="{{ grande_comando.sigla|lower }}">
+                                                        <div class="card bg-success text-white">
+                                                            <div class="card-body text-center">
+                                                                <h6 class="card-title mb-2">
+                                                                    <i class="fas fa-flag me-2"></i>{{ grande_comando.nome }}
+                                                                </h6>
+                                                                <p class="card-text mb-2">
+                                                                    <span class="badge bg-light text-dark">{{ grande_comando.sigla }}</span>
+                                                                </p>
+                                                                {% if grande_comando.endereco or grande_comando.cidade %}
+                                                                    <div class="mt-2">
+                                                                        {% if grande_comando.endereco %}
+                                                                            <small class="d-block text-light">
+                                                                                <i class="fas fa-map-marker-alt me-1"></i>{{ grande_comando.endereco|truncatechars:40 }}
+                                                                            </small>
+                                                                        {% endif %}
+                                                                        {% if grande_comando.cidade %}
+                                                                            <small class="d-block text-light opacity-75">
+                                                                                <i class="fas fa-city me-1"></i>{{ grande_comando.get_cidade_display }}
+                                                                            </small>
+                                                                        {% endif %}
+                                                                    </div>
+                                                                {% endif %}
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <!-- Unidades -->
+                                                        {% if grande_comando.unidades.all %}
+                                                            <div class="unidades-level">
+                                                                {% for unidade in grande_comando.unidades.all %}
+                                                                    {% if unidade.ativo %}
+                                                                        <div class="unidade-card" data-instancia="unidade" data-nome="{{ unidade.nome|lower }}" data-sigla="{{ unidade.sigla|lower }}">
+                                                                            <div class="card bg-info text-white">
+                                                                                <div class="card-body text-center">
+                                                                                    <h6 class="card-title mb-2">
+                                                                                        <i class="fas fa-building me-2"></i>{{ unidade.nome }}
+                                                                                    </h6>
+                                                                                    <p class="card-text mb-2">
+                                                                                        <span class="badge bg-light text-dark">{{ unidade.sigla }}</span>
+                                                                                    </p>
+                                                                                    {% if unidade.endereco or unidade.cidade %}
+                                                                                        <div class="mt-2">
+                                                                                            {% if unidade.endereco %}
+                                                                                                <small class="d-block text-light">
+                                                                                                    <i class="fas fa-map-marker-alt me-1"></i>{{ unidade.endereco|truncatechars:35 }}
+                                                                                                </small>
+                                                                                            {% endif %}
+                                                                                            {% if unidade.cidade %}
+                                                                                                <small class="d-block text-light opacity-75">
+                                                                                                    <i class="fas fa-city me-1"></i>{{ unidade.get_cidade_display }}
+                                                                                                </small>
+                                                                                            {% endif %}
+                                                                                        </div>
+                                                                                    {% endif %}
+                                                                                </div>
+                                                                            </div>
+                                                                            
+                                                                            <!-- Sub-Unidades -->
+                                                                            {% if unidade.sub_unidades.all %}
+                                                                                <div class="sub-unidades-level">
+                                                                                    {% for sub_unidade in unidade.sub_unidades.all %}
+                                                                                        {% if sub_unidade.ativo %}
+                                                                                            <div class="sub-unidade-card" data-instancia="sub_unidade" data-nome="{{ sub_unidade.nome|lower }}" data-sigla="{{ sub_unidade.sigla|lower }}">
+                                                                                                <div class="card bg-warning text-dark">
+                                                                                                    <div class="card-body text-center">
+                                                                                                        <h6 class="card-title mb-2">
+                                                                                                            <i class="fas fa-home me-2"></i>{{ sub_unidade.nome }}
+                                                                                                        </h6>
+                                                                                                        <p class="card-text mb-2">
+                                                                                                            <span class="badge bg-dark text-white">{{ sub_unidade.sigla }}</span>
+                                                                                                        </p>
+                                                                                                        {% if sub_unidade.endereco or sub_unidade.cidade %}
+                                                                                                            <div class="mt-2">
+                                                                                                                {% if sub_unidade.endereco %}
+                                                                                                                    <small class="d-block text-dark">
+                                                                                                                        <i class="fas fa-map-marker-alt me-1"></i>{{ sub_unidade.endereco|truncatechars:30 }}
+                                                                                                                    </small>
+                                                                                                                {% endif %}
+                                                                                                                {% if sub_unidade.cidade %}
+                                                                                                                    <small class="d-block text-dark opacity-75">
+                                                                                                                        <i class="fas fa-city me-1"></i>{{ sub_unidade.get_cidade_display }}
+                                                                                                                    </small>
+                                                                                                                {% endif %}
+                                                                                                            </div>
+                                                                                                        {% endif %}
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        {% endif %}
+                                                                                    {% endfor %}
+                                                                                </div>
+                                                                            {% endif %}
+                                                                        </div>
+                                                                    {% endif %}
+                                                                {% endfor %}
+                                                            </div>
+                                                        {% endif %}
+                                                    </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-sitemap fa-3x mb-3" style="opacity: 0.3;"></i>
+                            <p class="mb-2">Nenhum órgão cadastrado</p>
+                            <small>O organograma será exibido aqui quando os órgãos forem cadastrados</small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.organograma-container {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+/* Layout principal - Órgãos lado a lado */
+.orgaos-level {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.orgao-card {
+    position: relative;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.orgao-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* Conector do Órgão até a faixa dos Grandes Comandos */
+.orgao-card > .card {
+    position: relative;
+}
+.orgao-card > .card::after {
+    content: '';
+    position: absolute;
+    bottom: -1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 1rem;
+    background: rgba(0,0,0,0.18);
+}
+
+/* Grandes Comandos - Grid responsivo */
+.grandes-comandos-level {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 0.5rem;
+    position: relative;
+    padding-top: 2rem; /* espaço para a linha horizontal */
+}
+
+.grande-comando-card {
+    position: relative;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease;
+}
+
+.grande-comando-card:hover {
+    transform: translateY(-1px);
+}
+
+/* Linha horizontal conectando GC ao Órgão */
+.grandes-comandos-level::before {
+    content: '';
+    position: absolute;
+    top: 1rem; /* metade do padding-top */
+    left: 10px;
+    right: 10px;
+    height: 2px;
+    background: rgba(0,0,0,0.15);
+}
+
+/* Linhas verticais de cada filho até a linha horizontal */
+.grande-comando-card::before {
+    content: '';
+    position: absolute;
+    top: -1rem; /* sobe até a linha horizontal */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 1rem;
+    background: rgba(0,0,0,0.15);
+}
+
+/* Unidades - Grid compacto */
+.unidades-level {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 0.5rem;
+    position: relative;
+    padding-top: 1.5rem;
+}
+
+.unidade-card {
+    position: relative;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease;
+}
+
+.unidade-card:hover {
+    transform: translateY(-1px);
+}
+
+/* Linha horizontal conectando Unidades ao GC */
+.unidades-level::before {
+    content: '';
+    position: absolute;
+    top: 0.75rem;
+    left: 10px;
+    right: 10px;
+    height: 2px;
+    background: rgba(0,0,0,0.12);
+}
+
+/* Linhas verticais de cada unidade até a linha horizontal */
+.unidade-card::before {
+    content: '';
+    position: absolute;
+    top: -0.75rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 0.75rem;
+    background: rgba(0,0,0,0.12);
+}
+
+/* Sub-Unidades - Grid mais compacto */
+.sub-unidades-level {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 0.5rem;
+    position: relative;
+    padding-top: 1.25rem;
+}
+
+.sub-unidade-card {
+    position: relative;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease;
+}
+
+.sub-unidade-card:hover {
+    transform: translateY(-1px);
+}
+
+/* Linha horizontal conectando Sub-Unidades à Unidade */
+.sub-unidades-level::before {
+    content: '';
+    position: absolute;
+    top: 0.5rem;
+    left: 10px;
+    right: 10px;
+    height: 2px;
+    background: rgba(0,0,0,0.1);
+}
+
+/* Linhas verticais de cada sub até a linha horizontal */
+.sub-unidade-card::before {
+    content: '';
+    position: absolute;
+    top: -0.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 0.5rem;
+    background: rgba(0,0,0,0.1);
+}
+
+.stats-card {
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: transform 0.2s;
+}
+
+.stats-card:hover {
+    transform: translateY(-2px);
+}
+
+.stats-card.success {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+}
+
+.stats-card.info {
+    background: linear-gradient(135deg, #17a2b8, #6f42c1);
+    color: white;
+}
+
+.stats-card.warning {
+    background: linear-gradient(135deg, #ffc107, #fd7e14);
+    color: white;
+}
+
+/* Responsividade */
+@media (max-width: 1200px) {
+    .orgaos-level {
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 1.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .orgaos-level {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .grandes-comandos-level,
+    .unidades-level,
+    .sub-unidades-level {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .orgaos-level {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+    
+    .grandes-comandos-level,
+    .unidades-level,
+    .sub-unidades-level {
+        padding: 0.5rem;
+    }
+}
+
+/* Animações suaves */
+.orgao-card,
+.grande-comando-card,
+.unidade-card,
+.sub-unidade-card {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Indicadores visuais de hierarquia */
+.orgao-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #007bff, #0056b3);
+}
+
+.grande-comando-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #28a745, #1e7e34);
+}
+
+.unidade-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #17a2b8, #117a8b);
+}
+
+.sub-unidade-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #ffc107, #e0a800);
+}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const filterButtons = document.querySelectorAll('[data-instancia-filter]');
+    const searchInput = document.getElementById('organograma-search');
+
+    function applyFilters() {
+        const activeBtn = document.querySelector('[data-instancia-filter].active');
+        const instancia = activeBtn ? activeBtn.getAttribute('data-instancia-filter') : 'todos';
+        const term = (searchInput?.value || '').trim().toLowerCase();
+
+        // Coleções
+        const orgaos = document.querySelectorAll('.orgao-card');
+        const gcs = document.querySelectorAll('.grande-comando-card');
+        const unidades = document.querySelectorAll('.unidade-card');
+        const subs = document.querySelectorAll('.sub-unidade-card');
+
+        const all = [...orgaos, ...gcs, ...unidades, ...subs];
+
+        all.forEach(el => {
+            const elInst = el.getAttribute('data-instancia');
+            const nome = (el.getAttribute('data-nome') || '').toLowerCase();
+            const sigla = (el.getAttribute('data-sigla') || '').toLowerCase();
+
+            const matchInst = instancia === 'todos' || instancia === elInst;
+            const matchText = !term || nome.includes(term) || sigla.includes(term);
+
+            el.style.display = matchInst && matchText ? '' : 'none';
+        });
+
+        // Esconder recipientes vazios para evitar grandes espaços
+        document.querySelectorAll('.grandes-comandos-level, .unidades-level, .sub-unidades-level').forEach(container => {
+            const hasVisible = [...container.children].some(child => child.style.display !== 'none');
+            container.style.display = hasVisible ? '' : 'none';
+        });
+    }
+
+    filterButtons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            filterButtons.forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            applyFilters();
+        });
+    });
+
+    if (searchInput) {
+        searchInput.addEventListener('input', applyFilters);
+    }
+
+    applyFilters();
+});
+</script>
+{% endblock %}
+

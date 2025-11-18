@@ -1,0 +1,284 @@
+{% load static %}
+
+<div class="modal-header bg-warning text-dark">
+    <h5 class="modal-title" id="transferirArmaModalLabel">
+        <i class="fas fa-exchange-alt me-2"></i>
+        Transferir Arma
+    </h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+
+<form id="formTransferirArma" method="post" action="{% url 'militares:arma_transferencia' arma.pk %}">
+    {% csrf_token %}
+    <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+        <!-- Informações da Arma -->
+        <div class="alert alert-info">
+            <h6 class="alert-heading"><i class="fas fa-gun me-2"></i>Arma</h6>
+            <p class="mb-0">
+                <strong>Número de Série:</strong> {{ arma.numero_serie }}<br>
+                <strong>Tipo:</strong> {{ arma.get_tipo_display }}<br>
+                <strong>Calibre:</strong> {{ arma.get_calibre_display }}<br>
+                <strong>Marca/Modelo:</strong> {{ arma.marca }} {{ arma.modelo }}<br>
+                <strong>Organização Atual:</strong> 
+                {% if arma.sub_unidade %}
+                    {{ arma.orgao }} > {{ arma.grande_comando }} > {{ arma.unidade }} > {{ arma.sub_unidade }}
+                {% elif arma.unidade %}
+                    {{ arma.orgao }} > {{ arma.grande_comando }} > {{ arma.unidade }}
+                {% elif arma.grande_comando %}
+                    {{ arma.orgao }} > {{ arma.grande_comando }}
+                {% elif arma.orgao %}
+                    {{ arma.orgao }}
+                {% else %}
+                    Não definido
+                {% endif %}
+            </p>
+        </div>
+        
+        <!-- Organizações -->
+        <h5 class="mb-3"><i class="fas fa-building me-2"></i>Organizações</h5>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="organograma-origem-select" class="form-label">
+                    Organização de Origem <span class="text-danger">*</span>
+                </label>
+                <select name="organograma_origem" id="organograma-origem-select" class="form-select" required>
+                    <option value="">Selecione uma opção do organograma...</option>
+                    {% for valor, texto in organizacoes %}
+                        <option value="{{ valor }}" {% if organizacao_origem_id == valor %}selected{% endif %}>{{ texto }}</option>
+                    {% endfor %}
+                </select>
+                <small class="form-text text-muted">
+                    Organização onde a arma está atualmente.
+                </small>
+                {% if form.organograma_origem.errors %}
+                    <div class="invalid-feedback d-block">{{ form.organograma_origem.errors }}</div>
+                {% endif %}
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="organograma-destino-select" class="form-label">
+                    Organização de Destino <span class="text-danger">*</span>
+                </label>
+                <select name="organograma_destino" id="organograma-destino-select" class="form-select" required>
+                    <option value="">Selecione uma opção do organograma...</option>
+                    {% for valor, texto in organizacoes %}
+                        <option value="{{ valor }}">{{ texto }}</option>
+                    {% endfor %}
+                </select>
+                <small class="form-text text-muted">
+                    Organização para onde a arma será transferida.
+                </small>
+                {% if form.organograma_destino.errors %}
+                    <div class="invalid-feedback d-block">{{ form.organograma_destino.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Material Acompanhando a Arma -->
+        <hr>
+        <h5 class="mb-3"><i class="fas fa-box me-2"></i>Material Acompanhando a Arma</h5>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.quantidade_carregadores.id_for_label }}" class="form-label">
+                    {{ form.quantidade_carregadores.label }}
+                </label>
+                {{ form.quantidade_carregadores }}
+                {% if form.quantidade_carregadores.errors %}
+                    <div class="invalid-feedback d-block">{{ form.quantidade_carregadores.errors }}</div>
+                {% endif %}
+                {% if form.quantidade_carregadores.help_text %}
+                    <small class="form-text text-muted">{{ form.quantidade_carregadores.help_text }}</small>
+                {% endif %}
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.quantidade_municoes_catalogadas.id_for_label }}" class="form-label">
+                    {{ form.quantidade_municoes_catalogadas.label }}
+                </label>
+                {{ form.quantidade_municoes_catalogadas }}
+                {% if form.quantidade_municoes_catalogadas.errors %}
+                    <div class="invalid-feedback d-block">{{ form.quantidade_municoes_catalogadas.errors }}</div>
+                {% endif %}
+                {% if form.quantidade_municoes_catalogadas.help_text %}
+                    <small class="form-text text-muted">{{ form.quantidade_municoes_catalogadas.help_text }}</small>
+                {% endif %}
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-12 mb-3">
+                <label for="{{ form.numeracao_carregadores.id_for_label }}" class="form-label">
+                    {{ form.numeracao_carregadores.label }}
+                </label>
+                {{ form.numeracao_carregadores }}
+                {% if form.numeracao_carregadores.errors %}
+                    <div class="invalid-feedback d-block">{{ form.numeracao_carregadores.errors }}</div>
+                {% endif %}
+                {% if form.numeracao_carregadores.help_text %}
+                    <small class="form-text text-muted">{{ form.numeracao_carregadores.help_text }}</small>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Justificativa -->
+        <hr>
+        <div class="mb-3">
+            <label for="{{ form.justificativa.id_for_label }}" class="form-label">
+                {{ form.justificativa.label }} <span class="text-danger">*</span>
+            </label>
+            {{ form.justificativa }}
+            {% if form.justificativa.errors %}
+                <div class="invalid-feedback d-block">{{ form.justificativa.errors }}</div>
+            {% endif %}
+            {% if form.justificativa.help_text %}
+                <small class="form-text text-muted">{{ form.justificativa.help_text }}</small>
+            {% endif %}
+        </div>
+        
+        <!-- Observações -->
+        <div class="mb-3">
+            <label for="{{ form.observacoes.id_for_label }}" class="form-label">
+                {{ form.observacoes.label }}
+            </label>
+            {{ form.observacoes }}
+            {% if form.observacoes.errors %}
+                <div class="invalid-feedback d-block">{{ form.observacoes.errors }}</div>
+            {% endif %}
+        </div>
+        
+        <!-- Erros gerais do formulário -->
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+        
+        <div id="transferirArmaErrors" class="alert alert-danger d-none">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <span id="transferirArmaErrorMessage"></span>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <i class="fas fa-times me-2"></i>Cancelar
+        </button>
+        <button type="submit" class="btn btn-warning">
+            <i class="fas fa-exchange-alt me-2"></i>Confirmar Transferência
+        </button>
+    </div>
+</form>
+
+<script>
+(function() {
+    'use strict';
+    
+    // Carregar organograma completo para os selects
+    async function carregarOrganogramaCompleto(selectId) {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+        
+        try {
+            const response = await fetch('{% url "militares:ajax_organograma_completo" %}');
+            const data = await response.json();
+            
+            // Salvar valor atual
+            const valorAtual = select.value;
+            
+            // Limpar opções (exceto a primeira)
+            select.innerHTML = '<option value="">Selecione uma opção do organograma...</option>';
+            
+            // Adicionar opções
+            data.hierarquia.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item.id;
+                option.textContent = item.texto;
+                select.appendChild(option);
+            });
+            
+            // Restaurar valor se existir
+            if (valorAtual) {
+                select.value = valorAtual;
+            }
+        } catch (error) {
+            console.error('Erro ao carregar organograma:', error);
+        }
+    }
+    
+    // Carregar organogramas ao inicializar
+    carregarOrganogramaCompleto('organograma-origem-select');
+    carregarOrganogramaCompleto('organograma-destino-select');
+    
+    // Submissão do formulário via AJAX
+    const form = document.getElementById('formTransferirArma');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(form);
+            const submitButton = form.querySelector('button[type="submit"]');
+            const originalText = submitButton.innerHTML;
+            
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processando...';
+            
+            // Limpar mensagens de erro anteriores
+            const errorDiv = document.getElementById('transferirArmaErrors');
+            const errorMessage = document.getElementById('transferirArmaErrorMessage');
+            if (errorDiv) errorDiv.classList.add('d-none');
+            
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    return response.json();
+                } else {
+                    return response.text().then(text => {
+                        throw new Error('Resposta não é JSON');
+                    });
+                }
+            })
+            .then(data => {
+                if (data.success) {
+                    // Sucesso - redirecionar
+                    window.location.href = data.redirect_url || '{% url "militares:arma_detail" arma.pk %}';
+                } else {
+                    // Erro - mostrar mensagens
+                    let errorMsg = data.message || 'Erro ao transferir arma';
+                    
+                    if (data.errors) {
+                        const errorsList = [];
+                        for (const field in data.errors) {
+                            errorsList.push(`${field}: ${data.errors[field].join(', ')}`);
+                        }
+                        if (errorsList.length > 0) {
+                            errorMsg += '\n' + errorsList.join('\n');
+                        }
+                    }
+                    
+                    if (errorDiv && errorMessage) {
+                        errorMessage.textContent = errorMsg;
+                        errorDiv.classList.remove('d-none');
+                        errorDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                if (errorDiv && errorMessage) {
+                    errorMessage.textContent = 'Erro ao processar formulário. Verifique os campos obrigatórios.';
+                    errorDiv.classList.remove('d-none');
+                    errorDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalText;
+            });
+        });
+    }
+})();
+</script>
+

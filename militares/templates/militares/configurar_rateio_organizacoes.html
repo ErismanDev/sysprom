@@ -1,0 +1,428 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load money_filters %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Cabeçalho -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">{{ page_title }}</h1>
+                    <p class="text-muted mb-0">Configure os valores de rateio para cada organização</p>
+                </div>
+                <div>
+                    <a href="{% url 'militares:orcamento_planejadas_detail' orcamento.id %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Voltar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Informações do Orçamento -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>Orçamento de Referência
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <p class="mb-0">
+                                <strong>Período:</strong><br>
+                                <span class="text-primary">{{ orcamento.mes_nome }}/{{ orcamento.ano }}</span>
+                            </p>
+                        </div>
+                        <div class="col-md-3">
+                            <p class="mb-0">
+                                <strong>Valor Total:</strong><br>
+                                <span class="text-success">{{ orcamento.valor_total_formatado }}</span>
+                            </p>
+                        </div>
+                        <div class="col-md-3">
+                            <p class="mb-0">
+                                <strong>Valor Distribuído:</strong><br>
+                                <span class="text-info">{{ total_distribuido|money_br }}</span>
+                            </p>
+                        </div>
+                        <div class="col-md-3">
+                            <p class="mb-0">
+                                <strong>Valor Restante:</strong><br>
+                                <span class="text-warning" id="valor-restante">{{ valor_restante|money_br }}</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulário de Configuração -->
+    <form method="post" action="{% url 'militares:salvar_rateio_organizacoes' orcamento.id %}">
+        {% csrf_token %}
+        
+        <!-- Órgãos -->
+        {% if orgaos %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-building me-2"></i>Órgãos
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th width="5%">#</th>
+                                        <th width="40%">Nome</th>
+                                        <th width="20%">Valor (R$)</th>
+                                        <th width="15%">Percentual</th>
+                                        <th width="20%">Observações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for orgao in orgaos %}
+                                    <tr>
+                                        <td>
+                                            <input type="checkbox" name="orgao_ids" value="{{ orgao.id }}" 
+                                                   class="form-check-input orgao-checkbox" 
+                                                   {% if distribuicoes_existentes.orgao_orgao.id %}checked{% endif %}>
+                                        </td>
+                                        <td>
+                                            <strong>{{ orgao.nome }}</strong>
+                                            {% if orgao.sigla %}
+                                                <br><small class="text-muted">{{ orgao.sigla }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <input type="text" 
+                                                   name="valor_orgao_{{ orgao.id }}" 
+                                                   class="form-control valor-input" 
+                                                   data-tipo="orgao"
+                                                   value="{% if distribuicoes_existentes.orgao_orgao.id %}{{ distribuicoes_existentes.orgao_orgao.id.valor|floatformat:2 }}{% endif %}"
+                                                   placeholder="0,00">
+                                        </td>
+                                        <td>
+                                            <span class="percentual-display" data-tipo="orgao" data-id="{{ orgao.id }}">0,00%</span>
+                                        </td>
+                                        <td>
+                                            <input type="text" 
+                                                   name="observacoes_orgao_{{ orgao.id }}" 
+                                                   class="form-control" 
+                                                   value="{% if distribuicoes_existentes.orgao_orgao.id %}{{ distribuicoes_existentes.orgao_orgao.id.observacoes }}{% endif %}"
+                                                   placeholder="Observações">
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Grandes Comandos -->
+        {% if grandes_comandos %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-flag me-2"></i>Grandes Comandos
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th width="5%">#</th>
+                                        <th width="40%">Nome</th>
+                                        <th width="20%">Valor (R$)</th>
+                                        <th width="15%">Percentual</th>
+                                        <th width="20%">Observações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for gc in grandes_comandos %}
+                                    <tr>
+                                        <td>
+                                            <input type="checkbox" name="grande_comando_ids" value="{{ gc.id }}" 
+                                                   class="form-check-input grande-comando-checkbox"
+                                                   {% if distribuicoes_existentes.grande_comando_gc.id %}checked{% endif %}>
+                                        </td>
+                                        <td>
+                                            <strong>{{ gc.nome }}</strong>
+                                            {% if gc.sigla %}
+                                                <br><small class="text-muted">{{ gc.sigla }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <input type="text" 
+                                                   name="valor_grande_comando_{{ gc.id }}" 
+                                                   class="form-control valor-input" 
+                                                   data-tipo="grande_comando"
+                                                   value="{% if distribuicoes_existentes.grande_comando_gc.id %}{{ distribuicoes_existentes.grande_comando_gc.id.valor|floatformat:2 }}{% endif %}"
+                                                   placeholder="0,00">
+                                        </td>
+                                        <td>
+                                            <span class="percentual-display" data-tipo="grande_comando" data-id="{{ gc.id }}">0,00%</span>
+                                        </td>
+                                        <td>
+                                            <input type="text" 
+                                                   name="observacoes_grande_comando_{{ gc.id }}" 
+                                                   class="form-control" 
+                                                   value="{% if distribuicoes_existentes.grande_comando_gc.id %}{{ distribuicoes_existentes.grande_comando_gc.id.observacoes }}{% endif %}"
+                                                   placeholder="Observações">
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Unidades -->
+        {% if unidades %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-map-marker-alt me-2"></i>Unidades
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th width="5%">#</th>
+                                        <th width="40%">Nome</th>
+                                        <th width="20%">Valor (R$)</th>
+                                        <th width="15%">Percentual</th>
+                                        <th width="20%">Observações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for unidade in unidades %}
+                                    <tr>
+                                        <td>
+                                            <input type="checkbox" name="unidade_ids" value="{{ unidade.id }}" 
+                                                   class="form-check-input unidade-checkbox"
+                                                   {% if distribuicoes_existentes.unidade_unidade.id %}checked{% endif %}>
+                                        </td>
+                                        <td>
+                                            <strong>{{ unidade.nome }}</strong>
+                                            {% if unidade.sigla %}
+                                                <br><small class="text-muted">{{ unidade.sigla }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <input type="text" 
+                                                   name="valor_unidade_{{ unidade.id }}" 
+                                                   class="form-control valor-input" 
+                                                   data-tipo="unidade"
+                                                   value="{% if distribuicoes_existentes.unidade_unidade.id %}{{ distribuicoes_existentes.unidade_unidade.id.valor|floatformat:2 }}{% endif %}"
+                                                   placeholder="0,00">
+                                        </td>
+                                        <td>
+                                            <span class="percentual-display" data-tipo="unidade" data-id="{{ unidade.id }}">0,00%</span>
+                                        </td>
+                                        <td>
+                                            <input type="text" 
+                                                   name="observacoes_unidade_{{ unidade.id }}" 
+                                                   class="form-control" 
+                                                   value="{% if distribuicoes_existentes.unidade_unidade.id %}{{ distribuicoes_existentes.unidade_unidade.id.observacoes }}{% endif %}"
+                                                   placeholder="Observações">
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Sub-Unidades -->
+        {% if sub_unidades %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-sitemap me-2"></i>Sub-Unidades
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th width="5%">#</th>
+                                        <th width="40%">Nome</th>
+                                        <th width="20%">Valor (R$)</th>
+                                        <th width="15%">Percentual</th>
+                                        <th width="20%">Observações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for sub_unidade in sub_unidades %}
+                                    <tr>
+                                        <td>
+                                            <input type="checkbox" name="sub_unidade_ids" value="{{ sub_unidade.id }}" 
+                                                   class="form-check-input sub-unidade-checkbox"
+                                                   {% if distribuicoes_existentes.sub_unidade_sub_unidade.id %}checked{% endif %}>
+                                        </td>
+                                        <td>
+                                            <strong>{{ sub_unidade.nome }}</strong>
+                                            {% if sub_unidade.sigla %}
+                                                <br><small class="text-muted">{{ sub_unidade.sigla }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <input type="text" 
+                                                   name="valor_sub_unidade_{{ sub_unidade.id }}" 
+                                                   class="form-control valor-input" 
+                                                   data-tipo="sub_unidade"
+                                                   value="{% if distribuicoes_existentes.sub_unidade_sub_unidade.id %}{{ distribuicoes_existentes.sub_unidade_sub_unidade.id.valor|floatformat:2 }}{% endif %}"
+                                                   placeholder="0,00">
+                                        </td>
+                                        <td>
+                                            <span class="percentual-display" data-tipo="sub_unidade" data-id="{{ sub_unidade.id }}">0,00%</span>
+                                        </td>
+                                        <td>
+                                            <input type="text" 
+                                                   name="observacoes_sub_unidade_{{ sub_unidade.id }}" 
+                                                   class="form-control" 
+                                                   value="{% if distribuicoes_existentes.sub_unidade_sub_unidade.id %}{{ distribuicoes_existentes.sub_unidade_sub_unidade.id.observacoes }}{% endif %}"
+                                                   placeholder="Observações">
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Botões de Ação -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-0">Resumo da Configuração</h6>
+                                <small class="text-muted">
+                                    Total configurado: <span id="total-configurado">R$ 0,00</span> | 
+                                    Valor restante: <span id="valor-restante-final">{{ valor_restante|money_br }}</span>
+                                </small>
+                            </div>
+                            <div>
+                                <button type="button" class="btn btn-outline-secondary me-2" onclick="limparFormulario()">
+                                    <i class="fas fa-eraser me-2"></i>Limpar
+                                </button>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i>Salvar Configuração
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const valorTotal = {{ orcamento.valor_total }};
+    const valorRestanteElement = document.getElementById('valor-restante');
+    const valorRestanteFinalElement = document.getElementById('valor-restante-final');
+    const totalConfiguradoElement = document.getElementById('total-configurado');
+    
+    // Função para formatar valor monetário
+    function formatarValor(valor) {
+        return new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL'
+        }).format(valor);
+    }
+    
+    // Função para calcular percentual
+    function calcularPercentual(valor) {
+        return ((valor / valorTotal) * 100).toFixed(2);
+    }
+    
+    // Função para atualizar totais
+    function atualizarTotais() {
+        let totalConfigurado = 0;
+        
+        // Calcular total dos valores configurados
+        document.querySelectorAll('.valor-input').forEach(input => {
+            const valor = parseFloat(input.value.replace(',', '.')) || 0;
+            totalConfigurado += valor;
+        });
+        
+        const valorRestante = valorTotal - totalConfigurado;
+        
+        // Atualizar elementos
+        totalConfiguradoElement.textContent = formatarValor(totalConfigurado);
+        valorRestanteElement.textContent = formatarValor(valorRestante);
+        valorRestanteFinalElement.textContent = formatarValor(valorRestante);
+        
+        // Atualizar percentuais
+        document.querySelectorAll('.valor-input').forEach(input => {
+            const valor = parseFloat(input.value.replace(',', '.')) || 0;
+            const percentual = calcularPercentual(valor);
+            const percentualDisplay = input.closest('tr').querySelector('.percentual-display');
+            percentualDisplay.textContent = percentual + '%';
+        });
+    }
+    
+    // Event listeners
+    document.querySelectorAll('.valor-input').forEach(input => {
+        input.addEventListener('input', atualizarTotais);
+    });
+    
+    // Função para limpar formulário
+    window.limparFormulario = function() {
+        if (confirm('Tem certeza que deseja limpar todos os valores?')) {
+            document.querySelectorAll('.valor-input').forEach(input => {
+                input.value = '';
+            });
+            document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            atualizarTotais();
+        }
+    };
+    
+    // Inicializar totais
+    atualizarTotais();
+});
+</script>
+{% endblock %}

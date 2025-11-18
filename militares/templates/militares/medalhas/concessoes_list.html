@@ -1,0 +1,1062 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Medalhas - SysProm - CBMEPI{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Busca Discreta */
+    .search-discreet {
+        position: relative;
+        margin: 20px 0;
+        transition: all 0.3s ease;
+    }
+    
+    .search-input-discreet {
+        width: 100%;
+        max-width: 400px;
+        padding: 12px 45px 12px 45px;
+        border: 2px solid #e9ecef;
+        border-radius: 25px;
+        font-size: 14px;
+        background: white;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    
+    .search-input-discreet:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        transform: translateY(-1px);
+    }
+    
+    .search-icon-discreet {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+        font-size: 16px;
+        z-index: 2;
+        transition: color 0.3s ease;
+    }
+    
+    .search-input-discreet:focus + .search-icon-discreet {
+        color: #667eea;
+    }
+    
+    .search-clear-discreet {
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: #6c757d;
+        cursor: pointer;
+        font-size: 14px;
+        display: none;
+        transition: color 0.3s ease;
+    }
+    
+    .search-clear-discreet:hover {
+        color: #dc3545;
+    }
+    
+    /* Autocomplete */
+    .autocomplete-container {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        max-width: 400px;
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        z-index: 1000;
+        max-height: 300px;
+        overflow-y: auto;
+        display: none;
+    }
+    
+    .autocomplete-item {
+        padding: 12px 15px;
+        cursor: pointer;
+        border-bottom: 1px solid #f8f9fa;
+        transition: background-color 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .autocomplete-item:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .autocomplete-item.selected {
+        background-color: #667eea;
+        color: white;
+    }
+    
+    /* Estilos para o botão GERAR PROPOSTA */
+    #btn_salvar_proposta {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+        border: none !important;
+        padding: 12px 24px !important;
+        font-size: 16px !important;
+        font-weight: 600 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3) !important;
+        border-radius: 8px !important;
+    }
+    
+    #btn_salvar_proposta:hover {
+        background: linear-gradient(135deg, #0056b3 0%, #004085 100%) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(0, 123, 255, 0.4) !important;
+    }
+    
+    #btn_salvar_proposta:active {
+        transform: translateY(0) !important;
+        box-shadow: 0 2px 10px rgba(0, 123, 255, 0.3) !important;
+    }
+    
+    #btn_salvar_proposta i {
+        font-size: 18px !important;
+    }
+    }
+    
+    /* Seletor de itens por página */
+    .itens-por-pagina-container {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 15px 0;
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #e9ecef;
+    }
+    
+    .itens-por-pagina-container label {
+        margin: 0;
+        font-weight: 500;
+        color: #495057;
+    }
+    
+    .itens-por-pagina-container select {
+        padding: 6px 12px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        background: white;
+        font-size: 14px;
+        min-width: 80px;
+    }
+    
+    .itens-por-pagina-container select:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+    }
+    
+    /* Paginação */
+    .pagination-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 20px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #e9ecef;
+    }
+    
+    .pagination-info {
+        font-size: 14px;
+        color: #6c757d;
+    }
+    
+    .pagination {
+        margin: 0;
+    }
+    
+    .pagination .page-link {
+        color: #667eea;
+        border: 1px solid #dee2e6;
+        padding: 8px 12px;
+        margin: 0 2px;
+        border-radius: 4px;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+    
+    .pagination .page-link:hover {
+        background-color: #667eea;
+        color: white;
+        border-color: #667eea;
+    }
+    
+    .pagination .page-item.active .page-link {
+        background-color: #667eea;
+        border-color: #667eea;
+        color: white;
+    }
+    
+    .pagination .page-item.disabled .page-link {
+        color: #6c757d;
+        background-color: #fff;
+        border-color: #dee2e6;
+    }
+    
+    .autocomplete-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        object-fit: cover;
+        background: #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        color: #6c757d;
+        font-weight: 600;
+    }
+    
+    .autocomplete-info {
+        flex: 1;
+    }
+    
+    .autocomplete-name {
+        font-weight: 500;
+        font-size: 14px;
+        margin-bottom: 2px;
+    }
+    
+    .autocomplete-details {
+        font-size: 12px;
+        color: #6c757d;
+    }
+    
+    .autocomplete-posto {
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: #e9ecef;
+        color: #495057;
+    }
+    
+    /* Filtros discretos */
+    .filters-discreet {
+        margin-top: 15px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        opacity: 0.7;
+        transition: opacity 0.3s ease;
+    }
+    
+    .filters-discreet:hover {
+        opacity: 1;
+    }
+    
+    .filter-select-discreet {
+        padding: 6px 12px;
+        border: 1px solid #e9ecef;
+        border-radius: 15px;
+        font-size: 12px;
+        background: white;
+        color: #495057;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .filter-select-discreet:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+    }
+    
+    /* Animações */
+    .fade-in {
+        animation: fadeIn 0.3s ease-in;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .highlight {
+        background-color: #fff3cd !important;
+        transition: background-color 0.3s ease;
+    }
+    
+    /* Responsivo */
+    @media (max-width: 768px) {
+        .search-input-discreet {
+            max-width: 100%;
+            font-size: 16px; /* Evita zoom no iOS */
+        }
+        
+        .autocomplete-container {
+            max-width: 100%;
+        }
+        
+        .filters-discreet {
+            flex-direction: column;
+        }
+    }
+    
+    /* Estilos específicos para medalhas */
+    .bg-gradient-primary { background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); }
+    .card.shadow-lg { box-shadow: 0 1rem 3rem rgba(0,0,0,.175) !important; }
+    .nav-tabs .nav-link { color: #0d6efd !important; font-weight: 500; }
+    .nav-tabs .nav-link.active { color: #0a58ca !important; font-weight: 700; }
+    .filter-card { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border: 1px solid #dee2e6; }
+    .table th { background-color: #f8f9fa; border-top: none; font-weight: 600; color: #495057; }
+    .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.875rem; }
+    .tab-badge { font-size: .75rem; }
+    .avatar-sm { width: 32px; height: 32px; }
+    .text-small { font-size: .875rem; }
+    .w-auto-select { width: auto; }
+    .btn-icon { width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="col-lg-12">
+        <!-- Cabeçalho -->
+        <div class="card shadow-lg border-0 mb-4">
+            <div class="card-header bg-gradient-primary text-white py-3">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-medal fa-2x me-3"></i>
+                        <div>
+                            <h4 class="mb-0">Medalhas Outorgadas</h4>
+                            <small class="opacity-75">Histórico de concessões de medalhas</small>
+                        </div>
+                    </div>
+                    <div class="btn-group">
+                        <a href="{% url 'militares:conceder_medalha_militar' %}" class="btn btn-light">
+                            <i class="fas fa-plus me-2"></i>Conceder a Militar
+                        </a>
+                        <a href="{% url 'militares:conceder_medalha_externo' %}" class="btn btn-outline-light">
+                            <i class="fas fa-user-plus me-2"></i>Conceder a Externo
+                        </a>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Busca Discreta -->
+        <div class="search-discreet">
+            <div class="container">
+                <div class="row justify-content-center">
+                    <div class="col-lg-6">
+                        <div class="position-relative">
+                            <input type="text" 
+                                   id="pesquisaMedalhas" 
+                                   class="search-input-discreet" 
+                                   placeholder="🔍 Digite o nome, medalha ou documento..."
+                                   autocomplete="off">
+                            <i class="fas fa-search search-icon-discreet"></i>
+                            <button class="search-clear-discreet" id="searchClear" title="Limpar busca">
+                                <i class="fas fa-times"></i>
+                            </button>
+                            
+                            <!-- Autocomplete -->
+                            <div class="autocomplete-container" id="autocompleteContainer">
+                                <!-- Itens do autocomplete serão inseridos aqui -->
+                            </div>
+                        </div>
+                        
+                        <!-- Filtros Discretos -->
+                        <form id="filtrosForm" method="get" class="filters-discreet">
+                            <div class="row g-2">
+                                <div class="col-md-3">
+                                    <select name="medalha" id="filterMedalha" class="filter-select-discreet">
+                                        <option value="">Todas as Medalhas</option>
+                                        {% for m in medalhas %}
+                                            <option value="{{ m.codigo }}" {% if filtros.medalha == m.codigo %}selected{% endif %}>
+                                                {% if m.tipo == 'TEMPO_SERVICO' %}
+                                                    {{ m.get_grau_tempo_servico_display }}
+                                                {% else %}
+                                                    {{ m.nome }}
+                                                {% endif %}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <select name="beneficiario" id="filterBeneficiario" class="filter-select-discreet">
+                                        <option value="">Todos os Beneficiários</option>
+                                        <option value="interno" {% if filtros.beneficiario == 'interno' %}selected{% endif %}>Militar</option>
+                                        <option value="externo" {% if filtros.beneficiario == 'externo' %}selected{% endif %}>Externo</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <select name="aba" id="filterAba" class="filter-select-discreet">
+                                        <option value="">Todas as Abas</option>
+                                        <option value="dom_pedro" {% if filtros.aba == 'dom_pedro' %}selected{% endif %}>Dom Pedro II</option>
+                                        <option value="10" {% if filtros.aba == '10' %}selected{% endif %}>10 anos</option>
+                                        <option value="20" {% if filtros.aba == '20' %}selected{% endif %}>20 anos</option>
+                                        <option value="30" {% if filtros.aba == '30' %}selected{% endif %}>30 anos</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="date" name="data_ini" id="filterDataIni" class="filter-select-discreet" 
+                                           placeholder="Data Início" value="{{ filtros.data_ini|default:'' }}"
+                                           title="Data de início do período">
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="date" name="data_fim" id="filterDataFim" class="filter-select-discreet" 
+                                           placeholder="Data Fim" value="{{ filtros.data_fim|default:'' }}"
+                                           title="Data de fim do período">
+                                </div>
+                                <div class="col-md-1">
+                                    <button type="button" id="limparFiltros" class="btn btn-outline-secondary btn-sm" title="Limpar todos os filtros">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Abas -->
+        <ul class="nav nav-tabs mb-3">
+            <li class="nav-item">
+                <a class="nav-link {% if not filtros.aba or filtros.aba == 'dom_pedro' %}active{% endif %}"
+                   href="?aba=dom_pedro{% if filtros.beneficiario %}&beneficiario={{ filtros.beneficiario }}{% endif %}{% if filtros.medalha %}&medalha={{ filtros.medalha }}{% endif %}">
+                    <i class="fas fa-medal me-1" style="color:#dc3545"></i> Dom Pedro II
+                    <span class="badge bg-secondary tab-badge">{{ contadores_abas.dom_pedro }}</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if filtros.aba == '10' %}active{% endif %}"
+                   href="?aba=10{% if filtros.beneficiario %}&beneficiario={{ filtros.beneficiario }}{% endif %}{% if filtros.medalha %}&medalha={{ filtros.medalha }}{% endif %}">
+                    <i class="fas fa-medal me-1" style="color:#cd7f32"></i> 10 anos
+                    <span class="badge bg-secondary tab-badge">{{ contadores_abas.ts10 }}</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if filtros.aba == '20' %}active{% endif %}"
+                   href="?aba=20{% if filtros.beneficiario %}&beneficiario={{ filtros.beneficiario }}{% endif %}{% if filtros.medalha %}&medalha={{ filtros.medalha }}{% endif %}">
+                    <i class="fas fa-medal me-1" style="color:#c0c0c0"></i> 20 anos
+                    <span class="badge bg-secondary tab-badge">{{ contadores_abas.ts20 }}</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if filtros.aba == '30' %}active{% endif %}"
+                   href="?aba=30{% if filtros.beneficiario %}&beneficiario={{ filtros.beneficiario }}{% endif %}{% if filtros.medalha %}&medalha={{ filtros.medalha }}{% endif %}">
+                    <i class="fas fa-medal me-1" style="color:#ffd700"></i> 30 anos
+                    <span class="badge bg-secondary tab-badge">{{ contadores_abas.ts30 }}</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'militares:lista_propostas' %}">
+                    <i class="fas fa-file-alt me-1" style="color:#6f42c1"></i> Propostas Salvas
+                    <span class="badge bg-secondary tab-badge">{{ total_propostas|default:0 }}</span>
+                </a>
+            </li>
+        </ul>
+
+        <!-- Botão de Elegíveis -->
+        <div class="d-flex justify-content-center mb-3">
+            <a href="{% url 'militares:elegiveis_tempo_servico' %}" class="btn btn-outline-primary">
+                <i class="fas fa-users me-2"></i> Ver Elegíveis por Tempo de Serviço
+            </a>
+        </div>
+
+        <!-- Lista de Concessões -->
+        <div class="card shadow-lg border-0">
+            <div class="card-header bg-light border-0">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0 text-primary">
+                            <i class="fas fa-list me-2"></i>Lista de Concessões
+                        </h6>
+                        <small class="text-muted">
+                            {% if concessoes %}
+                                Mostrando {{ concessoes.start_index }} a {{ concessoes.end_index }} de {{ total_concessoes }} concessões
+                            {% else %}
+                                Nenhuma concessão encontrada
+                            {% endif %}
+                        </small>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <label for="registros-top" class="form-label me-2 mb-0 text-muted">Registros por página:</label>
+                        <select id="registros-top" class="form-select form-select-sm w-auto-select"
+                                onchange="location.href='?aba={{ filtros.aba }}{% if filtros.medalha %}&medalha={{ filtros.medalha }}{% endif %}{% if filtros.beneficiario %}&beneficiario={{ filtros.beneficiario }}{% endif %}{% if filtros.data_ini %}&data_ini={{ filtros.data_ini }}{% endif %}{% if filtros.data_fim %}&data_fim={{ filtros.data_fim }}{% endif %}&registros='+this.value">
+                            {% for opcao in opcoes_registros %}
+                                <option value="{{ opcao }}" {% if opcao == registros_por_pagina %}selected{% endif %}>{{ opcao }}</option>
+                            {% endfor %}
+                        </select>
+                        <a href="{% url 'militares:configurar_pdf_medalhas' %}?aba={{ filtros.aba }}{% if filtros.medalha %}&medalha={{ filtros.medalha }}{% endif %}{% if filtros.beneficiario %}&beneficiario={{ filtros.beneficiario }}{% endif %}{% if filtros.data_ini %}&data_ini={{ filtros.data_ini }}{% endif %}{% if filtros.data_fim %}&data_fim={{ filtros.data_fim }}{% endif %}" 
+                           class="btn btn-success btn-lg ms-2 shadow-sm" title="Configurar filtros e gerar relatório PDF">
+                            <i class="fas fa-file-pdf me-2"></i> <strong>GERAR PDF</strong>
+                        </a>
+                        <button type="button" class="btn btn-primary btn-lg ms-2 shadow-sm" id="btn_salvar_proposta">
+                            <i class="fas fa-file-alt me-2"></i> <strong>GERAR PROPOSTA</strong>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                {% if concessoes %}
+                <form method="post" action="{% url 'militares:confirmar_outorga_em_lote' %}" id="form_batch_outorga">
+                    {% csrf_token %}
+                    <div class="d-flex justify-content-end p-2">
+                        <div class="form-check me-3">
+                            <input class="form-check-input" type="checkbox" id="select_all">
+                            <label class="form-check-label" for="select_all">Selecionar todos (Proposta)</label>
+                        </div>
+                        <button type="button" class="btn btn-success btn-sm" id="btn_open_modal">
+                            <i class="fas fa-check me-1"></i> Outorgar Selecionados
+                        </button>
+                    </div>
+                    <input type="hidden" name="documento_tipo" id="hidden_documento_tipo">
+                    <input type="hidden" name="portaria_numero" id="hidden_portaria_numero">
+                    <input type="hidden" name="portaria_data" id="hidden_portaria_data">
+                    <div id="hidden_ids_container"></div>
+                </form>
+                
+                <!-- Formulário para salvar proposta -->
+                <form method="post" action="{% url 'militares:salvar_proposta' %}" id="form_salvar_proposta" style="display: none;">
+                    {% csrf_token %}
+                    <div id="hidden_ids_proposta_container"></div>
+                </form>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle">
+            <thead>
+                <tr>
+                                <th style="width:36px;"></th>
+                    <th>Data</th>
+                                {% if not filtros.aba %}
+                    <th>Medalha</th>
+                                {% endif %}
+                                <th>Outorgado</th>
+                                {% if filtros.aba %}
+                                <th>Detalhes</th>
+                                <th>Indicação</th>
+                                {% endif %}
+                    <th>Ato</th>
+                                <th class="text-end" style="width:160px;">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in concessoes %}
+                <tr>
+                                <td>
+                                    {% if c.status == 'PROPOSTA' and not c.cancelado %}
+                                    <input class="form-check-input item-check" type="checkbox" name="selecionados" value="{{ c.pk }}" form="form_batch_outorga">
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <i class="fas fa-calendar-alt text-muted me-1"></i>
+                                    {{ c.data_concessao|date:'d/m/Y' }}
+                                </td>
+                                {% if not filtros.aba %}
+                                <td>
+                                    {% if c.medalha.tipo == 'TEMPO_SERVICO' %}
+                                        {{ c.medalha.get_grau_tempo_servico_display }}
+                                    {% else %}
+                                        {{ c.medalha.nome }}
+                                    {% endif %}
+                                </td>
+                                {% endif %}
+                    <td>
+                        {% if c.militar %}
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar-sm bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2">
+                                                {{ c.militar.nome_completo|first|upper }}
+                                            </div>
+                                            <div>
+                                                <div class="fw-bold">{{ c.militar.get_posto_graduacao_display }} {{ c.militar.nome_completo }}</div>
+                                                <small class="text-muted">{{ c.militar.matricula }}</small>
+                                            </div>
+                                        </div>
+                                    {% else %}
+                                        <div>
+                                            <div class="fw-bold">{{ c.nome_externo }}</div>
+                                            {% if c.orgao_externo %}<small class="text-muted">{{ c.orgao_externo }}</small>{% endif %}
+                                        </div>
+                                    {% endif %}
+                                </td>
+                                {% if filtros.aba %}
+                                <td class="text-small">
+                                    {% if c.militar %}
+                                        Matrícula: {{ c.militar.matricula }}
+                                    {% else %}
+                                        {% if c.forca_externa %}Força: {{ c.get_forca_externa_display }}{% endif %}
+                                        {% if c.uf_externa %}{% if c.forca_externa %}; {% endif %}UF: {{ c.uf_externa }}{% endif %}
+                                        {% if c.posto_graduacao_externo %}{% if c.forca_externa or c.uf_externa %}; {% endif %}Posto: {{ c.posto_graduacao_externo }}{% endif %}
+                                    {% endif %}
+                                </td>
+                                <td class="text-small">
+                                    {% if c.indicado_por_nome %}
+                                        {{ c.indicado_por_nome }}{% if c.indicado_por_funcao %} - {{ c.indicado_por_funcao }}{% endif %}
+                        {% else %}
+                                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                                {% endif %}
+                                <td>
+                                    {% if c.status == 'OUTORGADA' %}
+                                        <span class="badge bg-success">Outorgada</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Proposta</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-small">
+                        {{ c.get_documento_tipo_display }}
+                        {% if c.portaria_numero %}- Nº {{ c.portaria_numero }}{% endif %}
+                        {% if c.portaria_data %} - {{ c.portaria_data|date:'d/m/Y' }}{% endif %}
+                    </td>
+                                <td class="text-end">
+                                    <div class="d-flex flex-column align-items-end gap-1">
+                                        <!-- Status -->
+                                        <div class="d-flex align-items-center gap-1 mb-1">
+                                            {% if c.cancelado %}
+                                                <span class="badge bg-danger">Cancelado</span>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <!-- Botões de Ação -->
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <!-- Botão de Editar -->
+                                            <a href="{% url 'militares:editar_concessao' c.pk %}"
+                                               class="btn btn-outline-primary btn-icon" 
+                                               title="Editar">
+                                                <i class="fas fa-pen fa-fw fa-lg"></i>
+                                            </a>
+                                            
+                                            <!-- Botão de Status (Outorgar/Reverter) -->
+                                            {% if c.status == 'OUTORGADA' %}
+                                                <form method="post" action="{% url 'militares:reverter_proposta' c.pk %}" class="d-inline">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="btn btn-outline-secondary btn-icon" 
+                                                            title="Reverter para Proposta">
+                                                        <i class="fas fa-rotate-left fa-fw fa-lg"></i>
+                                                    </button>
+                                                </form>
+                                            {% else %}
+                                                <form method="post" action="{% url 'militares:confirmar_outorga' c.pk %}" class="d-inline">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="btn btn-outline-success btn-icon" 
+                                                            title="Confirmar Outorga">
+                                                        <i class="fas fa-check fa-fw fa-lg"></i>
+                                                    </button>
+                                                </form>
+                                            {% endif %}
+                                            
+                                            <!-- Botão de Cancelar -->
+                                            {% if not c.cancelado %}
+                                                <form method="post" action="{% url 'militares:cancelar_concessao' c.pk %}" 
+                                                      onsubmit="return confirm('Confirmar cancelamento desta outorga?');" 
+                                                      class="d-inline">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="motivo" id="motivo_{{ c.pk }}">
+                                                    <button type="submit" class="btn btn-outline-warning btn-icon" 
+                                                            onclick="const m = prompt('Informe o motivo do cancelamento:'); if(m===null||m.trim()===''){return false;} document.getElementById('motivo_{{ c.pk }}').value = m;" 
+                                                            title="Cancelar Outorga">
+                                                        <i class="fas fa-ban fa-fw fa-lg"></i>
+                                                    </button>
+                                                </form>
+                                            {% endif %}
+                                            
+                                            <!-- Botão de Excluir -->
+                                            <form method="post" action="{% url 'militares:deletar_concessao' c.pk %}" 
+                                                  onsubmit="return confirm('Excluir permanentemente esta outorga?');" 
+                                                  class="d-inline">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-outline-danger btn-icon" 
+                                                        title="Excluir">
+                                                    <i class="fas fa-trash fa-fw fa-lg"></i>
+                                                </button>
+                                            </form>
+                                            
+
+                                        </div>
+                                    </div>
+                                </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+                    </div>
+                </form>
+
+                <div class="modal fade" id="modalOutorga" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title"><i class="fas fa-check me-2 text-success"></i>Outorgar Selecionadas</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label class="form-label">Ato</label>
+                                    <select class="form-select" id="modal_documento_tipo">
+                                        <option value="">Selecione...</option>
+                                        <option value="PORTARIA">Portaria</option>
+                                        <option value="BOLETIM">Boletim</option>
+                                        <option value="DOE_PI">DOE-PI</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Nº do Ato</label>
+                                    <input type="text" class="form-control" id="modal_portaria_numero" placeholder="Ex.: 123/2025">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Data de Publicação</label>
+                                    <input type="date" class="form-control" id="modal_portaria_data">
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                <button type="button" class="btn btn-primary" id="btn_confirm_outorga_modal">Confirmar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+
+                <!-- Paginação -->
+                {% if is_paginated %}
+                <div class="card-footer bg-light">
+                    <nav aria-label="Paginação">
+                        <ul class="pagination justify-content-center mb-0">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1{% if filtros.aba %}&aba={{ filtros.aba }}{% endif %}{% if filtros.medalha %}&medalha={{ filtros.medalha }}{% endif %}{% if filtros.beneficiario %}&beneficiario={{ filtros.beneficiario }}{% endif %}{% if filtros.data_ini %}&data_ini={{ filtros.data_ini }}{% endif %}{% if filtros.data_fim %}&data_fim={{ filtros.data_fim }}{% endif %}{% if registros_por_pagina %}&registros={{ registros_por_pagina }}{% endif %}">
+                                        <i class="fas fa-angle-double-left"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if filtros.aba %}&aba={{ filtros.aba }}{% endif %}{% if filtros.medalha %}&medalha={{ filtros.medalha }}{% endif %}{% if filtros.beneficiario %}&beneficiario={{ filtros.beneficiario }}{% endif %}{% if filtros.data_ini %}&data_ini={{ filtros.data_ini }}{% endif %}{% if filtros.data_fim %}&data_fim={{ filtros.data_fim }}{% endif %}{% if registros_por_pagina %}&registros={{ registros_por_pagina }}{% endif %}">
+                                        <i class="fas fa-angle-left"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}{% if filtros.aba %}&aba={{ filtros.aba }}{% endif %}{% if filtros.medalha %}&medalha={{ filtros.medalha }}{% endif %}{% if filtros.beneficiario %}&beneficiario={{ filtros.beneficiario }}{% endif %}{% if filtros.data_ini %}&data_ini={{ filtros.data_ini }}{% endif %}{% if filtros.data_fim %}&data_fim={{ filtros.data_fim }}{% endif %}{% if registros_por_pagina %}&registros={{ registros_por_pagina }}{% endif %}">{{ num }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if filtros.aba %}&aba={{ filtros.aba }}{% endif %}{% if filtros.medalha %}&medalha={{ filtros.medalha }}{% endif %}{% if filtros.beneficiario %}&beneficiario={{ filtros.beneficiario }}{% endif %}{% if filtros.data_ini %}&data_ini={{ filtros.data_ini }}{% endif %}{% if filtros.data_fim %}&data_fim={{ filtros.data_fim }}{% endif %}{% if registros_por_pagina %}&registros={{ registros_por_pagina }}{% endif %}">
+                                        <i class="fas fa-angle-right"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if filtros.aba %}&aba={{ filtros.aba }}{% endif %}{% if filtros.medalha %}&medalha={{ filtros.medalha }}{% endif %}{% if filtros.beneficiario %}&beneficiario={{ filtros.beneficiario }}{% endif %}{% if filtros.data_ini %}&data_ini={{ filtros.data_ini }}{% endif %}{% if filtros.data_fim %}&data_fim={{ filtros.data_fim }}{% endif %}{% if registros_por_pagina %}&registros={{ registros_por_pagina }}{% endif %}">
+                                        <i class="fas fa-angle-double-right"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-medal fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">Nenhuma concessão encontrada</h5>
+                    <p class="text-muted">Não há concessões registradas no sistema.</p>
+                    <a href="{% url 'militares:conceder_medalha_militar' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Registrar Primeira Concessão
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Estatísticas -->
+        {% if concessoes %}
+        <div class="row mt-4">
+            <div class="col-md-3">
+                <div class="card bg-primary text-white">
+                    <div class="card-body text-center">
+                        <i class="fas fa-chart-line fa-2x mb-2"></i>
+                        <h5 class="mb-0">{{ total_concessoes }}</h5>
+                        <small>Total de Concessões</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body text-center">
+                        <i class="fas fa-calendar-check fa-2x mb-2"></i>
+                        <h5 class="mb-0">{{ concessoes_este_ano }}</h5>
+                        <small>Este Ano</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-info text-white">
+                    <div class="card-body text-center">
+                        <i class="fas fa-users fa-2x mb-2"></i>
+                        <h5 class="mb-0">{{ militares_agraciados }}</h5>
+                        <small>Militares Agraciados</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-warning text-white">
+                    <div class="card-body text-center">
+                        <i class="fas fa-user-tie fa-2x mb-2"></i>
+                        <h5 class="mb-0">{{ externos_agraciados }}</h5>
+                        <small>Externos Agraciados</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    // Funcionalidade de busca discreta
+    const searchInput = document.getElementById('pesquisaMedalhas');
+    const searchClear = document.getElementById('searchClear');
+    const autocompleteContainer = document.getElementById('autocompleteContainer');
+    const limparFiltros = document.getElementById('limparFiltros');
+    
+    // Mostrar/ocultar botão de limpar busca
+    if (searchInput && searchClear) {
+        searchInput.addEventListener('input', function() {
+            searchClear.style.display = this.value ? 'block' : 'none';
+        });
+        
+        searchClear.addEventListener('click', function() {
+            searchInput.value = '';
+            searchInput.focus();
+            this.style.display = 'none';
+            // Limpar busca e recarregar página
+            window.location.href = window.location.pathname;
+        });
+        
+        // Busca por Enter
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                performSearch();
+            }
+        });
+    }
+    
+    function performSearch() {
+        const query = searchInput.value.trim();
+        if (!query) return;
+        
+        const params = new URLSearchParams();
+        params.append('q', query);
+        
+        // Adicionar filtros ativos
+        if (filterMedalha && filterMedalha.value) {
+            params.append('medalha', filterMedalha.value);
+        }
+        if (filterBeneficiario && filterBeneficiario.value) {
+            params.append('beneficiario', filterBeneficiario.value);
+        }
+        if (filterAba && filterAba.value) {
+            params.append('aba', filterAba.value);
+        }
+        
+        // Adicionar filtros de data
+        if (filterDataIni && filterDataIni.value) {
+            params.append('data_ini', filterDataIni.value);
+        }
+        if (filterDataFim && filterDataFim.value) {
+            params.append('data_fim', filterDataFim.value);
+        }
+        
+        const url = window.location.pathname + '?' + params.toString();
+        window.location.href = url;
+    }
+    
+    // Limpar filtros
+    if (limparFiltros) {
+        limparFiltros.addEventListener('click', function() {
+            window.location.href = window.location.pathname;
+        });
+    }
+    
+    // Funcionalidade dos filtros
+    const filterMedalha = document.getElementById('filterMedalha');
+    const filterBeneficiario = document.getElementById('filterBeneficiario');
+    const filterAba = document.getElementById('filterAba');
+    
+    if (filterMedalha) {
+        filterMedalha.addEventListener('change', () => {
+            applyFilters();
+        });
+    }
+    
+    if (filterBeneficiario) {
+        filterBeneficiario.addEventListener('change', () => {
+            applyFilters();
+        });
+    }
+    
+    if (filterAba) {
+        filterAba.addEventListener('change', () => {
+            applyFilters();
+        });
+    }
+    
+    // Adicionar event listeners para filtros de data
+    const filterDataIni = document.getElementById('filterDataIni');
+    const filterDataFim = document.getElementById('filterDataFim');
+    
+    if (filterDataIni) {
+        filterDataIni.addEventListener('change', () => {
+            applyFilters();
+        });
+    }
+    
+    if (filterDataFim) {
+        filterDataFim.addEventListener('change', () => {
+            applyFilters();
+        });
+    }
+    
+    function applyFilters() {
+        const params = new URLSearchParams();
+        
+        if (filterMedalha && filterMedalha.value) {
+            params.append('medalha', filterMedalha.value);
+        }
+        if (filterBeneficiario && filterBeneficiario.value) {
+            params.append('beneficiario', filterBeneficiario.value);
+        }
+        if (filterAba && filterAba.value) {
+            params.append('aba', filterAba.value);
+        }
+        
+        // Adicionar filtros de data
+        const filterDataIni = document.getElementById('filterDataIni');
+        const filterDataFim = document.getElementById('filterDataFim');
+        
+        if (filterDataIni && filterDataIni.value) {
+            params.append('data_ini', filterDataIni.value);
+        }
+        if (filterDataFim && filterDataFim.value) {
+            params.append('data_fim', filterDataFim.value);
+        }
+        
+        const url = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+        window.location.href = url;
+    }
+    
+    // Funcionalidade existente para seleção em lote
+    var selectAll = document.getElementById('select_all');
+    function getChecks(){
+        return Array.prototype.slice.call(document.querySelectorAll('.item-check'));
+    }
+    if (selectAll) {
+        selectAll.addEventListener('change', function(){
+            var checks = getChecks();
+            for (var i = 0; i < checks.length; i++) {
+                checks[i].checked = selectAll.checked;
+            }
+        });
+    }
+
+    var btnOpen = document.getElementById('btn_open_modal');
+    var btnConfirm = document.getElementById('btn_confirm_outorga_modal');
+    var formBatch = document.getElementById('form_batch_outorga');
+    function hasAnySelected(){
+        return getChecks().some(function(ch){ return ch.checked; });
+    }
+    if (btnOpen) {
+        btnOpen.addEventListener('click', function(){
+            if (!hasAnySelected()) {
+                alert('Selecione ao menos um registro em Proposta.');
+                return;
+            }
+            var modal = new bootstrap.Modal(document.getElementById('modalOutorga'));
+            modal.show();
+        });
+    }
+    if (btnConfirm) {
+        btnConfirm.addEventListener('click', function(){
+            var tipo = document.getElementById('modal_documento_tipo').value;
+            var numero = document.getElementById('modal_portaria_numero').value.trim();
+            var data = document.getElementById('modal_portaria_data').value;
+            if (!tipo) { alert('Selecione o Ato.'); return; }
+            if (!numero) { alert('Informe o Nº do Ato.'); return; }
+            if (!data) { alert('Informe a Data de Publicação.'); return; }
+            document.getElementById('hidden_documento_tipo').value = tipo;
+            document.getElementById('hidden_portaria_numero').value = numero;
+            document.getElementById('hidden_portaria_data').value = data;
+            var container = document.getElementById('hidden_ids_container');
+            container.innerHTML = '';
+            getChecks().forEach(function(ch){
+                if (ch.checked) {
+                    var input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'selecionados';
+                    input.value = ch.value;
+                    container.appendChild(input);
+                }
+            });
+            formBatch.submit();
+        });
+    }
+
+    
+    // Funcionalidade para gerar proposta
+    var btnSalvarProposta = document.getElementById('btn_salvar_proposta');
+    if (btnSalvarProposta) {
+        btnSalvarProposta.addEventListener('click', function(){
+            var selecionados = getChecks().filter(function(ch){ return ch.checked; }).map(function(ch){ return ch.value; });
+            if (selecionados.length === 0) {
+                alert('Selecione ao menos uma medalha para gerar a proposta.');
+                return;
+            }
+            
+            // Confirmar antes de gerar
+            if (confirm('Deseja gerar uma nova proposta com ' + selecionados.length + ' medalha(s) selecionada(s)?')) {
+                // Preparar o formulário com os IDs selecionados
+                var container = document.getElementById('hidden_ids_proposta_container');
+                container.innerHTML = '';
+                selecionados.forEach(function(id){
+                    var input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'selecionados';
+                    input.value = id;
+                    container.appendChild(input);
+                });
+                
+                // Submeter o formulário
+                document.getElementById('form_salvar_proposta').submit();
+            }
+        });
+    }
+    
+
+});
+</script>
+{% endblock %}
+

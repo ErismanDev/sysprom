@@ -1,0 +1,616 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Nota: {{ publicacao.titulo }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .publicacao-detail {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    
+    .publicacao-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 40px;
+        border-radius: 15px 15px 0 0;
+        text-align: center;
+    }
+    
+    .publicacao-body {
+        background: white;
+        padding: 40px;
+        border-radius: 0 0 15px 15px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .publicacao-meta {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .meta-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .meta-item:last-child {
+        border-bottom: none;
+    }
+    
+    .meta-label {
+        font-weight: 600;
+        color: #495057;
+    }
+    
+    .meta-value {
+        color: #6c757d;
+    }
+    
+    .tipo-badge {
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 0.9em;
+        font-weight: 600;
+    }
+    
+    .tipo-nota {
+        background-color: #e3f2fd;
+        color: #1976d2;
+    }
+    
+    .status-badge {
+        padding: 6px 12px;
+        border-radius: 15px;
+        font-size: 0.85em;
+        font-weight: 600;
+    }
+    
+    .status-rascunho {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .status-publicado {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .conteudo {
+        line-height: 1.8;
+        font-size: 1.1em;
+        color: #333;
+    }
+    
+    .btn-custom {
+        padding: 12px 24px;
+        border-radius: 25px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        border: none;
+    }
+    
+    .btn-custom:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .fade-in {
+        animation: fadeIn 0.6s ease-in;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        border: none;
+    }
+    
+    .btn-info {
+        background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+        border: none;
+    }
+    
+    .btn-warning {
+        background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+        border: none;
+    }
+    
+    .btn-secondary {
+        background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        border: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Modal de Detalhes da Publicação -->
+<div class="modal fade" id="publicacaoDetailModal" tabindex="-1" aria-labelledby="publicacaoDetailModalLabel" aria-hidden="false">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                <h5 class="modal-title" id="publicacaoDetailModalLabel">
+                    <i class="fas fa-file-alt me-2"></i>
+                    {{ publicacao.titulo }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" style="max-height: 85vh; overflow-y: auto; padding: 0.5rem; background: #f8f9fa;">
+                <!-- Cabeçalho Oficial (mesma formatação das notas) -->
+                <div class="text-center mb-4">
+                    <h1 class="mb-1" style="font-size: 12px; font-weight: bold;">ESTADO DO PIAUÍ</h1>
+                    <h2 class="mb-1" style="font-size: 12px; font-weight: bold;">CORPO DE BOMBEIROS MILITAR</h2>
+                    <h3 class="mb-1" style="font-size: 12px; font-weight: bold;">QUARTEL DO COMANDO GERAL</h3>
+                    <h4 class="mb-1" style="font-size: 12px; font-weight: bold;">AJUDÂNCIA GERAL</h4>
+                    <h5 class="mb-1" style="font-size: 12px; font-weight: bold;" id="visualizar_unidade">-</h5>
+                    <h6 class="mb-0" style="font-size: 12px; font-weight: bold;" id="visualizar_subunidade">-</h6>
+                    <hr style="border-top: 2px solid #333; margin: 20px 0;">
+                    </div>
+                    
+                
+                <!-- Tópicos do Boletim -->
+                {% if publicacao.topicos %}
+                <div class="text-center mb-4">
+                    
+                    <h4 style="font-size: 14px; font-weight: bold; margin-bottom: 10px;" id="visualizar_topicos">{{ publicacao.topicos }}</h4>
+                </div>
+                {% endif %}
+                
+                <!-- Número e Título -->
+                <div class="text-center mb-4">
+                    <h4 style="font-size: 14px; font-weight: bold; margin-bottom: 5px;" id="visualizar_numero">{{ publicacao.numero }}</h4>
+                    <h5 style="font-size: 13px; font-weight: bold; margin-bottom: 15px;" id="visualizar_titulo">{{ publicacao.titulo }}</h5>
+                </div>
+                
+                <!-- Conteúdo do Boletim -->
+                <div class="mb-4">
+                    <div class="conteudo-boletim" style="line-height: 1.2; font-size: 0.9em; word-wrap: break-word; margin: 0; font-family: 'Times New Roman', serif;">
+                        {{ publicacao.conteudo|safe }}
+                    </div>
+                </div>
+                
+                <!-- Botões de controle -->
+                <div class="mb-3 p-3 bg-light border rounded">
+                    <h6 class="mb-2">Controles de Formatação:</h6>
+                    <button onclick="formatarTranscricoesNotas()" class="btn btn-primary btn-sm me-2">
+                        <i class="fas fa-magic me-1"></i> Formatar Notas
+                    </button>
+                    <button onclick="debugConteudo()" class="btn btn-info btn-sm me-2">
+                        <i class="fas fa-bug me-1"></i> Debug
+                    </button>
+                    <button onclick="limparFormatacao()" class="btn btn-warning btn-sm">
+                        <i class="fas fa-undo me-1"></i> Limpar Formatação
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Definir funções no escopo global
+window.debugConteudo = function() {
+    const conteudo = document.querySelector('.conteudo-boletim');
+    console.log('=== DEBUG CONTEÚDO ===');
+    console.log('Conteúdo do boletim:', conteudo?.innerHTML);
+    console.log('Elementos h4 encontrados:', conteudo?.querySelectorAll('h4').length);
+    
+    const h4Elements = conteudo?.querySelectorAll('h4');
+    if (h4Elements) {
+        h4Elements.forEach((h4, index) => {
+            console.log(`H4 ${index + 1}:`, h4.textContent);
+            const numeroNotaMatch = h4.textContent.match(/Nº\s*(\d{3}\/\d{4})/);
+            console.log(`  - Match de nota:`, numeroNotaMatch);
+        });
+    }
+    
+    alert(`Debug concluído! Verifique o console do navegador (F12).\nElementos h4 encontrados: ${conteudo?.querySelectorAll('h4').length || 0}`);
+};
+
+window.limparFormatacao = function() {
+    const conteudo = document.querySelector('.conteudo-boletim');
+    if (conteudo) {
+        // Remover todos os cards de notas formatadas
+        const cards = conteudo.querySelectorAll('.card');
+        cards.forEach(card => {
+            card.remove();
+        });
+        
+        // Recarregar o conteúdo original
+        location.reload();
+    }
+};
+
+window.formatarTranscricoesNotas = function() {
+    console.log('=== INICIANDO FORMATAÇÃO DE NOTAS ===');
+    
+    const conteudoBoletim = document.querySelector('.conteudo-boletim');
+    if (!conteudoBoletim) {
+        console.log('❌ Conteúdo do boletim não encontrado');
+        alert('Erro: Conteúdo do boletim não encontrado!');
+        return;
+    }
+    
+    console.log('✅ Conteúdo do boletim encontrado');
+    console.log('📄 HTML do boletim:', conteudoBoletim.innerHTML.substring(0, 500) + '...');
+    
+    // Buscar todos os elementos h4 que contêm números de nota
+    const h4Elements = conteudoBoletim.querySelectorAll('h4');
+    console.log(`🔍 Encontrados ${h4Elements.length} elementos h4`);
+    
+    if (h4Elements.length === 0) {
+        console.log('⚠️ Nenhum elemento h4 encontrado no conteúdo');
+        alert('Nenhum elemento h4 encontrado no conteúdo do boletim!');
+            return;
+        }
+        
+    let notasProcessadas = 0;
+    
+    h4Elements.forEach((h4, index) => {
+        console.log(`📝 Processando h4 ${index + 1}:`, h4.textContent);
+        
+        // Verificar se contém número de nota (formato: Nº 001/2025)
+        const numeroNotaMatch = h4.textContent.match(/Nº\s*(\d{3}\/\d{4})/);
+        if (numeroNotaMatch) {
+            const numeroNota = numeroNotaMatch[1];
+            console.log(`✅ Nota encontrada: ${numeroNota}`);
+            
+            // Processar a nota
+            processarNota(h4, numeroNota);
+            notasProcessadas++;
+        } else {
+            console.log(`❌ H4 ${index + 1} não contém formato de nota válido`);
+        }
+    });
+    
+    console.log(`🎉 Formatação concluída! ${notasProcessadas} notas processadas.`);
+    alert(`Formatação concluída!\n${notasProcessadas} notas foram processadas e formatadas com botões de ação.`);
+};
+
+function processarNota(h4Element, numeroNota) {
+    console.log(`Processando nota ${numeroNota}...`);
+    
+    // Buscar elementos seguintes até encontrar o próximo h4 ou fim do container
+    let elementoAtual = h4Element.nextElementSibling;
+        let pData = null;
+        let pOrigem = null;
+        let divConteudo = null;
+        
+        // Procurar pelos elementos de dados
+        while (elementoAtual) {
+            if (elementoAtual.tagName === 'P' && elementoAtual.textContent.includes('Data de Publicação:')) {
+                pData = elementoAtual;
+            } else if (elementoAtual.tagName === 'P' && elementoAtual.textContent.includes('Origem:')) {
+                pOrigem = elementoAtual;
+            } else if (elementoAtual.classList.contains('conteudo-nota')) {
+                divConteudo = elementoAtual;
+                break;
+            }
+            elementoAtual = elementoAtual.nextElementSibling;
+        }
+        
+        // Se não encontrou divConteudo, procurar por div com classe 'conteudo-nota' em qualquer lugar após o h4
+        if (!divConteudo) {
+            let proximoElemento = h4.nextElementSibling;
+            while (proximoElemento) {
+                if (proximoElemento.classList && proximoElemento.classList.contains('conteudo-nota')) {
+                    divConteudo = proximoElemento;
+                    break;
+                }
+                proximoElemento = proximoElemento.nextElementSibling;
+            }
+        }
+        
+        console.log('Elementos encontrados:', { pData: !!pData, pOrigem: !!pOrigem, divConteudo: !!divConteudo });
+        
+        // Extrair informações se disponíveis
+        let dataTexto = 'N/A';
+        let origemTexto = 'N/A';
+        
+        if (pData) {
+            dataTexto = pData.textContent.replace('Data de Publicação:', '').replace(/\s+/g, ' ').trim();
+        }
+        if (pOrigem) {
+            origemTexto = pOrigem.textContent.replace('Origem:', '').replace(/\s+/g, ' ').trim();
+        }
+        
+        console.log(`Data: ${dataTexto}, Origem: ${origemTexto}`);
+        
+        // Converter data para formato brasileiro
+        let dataFormatada = dataTexto;
+        if (dataTexto !== 'N/A') {
+            try {
+                // Tentar diferentes formatos de data
+                let data;
+                if (dataTexto.includes('/')) {
+                    // Formato DD/MM/YYYY
+                    const partesData = dataTexto.split('/');
+                    if (partesData.length === 3) {
+                        data = new Date(partesData[2], partesData[1] - 1, partesData[0]);
+                    }
+                } else {
+                    data = new Date(dataTexto);
+                }
+                
+                if (!isNaN(data.getTime())) {
+                    dataFormatada = data.toLocaleDateString('pt-BR', {
+                        day: '2-digit',
+                        month: 'long',
+                        year: 'numeric'
+                    });
+                }
+            } catch (e) {
+                console.log('Erro ao converter data:', e);
+                dataFormatada = dataTexto;
+            }
+        }
+        
+        // Criar card para a nota
+        const cardNota = document.createElement('div');
+        cardNota.className = 'card mb-3';
+        cardNota.style.cssText = 'border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);';
+        
+        // Cabeçalho do card
+        const cardHeader = document.createElement('div');
+        cardHeader.className = 'card-header';
+        cardHeader.style.cssText = 'background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; border-radius: 8px 8px 0 0;';
+        cardHeader.innerHTML = `
+            <h5 class="mb-0">
+                <i class="fas fa-file-alt me-2"></i>
+            ${h4Element.textContent}
+            </h5>
+        `;
+        
+        // Corpo do card
+        const cardBody = document.createElement('div');
+        cardBody.className = 'card-body';
+        cardBody.style.cssText = 'padding: 20px;';
+        
+        // Informações da nota
+        const infoNota = document.createElement('div');
+        infoNota.className = 'row mb-3';
+        infoNota.innerHTML = `
+            <div class="col-md-6">
+                <small class="text-muted">
+                    <i class="fas fa-calendar me-1"></i>
+                    <strong>Data de Publicação:</strong> ${dataFormatada}
+                </small>
+            </div>
+            <div class="col-md-6">
+                <small class="text-muted">
+                    <i class="fas fa-building me-1"></i>
+                    <strong>Origem:</strong> ${origemTexto}
+                </small>
+            </div>
+        `;
+        
+        // Conteúdo da nota
+        const conteudoNota = document.createElement('div');
+        conteudoNota.className = 'conteudo-nota-card';
+        conteudoNota.style.cssText = 'margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 5px; border-left: 4px solid #007bff;';
+        
+        // Se existe divConteudo, mover o conteúdo para o card
+        if (divConteudo) {
+            conteudoNota.innerHTML = divConteudo.innerHTML;
+            divConteudo.remove();
+        } else {
+            conteudoNota.innerHTML = '<p class="text-muted">Conteúdo da nota não disponível.</p>';
+        }
+        
+        // Transcrição
+        const transcricao = document.createElement('div');
+        transcricao.className = 'transcricao-nota';
+        transcricao.style.cssText = 'margin: 10px 0; padding: 10px; background: #e9ecef; border-radius: 5px; font-style: italic; font-size: 0.9em;';
+    transcricao.innerHTML = `(Transcrição da nota ${h4Element.textContent} com origem ${origemTexto}, datada de ${dataFormatada}.)`;
+        
+        // Container para assinaturas
+        const assinaturasContainer = document.createElement('div');
+        assinaturasContainer.className = 'assinaturas-nota';
+        assinaturasContainer.style.cssText = 'margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 5px; border: 1px solid #dee2e6;';
+        
+    // Botões de ação
+        const botoesContainer = document.createElement('div');
+    botoesContainer.className = 'd-flex gap-2 mt-3';
+        
+        // Verificar se a nota está em um boletim disponibilizado
+        const notaEmBoletimDisponibilizado = data.nota.boletim_disponibilizado || false;
+        
+        if (!notaEmBoletimDisponibilizado) {
+            const btnDevolver = document.createElement('button');
+            btnDevolver.className = 'btn btn-warning btn-sm';
+            btnDevolver.innerHTML = '<i class="fas fa-undo me-1"></i> Devolver';
+            btnDevolver.onclick = () => devolverNotaOrigem(numeroNota);
+            
+            const btnEditar = document.createElement('button');
+            btnEditar.className = 'btn btn-primary btn-sm';
+            btnEditar.innerHTML = '<i class="fas fa-edit me-1"></i> Editar';
+            btnEditar.onclick = () => editarNota(numeroNota);
+            
+            const btnTransferir = document.createElement('button');
+            btnTransferir.className = 'btn btn-info btn-sm';
+            btnTransferir.innerHTML = '<i class="fas fa-exchange-alt me-1"></i> Transferir';
+            btnTransferir.onclick = () => transferirNotaBoletim(numeroNota);
+            
+            // Adicionar botões ao container
+            botoesContainer.appendChild(btnDevolver);
+            botoesContainer.appendChild(btnEditar);
+            botoesContainer.appendChild(btnTransferir);
+        }
+        
+        // Montar o card
+        cardBody.appendChild(infoNota);
+        cardBody.appendChild(conteudoNota);
+        cardBody.appendChild(transcricao);
+        cardBody.appendChild(assinaturasContainer);
+        cardBody.appendChild(botoesContainer);
+        
+        cardNota.appendChild(cardHeader);
+        cardNota.appendChild(cardBody);
+        
+        // Remover os parágrafos originais se existirem
+        if (pData) pData.remove();
+        if (pOrigem) pOrigem.remove();
+        
+        // Substituir o h4 e conteúdo pela nota em card
+    const parent = h4Element.parentNode;
+    const nextSibling = h4Element.nextSibling;
+        
+        // Remover o h4 original
+    h4Element.remove();
+        
+        // Adicionar o card no lugar do h4
+        parent.insertBefore(cardNota, nextSibling);
+        
+        // Carregar assinaturas da nota
+    carregarAssinaturasNota(numeroNota, assinaturasContainer);
+    
+    console.log(`Card criado para nota ${numeroNota}`);
+}
+
+// Funções para os botões de ação das notas
+function devolverNotaOrigem(numeroNota) {
+    if (confirm(`Tem certeza que deseja devolver a nota ${numeroNota} para sua origem?`)) {
+    // Buscar o ID da nota pelo número
+    fetch(`/militares/ajax/buscar-nota-por-numero/${numeroNota}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.nota_id) {
+                    // Devolver nota para origem
+                    fetch(`/militares/ajax/devolver-nota-origem/${data.nota_id}/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken'),
+                            'Content-Type': 'application/json',
+                        },
+                    })
+                    .then(response => response.json())
+                    .then(result => {
+                        if (result.success) {
+                            alert('Nota devolvida para origem com sucesso!');
+                            location.reload();
+                        } else {
+                            alert('Erro ao devolver nota: ' + (result.error || 'Erro desconhecido'));
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Erro:', error);
+                        alert('Erro ao devolver nota para origem');
+                    });
+            } else {
+                    alert('Nota não encontrada');
+            }
+        })
+        .catch(error => {
+                console.error('Erro ao buscar nota:', error);
+                alert('Erro ao buscar nota');
+            });
+    }
+}
+
+function editarNota(numeroNota) {
+    // Buscar o ID da nota pelo número
+    fetch(`/militares/ajax/buscar-nota-por-numero/${numeroNota}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.nota_id) {
+                // Redirecionar para edição da nota
+                window.location.href = `/militares/notas/${data.nota_id}/edit/`;
+            } else {
+                alert('Nota não encontrada');
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao buscar nota:', error);
+            alert('Erro ao buscar nota');
+        });
+    }
+
+function transferirNotaBoletim(numeroNota) {
+    const boletimDestino = prompt(`Digite o número do boletim de destino para transferir a nota ${numeroNota}:`);
+    if (boletimDestino) {
+        // Buscar o ID da nota pelo número
+        fetch(`/militares/ajax/buscar-nota-por-numero/${numeroNota}/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.nota_id) {
+                    // Transferir nota para outro boletim
+                    fetch(`/militares/ajax/transferir-nota-boletim/${data.nota_id}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json',
+                },
+                        body: JSON.stringify({ boletim_destino: boletimDestino })
+            })
+            .then(response => response.json())
+                    .then(result => {
+                        if (result.success) {
+                    alert('Nota transferida com sucesso!');
+                    location.reload();
+                } else {
+                            alert('Erro ao transferir nota: ' + (result.error || 'Erro desconhecido'));
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert('Erro ao transferir nota');
+            });
+                } else {
+                    alert('Nota não encontrada');
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao buscar nota:', error);
+                alert('Erro ao buscar nota');
+            });
+        }
+    }
+
+// Função auxiliar para obter CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Script para abrir o modal automaticamente
+document.addEventListener('DOMContentLoaded', function() {
+    // Abrir o modal automaticamente quando a página carregar
+    const modal = new bootstrap.Modal(document.getElementById('publicacaoDetailModal'));
+    modal.show();
+    
+    // Aguardar o modal abrir e então formatar as notas
+    document.getElementById('publicacaoDetailModal').addEventListener('shown.bs.modal', function () {
+        console.log('Modal aberto, formatando notas...');
+        setTimeout(() => {
+            formatarTranscricoesNotas();
+        }, 500); // Aguardar 500ms para garantir que o conteúdo foi carregado
+    });
+    
+    // Redirecionar para a lista quando o modal for fechado
+    document.getElementById('publicacaoDetailModal').addEventListener('hidden.bs.modal', function () {
+        window.location.href = "{% url 'militares:boletins_ostensivos_list' %}";
+    });
+    });
+</script>
+
+{% endblock %}

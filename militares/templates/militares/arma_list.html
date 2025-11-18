@@ -1,0 +1,1236 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load militares_extras %}
+
+{% block title %}Armas - Lista{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-gun me-2 text-danger"></i>Armas da Instituição
+                    </h2>
+                    <p class="text-muted mb-0">Gerenciar cadastro de armas do CBMEPI</p>
+                </div>
+                <div>
+                    {% if 'ARMAS_CRIAR' in menu_permissions or user.is_superuser %}
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#criarArmaModal">
+                        <i class="fas fa-plus me-2"></i>Nova Arma
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Cards de Estatísticas -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-gun fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_armas }}</h4>
+                            <p class="mb-0">Total de Armas</p>
+                        </div>
+                    </div>
+                </div>
+                        <div class="col-md-3">
+                    <div class="card stats-card success">
+                        <div class="card-body text-center">
+                            <i class="fas fa-user-shield fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ armas_cautela }}</h4>
+                            <p class="mb-0">Cautela Individual</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card info">
+                        <div class="card-body text-center">
+                            <i class="fas fa-warehouse fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ armas_reserva }}</h4>
+                            <p class="mb-0">Reserva de Armamento</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card warning">
+                        <div class="card-body text-center">
+                            <i class="fas fa-wrench fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ armas_manutencao }}</h4>
+                            <p class="mb-0">Em Manutenção</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Pesquisa</label>
+                            <input type="text" name="search" class="form-control" 
+                                   value="{{ search }}" placeholder="Nº série, marca, modelo...">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Tipo</label>
+                            <select name="tipo" class="form-select">
+                                <option value="">Todos</option>
+                                {% for tipo_val, tipo_nome in tipos %}
+                                    <option value="{{ tipo_val }}" {% if tipo == tipo_val %}selected{% endif %}>
+                                        {{ tipo_nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Situação</label>
+                            <select name="situacao" class="form-select">
+                                <option value="">Todas</option>
+                                {% for situacao_val, situacao_nome in situacao_list %}
+                                    <option value="{{ situacao_val }}" {% if situacao == situacao_val %}selected{% endif %}>
+                                        {{ situacao_nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Ativo</label>
+                            <select name="ativo" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="1" {% if ativo == '1' %}selected{% endif %}>Sim</option>
+                                <option value="0" {% if ativo == '0' %}selected{% endif %}>Não</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                            <a href="{% url 'militares:arma_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Limpar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Lista de Armas -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Lista de Armas
+                    </h6>
+                    <div>
+                        <a href="{% url 'militares:armas_pdf' %}?{% for key, value in request.GET.items %}{{ key }}={{ value }}{% if not forloop.last %}&{% endif %}{% endfor %}" 
+                           target="_blank" 
+                           class="btn btn-danger btn-sm me-2">
+                            <i class="fas fa-file-pdf me-2"></i>Relatório
+                        </a>
+                        <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#criarArmaModal">
+                            <i class="fas fa-plus me-2"></i>Nova Arma
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if armas %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 140px;">Imagem</th>
+                                        <th>Nº Série</th>
+                                        <th>Tipo</th>
+                                        <th>Marca/Modelo</th>
+                                        <th>Calibre</th>
+                                        <th>Situação</th>
+                                        <th>Estado de Conservação</th>
+                                        <th>Usuário</th>
+                                        <th>Organização</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for arma in armas %}
+                                        <tr>
+                                            <td>
+                                                {% with imagem=arma.get_imagem %}
+                                                    {% if imagem %}
+                                                        <img src="{{ imagem.url }}" 
+                                                             alt="{{ arma.marca }} {{ arma.modelo }}" 
+                                                             class="img-thumbnail" 
+                                                             style="width: 120px; height: 120px; object-fit: cover; cursor: pointer;"
+                                                             data-bs-toggle="modal" 
+                                                             data-bs-target="#imagemModal{{ arma.pk }}">
+                                                    {% else %}
+                                                        <div class="bg-light d-flex align-items-center justify-content-center img-thumbnail" 
+                                                             style="width: 120px; height: 120px; border-radius: 4px;">
+                                                            <i class="fas fa-gun text-muted fa-2x"></i>
+                                                        </div>
+                                                    {% endif %}
+                                                {% endwith %}
+                                                
+                                                <!-- Modal para visualizar imagem em tamanho maior -->
+                                                {% with imagem=arma.get_imagem %}
+                                                    {% if imagem %}
+                                                        <div class="modal fade" id="imagemModal{{ arma.pk }}" tabindex="-1">
+                                                            <div class="modal-dialog modal-lg">
+                                                                <div class="modal-content">
+                                                                    <div class="modal-header">
+                                                                        <h5 class="modal-title">
+                                                                            {{ arma.marca }} {{ arma.modelo }} - {{ arma.numero_serie }}
+                                                                        </h5>
+                                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                                    </div>
+                                                                    <div class="modal-body text-center">
+                                                                        <img src="{{ imagem.url }}" 
+                                                                             alt="{{ arma.marca }} {{ arma.modelo }}" 
+                                                                             class="img-fluid" 
+                                                                             style="max-height: 70vh;"
+                                                                             onerror="this.src='{% static 'images/placeholder.png' %}'; this.onerror=null;">
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    {% endif %}
+                                                {% endwith %}
+                                            </td>
+                                            <td>
+                                                <strong>{{ arma.numero_serie }}</strong>
+                                                {% if not arma.ativo %}
+                                                    <span class="badge bg-secondary ms-1">Inativa</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ arma.get_tipo_display }}</td>
+                                            <td>{{ arma.marca }} {{ arma.modelo }}</td>
+                                            <td>{{ arma.get_calibre_display }}</td>
+                                            <td>
+                                                {% if arma.situacao == 'CAUTELA_INDIVIDUAL' %}
+                                                    {% if arma.id in cautelas_coletivas_ativas %}
+                                                        <span class="badge bg-warning text-dark">Cautela Coletiva</span>
+                                                    {% else %}
+                                                        <span class="badge bg-success">{{ arma.get_situacao_display }}</span>
+                                                    {% endif %}
+                                                {% elif arma.situacao == 'RESERVA_ARMAMENTO' %}
+                                                    <span class="badge bg-info">{{ arma.get_situacao_display }}</span>
+                                                {% elif arma.situacao == 'EM_MANUTENCAO' %}
+                                                    <span class="badge bg-warning text-dark">{{ arma.get_situacao_display }}</span>
+                                                {% elif arma.situacao == 'EXTRAVIADO' %}
+                                                    <span class="badge bg-danger">{{ arma.get_situacao_display }}</span>
+                                                {% elif arma.situacao == 'ANEXADO_INQUERITO_PM' %}
+                                                    <span class="badge bg-dark">{{ arma.get_situacao_display }}</span>
+                                                {% elif arma.situacao == 'ANEXADO_INQUERITO_PC' %}
+                                                    <span class="badge bg-secondary">{{ arma.get_situacao_display }}</span>
+                                                {% elif arma.situacao == 'INSERVIVEL' %}
+                                                    <span class="badge bg-dark">{{ arma.get_situacao_display }}</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">{{ arma.get_situacao_display }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if arma.estado_conservacao %}
+                                                    <span class="badge 
+                                                        {% if arma.estado_conservacao == 'NOVA' %}bg-primary
+                                                        {% elif arma.estado_conservacao == 'OTIMO' %}bg-success
+                                                        {% elif arma.estado_conservacao == 'BOM' %}bg-info
+                                                        {% elif arma.estado_conservacao == 'REGULAR' %}bg-warning text-dark
+                                                        {% elif arma.estado_conservacao == 'RUIM' %}bg-danger
+                                                        {% elif arma.estado_conservacao == 'INSERVIVEL' %}bg-dark
+                                                        {% endif %}">
+                                                        {{ arma.get_estado_conservacao_display }}
+                                                    </span>
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {{ user.get_full_name|default:user.username }}
+                                            </td>
+                                            <td>
+                                                <span data-bs-toggle="tooltip" 
+                                                      data-bs-placement="top" 
+                                                      title="{{ arma.get_organizacao_display }}">
+                                                    {{ arma.get_organizacao_instancia }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    {% if 'ARMAS_VISUALIZAR' in menu_permissions or user.is_superuser %}
+                                                    <a href="{% url 'militares:arma_detail' arma.pk %}" 
+                                                       class="btn btn-sm btn-info" title="Visualizar">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                    {% endif %}
+                                                    {% if 'ARMAS_VISUALIZAR' in menu_permissions or user.is_superuser %}
+                                                    {% if arma.situacao == 'CAUTELA_INDIVIDUAL' %}
+                                                        {% with cautela_ativa=cautelas_ativas|lookup:arma.pk %}
+                                                            {% if cautela_ativa %}
+                                                                <button type="button"
+                                                                   class="btn btn-sm btn-success btn-devolver-cautela" 
+                                                                   title="Devolver Cautela"
+                                                                   data-cautela-id="{{ cautela_ativa.pk }}">
+                                                                    <i class="fas fa-undo"></i>
+                                                                </button>
+                                                            {% endif %}
+                                                        {% endwith %}
+                                                    {% elif arma.ativo and arma.situacao != 'CAUTELA_INDIVIDUAL' %}
+                                                        <button type="button"
+                                                           class="btn btn-sm btn-success btn-criar-cautela" 
+                                                           title="Cautelar Arma"
+                                                           data-arma-id="{{ arma.pk }}"
+                                                           data-bs-toggle="modal"
+                                                           data-bs-target="#criarCautelaModal">
+                                                            <i class="fas fa-shield-alt"></i>
+                                                        </button>
+                                                    {% endif %}
+                                                    {% endif %}
+                                                    {% if 'ARMAS_EDITAR' in menu_permissions or user.is_superuser %}
+                                                    <button type="button" 
+                                                            class="btn btn-sm btn-primary btn-editar-arma" 
+                                                            title="Editar"
+                                                            data-arma-id="{{ arma.pk }}">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    {% endif %}
+                                                    {% if 'ARMAS_EDITAR' in menu_permissions or user.is_superuser %}
+                                                    <button type="button" 
+                                                            class="btn btn-sm btn-warning btn-transferir-arma" 
+                                                            title="Transferir"
+                                                            data-arma-id="{{ arma.pk }}"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#transferirArmaModal">
+                                                        <i class="fas fa-exchange-alt"></i>
+                                                    </button>
+                                                    {% endif %}
+                                                    {% if 'ARMAS_EXCLUIR' in menu_permissions or user.is_superuser %}
+                                                    <a href="{% url 'militares:arma_delete' arma.pk %}" 
+                                                       class="btn btn-sm btn-danger" title="Excluir">
+                                                        <i class="fas fa-trash"></i>
+                                                    </a>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if is_paginated %}
+                            <nav aria-label="Paginação">
+                                <ul class="pagination justify-content-center mt-4">
+                                    {% if page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}{% if tipo %}&tipo={{ tipo }}{% endif %}{% if situacao %}&situacao={{ situacao }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">
+                                                <i class="fas fa-angle-double-left"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if tipo %}&tipo={{ tipo }}{% endif %}{% if situacao %}&situacao={{ situacao }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">
+                                                <i class="fas fa-angle-left"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                    
+                                    <li class="page-item disabled">
+                                        <span class="page-link">
+                                            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                                        </span>
+                                    </li>
+                                    
+                                    {% if page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if tipo %}&tipo={{ tipo }}{% endif %}{% if situacao %}&situacao={{ situacao }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">
+                                                <i class="fas fa-angle-right"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if tipo %}&tipo={{ tipo }}{% endif %}{% if situacao %}&situacao={{ situacao }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">
+                                                <i class="fas fa-angle-double-right"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Nenhuma arma encontrada.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar tooltips do Bootstrap
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Modal de devolução de cautela
+    const devolverCautelaModal = document.getElementById('devolverCautelaModal');
+    const modalContent = document.getElementById('devolverCautelaModalContent');
+    
+    console.log('Modal encontrado:', devolverCautelaModal);
+    console.log('Modal content encontrado:', modalContent);
+    console.log('Botões de devolução encontrados:', document.querySelectorAll('.btn-devolver-cautela').length);
+    
+    // Adicionar event listeners aos botões de devolução
+    document.querySelectorAll('.btn-devolver-cautela').forEach(function(button) {
+        console.log('Adicionando listener ao botão:', button);
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Botão clicado!');
+            const cautelaId = this.getAttribute('data-cautela-id');
+            console.log('ID da cautela:', cautelaId);
+            
+            if (cautelaId && devolverCautelaModal) {
+                // Armazenar o ID da cautela no modal para uso posterior
+                devolverCautelaModal.setAttribute('data-cautela-id', cautelaId);
+                
+                // Abrir modal manualmente
+                const modal = new bootstrap.Modal(devolverCautelaModal);
+                modal.show();
+            } else {
+                console.error('Modal ou ID não encontrado');
+            }
+        });
+    });
+    
+    if (devolverCautelaModal && modalContent) {
+        // Carregar conteúdo do modal quando abrir
+        devolverCautelaModal.addEventListener('show.bs.modal', function(event) {
+            console.log('Modal está abrindo...');
+            let cautelaId = null;
+            
+            // Tentar obter o ID do botão que disparou o evento
+            if (event.relatedTarget) {
+                cautelaId = event.relatedTarget.getAttribute('data-cautela-id');
+            }
+            
+            // Se não encontrou no relatedTarget, tentar no próprio modal
+            if (!cautelaId) {
+                cautelaId = devolverCautelaModal.getAttribute('data-cautela-id');
+            }
+            
+            console.log('ID da cautela para carregar:', cautelaId);
+            
+            if (!cautelaId) {
+                console.error('ID da cautela não encontrado');
+                return;
+            }
+            
+            // Limpar conteúdo anterior
+            modalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-warning" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            // Carregar formulário via AJAX
+            fetch(`{% url 'militares:cautela_arma_devolver' 0 %}`.replace('0', cautelaId), {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.html) {
+                    modalContent.innerHTML = data.html;
+                    
+                    // Reconfigurar o formulário após carregar
+                    const form = document.getElementById('formDevolverCautela');
+                    if (form) {
+                        form.addEventListener('submit', function(e) {
+                            e.preventDefault();
+                            
+                            const formData = new FormData(form);
+                            const submitButton = form.querySelector('button[type="submit"]');
+                            const originalText = submitButton.innerHTML;
+                            
+                            // Desabilitar botão e mostrar loading
+                            submitButton.disabled = true;
+                            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processando...';
+                            
+                            // Esconder erros anteriores
+                            const errorDiv = document.getElementById('devolverCautelaErrors');
+                            if (errorDiv) {
+                                errorDiv.classList.add('d-none');
+                            }
+                            
+                            fetch(form.action, {
+                                method: 'POST',
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                },
+                                body: formData
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    // Substituir conteúdo do modal com mensagem de sucesso
+                                    modalContent.innerHTML = `
+                                        <div class="modal-header bg-success text-white">
+                                            <h5 class="modal-title">
+                                                <i class="fas fa-check-circle me-2"></i>Sucesso!
+                                            </h5>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body text-center py-4">
+                                            <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                                            <h5>Devolução Registrada</h5>
+                                            <p class="text-muted">${data.message}</p>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-success" data-bs-dismiss="modal" onclick="location.reload();">
+                                                <i class="fas fa-check me-2"></i>Fechar
+                                            </button>
+                                        </div>
+                                    `;
+                                    
+                                    // Fechar modal e recarregar página após 2 segundos
+                                    setTimeout(() => {
+                                        const modal = bootstrap.Modal.getInstance(devolverCautelaModal);
+                                        modal.hide();
+                                        location.reload();
+                                    }, 2000);
+                                } else {
+                                    // Mostrar erros
+                                    const errorDiv = document.getElementById('devolverCautelaErrors');
+                                    const errorMessage = document.getElementById('devolverCautelaErrorMessage');
+                                    if (errorDiv && errorMessage) {
+                                        errorMessage.textContent = data.message || 'Erro ao processar devolução.';
+                                        errorDiv.classList.remove('d-none');
+                                    }
+                                    
+                                    // Reabilitar botão
+                                    submitButton.disabled = false;
+                                    submitButton.innerHTML = originalText;
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Erro:', error);
+                                const errorDiv = document.getElementById('devolverCautelaErrors');
+                                const errorMessage = document.getElementById('devolverCautelaErrorMessage');
+                                if (errorDiv && errorMessage) {
+                                    errorMessage.textContent = 'Erro ao processar devolução. Tente novamente.';
+                                    errorDiv.classList.remove('d-none');
+                                }
+                                
+                                // Reabilitar botão
+                                submitButton.disabled = false;
+                                submitButton.innerHTML = originalText;
+                            });
+                        });
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar formulário:', error);
+                modalContent.innerHTML = `
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body text-center py-4">
+                        <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                        <h5>Erro ao Carregar</h5>
+                        <p class="text-muted">Não foi possível carregar o formulário. Tente novamente.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                `;
+            });
+        });
+        
+        // Limpar conteúdo quando fechar o modal
+        devolverCautelaModal.addEventListener('hidden.bs.modal', function() {
+            modalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-warning" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+        });
+    }
+    
+    // Modal de criar cautela
+    const criarCautelaModal = document.getElementById('criarCautelaModal');
+    const criarCautelaModalContent = document.getElementById('criarCautelaModalContent');
+    
+    // Adicionar event listeners aos botões de criar cautela
+    document.querySelectorAll('.btn-criar-cautela').forEach(function(button) {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const armaId = this.getAttribute('data-arma-id');
+            
+            if (criarCautelaModal) {
+                if (armaId) {
+                    criarCautelaModal.setAttribute('data-arma-id', armaId);
+                }
+                const modal = new bootstrap.Modal(criarCautelaModal);
+                modal.show();
+            }
+        });
+    });
+    
+    if (criarCautelaModal && criarCautelaModalContent) {
+        criarCautelaModal.addEventListener('show.bs.modal', function(event) {
+            let armaId = null;
+            
+            if (event.relatedTarget) {
+                armaId = event.relatedTarget.getAttribute('data-arma-id');
+            }
+            
+            if (!armaId) {
+                armaId = criarCautelaModal.getAttribute('data-arma-id');
+            }
+            
+            criarCautelaModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            let url = '{% url "militares:cautela_arma_create" %}';
+            if (armaId) {
+                url += `?arma=${armaId}`;
+            }
+            
+            fetch(url, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.html) {
+                    criarCautelaModalContent.innerHTML = data.html;
+                    
+                    // Aguardar um pouco para garantir que o DOM foi atualizado
+                    setTimeout(function() {
+                        // Re-executar scripts que podem estar no conteúdo carregado
+                        const scripts = criarCautelaModalContent.querySelectorAll('script');
+                        scripts.forEach(function(oldScript) {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(attr => {
+                                newScript.setAttribute(attr.name, attr.value);
+                            });
+                            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                            oldScript.parentNode.replaceChild(newScript, oldScript);
+                        });
+                        
+                        // Garantir que o Select2 seja inicializado após os scripts serem executados
+                        setTimeout(function() {
+                            if (typeof $ !== 'undefined' && typeof $.fn.select2 !== 'undefined') {
+                                const militarSelect = $('#id_militar_cautela');
+                                if (militarSelect.length && !militarSelect.hasClass('select2-hidden-accessible')) {
+                                    try {
+                                        militarSelect.select2({
+                                            placeholder: 'Digite o nome, matrícula ou posto do militar...',
+                                            allowClear: true,
+                                            minimumInputLength: 2,
+                                            width: '100%',
+                                            language: {
+                                                inputTooShort: function () {
+                                                    return 'Digite pelo menos 2 caracteres...';
+                                                },
+                                                noResults: function () {
+                                                    return 'Nenhum militar encontrado';
+                                                },
+                                                searching: function () {
+                                                    return 'Buscando...';
+                                                }
+                                            },
+                                            ajax: {
+                                                url: '{% url "militares:militar-autocomplete" %}',
+                                                dataType: 'json',
+                                                delay: 300,
+                                                data: function (params) {
+                                                    return {
+                                                        q: params.term || ''
+                                                    };
+                                                },
+                                                processResults: function (data) {
+                                                    return {
+                                                        results: data.results || []
+                                                    };
+                                                },
+                                                cache: true
+                                            }
+                                        });
+                                    } catch (e) {
+                                        console.error('Erro ao inicializar Select2 no modal:', e);
+                                    }
+                                }
+                            }
+                        }, 200);
+                    }, 50);
+                    
+                    const form = document.getElementById('formCriarCautela');
+                    if (form) {
+                        form.addEventListener('submit', function(e) {
+                            e.preventDefault();
+                            
+                            const formData = new FormData(form);
+                            const submitButton = form.querySelector('button[type="submit"]');
+                            const originalText = submitButton.innerHTML;
+                            
+                            submitButton.disabled = true;
+                            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Salvando...';
+                            
+                            const errorDiv = document.getElementById('criarCautelaErrors');
+                            if (errorDiv) {
+                                errorDiv.classList.add('d-none');
+                            }
+                            
+                            fetch(form.action, {
+                                method: 'POST',
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                },
+                                body: formData
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    criarCautelaModalContent.innerHTML = `
+                                        <div class="modal-header bg-success text-white">
+                                            <h5 class="modal-title">
+                                                <i class="fas fa-check-circle me-2"></i>Sucesso!
+                                            </h5>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body text-center py-4">
+                                            <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                                            <h5>Cautela Registrada</h5>
+                                            <p class="text-muted">${data.message}</p>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-success" data-bs-dismiss="modal" onclick="location.reload();">
+                                                <i class="fas fa-check me-2"></i>Fechar
+                                            </button>
+                                        </div>
+                                    `;
+                                    
+                                    setTimeout(() => {
+                                        const modal = bootstrap.Modal.getInstance(criarCautelaModal);
+                                        modal.hide();
+                                        location.reload();
+                                    }, 2000);
+                                } else {
+                                    const errorDiv = document.getElementById('criarCautelaErrors');
+                                    const errorMessage = document.getElementById('criarCautelaErrorMessage');
+                                    if (errorDiv && errorMessage) {
+                                        errorMessage.textContent = data.message || 'Erro ao processar formulário.';
+                                        errorDiv.classList.remove('d-none');
+                                    }
+                                    
+                                    submitButton.disabled = false;
+                                    submitButton.innerHTML = originalText;
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Erro:', error);
+                                const errorDiv = document.getElementById('criarCautelaErrors');
+                                const errorMessage = document.getElementById('criarCautelaErrorMessage');
+                                if (errorDiv && errorMessage) {
+                                    errorMessage.textContent = 'Erro ao processar formulário. Tente novamente.';
+                                    errorDiv.classList.remove('d-none');
+                                }
+                                
+                                submitButton.disabled = false;
+                                submitButton.innerHTML = originalText;
+                            });
+                        });
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar formulário:', error);
+                criarCautelaModalContent.innerHTML = `
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body text-center py-4">
+                        <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                        <h5>Erro ao Carregar</h5>
+                        <p class="text-muted">Não foi possível carregar o formulário. Tente novamente.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                `;
+            });
+        });
+        
+        criarCautelaModal.addEventListener('hidden.bs.modal', function() {
+            criarCautelaModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+        });
+    }
+    
+    // Modal de criar arma
+    const criarArmaModal = document.getElementById('criarArmaModal');
+    const criarArmaModalContent = document.getElementById('criarArmaModalContent');
+    
+    if (criarArmaModal && criarArmaModalContent) {
+        criarArmaModal.addEventListener('show.bs.modal', function(event) {
+            criarArmaModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            fetch('{% url "militares:arma_create" %}', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.html) {
+                    criarArmaModalContent.innerHTML = data.html;
+                    
+                    // Aguardar um pouco para garantir que o DOM foi atualizado
+                    setTimeout(function() {
+                        // Re-executar scripts que podem estar no conteúdo carregado
+                        const scripts = criarArmaModalContent.querySelectorAll('script');
+                        scripts.forEach(function(oldScript) {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(attr => {
+                                newScript.setAttribute(attr.name, attr.value);
+                            });
+                            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                            oldScript.parentNode.replaceChild(newScript, oldScript);
+                        });
+                    }, 100);
+                } else {
+                    criarArmaModalContent.innerHTML = `
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title">
+                                <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body text-center py-4">
+                            <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                            <h5>Erro ao Carregar</h5>
+                            <p class="text-muted">Não foi possível carregar o formulário. Tente novamente.</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar formulário:', error);
+                criarArmaModalContent.innerHTML = `
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body text-center py-4">
+                        <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                        <h5>Erro ao Carregar</h5>
+                        <p class="text-muted">Não foi possível carregar o formulário. Tente novamente.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                `;
+            });
+        });
+        
+        // Limpar conteúdo quando fechar o modal
+        criarArmaModal.addEventListener('hidden.bs.modal', function() {
+            criarArmaModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+        });
+    }
+});
+</script>
+
+<!-- Modal para Criar Cautela -->
+<div class="modal fade" id="criarCautelaModal" tabindex="-1" aria-labelledby="criarCautelaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="criarCautelaModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Devolver Cautela -->
+<div class="modal fade" id="devolverCautelaModal" tabindex="-1" aria-labelledby="devolverCautelaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" id="devolverCautelaModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-warning" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Criar Arma -->
+<div class="modal fade" id="criarArmaModal" tabindex="-1" aria-labelledby="criarArmaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="criarArmaModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Editar Arma -->
+<div class="modal fade" id="editarArmaModal" tabindex="-1" aria-labelledby="editarArmaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="editarArmaModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Modal de Editar Arma
+    const editarArmaModal = document.getElementById('editarArmaModal');
+    const editarArmaModalContent = document.getElementById('editarArmaModalContent');
+    const botoesEditarArma = document.querySelectorAll('.btn-editar-arma');
+    
+    if (editarArmaModal && editarArmaModalContent) {
+        // Adicionar listener de clique nos botões de editar
+        botoesEditarArma.forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const armaId = this.getAttribute('data-arma-id');
+                if (!armaId) {
+                    console.error('ID da arma não encontrado');
+                    return;
+                }
+                
+                // Mostrar loading
+                editarArmaModalContent.innerHTML = `
+                    <div class="modal-body text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                        <p class="mt-3 text-muted">Carregando formulário...</p>
+                    </div>
+                `;
+                
+                // Abrir o modal
+                const modal = new bootstrap.Modal(editarArmaModal);
+                modal.show();
+                
+                // Carregar formulário de edição via AJAX
+                const urlBase = `/militares/armas/${armaId}/editar/`;
+                fetch(urlBase, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Erro na resposta do servidor');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.html) {
+                        editarArmaModalContent.innerHTML = data.html;
+                        
+                        // Re-executar scripts dentro do conteúdo carregado
+                        setTimeout(() => {
+                            const scripts = editarArmaModalContent.querySelectorAll('script');
+                            scripts.forEach(oldScript => {
+                                const newScript = document.createElement('script');
+                                Array.from(oldScript.attributes).forEach(attr => {
+                                    newScript.setAttribute(attr.name, attr.value);
+                                });
+                                newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                                oldScript.parentNode.replaceChild(newScript, oldScript);
+                            });
+                        }, 100);
+                    } else {
+                        editarArmaModalContent.innerHTML = `
+                            <div class="modal-header bg-danger text-white">
+                                <h5 class="modal-title">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                                </h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body text-center py-4">
+                                <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                                <h5>Erro ao Carregar</h5>
+                                <p class="text-muted">Não foi possível carregar o formulário. Tente novamente.</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar formulário:', error);
+                    editarArmaModalContent.innerHTML = `
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title">
+                                <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body text-center py-4">
+                            <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                            <h5>Erro ao Carregar</h5>
+                            <p class="text-muted">Não foi possível carregar o formulário. Verifique o console para mais detalhes.</p>
+                            <small class="text-muted">${error.message}</small>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                        </div>
+                    `;
+                });
+            });
+        });
+        
+        // Limpar conteúdo quando fechar o modal
+        editarArmaModal.addEventListener('hidden.bs.modal', function() {
+            editarArmaModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+        });
+    } else {
+        console.error('Modal de editar arma não encontrado:', {
+            modal: editarArmaModal,
+            content: editarArmaModalContent
+        });
+    }
+});
+</script>
+
+<!-- Modal para Transferir Arma -->
+<div class="modal fade" id="transferirArmaModal" tabindex="-1" aria-labelledby="transferirArmaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="transferirArmaModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-warning" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Modal de Transferir Arma
+    const transferirArmaModal = document.getElementById('transferirArmaModal');
+    const transferirArmaModalContent = document.getElementById('transferirArmaModalContent');
+    const botoesTransferirArma = document.querySelectorAll('.btn-transferir-arma');
+    
+    if (transferirArmaModal && transferirArmaModalContent) {
+        // Adicionar listener de clique nos botões de transferir
+        botoesTransferirArma.forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const armaId = this.getAttribute('data-arma-id');
+                if (!armaId) {
+                    console.error('ID da arma não encontrado');
+                    return;
+                }
+                
+                // Mostrar loading
+                transferirArmaModalContent.innerHTML = `
+                    <div class="modal-body text-center py-5">
+                        <div class="spinner-border text-warning" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                        <p class="mt-3 text-muted">Carregando formulário...</p>
+                    </div>
+                `;
+                
+                // Abrir o modal
+                const modal = new bootstrap.Modal(transferirArmaModal);
+                modal.show();
+                
+                // Carregar formulário de transferência via AJAX
+                const urlBase = `/militares/armas/${armaId}/transferir/`;
+                fetch(urlBase, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Erro na resposta do servidor');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.html) {
+                        transferirArmaModalContent.innerHTML = data.html;
+                        
+                        // Re-executar scripts dentro do conteúdo carregado
+                        setTimeout(() => {
+                            const scripts = transferirArmaModalContent.querySelectorAll('script');
+                            scripts.forEach(oldScript => {
+                                const newScript = document.createElement('script');
+                                Array.from(oldScript.attributes).forEach(attr => {
+                                    newScript.setAttribute(attr.name, attr.value);
+                                });
+                                newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                                oldScript.parentNode.replaceChild(newScript, oldScript);
+                            });
+                        }, 100);
+                    } else {
+                        transferirArmaModalContent.innerHTML = `
+                            <div class="modal-header bg-danger text-white">
+                                <h5 class="modal-title">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                                </h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body text-center py-4">
+                                <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                                <h5>Erro ao Carregar</h5>
+                                <p class="text-muted">Não foi possível carregar o formulário. Tente novamente.</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar formulário:', error);
+                    transferirArmaModalContent.innerHTML = `
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title">
+                                <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body text-center py-4">
+                            <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                            <h5>Erro ao Carregar</h5>
+                            <p class="text-muted">Não foi possível carregar o formulário. Verifique o console para mais detalhes.</p>
+                            <small class="text-muted">${error.message}</small>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                        </div>
+                    `;
+                });
+            });
+        });
+        
+        // Limpar conteúdo quando fechar o modal
+        transferirArmaModal.addEventListener('hidden.bs.modal', function() {
+            // Limpar conteúdo do modal
+            transferirArmaModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-warning" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            // Remover backdrops do Bootstrap
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            backdrops.forEach(backdrop => backdrop.remove());
+            
+            // Remover classe modal-open do body
+            document.body.classList.remove('modal-open');
+            
+            // Resetar estilos do body
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+        });
+    }
+});
+</script>
+{% endblock %}
+
+

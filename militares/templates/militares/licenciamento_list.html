@@ -1,0 +1,305 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load money_filters %}
+
+{% block title %}Controle de Licenciamento - Licenciamentos{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-id-card me-2 text-primary"></i>Controle de Licenciamento
+                    </h2>
+                    <p class="text-muted mb-0">Gerenciar licenciamentos de viaturas</p>
+                </div>
+            </div>
+            
+            <!-- Cards de Estatísticas -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-list fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_licenciamentos }}</h4>
+                            <p class="mb-0">Total de Licenciamentos</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card success">
+                        <div class="card-body text-center">
+                            <i class="fas fa-check-circle fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_pago }}</h4>
+                            <p class="mb-0">Pagos</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card warning">
+                        <div class="card-body text-center">
+                            <i class="fas fa-clock fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_pendente }}</h4>
+                            <p class="mb-0">Pendentes</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card danger">
+                        <div class="card-body text-center">
+                            <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_vencido }}</h4>
+                            <p class="mb-0">Vencidos</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Cards de Valores -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card stats-card info">
+                        <div class="card-body text-center">
+                            <i class="fas fa-dollar-sign fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_valor|currency_br }}</h4>
+                            <p class="mb-0">Total Gasto</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card stats-card warning">
+                        <div class="card-body text-center">
+                            <i class="fas fa-chart-line fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ media_valor|currency_br }}</h4>
+                            <p class="mb-0">Média por Licenciamento</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Pesquisa</label>
+                            <input type="text" name="search" class="form-control" 
+                                   value="{{ search }}" placeholder="Placa, observações...">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Viatura</label>
+                            <select name="viatura" class="form-select">
+                                <option value="">Todas</option>
+                                {% for viatura in viaturas %}
+                                    <option value="{{ viatura.id }}" {% if viatura_id == viatura.id|stringformat:"s" %}selected{% endif %}>
+                                        {{ viatura.placa }}{% if viatura.prefixo %} ({{ viatura.prefixo }}){% endif %}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-select">
+                                <option value="">Todos</option>
+                                {% for status_val, status_nome in status_list %}
+                                    <option value="{{ status_val }}" {% if status == status_val %}selected{% endif %}>
+                                        {{ status_nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Ano</label>
+                            <select name="ano" class="form-select">
+                                <option value="">Todos</option>
+                                {% for ano_item in anos_disponiveis %}
+                                    <option value="{{ ano_item }}" {% if ano == ano_item|stringformat:"s" %}selected{% endif %}>
+                                        {{ ano_item }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Data Vencimento Início</label>
+                            <input type="date" name="data_inicio" class="form-control" value="{{ data_inicio }}">
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label">Ativo</label>
+                            <select name="ativo" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="1" {% if ativo == '1' %}selected{% endif %}>Sim</option>
+                                <option value="0" {% if ativo == '0' %}selected{% endif %}>Não</option>
+                            </select>
+                        </div>
+                        <div class="col-md-12 d-flex align-items-end gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                            <a href="{% url 'militares:licenciamento_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Limpar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Lista de Licenciamentos -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Lista de Licenciamentos
+                    </h6>
+                    <div>
+                        {% if 'VIATURAS_CRIAR' in menu_permissions or user.is_superuser %}
+                        <a href="{% url 'militares:licenciamento_create' %}" class="btn btn-success btn-sm">
+                            <i class="fas fa-plus me-2"></i>Novo Licenciamento
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if licenciamentos %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Ano</th>
+                                        <th>Viatura</th>
+                                        <th>Data de Vencimento</th>
+                                        <th>Valor</th>
+                                        <th>Data Pagamento</th>
+                                        <th>Status</th>
+                                        <th>Próximo Vencimento</th>
+                                        <th>Responsável</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for licenciamento in licenciamentos %}
+                                        <tr {% if licenciamento.pk in licenciamentos_proximos_vencimento %}class="table-warning"{% endif %}>
+                                            <td><strong>{{ licenciamento.ano_licenciamento }}</strong></td>
+                                            <td>
+                                                <a href="{% url 'militares:viatura_detail' licenciamento.viatura.pk %}">
+                                                    {{ licenciamento.viatura.placa }}
+                                                    {% if licenciamento.viatura.prefixo %}
+                                                        <span class="text-muted">({{ licenciamento.viatura.prefixo }})</span>
+                                                    {% endif %}
+                                                </a>
+                                            </td>
+                                            <td>{{ licenciamento.data_vencimento|date:"d/m/Y" }}</td>
+                                            <td class="fw-bold text-success">{{ licenciamento.valor_licenciamento|currency_br }}</td>
+                                            <td>
+                                                {% if licenciamento.data_pagamento %}
+                                                    {{ licenciamento.data_pagamento|date:"d/m/Y" }}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if licenciamento.status == 'PAGO' %}
+                                                    <span class="badge bg-success">{{ licenciamento.get_status_display }}</span>
+                                                {% elif licenciamento.status == 'PENDENTE' %}
+                                                    <span class="badge bg-warning text-dark">{{ licenciamento.get_status_display }}</span>
+                                                {% elif licenciamento.status == 'VENCIDO' %}
+                                                    <span class="badge bg-danger">{{ licenciamento.get_status_display }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if licenciamento.proximo_vencimento %}
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        {{ licenciamento.proximo_vencimento|date:"d/m/Y" }}
+                                                        {% if licenciamento.pk in licenciamentos_proximos_vencimento %}
+                                                            <span class="badge bg-danger" title="Vencimento próximo!">
+                                                                <i class="fas fa-exclamation-triangle"></i> Atenção!
+                                                            </span>
+                                                        {% endif %}
+                                                    </div>
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if licenciamento.responsavel %}
+                                                    {{ licenciamento.responsavel.get_posto_graduacao_display }} {{ licenciamento.responsavel.nome_completo }}
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    {% if 'VIATURAS_VISUALIZAR' in menu_permissions or user.is_superuser %}
+                                                    <a href="{% url 'militares:licenciamento_detail' licenciamento.pk %}" 
+                                                       class="btn btn-sm btn-outline-info" title="Ver detalhes">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                    {% endif %}
+                                                    {% if 'VIATURAS_EDITAR' in menu_permissions or user.is_superuser %}
+                                                    <a href="{% url 'militares:licenciamento_update' licenciamento.pk %}" 
+                                                       class="btn btn-sm btn-outline-primary" title="Editar">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                    {% endif %}
+                                                    {% if 'VIATURAS_EXCLUIR' in menu_permissions or user.is_superuser %}
+                                                    <a href="{% url 'militares:licenciamento_delete' licenciamento.pk %}" 
+                                                       class="btn btn-sm btn-outline-danger" title="Excluir"
+                                                       onclick="return confirm('Tem certeza que deseja excluir este licenciamento?');">
+                                                        <i class="fas fa-trash"></i>
+                                                    </a>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if is_paginated %}
+                            <nav aria-label="Paginação">
+                                <ul class="pagination justify-content-center">
+                                    {% if page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}{% if viatura_id %}&viatura={{ viatura_id }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if ano %}&ano={{ ano }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">Primeira</a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if viatura_id %}&viatura={{ viatura_id }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if ano %}&ano={{ ano }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">Anterior</a>
+                                        </li>
+                                    {% endif %}
+                                    
+                                    <li class="page-item active">
+                                        <span class="page-link">
+                                            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                                        </span>
+                                    </li>
+                                    
+                                    {% if page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if viatura_id %}&viatura={{ viatura_id }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if ano %}&ano={{ ano }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">Próxima</a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if viatura_id %}&viatura={{ viatura_id }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if ano %}&ano={{ ano }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">Última</a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>Nenhum licenciamento encontrado.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

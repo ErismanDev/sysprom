@@ -1,0 +1,512 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load nota_filters %}
+
+{% block title %}Planos de Licenças Especiais - Lista{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-calendar-check me-2 text-info"></i>Planos de Licenças Especiais
+                    </h2>
+                    <p class="text-muted mb-0">Gerenciar planos de licenças especiais</p>
+                </div>
+                <div>
+                    {% if menu_permissions.BOTAO_PLANO_LICENCA_ESPECIAL_NOVO or user.is_superuser %}
+                    <a href="{% url 'militares:plano_licenca_especial_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Novo Plano
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">
+                                <i class="fas fa-calendar-check me-2"></i>Ano do Plano
+                            </label>
+                            <input type="number" name="ano_plano" class="form-control" value="{{ filtro_ano_plano }}" placeholder="Ex: 2025">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="RASCUNHO" {% if filtro_status == 'RASCUNHO' %}selected{% endif %}>Rascunho</option>
+                                <option value="EM_APROVACAO" {% if filtro_status == 'EM_APROVACAO' %}selected{% endif %}>Em Aprovação</option>
+                                <option value="APROVADO" {% if filtro_status == 'APROVADO' %}selected{% endif %}>Aprovado</option>
+                                <option value="PUBLICADO" {% if filtro_status == 'PUBLICADO' %}selected{% endif %}>Publicado</option>
+                                <option value="CANCELADO" {% if filtro_status == 'CANCELADO' %}selected{% endif %}>Cancelado</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                            <a href="{% url 'militares:plano_licenca_especial_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Limpar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Estatísticas Gerais -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h6 class="text-muted mb-2">Total de Planos</h6>
+                            <h4 class="mb-0 text-primary">{{ total_planos }}</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h6 class="text-muted mb-2">Total de Licenças</h6>
+                            <h4 class="mb-0 text-info">{{ total_licencas }}</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h6 class="text-muted mb-2">Planejadas</h6>
+                            <h4 class="mb-0 text-warning">{{ total_planejadas }}</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h6 class="text-muted mb-2">Gozadas</h6>
+                            <h4 class="mb-0 text-success">{{ total_gozadas }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Lista de Planos de Licenças Especiais -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Lista de Planos de Licenças Especiais
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if planos %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Título</th>
+                                        <th>Ano do Plano</th>
+                                        <th>Status</th>
+                                        <th>Documento de Aprovação</th>
+                                        <th>Total de Licenças</th>
+                                        <th>Estatísticas</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for plano in planos %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ plano.titulo|default:"Plano de Licenças Especiais" }}</strong>
+                                            {% if plano.descricao %}
+                                            <br><small class="text-muted">{{ plano.descricao|truncatechars:80 }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info fs-6">{{ plano.ano_plano }}</span>
+                                        </td>
+                                        <td>
+                                            {% if plano.status == 'RASCUNHO' %}
+                                                <span class="badge bg-secondary">{{ plano.get_status_display }}</span>
+                                            {% elif plano.status == 'EM_APROVACAO' %}
+                                                <span class="badge bg-warning text-dark">{{ plano.get_status_display }}</span>
+                                            {% elif plano.status == 'APROVADO' %}
+                                                <span class="badge bg-success">{{ plano.get_status_display }}</span>
+                                            {% elif plano.status == 'PUBLICADO' %}
+                                                <span class="badge bg-primary">{{ plano.get_status_display }}</span>
+                                            {% elif plano.status == 'CANCELADO' %}
+                                                <span class="badge bg-danger">{{ plano.get_status_display }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if plano.documento_referencia or plano.numero_documento %}
+                                                <small>
+                                                    {% if plano.documento_referencia %}
+                                                        <strong>{{ plano.documento_referencia }}</strong>
+                                                    {% endif %}
+                                                    {% if plano.numero_documento %}
+                                                        {% if plano.documento_referencia %}<br>{% endif %}{{ plano.numero_documento }}
+                                                    {% endif %}
+                                                </small>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-primary">{{ plano.total_licencas }}</span>
+                                        </td>
+                                        <td>
+                                            <small class="d-block">
+                                                <span class="badge bg-info">📅 {{ plano.licencas_planejadas }} planejadas</span>
+                                            </small>
+                                            <small class="d-block mt-1">
+                                                <span class="badge bg-warning">🏖️ {{ plano.licencas_gozando }} usufruindo</span>
+                                            </small>
+                                            <small class="d-block mt-1">
+                                                <span class="badge bg-success">✅ {{ plano.licencas_gozadas }} usufruídas</span>
+                                            </small>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                {% if menu_permissions.BOTAO_PLANO_LICENCA_ESPECIAL_VISUALIZAR or user.is_superuser %}
+                                                <a href="{% url 'militares:plano_licenca_especial_detail' plano.pk %}" class="btn btn-sm btn-info" title="Visualizar">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                {% endif %}
+                                                
+                                                {% if menu_permissions.BOTAO_PLANO_LICENCA_ESPECIAL_VISUALIZAR or user.is_superuser %}
+                                                <button type="button" class="btn btn-sm btn-success" title="Gerar PDF" data-bs-toggle="modal" data-bs-target="#modalGerarPDF{{ plano.pk }}" data-plano-ano="{{ plano.ano_plano }}">
+                                                    <i class="fas fa-file-pdf"></i>
+                                                </button>
+                                                {% endif %}
+                                                
+                                                {% if menu_permissions.BOTAO_PLANO_LICENCA_ESPECIAL_EDITAR or user.is_superuser %}
+                                                {% if plano.status != 'APROVADO' and plano.status != 'PUBLICADO' and plano.status != 'CANCELADO' %}
+                                                    {% with homologacao_info=planos_homologacao|lookup:plano.pk %}
+                                                    {% if homologacao_info %}
+                                                        {% if homologacao_info.todas_homologadas %}
+                                                        <button type="button" class="btn btn-sm btn-success btn-aprovar-plano" title="Aprovar Plano" data-bs-toggle="modal" data-bs-target="#modalAprovarPlano{{ plano.pk }}" data-plano-id="{{ plano.pk }}">
+                                                            <i class="fas fa-check-circle"></i>
+                                                        </button>
+                                                        {% else %}
+                                                        <button type="button" class="btn btn-sm btn-success btn-aprovar-plano" title="Aprovar Plano - {{ homologacao_info.licencas_nao_homologadas }} de {{ homologacao_info.total_licencas }} licenças ainda não homologadas" data-bs-toggle="modal" data-bs-target="#modalAprovarPlano{{ plano.pk }}" data-plano-id="{{ plano.pk }}" disabled style="opacity: 0.6;">
+                                                            <i class="fas fa-check-circle"></i>
+                                                        </button>
+                                                        <span class="badge bg-warning text-dark ms-1" title="{{ homologacao_info.licencas_nao_homologadas }} licenças não homologadas de {{ homologacao_info.total_licencas }} total">
+                                                            {{ homologacao_info.licencas_homologadas }}/{{ homologacao_info.total_licencas }}
+                                                        </span>
+                                                        {% endif %}
+                                                    {% else %}
+                                                        <button type="button" class="btn btn-sm btn-success btn-aprovar-plano" title="Aprovar Plano" data-bs-toggle="modal" data-bs-target="#modalAprovarPlano{{ plano.pk }}" data-plano-id="{{ plano.pk }}">
+                                                            <i class="fas fa-check-circle"></i>
+                                                        </button>
+                                                    {% endif %}
+                                                    {% endwith %}
+                                                {% endif %}
+                                                {% endif %}
+                                                
+                                                {% if menu_permissions.BOTAO_PLANO_LICENCA_ESPECIAL_EDITAR or user.is_superuser %}
+                                                <a href="{% url 'militares:plano_licenca_especial_update' plano.pk %}" class="btn btn-sm btn-primary" title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                {% endif %}
+                                                {% if menu_permissions.BOTAO_PLANO_LICENCA_ESPECIAL_EXCLUIR or user.is_superuser %}
+                                                <a href="{% url 'militares:plano_licenca_especial_delete' plano.pk %}" class="btn btn-sm btn-danger" title="Excluir">
+                                                    <i class="fas fa-trash"></i>
+                                                </a>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if is_paginated %}
+                        <nav aria-label="Paginação">
+                            <ul class="pagination justify-content-center mt-4">
+                                {% if page_obj.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page=1{% if filtro_ano_plano %}&ano_plano={{ filtro_ano_plano }}{% endif %}{% if filtro_status %}&status={{ filtro_status }}{% endif %}">Primeira</a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if filtro_ano_plano %}&ano_plano={{ filtro_ano_plano }}{% endif %}{% if filtro_status %}&status={{ filtro_status }}{% endif %}">Anterior</a>
+                                    </li>
+                                {% endif %}
+                                
+                                <li class="page-item active">
+                                    <span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+                                </li>
+                                
+                                {% if page_obj.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if filtro_ano_plano %}&ano_plano={{ filtro_ano_plano }}{% endif %}{% if filtro_status %}&status={{ filtro_status }}{% endif %}">Próxima</a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if filtro_ano_plano %}&ano_plano={{ filtro_ano_plano }}{% endif %}{% if filtro_status %}&status={{ filtro_status }}{% endif %}">Última</a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Nenhum plano de licença especial encontrado.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modais Gerar PDF -->
+{% for plano in planos %}
+<div class="modal fade" id="modalGerarPDF{{ plano.pk }}" tabindex="-1" aria-labelledby="modalGerarPDF{{ plano.pk }}Label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="modalGerarPDF{{ plano.pk }}Label">
+                    <i class="fas fa-file-pdf me-2"></i>Gerar PDF - {{ plano.titulo|default:"Plano de Licenças Especiais" }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <form method="get" action="{% url 'militares:plano_licenca_especial_list_pdf' %}" target="_blank">
+                <input type="hidden" name="plano_id" value="{{ plano.pk }}">
+                <input type="hidden" name="ano_plano" value="{{ plano.ano_plano }}">
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Plano:</strong> {{ plano.titulo|default:"Plano de Licenças Especiais" }}<br>
+                        <strong>Ano do Plano:</strong> {{ plano.ano_plano }}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="pdf_mes_{{ plano.pk }}" class="form-label">
+                            <i class="fas fa-calendar-alt me-2"></i>Mês
+                        </label>
+                        <select name="mes" id="pdf_mes_{{ plano.pk }}" class="form-select">
+                            <option value="">Todos os meses</option>
+                            {% for mes in meses_disponiveis %}
+                                <option value="{{ mes.valor }}">{{ mes.nome }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="form-text text-muted">Filtrar licenças especiais por mês específico</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="pdf_om_{{ plano.pk }}" class="form-label">
+                            <i class="fas fa-building me-2"></i>Organização Militar (OM)
+                        </label>
+                        <select name="om" id="pdf_om_{{ plano.pk }}" class="form-select">
+                            {% for valor, nome in oms_disponiveis %}
+                                <option value="{{ valor }}">{{ nome }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="form-text text-muted">Filtrar licenças especiais por Organização Militar</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-file-pdf me-2"></i>Gerar PDF
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Modais de Aprovação -->
+{% for plano in planos %}
+{% if plano.status != 'APROVADO' and plano.status != 'PUBLICADO' and plano.status != 'CANCELADO' %}
+<!-- Modal Aprovar Plano {{ plano.pk }} -->
+<div class="modal fade" id="modalAprovarPlano{{ plano.pk }}" tabindex="-1" aria-labelledby="modalAprovarPlano{{ plano.pk }}Label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="modalAprovarPlano{{ plano.pk }}Label">
+                    <i class="fas fa-check-circle me-2"></i>Aprovar Plano de Licenças Especiais
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <form method="post" action="{% url 'militares:plano_licenca_especial_aprovar' plano.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    {% with homologacao_info=planos_homologacao|lookup:plano.pk %}
+                    {% if homologacao_info %}
+                    {% if not homologacao_info.todas_homologadas %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Atenção!</strong> Não é possível aprovar o plano! 
+                        <strong>{{ homologacao_info.licencas_nao_homologadas }}</strong> de <strong>{{ homologacao_info.total_licencas }}</strong> licenças especiais ainda não foram homologadas.
+                        <br><small>Por favor, homologue todas as licenças antes de aprovar o plano.</small>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>Pronto para aprovar!</strong> Todas as <strong>{{ homologacao_info.total_licencas }}</strong> licenças especiais estão homologadas.
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                    {% endwith %}
+                    
+                    <div class="mb-3">
+                        <p><strong>Plano:</strong> {{ plano.titulo }}</p>
+                        <p><strong>Ano do Plano:</strong> {{ plano.ano_plano }}</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    {% with homologacao_info=planos_homologacao|lookup:plano.pk %}
+                    {% if homologacao_info and homologacao_info.todas_homologadas %}
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check-circle me-2"></i>Aprovar Plano
+                    </button>
+                    {% else %}
+                    <button type="submit" class="btn btn-success" disabled>
+                        <i class="fas fa-check-circle me-2"></i>Aprovar Plano (Bloqueado)
+                    </button>
+                    {% endif %}
+                    {% endwith %}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Template de planos de licenças especiais carregado');
+    
+    // Fallback para botões de aprovar plano se Bootstrap modal não funcionar
+    const botoesAprovar = document.querySelectorAll('.btn-aprovar-plano');
+    botoesAprovar.forEach(function(botao) {
+        botao.addEventListener('click', function(e) {
+            const planoId = this.getAttribute('data-plano-id');
+            const modalId = '#modalAprovarPlano' + planoId;
+            const modal = document.querySelector(modalId);
+            
+            if (modal) {
+                // Tentar abrir com Bootstrap 5
+                if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    const bsModal = new bootstrap.Modal(modal);
+                    bsModal.show();
+                } else if (typeof $ !== 'undefined' && $.fn.modal) {
+                    // Fallback para Bootstrap 4/jQuery
+                    $(modal).modal('show');
+                } else {
+                    // Fallback manual
+                    modal.style.display = 'block';
+                    modal.classList.add('show');
+                    document.body.classList.add('modal-open');
+                    
+                    // Adicionar backdrop
+                    const backdrop = document.createElement('div');
+                    backdrop.className = 'modal-backdrop fade show';
+                    backdrop.id = 'modalBackdropAprovar';
+                    document.body.appendChild(backdrop);
+                    
+                    // Fechar modal ao clicar no backdrop ou no botão de fechar
+                    backdrop.addEventListener('click', function() {
+                        modal.style.display = 'none';
+                        modal.classList.remove('show');
+                        document.body.classList.remove('modal-open');
+                        if (document.getElementById('modalBackdropAprovar')) {
+                            document.body.removeChild(backdrop);
+                        }
+                    });
+                    
+                    const closeButtons = modal.querySelectorAll('[data-bs-dismiss="modal"], .btn-close');
+                    closeButtons.forEach(function(btn) {
+                        btn.addEventListener('click', function() {
+                            modal.style.display = 'none';
+                            modal.classList.remove('show');
+                            document.body.classList.remove('modal-open');
+                            if (document.getElementById('modalBackdropAprovar')) {
+                                document.body.removeChild(backdrop);
+                            }
+                        });
+                    });
+                }
+            } else {
+                console.error('Modal não encontrado:', modalId);
+            }
+        });
+    });
+    
+    // Garantir que os botões de Gerar PDF funcionem
+    const botoesGerarPDF = document.querySelectorAll('button[data-bs-target^="#modalGerarPDF"]');
+    botoesGerarPDF.forEach(function(botao) {
+        botao.addEventListener('click', function(e) {
+            const modalId = this.getAttribute('data-bs-target');
+            const modal = document.querySelector(modalId);
+            
+            if (modal) {
+                // Tentar abrir com Bootstrap 5
+                if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    const bsModal = new bootstrap.Modal(modal);
+                    bsModal.show();
+                } else if (typeof $ !== 'undefined' && $.fn.modal) {
+                    // Fallback para Bootstrap 4/jQuery
+                    $(modal).modal('show');
+                } else {
+                    // Fallback manual
+                    modal.style.display = 'block';
+                    modal.classList.add('show');
+                    document.body.classList.add('modal-open');
+                    
+                    // Adicionar backdrop
+                    const backdrop = document.createElement('div');
+                    backdrop.className = 'modal-backdrop fade show';
+                    backdrop.id = 'modalBackdropPDF';
+                    document.body.appendChild(backdrop);
+                    
+                    // Fechar modal ao clicar no backdrop ou no botão de fechar
+                    backdrop.addEventListener('click', function() {
+                        modal.style.display = 'none';
+                        modal.classList.remove('show');
+                        document.body.classList.remove('modal-open');
+                        if (document.getElementById('modalBackdropPDF')) {
+                            document.body.removeChild(backdrop);
+                        }
+                    });
+                    
+                    const closeButtons = modal.querySelectorAll('[data-bs-dismiss="modal"], .btn-close');
+                    closeButtons.forEach(function(btn) {
+                        btn.addEventListener('click', function() {
+                            modal.style.display = 'none';
+                            modal.classList.remove('show');
+                            document.body.classList.remove('modal-open');
+                            if (document.getElementById('modalBackdropPDF')) {
+                                document.body.removeChild(backdrop);
+                            }
+                        });
+                    });
+                }
+            } else {
+                console.error('Modal não encontrado:', modalId);
+                alert('Modal de geração de PDF não encontrado. Por favor, recarregue a página.');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
+

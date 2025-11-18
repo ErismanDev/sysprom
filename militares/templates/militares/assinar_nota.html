@@ -1,0 +1,207 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Assinar Nota{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">
+                        <i class="fas fa-signature me-2"></i>
+                        Assinar Nota - {{ tipo_assinatura|title }}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h5>Informações da Nota</h5>
+                            <table class="table table-bordered">
+                                <tr>
+                                    <th width="30%">Número:</th>
+                                    <td>{{ nota.numero }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Título:</th>
+                                    <td>{{ nota.titulo }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Tipo:</th>
+                                    <td>{{ nota.get_tipo_display }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Status Atual:</th>
+                                    <td>
+                                        <span class="badge bg-{% if nota.status == 'RASCUNHO' %}secondary{% elif nota.status == 'REVISADA' %}info{% elif nota.status == 'APROVADA' %}success{% elif nota.status == 'EDITADA' %}warning{% elif nota.status == 'PUBLICADA' %}primary{% endif %}">
+                                            {{ nota.get_status_display }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Origem:</th>
+                                    <td>{{ nota.origem_publicacao|default:"Não informado" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Criado por:</th>
+                                    <td>{{ nota.criado_por.get_full_name }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Data de Criação:</th>
+                                    <td>{{ nota.data_criacao|date:"d/m/Y H:i" }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-4">
+                            <h5>Assinaturas Existentes</h5>
+                            {% if nota.assinaturas.exists %}
+                                <div class="list-group">
+                                    {% for assinatura in nota.assinaturas.all %}
+                                    <div class="list-group-item">
+                                        <div class="d-flex w-100 justify-content-between">
+                                            <h6 class="mb-1">{{ assinatura.get_tipo_assinatura_display }}</h6>
+                                            <small>{{ assinatura.data_assinatura|date:"d/m/Y H:i" }}</small>
+                                        </div>
+                                        <p class="mb-1">{{ assinatura.assinado_por.get_full_name }}</p>
+                                        {% if assinatura.funcao_assinatura %}
+                                            <small class="text-muted">{{ assinatura.funcao_assinatura }}</small>
+                                        {% endif %}
+                                        {% if assinatura.observacoes %}
+                                            <br><small class="text-muted">{{ assinatura.observacoes }}</small>
+                                        {% endif %}
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="text-muted">Nenhuma assinatura registrada.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Formulário de Assinatura -->
+                    <form id="formAssinatura" method="post">
+                        {% csrf_token %}
+                        
+                        <!-- Campo para selecionar função -->
+                        <div class="mb-3">
+                            <label for="funcao_assinatura" class="form-label"><strong>Função para Assinatura *</strong></label>
+                            <select class="form-select" id="funcao_assinatura" name="funcao_assinatura" required>
+                                <option value="">Selecione uma função...</option>
+                                {% for ufm in funcoes_usuario %}
+                                    <option value="{{ ufm.funcao_militar.nome }}" {% if ufm.funcao_militar.nome == funcao_atual %}selected{% endif %}>
+                                        {{ ufm.funcao_militar.nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Selecione a função que será exibida na assinatura da nota.</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="observacoes" class="form-label">Observações (opcional)</label>
+                            <textarea name="observacoes" id="observacoes" class="form-control" rows="3" placeholder="Observações sobre a assinatura..."></textarea>
+                        </div>
+
+
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Atenção:</strong> A assinatura eletrônica tem a mesma validade de uma assinatura física. 
+                            Certifique-se de que todas as informações estão corretas antes de assinar.
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'militares:nota_detail' nota.pk %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-1"></i>
+                                Voltar
+                            </a>
+                            <button type="button" class="btn btn-primary" onclick="mostrarModalConfirmacaoAssinatura()">
+                                <i class="fas fa-signature me-1"></i>
+                                Assinar como {{ tipo_assinatura|title }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function mostrarModalConfirmacaoAssinatura() {
+    // Validar campos obrigatórios
+    const funcao = document.getElementById('funcao_assinatura').value;
+    
+    if (!funcao) {
+        mostrarModalErro('Campo Obrigatório', 'Por favor, selecione uma função para a assinatura.');
+        return;
+    }
+    
+    // Obter dados do formulário
+    const observacoes = document.getElementById('observacoes').value;
+    const funcaoText = document.getElementById('funcao_assinatura').selectedOptions[0].text;
+    
+    // Criar mensagem de confirmação
+    const mensagem = `
+        <div class="text-start">
+            <p><strong>Função:</strong> ${funcaoText}</p>
+            ${observacoes ? `<p><strong>Observações:</strong> ${observacoes}</p>` : ''}
+            <p class="text-warning mt-3">
+                <i class="fas fa-exclamation-triangle me-1"></i>
+                <strong>Atenção:</strong> A assinatura eletrônica tem a mesma validade de uma assinatura física.
+            </p>
+        </div>
+    `;
+    
+    // Mostrar modal de confirmação
+    mostrarModalConfirmacao(
+        'Confirmar Assinatura Eletrônica',
+        mensagem,
+        function() {
+            // Submeter o formulário
+            document.getElementById('formAssinatura').submit();
+        }
+    );
+}
+
+// Função para mostrar modal de erro (se não existir)
+function mostrarModalErro(titulo, mensagem) {
+    const modalHtml = `
+        <div class="modal fade" id="globalErrorModal" tabindex="-1" aria-labelledby="globalErrorModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg">
+                    <div class="modal-header bg-danger text-white border-0">
+                        <h5 class="modal-title" id="globalErrorModalLabel">
+                            <i class="fas fa-exclamation-triangle me-2"></i>${titulo}
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body text-center py-4">
+                        <div class="fs-5">${mensagem}</div>
+                    </div>
+                    <div class="modal-footer border-0 justify-content-center">
+                        <button type="button" class="btn btn-danger" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-1"></i>Fechar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remover modal existente se houver
+    const existingModal = document.getElementById('globalErrorModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Adicionar novo modal
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('globalErrorModal'));
+    modal.show();
+}
+</script>
+{% endblock %}

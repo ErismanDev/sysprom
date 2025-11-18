@@ -1,0 +1,1034 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load origem_tags %}
+
+{% block title %}Banco de Horas{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-2 fw-bold text-primary">
+                <i class="fas fa-clock me-3"></i>
+                Banco de Horas
+                {% if mes and ano %}
+                    <span class="badge bg-primary fs-6 ms-3 px-3 py-2">{{ mes|date:"F" }} {{ ano }}</span>
+                {% elif mes %}
+                    <span class="badge bg-primary fs-6 ms-3 px-3 py-2">{{ mes|date:"F" }}</span>
+                {% elif ano %}
+                    <span class="badge bg-primary fs-6 ms-3 px-3 py-2">{{ ano }}</span>
+                {% endif %}
+            </h1>
+            <p class="text-muted mb-0 fs-5">
+                <i class="fas fa-info-circle me-2"></i>
+                Gerencie o banco de horas das escalas de serviço
+                {% if mes and ano %}
+                    - {{ mes|date:"F" }} de {{ ano }}
+                {% elif mes %}
+                    - {{ mes|date:"F" }}
+                {% elif ano %}
+                    - Ano {{ ano }}
+                {% endif %}
+            </p>
+        </div>
+        <div class="d-flex gap-3">
+            <button type="button" class="btn btn-warning btn-lg px-4" onclick="sincronizarBancoHoras()">
+                <i class="fas fa-sync-alt me-2"></i>
+                Sincronizar com Escalas
+            </button>
+            
+            <button type="button" class="btn btn-success btn-lg px-4" onclick="gerarRelatorioPDFCompleto()">
+                <i class="fas fa-file-pdf me-2"></i>
+                Relatório PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- Filtros Modernos -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-gradient-primary text-white">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-filter me-2"></i>
+                <h6 class="mb-0">Filtros de Pesquisa</h6>
+            </div>
+        </div>
+        <div class="card-body p-4">
+            <form method="get" class="row g-4">
+                <!-- Primeira linha -->
+                <div class="col-lg-6">
+                    <div class="form-floating">
+                        <input type="text" class="form-control form-control-lg" id="search" name="search" 
+                               value="{{ search }}" placeholder="Digite o nome do militar">
+                        <label for="search">
+                            <i class="fas fa-search me-2"></i>Buscar por militar
+                        </label>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="form-floating">
+                        <select class="form-select form-select-lg" id="organizacao_filtro" name="organizacao_filtro">
+                            <option value="">Todas as organizações</option>
+                            {% for opcao in opcoes_filtro_hierarquico %}
+                                <option value="{{ opcao.id }}" {% if organizacao_filtro == opcao.id %}selected{% endif %}>
+                                    {% if opcao.tipo == 'orgao' %}🏛️{% elif opcao.tipo == 'grande_comando' %}🏢{% elif opcao.tipo == 'unidade' %}🏭{% elif opcao.tipo == 'sub_unidade' %}🏢{% endif %} {{ opcao.nome }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <label for="organizacao_filtro">
+                            <i class="fas fa-sitemap me-2"></i>Organização
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Segunda linha -->
+                <div class="col-lg-3">
+                    <div class="form-floating">
+                        <select class="form-select form-select-lg" id="mes" name="mes">
+                            <option value="">Todos os meses</option>
+                            <option value="1" {% if mes == '1' %}selected{% endif %}>Janeiro</option>
+                            <option value="2" {% if mes == '2' %}selected{% endif %}>Fevereiro</option>
+                            <option value="3" {% if mes == '3' %}selected{% endif %}>Março</option>
+                            <option value="4" {% if mes == '4' %}selected{% endif %}>Abril</option>
+                            <option value="5" {% if mes == '5' %}selected{% endif %}>Maio</option>
+                            <option value="6" {% if mes == '6' %}selected{% endif %}>Junho</option>
+                            <option value="7" {% if mes == '7' %}selected{% endif %}>Julho</option>
+                            <option value="8" {% if mes == '8' %}selected{% endif %}>Agosto</option>
+                            <option value="9" {% if mes == '9' %}selected{% endif %}>Setembro</option>
+                            <option value="10" {% if mes == '10' %}selected{% endif %}>Outubro</option>
+                            <option value="11" {% if mes == '11' %}selected{% endif %}>Novembro</option>
+                            <option value="12" {% if mes == '12' %}selected{% endif %}>Dezembro</option>
+                        </select>
+                        <label for="mes">
+                            <i class="fas fa-calendar-alt me-2"></i>Mês
+                        </label>
+                    </div>
+                </div>
+                <div class="col-lg-3">
+                    <div class="form-floating">
+                        <select class="form-select form-select-lg" id="ano" name="ano">
+                            <option value="">Todos os anos</option>
+                            {% for ano_option in anos_disponiveis %}
+                                <option value="{{ ano_option }}" {% if ano == ano_option|stringformat:"s" %}selected{% endif %}>
+                                    {{ ano_option }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <label for="ano">
+                            <i class="fas fa-calendar me-2"></i>Ano
+                        </label>
+                    </div>
+                </div>
+                <div class="col-lg-3">
+                    <div class="form-floating">
+                        <input type="date" class="form-control form-control-lg" id="data_inicio" name="data_inicio" 
+                               value="{{ data_inicio }}">
+                        <label for="data_inicio">
+                            <i class="fas fa-calendar-plus me-2"></i>Data Início
+                        </label>
+                    </div>
+                </div>
+                <div class="col-lg-3">
+                    <div class="form-floating">
+                        <input type="date" class="form-control form-control-lg" id="data_fim" name="data_fim" 
+                               value="{{ data_fim }}">
+                        <label for="data_fim">
+                            <i class="fas fa-calendar-minus me-2"></i>Data Fim
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Botões -->
+                <div class="col-12">
+                    <div class="d-flex gap-3 justify-content-end">
+                        <button type="submit" class="btn btn-primary btn-lg px-4">
+                            <i class="fas fa-search me-2"></i>
+                            Filtrar
+                        </button>
+                        <a href="{% url 'militares:escalas_banco_horas' %}" class="btn btn-outline-secondary btn-lg px-4">
+                            <i class="fas fa-times me-2"></i>
+                            Limpar Filtros
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Lista de Militares -->
+    {% if militares_com_saldo %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-gradient-info text-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-users me-3 fs-4"></i>
+                    <div>
+                        <h5 class="mb-0">Resumo de Saldos por Militar</h5>
+                        <small class="opacity-75">{{ periodo|title }}</small>
+                    </div>
+                </div>
+                <div class="d-flex gap-3">
+                    <span class="badge bg-success fs-6 px-3 py-2">
+                        <i class="fas fa-check me-2"></i>
+                        Com horas no mês atual
+                    </span>
+                    <span class="badge bg-warning text-dark fs-6 px-3 py-2">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Sem horas no mês atual
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>
+                                <i class="fas fa-user me-2"></i>Militar
+                            </th>
+                            <th class="text-center">
+                                <i class="fas fa-info-circle me-2"></i>Situação
+                            </th>
+                            <th class="text-center" style="width: 25%;">
+                                <i class="fas fa-sitemap me-2"></i>Lotação Atual
+                            </th>
+                            <th class="text-center">
+                                <i class="fas fa-clock me-2"></i>H/Mês
+                            </th>
+                            <th class="text-center">
+                                <i class="fas fa-calendar me-2"></i>H/Ano
+                            </th>
+                            <th class="text-center">
+                                <i class="fas fa-history me-2"></i>Última Movimentação
+                            </th>
+                            <th class="text-center">
+                                <i class="fas fa-cogs me-2"></i>Ações
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in militares_com_saldo %}
+                        <tr class="{% if not item.tem_horas_mes_atual %}table-warning{% endif %} align-middle">
+                            <td class="py-3">
+                                <div class="d-flex align-items-center">
+                                    {% if item.militar.foto %}
+                                        <img src="{{ item.militar.foto.url }}" alt="{{ item.militar.nome_completo }}" 
+                                             class="rounded-circle me-3 shadow-sm" style="width: 50px; height: 50px; object-fit: cover;">
+                                    {% else %}
+                                        <div class="avatar-lg {% if item.tem_horas_mes_atual %}bg-primary{% else %}bg-warning{% endif %} text-white rounded-circle d-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 50px; height: 50px;">
+                                            <span class="fw-bold fs-5">{{ item.militar.nome_completo|first|upper }}</span>
+                                        </div>
+                                    {% endif %}
+                                    <div>
+                                        <div class="mb-1">
+                                            <h6 class="mb-0 fw-bold">{{ item.militar.nome_completo }}</h6>
+                                        </div>
+                                        <div class="mb-1">
+                                            <span class="badge bg-primary fs-6">{{ item.militar.get_posto_graduacao_display }} BM</span>
+                                        </div>
+                                        {% if item.militar.nome_guerra %}
+                                            <div class="mb-1">
+                                                <small class="text-muted fst-italic">{{ item.militar.nome_guerra }}</small>
+                                            </div>
+                                        {% endif %}
+                                        {% if not item.tem_horas_mes_atual %}
+                                            <span class="badge bg-warning text-dark">
+                                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                                Sem horas no mês atual
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="text-center py-3">
+                                {% if item.militar.situacao == 'PRONTO' %}
+                                    <span class="badge bg-success fs-6 px-3 py-2" data-bs-toggle="tooltip" title="Pronto para o serviço">
+                                        <i class="fas fa-check-circle me-1"></i>
+                                        Pronto
+                                    </span>
+                                {% elif item.militar.situacao == 'INATIVO' %}
+                                    <span class="badge bg-danger fs-6 px-3 py-2" data-bs-toggle="tooltip" title="Militar inativo">
+                                        <i class="fas fa-times-circle me-1"></i>
+                                        Inativo
+                                    </span>
+                                {% elif 'CEDIDO' in item.militar.situacao %}
+                                    <span class="badge bg-info fs-6 px-3 py-2" data-bs-toggle="tooltip" title="{{ item.militar.get_situacao_display }}">
+                                        <i class="fas fa-exchange-alt me-1"></i>
+                                        {{ item.militar.get_situacao_display }}
+                                    </span>
+                                {% elif 'AFASTAMENTO' in item.militar.situacao %}
+                                    <span class="badge bg-warning text-dark fs-6 px-3 py-2" data-bs-toggle="tooltip" title="{{ item.militar.get_situacao_display }}">
+                                        <i class="fas fa-user-times me-1"></i>
+                                        {{ item.militar.get_situacao_display }}
+                                    </span>
+                                {% elif 'ADIDO' in item.militar.situacao %}
+                                    <span class="badge bg-primary fs-6 px-3 py-2" data-bs-toggle="tooltip" title="{{ item.militar.get_situacao_display }}">
+                                        <i class="fas fa-user-plus me-1"></i>
+                                        {{ item.militar.get_situacao_display }}
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary fs-6 px-3 py-2" data-bs-toggle="tooltip" title="{{ item.militar.get_situacao_display }}">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        {{ item.militar.get_situacao_display }}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center py-3">
+                                {% if item.militar.lotacao_atual %}
+                                    <div class="d-flex flex-column align-items-center">
+                                        <span class="badge bg-info text-dark fs-6 mb-1" data-bs-toggle="tooltip" title="{{ item.militar.lotacao_atual.lotacao }}">
+                                            {{ item.militar.lotacao_atual.lotacao|ultima_instancia_origem|truncatechars:35 }}
+                                        </span>
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center py-3">
+                                <span class="fw-bold fs-5 {% if item.horas_mes > 0 %}text-success{% else %}text-warning{% endif %}">
+                                    {{ item.horas_mes|floatformat:2 }}h
+                                </span>
+                            </td>
+                            <td class="text-center py-3">
+                                <span class="fw-bold fs-5 {% if item.acumulado_ano > 0 %}text-success{% else %}text-warning{% endif %}">
+                                    {{ item.acumulado_ano|floatformat:2 }}h
+                                </span>
+                            </td>
+                            <td class="text-center py-3">
+                                {% if item.ultima_movimentacao %}
+                                    <div class="d-flex flex-column align-items-center">
+                                        <span class="fw-bold text-dark">{{ item.ultima_movimentacao.data_movimentacao|date:"d/m/Y" }}</span>
+                                        <small class="text-muted">{{ item.ultima_movimentacao.get_tipo_movimentacao_display }}</small>
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center py-3">
+                                <div class="btn-group" role="group">
+                                    <button type="button" class="btn btn-outline-primary btn-sm" 
+                                            onclick="verDetalhesMilitar({{ item.militar.id }})" 
+                                            data-bs-toggle="tooltip" title="Ver detalhes">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-info btn-sm" 
+                                            onclick="gerarPDFMilitarIndividual({{ item.militar.id }}, '{{ item.militar.nome_completo }}')" 
+                                            data-bs-toggle="tooltip" title="Gerar PDF individual">
+                                        <i class="fas fa-file-pdf"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Adicionar animação de loading nos botões
+    adicionarAnimacoesLoading();
+});
+
+
+function verDetalhesMilitar(militarId) {
+    const params = new URLSearchParams(window.location.search);
+    const ano = params.get('ano') || '';
+    const mes = params.get('mes') || '';
+    const dataInicio = params.get('data_inicio') || '';
+    const dataFim = params.get('data_fim') || '';
+    
+    const url = new URL('{% url "militares:api_banco_horas_detalhes_militar" %}', window.location.origin);
+    url.searchParams.set('militar_id', militarId);
+    if (ano) url.searchParams.set('ano', ano);
+    if (mes) url.searchParams.set('mes', mes);
+    if (dataInicio && dataFim) {
+        url.searchParams.set('data_inicio', dataInicio);
+        url.searchParams.set('data_fim', dataFim);
+    }
+    
+    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }})
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) {
+                mostrarAlerta(data.message || 'Não foi possível carregar os detalhes.', 'danger');
+                return;
+            }
+            mostrarModalDetalhes(data);
+        })
+        .catch(err => {
+            console.error(err);
+            mostrarAlerta('Erro ao carregar detalhes.', 'danger');
+        });
+}
+
+function mostrarModalDetalhes(data) {
+    const modalId = 'modalDetalhesBancoHoras';
+    const existente = document.getElementById(modalId);
+    if (existente) existente.remove();
+    
+    const rows = data.movimentacoes.map(m => `
+        <tr>
+            <td>${m.data}</td>
+            <td>${m.tipo}</td>
+            <td class="text-end">${m.horas.toFixed(2)}h</td>
+            <td class="text-end">${m.saldo_anterior.toFixed(2)}h</td>
+            <td class="text-end">${m.saldo_atual.toFixed(2)}h</td>
+            <td>${m.escala || '-'}</td>
+            <td>${m.turno || '-'}</td>
+        </tr>
+    `).join('');
+    
+    const params = new URLSearchParams(window.location.search);
+    const anoParam = params.get('ano');
+    const mesParam = params.get('mes');
+    const anoForPdf = anoParam || new Date().getFullYear().toString();
+    const urlPdfAno = `{% url 'militares:banco_horas_relatorio_pdf_militar' %}?militar_id=${data.militar.id}&ano=${anoForPdf}`;
+    const urlPdfMes = mesParam ? `${urlPdfAno}&mes=${mesParam}` : null;
+
+    const html = `
+    <div class="modal fade" id="${modalId}" tabindex="-1">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fas fa-user me-2"></i>${data.militar.posto_graduacao} BM ${data.militar.nome}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="row g-3 mb-3">
+              <div class="col">
+                <div class="card">
+                  <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                      <span>Entradas</span>
+                      <strong>${data.estatisticas.entradas.toFixed(2)}h</strong>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                      <span>Saídas</span>
+                      <strong>${data.estatisticas.saidas.toFixed(2)}h</strong>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                      <span>Saldo no Período</span>
+                      <strong>${data.estatisticas.saldo_periodo.toFixed(2)}h</strong>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                      <span>Saldo Atual</span>
+                      <strong>${data.estatisticas.saldo_atual.toFixed(2)}h</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-sm">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Tipo</th>
+                    <th class="text-end">Horas</th>
+                    <th class="text-end">Saldo Ant.</th>
+                    <th class="text-end">Saldo Atual</th>
+                    <th>Escala</th>
+                    <th>Turno</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rows || '<tr><td colspan="7" class="text-center text-muted">Sem movimentações</td></tr>'}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="modal-footer d-flex justify-content-between">
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-success" onclick="window.open('${urlPdfAno}', '_blank')">
+                <i class="fas fa-file-pdf me-1"></i> PDF do Ano
+              </button>
+              ${urlPdfMes ? `<button type=\"button\" class=\"btn btn-info\" onclick=\"window.open('${urlPdfMes}', '_blank')\"><i class=\"fas fa-file-pdf me-1\"></i> PDF do Mês</button>` : ''}
+            </div>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+    
+    document.body.insertAdjacentHTML('beforeend', html);
+    new bootstrap.Modal(document.getElementById(modalId)).show();
+}
+
+
+function sincronizarBancoHoras() {
+    // Mostrar loading
+    const btn = event.target.closest('button');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Sincronizando...';
+    btn.disabled = true;
+    
+    // Coletar parâmetros atuais do filtro para usar como período
+    const params = new URLSearchParams(window.location.search);
+    const periodo = params.get('periodo') || 'todos';
+    const dataInicio = params.get('data_inicio');
+    const dataFim = params.get('data_fim');
+    
+    // Preparar dados para envio
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    // Adicionar período baseado nos filtros atuais
+    if (periodo === 'personalizado' && dataInicio && dataFim) {
+        formData.append('data_inicio', dataInicio);
+        formData.append('data_fim', dataFim);
+    } else if (periodo === 'semanal') {
+        const hoje = new Date();
+        const semanaAtras = new Date(hoje.getTime() - 7 * 24 * 60 * 60 * 1000);
+        formData.append('data_inicio', semanaAtras.toISOString().split('T')[0]);
+        formData.append('data_fim', hoje.toISOString().split('T')[0]);
+    } else if (periodo === 'mensal') {
+        const hoje = new Date();
+        const mesAtras = new Date(hoje.getFullYear(), hoje.getMonth() - 1, hoje.getDate());
+        formData.append('data_inicio', mesAtras.toISOString().split('T')[0]);
+        formData.append('data_fim', hoje.toISOString().split('T')[0]);
+    } else if (periodo === 'anual') {
+        const hoje = new Date();
+        const anoAtras = new Date(hoje.getFullYear() - 1, hoje.getMonth(), hoje.getDate());
+        formData.append('data_inicio', anoAtras.toISOString().split('T')[0]);
+        formData.append('data_fim', hoje.toISOString().split('T')[0]);
+    }
+    
+    // Fazer requisição
+    fetch('{% url "militares:banco_horas_sincronizar" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            mostrarAlerta(data.message, 'success');
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            mostrarAlerta('Erro na sincronização: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        mostrarAlerta('Erro na sincronização', 'danger');
+    })
+    .finally(() => {
+        // Restaurar botão
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    });
+}
+
+function adicionarAnimacoesLoading() {
+    // Adicionar loading nos formulários
+    const forms = document.querySelectorAll('form');
+    forms.forEach(form => {
+        form.addEventListener('submit', function() {
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                const originalText = submitBtn.innerHTML;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Processando...';
+                submitBtn.disabled = true;
+                
+                // Restaurar após 3 segundos (caso não seja redirecionado)
+                setTimeout(() => {
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                }, 3000);
+            }
+        });
+    });
+}
+
+
+function mostrarAlerta(mensagem, tipo = 'info') {
+    // Criar elemento de alerta
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${tipo} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.innerHTML = `
+        ${mensagem}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    // Adicionar ao body
+    document.body.appendChild(alertDiv);
+    
+    // Remover automaticamente após 5 segundos
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+
+function gerarRelatorioPDFCompleto() {
+    // Criar modal para seleção de período
+    const modalHtml = `
+        <div class="modal fade" id="modalPDFCompleto" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-file-pdf me-2"></i>
+                            Gerar Relatório PDF Completo
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="formPDFCompleto">
+                            <div class="mb-3">
+                                <label for="anoCompleto" class="form-label">Selecionar Ano</label>
+                                <select class="form-select" id="anoCompleto" name="ano" required onchange="atualizarOpcoesMesCompleto()">
+                                    <option value="">Selecione o ano...</option>
+                                    {% now 'Y' as current_year %}
+                                    {% for ano_option in anos_disponiveis %}
+                                        <option value="{{ ano_option }}" {% if ano_option|stringformat:'s' == current_year %}selected{% endif %}>
+                                            {{ ano_option }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Tipo de Relatório</label>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <div class="card">
+                                            <div class="card-body text-center p-3">
+                                                <input class="form-check-input" type="radio" name="tipoRelatorioCompleto" id="anoTodoCompleto" value="ano" checked>
+                                                <label class="form-check-label d-block" for="anoTodoCompleto">
+                                                    <i class="fas fa-calendar-alt fa-2x text-primary mb-2"></i>
+                                                    <br>
+                                                    <strong>Ano Todo</strong>
+                                                    <br>
+                                                    <small class="text-muted">Todos os militares por mês durante o ano</small>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="card">
+                                            <div class="card-body text-center p-3">
+                                                <input class="form-check-input" type="radio" name="tipoRelatorioCompleto" id="mesEspecificoCompleto" value="mes">
+                                                <label class="form-check-label d-block" for="mesEspecificoCompleto">
+                                                    <i class="fas fa-calendar-day fa-2x text-info mb-2"></i>
+                                                    <br>
+                                                    <strong>Mês Específico</strong>
+                                                    <br>
+                                                    <small class="text-muted">Todos os militares em um mês específico</small>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3" id="divMesEspecificoCompleto" style="display: none;">
+                                <label for="mesCompleto" class="form-label">Selecionar Mês</label>
+                                <select class="form-select" id="mesCompleto" name="mes">
+                                    <option value="">Selecione o mês...</option>
+                                    <option value="1">Janeiro</option>
+                                    <option value="2">Fevereiro</option>
+                                    <option value="3">Março</option>
+                                    <option value="4">Abril</option>
+                                    <option value="5">Maio</option>
+                                    <option value="6">Junho</option>
+                                    <option value="7">Julho</option>
+                                    <option value="8">Agosto</option>
+                                    <option value="9">Setembro</option>
+                                    <option value="10">Outubro</option>
+                                    <option value="11">Novembro</option>
+                                    <option value="12">Dezembro</option>
+                                </select>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-1"></i>
+                            Cancelar
+                        </button>
+                        <button type="button" class="btn btn-success" onclick="confirmarPDFCompleto()">
+                            <i class="fas fa-file-pdf me-1"></i>
+                            Gerar Relatório
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remover modal existente se houver
+    const existingModal = document.getElementById('modalPDFCompleto');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Adicionar modal ao body
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Adicionar event listeners
+    document.querySelectorAll('input[name="tipoRelatorioCompleto"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const divMes = document.getElementById('divMesEspecificoCompleto');
+            if (this.value === 'mes') {
+                divMes.style.display = 'block';
+            } else {
+                divMes.style.display = 'none';
+            }
+        });
+    });
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('modalPDFCompleto'));
+    modal.show();
+}
+
+function atualizarOpcoesMesCompleto() {
+    const ano = document.getElementById('anoCompleto').value;
+    const mesSelect = document.getElementById('mesCompleto');
+    
+    if (ano) {
+        // Se for o ano atual, marcar o mês atual como padrão
+        const hoje = new Date();
+        const anoAtual = hoje.getFullYear();
+        const mesAtual = hoje.getMonth() + 1;
+        
+        if (parseInt(ano) === anoAtual) {
+            mesSelect.value = mesAtual;
+        } else {
+            mesSelect.value = '';
+        }
+    }
+}
+
+function confirmarPDFCompleto() {
+    const ano = document.getElementById('anoCompleto').value;
+    const tipoRelatorio = document.querySelector('input[name="tipoRelatorioCompleto"]:checked').value;
+    const mes = document.getElementById('mesCompleto').value;
+    
+    if (!ano) {
+        mostrarAlerta('Por favor, selecione um ano.', 'warning');
+        return;
+    }
+    
+    if (tipoRelatorio === 'mes' && !mes) {
+        mostrarAlerta('Por favor, selecione um mês.', 'warning');
+        return;
+    }
+    
+    // Fechar modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('modalPDFCompleto'));
+    modal.hide();
+    
+    // Gerar URL do PDF
+    let url = `{% url 'militares:banco_horas_relatorio_pdf' %}?ano=${ano}&tipo=completo`;
+    
+    // Se for mês específico, adicionar parâmetro do mês
+    if (tipoRelatorio === 'mes') {
+        url += `&mes=${mes}`;
+    }
+    
+    // Mostrar loading
+    let mensagem = `Gerando relatório PDF completo - Ano ${ano}`;
+    if (tipoRelatorio === 'mes') {
+        const nomeMes = document.getElementById('mesCompleto').selectedOptions[0].text;
+        mensagem += ` - ${nomeMes}`;
+    }
+    mostrarAlerta(`${mensagem}...`, 'info');
+    
+    // Abrir PDF em nova aba
+    window.open(url, '_blank');
+}
+
+function gerarRelatorioPDFMilitar() {
+    // Criar modal para seleção de militar e ano
+    const modalHtml = `
+        <div class="modal fade" id="modalPDFMilitar" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-user-file-pdf me-2"></i>
+                            Gerar PDF por Militar
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="formPDFMilitar">
+                            <div class="mb-3">
+                                <label for="militarSelect" class="form-label">Selecionar Militar</label>
+                                <select class="form-select" id="militarSelect" name="militar_id" required>
+                                    <option value="">Selecione um militar...</option>
+                                    {% for item in militares_com_saldo %}
+                                        <option value="{{ item.militar.id }}">
+                                            {{ item.militar.get_posto_graduacao_display }} BM {{ item.militar.nome_completo }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="anoSelect" class="form-label">Ano</label>
+                                <select class="form-select" id="anoSelect" name="ano" required>
+                                    <option value="">Selecione o ano...</option>
+                                    {% now 'Y' as current_year %}
+                                    {% for ano_option in anos_disponiveis %}
+                                        <option value="{{ ano_option }}" {% if ano_option|stringformat:'s' == current_year %}selected{% endif %}>
+                                            {{ ano_option }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-1"></i>
+                            Cancelar
+                        </button>
+                        <button type="button" class="btn btn-info" onclick="confirmarPDFMilitar()">
+                            <i class="fas fa-file-pdf me-1"></i>
+                            Gerar PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remover modal existente se houver
+    const existingModal = document.getElementById('modalPDFMilitar');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Adicionar modal ao body
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('modalPDFMilitar'));
+    modal.show();
+}
+
+function confirmarPDFMilitar() {
+    const militarId = document.getElementById('militarSelect').value;
+    const ano = document.getElementById('anoSelect').value;
+    
+    if (!militarId || !ano) {
+        mostrarAlerta('Por favor, selecione um militar e um ano.', 'warning');
+        return;
+    }
+    
+    // Fechar modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('modalPDFMilitar'));
+    modal.hide();
+    
+    // Gerar URL do PDF
+    const url = `{% url 'militares:banco_horas_relatorio_pdf_militar' %}?militar_id=${militarId}&ano=${ano}`;
+    
+    // Abrir PDF em nova aba
+    window.open(url, '_blank');
+}
+
+function gerarPDFMilitarIndividual(militarId, nomeMilitar) {
+    // Criar modal para seleção de período
+    const modalHtml = `
+        <div class="modal fade" id="modalPDFIndividual" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-file-pdf me-2"></i>
+                            Gerar PDF - ${nomeMilitar}
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="formPDFIndividual">
+                            <div class="mb-3">
+                                <label for="anoIndividual" class="form-label">Selecionar Ano</label>
+                                <select class="form-select" id="anoIndividual" name="ano" required onchange="atualizarOpcoesMes()">
+                                    <option value="">Selecione o ano...</option>
+                                    {% now 'Y' as current_year %}
+                                    {% for ano_option in anos_disponiveis %}
+                                        <option value="{{ ano_option }}" {% if ano_option|stringformat:'s' == current_year %}selected{% endif %}>
+                                            {{ ano_option }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Tipo de Relatório</label>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <div class="card">
+                                            <div class="card-body text-center p-3">
+                                                <input class="form-check-input" type="radio" name="tipoRelatorio" id="anoTodo" value="ano" checked>
+                                                <label class="form-check-label d-block" for="anoTodo">
+                                                    <i class="fas fa-calendar-alt fa-2x text-primary mb-2"></i>
+                                                    <br>
+                                                    <strong>Ano Todo</strong>
+                                                    <br>
+                                                    <small class="text-muted">Todas as movimentações do ano</small>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="card">
+                                            <div class="card-body text-center p-3">
+                                                <input class="form-check-input" type="radio" name="tipoRelatorio" id="mesEspecifico" value="mes">
+                                                <label class="form-check-label d-block" for="mesEspecifico">
+                                                    <i class="fas fa-calendar-day fa-2x text-info mb-2"></i>
+                                                    <br>
+                                                    <strong>Mês Específico</strong>
+                                                    <br>
+                                                    <small class="text-muted">Apenas um mês do ano</small>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3" id="divMesEspecifico" style="display: none;">
+                                <label for="mesIndividual" class="form-label">Selecionar Mês</label>
+                                <select class="form-select" id="mesIndividual" name="mes">
+                                    <option value="">Selecione o mês...</option>
+                                    <option value="1">Janeiro</option>
+                                    <option value="2">Fevereiro</option>
+                                    <option value="3">Março</option>
+                                    <option value="4">Abril</option>
+                                    <option value="5">Maio</option>
+                                    <option value="6">Junho</option>
+                                    <option value="7">Julho</option>
+                                    <option value="8">Agosto</option>
+                                    <option value="9">Setembro</option>
+                                    <option value="10">Outubro</option>
+                                    <option value="11">Novembro</option>
+                                    <option value="12">Dezembro</option>
+                                </select>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-1"></i>
+                            Cancelar
+                        </button>
+                        <button type="button" class="btn btn-info" onclick="confirmarPDFIndividual(${militarId}, '${nomeMilitar}')">
+                            <i class="fas fa-file-pdf me-1"></i>
+                            Gerar PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remover modal existente se houver
+    const existingModal = document.getElementById('modalPDFIndividual');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Adicionar modal ao body
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Adicionar event listeners
+    document.querySelectorAll('input[name="tipoRelatorio"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const divMes = document.getElementById('divMesEspecifico');
+            if (this.value === 'mes') {
+                divMes.style.display = 'block';
+            } else {
+                divMes.style.display = 'none';
+            }
+        });
+    });
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('modalPDFIndividual'));
+    modal.show();
+}
+
+function atualizarOpcoesMes() {
+    const ano = document.getElementById('anoIndividual').value;
+    const mesSelect = document.getElementById('mesIndividual');
+    
+    if (ano) {
+        // Se for o ano atual, marcar o mês atual como padrão
+        const hoje = new Date();
+        const anoAtual = hoje.getFullYear();
+        const mesAtual = hoje.getMonth() + 1;
+        
+        if (parseInt(ano) === anoAtual) {
+            mesSelect.value = mesAtual;
+        } else {
+            mesSelect.value = '';
+        }
+    }
+}
+
+function confirmarPDFIndividual(militarId, nomeMilitar) {
+    const ano = document.getElementById('anoIndividual').value;
+    const tipoRelatorio = document.querySelector('input[name="tipoRelatorio"]:checked').value;
+    const mes = document.getElementById('mesIndividual').value;
+    
+    if (!ano) {
+        mostrarAlerta('Por favor, selecione um ano.', 'warning');
+        return;
+    }
+    
+    if (tipoRelatorio === 'mes' && !mes) {
+        mostrarAlerta('Por favor, selecione um mês.', 'warning');
+        return;
+    }
+    
+    // Fechar modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('modalPDFIndividual'));
+    modal.hide();
+    
+    // Gerar URL do PDF
+    let url = `{% url 'militares:banco_horas_relatorio_pdf_militar' %}?militar_id=${militarId}&ano=${ano}`;
+    
+    // Se for mês específico, adicionar parâmetro do mês
+    if (tipoRelatorio === 'mes') {
+        url += `&mes=${mes}`;
+    }
+    
+    // Mostrar loading
+    let mensagem = `Gerando PDF para ${nomeMilitar} - Ano ${ano}`;
+    if (tipoRelatorio === 'mes') {
+        const nomeMes = document.getElementById('mesIndividual').selectedOptions[0].text;
+        mensagem += ` - ${nomeMes}`;
+    }
+    mostrarAlerta(`${mensagem}...`, 'info');
+    
+    // Abrir PDF em nova aba
+    window.open(url, '_blank');
+}
+
+</script>
+{% endblock %}

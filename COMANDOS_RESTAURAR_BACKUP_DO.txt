@@ -1,0 +1,50 @@
+==========================================
+COMANDOS PARA RESTAURAR BACKUP NO SERVIDOR
+==========================================
+
+Execute estes comandos no servidor Digital Ocean (64.23.185.235):
+
+1. Verificar arquivo de backup:
+cd /home/seprom/sepromcbmepi
+ls -lh backup_sepromcbmepi_completo_*.sql*
+
+2. Parar aplicação:
+systemctl stop seprom
+
+3. Backup de segurança:
+su - postgres -c "pg_dump sepromcbmepi > /tmp/sepromcbmepi_backup_seguranca_$(date +%Y%m%d_%H%M%S).sql"
+
+4. Limpar banco:
+su - postgres << 'EOF'
+psql << SQL
+SELECT pg_terminate_backend(pid)
+FROM pg_stat_activity
+WHERE datname = 'sepromcbmepi' AND pid <> pg_backend_pid();
+DROP DATABASE IF EXISTS sepromcbmepi;
+CREATE DATABASE sepromcbmepi OWNER seprom;
+GRANT ALL PRIVILEGES ON DATABASE sepromcbmepi TO seprom;
+\q
+SQL
+EOF
+
+5. Restaurar backup (ESCOLHA UMA OPÇÃO):
+
+   OPÇÃO A - Se o arquivo estiver COMPRIMIDO (.sql.gz):
+   gunzip -c backup_sepromcbmepi_completo_20251116_114134.sql.gz | su - postgres -c "psql sepromcbmepi"
+
+   OPÇÃO B - Se o arquivo NÃO estiver comprimido (.sql):
+   su - postgres -c "psql sepromcbmepi < backup_sepromcbmepi_completo_20251116_114134.sql"
+
+6. Verificar:
+su - postgres -c "psql sepromcbmepi -c '\dt' | head -20"
+
+7. Reiniciar aplicação:
+systemctl start seprom
+
+8. Verificar status:
+systemctl status seprom
+
+==========================================
+NOTA: Substitua o nome do arquivo pelo nome exato que você encontrou no passo 1!
+==========================================
+

@@ -1,0 +1,2047 @@
+{% load almoxarifado_filters %}
+<div class="modal-header bg-warning text-white">
+    <h5 class="modal-title" id="criarSaidaModalLabel">
+        <i class="fas fa-arrow-up me-2"></i>{% if is_create %}Registrar Saída{% else %}Editar Saída{% endif %}
+    </h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<form id="formSaidaAlmoxarifado" method="post" action="{% if is_create %}{% url 'militares:saida_almoxarifado_create' %}{% else %}{% url 'militares:saida_almoxarifado_update' saida.pk %}{% endif %}">
+    {% csrf_token %}
+    <div class="modal-body">
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+        
+        <!-- Campo de Leitura de Código de Barras -->
+        <div class="mb-3">
+            <label class="form-label">
+                <i class="fas fa-barcode me-2"></i>Leitura de Código de Barras
+            </label>
+            <div class="input-group">
+                <input type="text" 
+                       class="form-control" 
+                       id="codigo_barras_input_saida" 
+                       placeholder="Leia ou digite o código de barras"
+                       autocomplete="off">
+                <button type="button" 
+                        class="btn btn-outline-primary" 
+                        id="btn_buscar_codigo_barras_saida"
+                        title="Buscar item pelo código de barras">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+            <small class="text-muted">Use um leitor de código de barras ou digite o código manualmente</small>
+            <div id="item_info_saida" class="mt-2" style="display: none;">
+                <div class="alert alert-info mb-0">
+                    <strong>Item encontrado:</strong> <span id="item_descricao_saida"></span><br>
+                    <small>Estoque atual: <span id="item_estoque_saida"></span></small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <label for="{{ form.tipo_saida.id_for_label }}" class="form-label">
+                    {{ form.tipo_saida.label }} <span class="text-danger">*</span>
+                </label>
+                {{ form.tipo_saida }}
+                {% if form.tipo_saida.errors %}
+                    <div class="text-danger small">{{ form.tipo_saida.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="col-md-4 mb-3">
+                <label for="{{ form.data_saida.id_for_label }}" class="form-label">
+                    {{ form.data_saida.label }} <span class="text-danger">*</span>
+                </label>
+                {{ form.data_saida }}
+                {% if form.data_saida.errors %}
+                    <div class="text-danger small">{{ form.data_saida.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="col-md-4 mb-3">
+                <label for="{{ form.numero_requisicao.id_for_label }}" class="form-label">
+                    {{ form.numero_requisicao.label }}
+                </label>
+                {{ form.numero_requisicao }}
+                {% if form.numero_requisicao.errors %}
+                    <div class="text-danger small">{{ form.numero_requisicao.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.requisitante.id_for_label }}" class="form-label">
+                    {{ form.requisitante.label }}
+                </label>
+                <div id="requisitante-wrapper">
+                    {{ form.requisitante }}
+                </div>
+                {% if form.requisitante.errors %}
+                    <div class="text-danger small">{{ form.requisitante.errors }}</div>
+                {% endif %}
+                <style>
+                    /* Garantir que o Select2 não apareça como link */
+                    #id_requisitante + .select2-container .select2-selection__rendered,
+                    #id_requisitante + .select2-container .select2-results__option {
+                        text-decoration: none !important;
+                        color: #212529 !important;
+                    }
+                    #id_requisitante + .select2-container .select2-results__option:hover {
+                        background-color: #f8f9fa !important;
+                        color: #212529 !important;
+                    }
+                    #id_requisitante + .select2-container .select2-results__option--highlighted {
+                        background-color: #0d6efd !important;
+                        color: #fff !important;
+                    }
+                    #id_requisitante + .select2-container .select2-selection__rendered {
+                        color: #212529 !important;
+                    }
+                </style>
+            </div>
+        </div>
+        
+        <hr>
+        <h6 class="mb-3"><i class="fas fa-arrow-left me-2"></i>Origem (OM de onde a mercadoria vai sair) <span class="text-danger">*</span></h6>
+        
+        <!-- Organograma Origem (OM) - Campo único -->
+        <div class="mb-3">
+            <label for="organograma-origem-select" class="form-label">
+                Organização Militar (OM) de Origem <span class="text-danger">*</span>
+            </label>
+            <select id="organograma-origem-select" class="form-select" style="width: 100%;" required>
+                <option value="">Selecione uma opção do organograma...</option>
+            </select>
+            <!-- Campos ocultos para armazenar os valores do organograma -->
+            {{ form.orgao_origem.as_hidden }}
+            {{ form.grande_comando_origem.as_hidden }}
+            {{ form.unidade_origem.as_hidden }}
+            {{ form.sub_unidade_origem.as_hidden }}
+            <small class="form-text text-muted">Selecione a organização militar de origem (obrigatório)</small>
+            {% if form.orgao_origem.errors or form.grande_comando_origem.errors or form.unidade_origem.errors or form.sub_unidade_origem.errors %}
+                <div class="text-danger small">
+                    {% if form.orgao_origem.errors %}{{ form.orgao_origem.errors }}{% endif %}
+                    {% if form.grande_comando_origem.errors %}{{ form.grande_comando_origem.errors }}{% endif %}
+                    {% if form.unidade_origem.errors %}{{ form.unidade_origem.errors }}{% endif %}
+                    {% if form.sub_unidade_origem.errors %}{{ form.sub_unidade_origem.errors }}{% endif %}
+                </div>
+            {% endif %}
+        </div>
+        
+        <hr>
+        <h6 class="mb-3"><i class="fas fa-arrow-right me-2"></i>Destino <span id="destino-required-indicator" class="text-danger" style="display: none;">*</span></h6>
+        
+        <!-- Organograma Destino (OM) - Campo único -->
+        <div class="mb-3">
+            <label for="organograma-destino-select" class="form-label">
+                Organização Militar (OM) de Destino <span id="destino-label-required" class="text-danger" style="display: none;">*</span>
+            </label>
+            <select id="organograma-destino-select" class="form-select" style="width: 100%;">
+                <option value="">Selecione uma opção do organograma...</option>
+            </select>
+            <!-- Campos ocultos para armazenar os valores do organograma -->
+            {{ form.orgao_destino.as_hidden }}
+            {{ form.grande_comando_destino.as_hidden }}
+            {{ form.unidade_destino.as_hidden }}
+            {{ form.sub_unidade_destino.as_hidden }}
+            <small class="form-text text-muted">Selecione a organização militar de destino <span id="destino-help-required" style="display: none;">(obrigatório para transferências)</span></small>
+            {% if form.orgao_destino.errors or form.grande_comando_destino.errors or form.unidade_destino.errors or form.sub_unidade_destino.errors %}
+                <div class="text-danger small">
+                    {% if form.orgao_destino.errors %}{{ form.orgao_destino.errors }}{% endif %}
+                    {% if form.grande_comando_destino.errors %}{{ form.grande_comando_destino.errors }}{% endif %}
+                    {% if form.unidade_destino.errors %}{{ form.unidade_destino.errors }}{% endif %}
+                    {% if form.sub_unidade_destino.errors %}{{ form.sub_unidade_destino.errors }}{% endif %}
+                </div>
+            {% endif %}
+        </div>
+        
+        <hr>
+        <h6 class="mb-3"><i class="fas fa-boxes me-2"></i>Itens da Saída</h6>
+        
+        <!-- Tabela de Itens -->
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered" id="tabela-itens-saida">
+                        <thead>
+                            <tr>
+                                <th style="width: 35%;">Item <span class="text-danger">*</span></th>
+                                <th style="width: 20%;">Quantidade <span class="text-danger">*</span></th>
+                                <th style="width: 20%;">Tamanhos</th>
+                                <th style="width: 15%;">Estoque Disponível</th>
+                                <th style="width: 10%;">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="itens-saida-tbody">
+                            {% if not is_create and saida %}
+                                {% for produto_saida in saida.produtos_saida.all %}
+                                <tr data-item-saida-id="{{ produto_saida.id }}" data-item-id="{{ produto_saida.produto.id }}">
+                                    <td>
+                                        <select class="form-select form-select-sm item-select" required>
+                                            <option value="">Selecione um item...</option>
+                                            {% for item in form.produto.field.queryset %}
+                                                <option value="{{ item.id }}" {% if item.id == produto_saida.produto.id %}selected{% endif %}>
+                                                    {{ item.get_codigo_limpo }} - {{ item.descricao }}{% if item.tamanho %} - Tamanho {{ item.tamanho }}{% endif %}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="number" 
+                                               class="form-control form-control-sm quantidade-item" 
+                                               value="{{ produto_saida.quantidade }}" 
+                                               step="0.01" 
+                                               min="0.01" 
+                                               required>
+                                    </td>
+                                    <td>
+                                        <input type="text" 
+                                               class="form-control form-control-sm tamanho-item" 
+                                               value="{% if produto_saida.produto.tamanho %}{{ produto_saida.produto.tamanho }}{% endif %}" 
+                                               placeholder="Tamanho do item">
+                                    </td>
+                                    <td>
+                                        <span class="estoque-disponivel-item text-muted">
+                                            {% if produto_saida.produto.quantidade_atual is not None %}
+                                                {{ produto_saida.produto.quantidade_atual|formatar_quantidade_unidade:produto_saida.produto.unidade_medida }}
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button type="button" 
+                                                class="btn btn-sm btn-danger btn-remover-item" 
+                                                title="Remover item">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% endif %}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="5">
+                                    <button type="button" 
+                                            class="btn btn-sm btn-primary" 
+                                            id="btn-adicionar-item-saida">
+                                        <i class="fas fa-plus me-1"></i>Adicionar Item
+                                    </button>
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mb-3">
+            <label for="{{ form.observacoes.id_for_label }}" class="form-label">
+                {{ form.observacoes.label }} <span id="observacoes-required" class="text-danger" style="display: none;">*</span>
+            </label>
+            {{ form.observacoes }}
+            {% if form.observacoes.errors %}
+                <div class="text-danger small">{{ form.observacoes.errors }}</div>
+            {% endif %}
+            <small class="text-muted" id="observacoes-help" style="display: none;">Justificativa obrigatória para Baixa, Ajuste de Estoque e Outros.</small>
+        </div>
+        
+        <div class="form-check mb-3">
+            {{ form.ativo }}
+            <label class="form-check-label" for="{{ form.ativo.id_for_label }}">
+                {{ form.ativo.label }}
+            </label>
+            {% if form.ativo.errors %}
+                <div class="text-danger small">{{ form.ativo.errors }}</div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <i class="fas fa-times me-2"></i>Cancelar
+        </button>
+        <button type="submit" class="btn btn-warning">
+            <i class="fas fa-save me-2"></i>Salvar
+        </button>
+    </div>
+</form>
+
+<!-- Modal para gerenciar tamanhos de um item específico - Fora do form para garantir z-index correto -->
+<div class="modal fade" id="modalTamanhosItemSaida" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-ruler me-2"></i>Gerenciar Tamanhos
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="tamanhos-item-container-saida">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Tamanho</th>
+                                    <th>Quantidade</th>
+                                    <th style="width: 80px;">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tamanhos-item-tbody-saida">
+                                <!-- Linhas serão adicionadas dinamicamente -->
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="3">
+                                        <button type="button" 
+                                                class="btn btn-sm btn-primary" 
+                                                id="btn-adicionar-tamanho-item-saida">
+                                            <i class="fas fa-plus me-1"></i>Adicionar Tamanho
+                                        </button>
+                                        <span class="ms-3">
+                                            <strong>Total:</strong> 
+                                            <span id="total-tamanhos-item-saida">0.00</span>
+                                        </span>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    'use strict';
+    
+    // Função para obter cookie CSRF
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    const form = document.getElementById('formSaidaAlmoxarifado');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(form);
+            
+            // Coletar dados dos múltiplos itens
+            const itensData = [];
+            const itensTbody = document.getElementById('itens-saida-tbody');
+            
+            if (itensTbody) {
+                document.querySelectorAll('#itens-saida-tbody tr').forEach(tr => {
+                    const itemSelect = tr.querySelector('.item-select');
+                    const quantidadeInput = tr.querySelector('.quantidade-item');
+                    const itemSaidaId = tr.getAttribute('data-item-saida-id');
+                    
+                    if (itemSelect && itemSelect.value && quantidadeInput && quantidadeInput.value) {
+                        const itemData = {
+                            id: itemSaidaId || null,
+                            item_id: itemSelect.value,
+                            quantidade: parseFloat(quantidadeInput.value) || 0,
+                            tamanhos: []
+                        };
+                        
+                        // Coletar tamanhos deste item (se houver)
+                        const tamanhosData = tr.dataset.tamanhos ? JSON.parse(tr.dataset.tamanhos) : [];
+                        itemData.tamanhos = tamanhosData;
+                        
+                        itensData.push(itemData);
+                    }
+                });
+            }
+            
+            if (itensData.length > 0) {
+                formData.append('itens_data', JSON.stringify(itensData));
+            } else {
+                alert('Adicione pelo menos um item à saída.');
+                return;
+            }
+            
+            // Validar que a OM de origem foi informada
+            const orgaoOrigemHidden = document.getElementById('id_orgao_origem');
+            const unidadeOrigemHidden = document.getElementById('id_unidade_origem');
+            const grandeComandoOrigemHidden = document.getElementById('id_grande_comando_origem');
+            
+            if (!orgaoOrigemHidden.value && !unidadeOrigemHidden.value && !grandeComandoOrigemHidden.value) {
+                alert('É necessário informar a Organização Militar de origem (de onde a mercadoria vai sair).');
+                document.getElementById('organograma-origem-select').focus();
+                return;
+            }
+            
+            // Validar que a OM de destino foi informada se for transferência
+            const tipoSaidaSelect = document.getElementById('id_tipo_saida');
+            if (tipoSaidaSelect && tipoSaidaSelect.value === 'TRANSFERENCIA') {
+                const orgaoDestinoHidden = document.getElementById('id_orgao_destino');
+                const unidadeDestinoHidden = document.getElementById('id_unidade_destino');
+                const grandeComandoDestinoHidden = document.getElementById('id_grande_comando_destino');
+                
+                if (!orgaoDestinoHidden.value && !unidadeDestinoHidden.value && !grandeComandoDestinoHidden.value) {
+                    alert('É necessário informar a Organização Militar de destino para transferências.');
+                    document.getElementById('organograma-destino-select').focus();
+                    return;
+                }
+            }
+            
+            // Garantir que o campo requisitante seja enviado corretamente
+            const requisitanteSelect = document.getElementById('id_requisitante');
+            if (requisitanteSelect) {
+                // Se o Select2 estiver inicializado, pegar o valor dele
+                if (typeof $ !== 'undefined' && $(requisitanteSelect).hasClass('select2-hidden-accessible')) {
+                    const requisitanteValue = $(requisitanteSelect).val();
+                    if (requisitanteValue) {
+                        formData.set('requisitante', requisitanteValue);
+                    } else {
+                        // Se não houver valor, enviar string vazia
+                        formData.set('requisitante', '');
+                    }
+                } else {
+                    // Se não estiver inicializado, usar o valor do select normal
+                    const requisitanteValue = requisitanteSelect.value || '';
+                    formData.set('requisitante', requisitanteValue);
+                }
+            }
+            
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Salvando...';
+            
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => {
+                // Verificar se a resposta é JSON
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    return response.json().then(data => {
+                        if (!response.ok) {
+                            console.error('Resposta de erro do servidor:', data);
+                            throw { data, status: response.status };
+                        }
+                        return data;
+                    });
+                } else {
+                    // Se não for JSON, provavelmente é HTML (erro 500)
+                    return response.text().then(html => {
+                        console.error('=== ERRO AO SALVAR ===');
+                        console.error('Erro completo:', html.substring(0, 500));
+                        console.error('Tipo do erro:', typeof html);
+                        throw { 
+                            data: { 
+                                status: 'error', 
+                                message: 'Erro interno do servidor. Verifique o console para mais detalhes.' 
+                            }, 
+                            status: response.status,
+                            html: html
+                        };
+                    });
+                }
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'alert alert-success alert-dismissible fade show';
+                    alertDiv.innerHTML = `
+                        <i class="fas fa-check-circle me-2"></i>${data.message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    `;
+                    document.body.insertBefore(alertDiv, document.body.firstChild);
+                    
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('criarSaidaModal') || document.getElementById('editarSaidaModal'));
+                    if (modal) {
+                        modal.hide();
+                    }
+                    
+                    setTimeout(() => {
+                        if (data.redirect) {
+                            window.location.href = data.redirect;
+                        } else {
+                            window.location.reload();
+                        }
+                    }, 1000);
+                } else {
+                    // Mostrar erros se disponíveis
+                    if (data.errors) {
+                        console.error('Erros de validação:', data.errors);
+                        console.error('Dados do formulário:', data.form_data || 'Não disponível');
+                        let errorMsg = 'Erro de validação:\n\n';
+                        for (const [field, errors] of Object.entries(data.errors)) {
+                            const fieldLabel = field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                            errorMsg += `${fieldLabel}: ${errors.join(', ')}\n`;
+                        }
+                        alert(errorMsg);
+                    } else {
+                        console.error('Erro desconhecido:', data);
+                    }
+                    
+                    if (data.html) {
+                        const modalContent = document.getElementById('criarSaidaModalContent') || document.getElementById('editarSaidaModalContent');
+                        if (modalContent) {
+                            modalContent.innerHTML = data.html;
+                            // Reinicializar Select2 após atualizar o HTML
+                            setTimeout(function() {
+                                if (typeof inicializarSelect2Requisitante === 'function') {
+                                    inicializarSelect2Requisitante();
+                                }
+                            }, 100);
+                        }
+                    }
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('=== ERRO AO SALVAR ===');
+                console.error('Erro completo:', error);
+                console.error('Tipo do erro:', typeof error);
+                console.error('Keys do erro:', Object.keys(error));
+                
+                if (error && error.data) {
+                    console.error('Erro data:', error.data);
+                    console.error('Keys do error.data:', Object.keys(error.data));
+                    
+                    // Exibir erros de validação se disponíveis
+                    if (error.data.errors && typeof error.data.errors === 'object') {
+                        const errorKeys = Object.keys(error.data.errors);
+                        if (errorKeys.length > 0) {
+                            let errorMsg = 'Erro de validação:\n\n';
+                            for (const [field, errors] of Object.entries(error.data.errors)) {
+                                const fieldLabel = field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                                const errorList = Array.isArray(errors) ? errors : [errors];
+                                errorMsg += `${fieldLabel}: ${errorList.join(', ')}\n`;
+                            }
+                            console.error('Erros de validação detalhados:', error.data.errors);
+                            alert(errorMsg);
+                        } else {
+                            console.warn('Objeto errors está vazio');
+                        }
+                    } else {
+                        console.warn('error.data.errors não existe ou não é um objeto:', error.data.errors);
+                    }
+                    
+                    if (error.data.message) {
+                        console.error('Mensagem de erro:', error.data.message);
+                        if (!error.data.errors || Object.keys(error.data.errors || {}).length === 0) {
+                            alert(`Erro: ${error.data.message}`);
+                        }
+                    }
+                    
+                    if (error.data.form_data) {
+                        console.error('Dados do formulário enviados:', error.data.form_data);
+                    }
+                    
+                    // Se não houver erros específicos, mostrar todos os dados para debug
+                    if ((!error.data.errors || Object.keys(error.data.errors || {}).length === 0) && !error.data.message) {
+                        console.error('Resposta completa do servidor:', JSON.stringify(error.data, null, 2));
+                        alert('Erro ao salvar. Verifique o console (F12) para mais detalhes.');
+                    }
+                } else {
+                    console.error('Erro não tem propriedade data ou error é null/undefined');
+                    console.error('Estrutura completa do erro:', JSON.stringify(error, null, 2));
+                    alert('Erro ao salvar. Verifique o console (F12) para mais detalhes.');
+                }
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            });
+        });
+    }
+    
+    // Funcionalidade de seleção hierárquica única do organograma - ORIGEM
+    let organogramaOrigemSelect = document.getElementById('organograma-origem-select');
+    let orgaoOrigemHidden = document.getElementById('id_orgao_origem');
+    let grandeComandoOrigemHidden = document.getElementById('id_grande_comando_origem');
+    let unidadeOrigemHidden = document.getElementById('id_unidade_origem');
+    let subUnidadeOrigemHidden = document.getElementById('id_sub_unidade_origem');
+    
+    // Funcionalidade de seleção hierárquica única do organograma - DESTINO
+    let organogramaDestinoSelect = document.getElementById('organograma-destino-select');
+    let orgaoDestinoHidden = document.getElementById('id_orgao_destino');
+    let grandeComandoDestinoHidden = document.getElementById('id_grande_comando_destino');
+    let unidadeDestinoHidden = document.getElementById('id_unidade_destino');
+    let subUnidadeDestinoHidden = document.getElementById('id_sub_unidade_destino');
+    
+    // Função para carregar hierarquia do organograma filtrada por acesso do usuário
+    async function carregarOrganogramaCompleto(selectElement, isOrigem = false) {
+        if (!selectElement) return;
+        
+        try {
+            // Para origem: usar URL filtrada hierarquicamente
+            // Para destino: usar URL sem filtro (todas as OMs disponíveis)
+            const url = isOrigem 
+                ? '{% url "militares:ajax_organograma_completo" %}'
+                : '{% url "militares:ajax_organograma_completo_sem_filtro" %}';
+            const response = await fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            const data = await response.json();
+            
+            selectElement.innerHTML = '<option value="">Selecione uma opção do organograma...</option>';
+            
+            if (data.hierarquia && Array.isArray(data.hierarquia)) {
+                data.hierarquia.forEach(item => {
+                    const option = document.createElement('option');
+                    option.value = item.id;
+                    option.textContent = item.texto;
+                    option.dataset.tipo = item.tipo;
+                    option.dataset.valor = JSON.stringify(item.valor);
+                    
+                    if (item.nivel === 1) {
+                        option.style.fontWeight = 'bold';
+                        option.style.color = '#0d6efd';
+                    } else if (item.nivel === 2) {
+                        option.style.fontWeight = '600';
+                        option.style.color = '#198754';
+                    } else if (item.nivel === 3) {
+                        option.style.color = '#fd7e14';
+                    } else if (item.nivel === 4) {
+                        option.style.color = '#6f42c1';
+                    }
+                    
+                    selectElement.appendChild(option);
+                });
+                
+                // Se for origem e houver valores nos campos hidden, selecionar automaticamente
+                if (isOrigem) {
+                    const orgaoId = orgaoOrigemHidden ? orgaoOrigemHidden.value : '';
+                    const grandeComandoId = grandeComandoOrigemHidden ? grandeComandoOrigemHidden.value : '';
+                    const unidadeId = unidadeOrigemHidden ? unidadeOrigemHidden.value : '';
+                    const subUnidadeId = subUnidadeOrigemHidden ? subUnidadeOrigemHidden.value : '';
+                    
+                    // Selecionar a opção correspondente
+                    let optionId = '';
+                    if (subUnidadeId) {
+                        optionId = `sub_${subUnidadeId}`;
+                    } else if (unidadeId) {
+                        optionId = `unidade_${unidadeId}`;
+                    } else if (grandeComandoId) {
+                        optionId = `gc_${grandeComandoId}`;
+                    } else if (orgaoId) {
+                        optionId = `orgao_${orgaoId}`;
+                    }
+                    
+                    if (optionId) {
+                        const optionToSelect = selectElement.querySelector(`option[value="${optionId}"]`);
+                        if (optionToSelect) {
+                            selectElement.value = optionId;
+                            atualizarCamposOcultos(selectElement, orgaoOrigemHidden, grandeComandoOrigemHidden, unidadeOrigemHidden, subUnidadeOrigemHidden);
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Erro ao carregar organograma:', error);
+        }
+    }
+    
+    // Função para atualizar campos ocultos
+    function atualizarCamposOcultos(selectElement, orgaoHidden, grandeComandoHidden, unidadeHidden, subUnidadeHidden) {
+        if (!selectElement) return;
+        
+        const selectedOption = selectElement.options[selectElement.selectedIndex];
+        
+        if (selectedOption.value && selectedOption.dataset.valor) {
+            const valor = JSON.parse(selectedOption.dataset.valor);
+            if (orgaoHidden) orgaoHidden.value = valor.orgao_id || '';
+            if (grandeComandoHidden) grandeComandoHidden.value = valor.grande_comando_id || '';
+            if (unidadeHidden) unidadeHidden.value = valor.unidade_id || '';
+            if (subUnidadeHidden) subUnidadeHidden.value = valor.sub_unidade_id || '';
+        } else {
+            if (orgaoHidden) orgaoHidden.value = '';
+            if (grandeComandoHidden) grandeComandoHidden.value = '';
+            if (unidadeHidden) unidadeHidden.value = '';
+            if (subUnidadeHidden) subUnidadeHidden.value = '';
+        }
+    }
+    
+    // Função para inicializar organograma de origem
+    function inicializarOrganogramaOrigem() {
+        organogramaOrigemSelect = document.getElementById('organograma-origem-select');
+        orgaoOrigemHidden = document.getElementById('id_orgao_origem');
+        grandeComandoOrigemHidden = document.getElementById('id_grande_comando_origem');
+        unidadeOrigemHidden = document.getElementById('id_unidade_origem');
+        subUnidadeOrigemHidden = document.getElementById('id_sub_unidade_origem');
+        
+        if (organogramaOrigemSelect && orgaoOrigemHidden) {
+            organogramaOrigemSelect.addEventListener('change', function() {
+                atualizarCamposOcultos(organogramaOrigemSelect, orgaoOrigemHidden, grandeComandoOrigemHidden, unidadeOrigemHidden, subUnidadeOrigemHidden);
+                // Atualizar lista de itens quando a OM de origem mudar
+                atualizarListaItens();
+                // Atualizar estoque de todos os itens já selecionados
+                document.querySelectorAll('#itens-saida-tbody tr').forEach(tr => {
+                    const itemSelect = tr.querySelector('.item-select');
+                    if (itemSelect && itemSelect.value) {
+                        // Disparar evento change para atualizar estoque
+                        const event = new Event('change', { bubbles: true });
+                        itemSelect.dispatchEvent(event);
+                    }
+                });
+            });
+            carregarOrganogramaCompleto(organogramaOrigemSelect, true);
+            return true;
+        }
+        return false;
+    }
+    
+    // Função para inicializar organograma de destino
+    function inicializarOrganogramaDestino() {
+        organogramaDestinoSelect = document.getElementById('organograma-destino-select');
+        orgaoDestinoHidden = document.getElementById('id_orgao_destino');
+        grandeComandoDestinoHidden = document.getElementById('id_grande_comando_destino');
+        unidadeDestinoHidden = document.getElementById('id_unidade_destino');
+        subUnidadeDestinoHidden = document.getElementById('id_sub_unidade_destino');
+        
+        if (organogramaDestinoSelect && orgaoDestinoHidden) {
+            organogramaDestinoSelect.addEventListener('change', function() {
+                atualizarCamposOcultos(organogramaDestinoSelect, orgaoDestinoHidden, grandeComandoDestinoHidden, unidadeDestinoHidden, subUnidadeDestinoHidden);
+            });
+            carregarOrganogramaCompleto(organogramaDestinoSelect);
+            return true;
+        }
+        return false;
+    }
+    
+    // Tentar inicializar imediatamente
+    if (!inicializarOrganogramaOrigem()) {
+        setTimeout(() => {
+            if (!inicializarOrganogramaOrigem()) {
+                setTimeout(inicializarOrganogramaOrigem, 200);
+            }
+        }, 50);
+    }
+    
+    if (!inicializarOrganogramaDestino()) {
+        setTimeout(() => {
+            if (!inicializarOrganogramaDestino()) {
+                setTimeout(inicializarOrganogramaDestino, 200);
+            }
+        }, 50);
+    }
+    
+    // Controlar obrigatoriedade do destino baseado no tipo de saída
+    const tipoSaidaSelect = document.getElementById('id_tipo_saida');
+    const destinoRequiredIndicator = document.getElementById('destino-required-indicator');
+    const destinoLabelRequired = document.getElementById('destino-label-required');
+    const destinoHelpRequired = document.getElementById('destino-help-required');
+    
+    // Controle de obrigatoriedade do campo observacoes
+    const observacoesField = document.getElementById('id_observacoes');
+    const observacoesRequired = document.getElementById('observacoes-required');
+    const observacoesHelp = document.getElementById('observacoes-help');
+    
+    function atualizarObrigatoriedadeObservacoes() {
+        if (tipoSaidaSelect && observacoesField && observacoesRequired && observacoesHelp) {
+            const tipoSaida = tipoSaidaSelect.value;
+            const tiposRequeremJustificativa = ['BAIXA', 'AJUSTE', 'OUTROS'];
+            
+            if (tiposRequeremJustificativa.includes(tipoSaida)) {
+                observacoesField.setAttribute('required', 'required');
+                observacoesRequired.style.display = 'inline';
+                observacoesHelp.style.display = 'block';
+                // Validar se está vazio e mostrar erro
+                if (!observacoesField.value || observacoesField.value.trim() === '') {
+                    observacoesField.classList.add('is-invalid');
+                } else {
+                    observacoesField.classList.remove('is-invalid');
+                }
+            } else {
+                observacoesField.removeAttribute('required');
+                observacoesRequired.style.display = 'none';
+                observacoesHelp.style.display = 'none';
+                observacoesField.classList.remove('is-invalid');
+            }
+        }
+    }
+    
+    // Validar campo observacoes ao digitar
+    if (observacoesField) {
+        observacoesField.addEventListener('input', function() {
+            if (observacoesField.hasAttribute('required')) {
+                if (observacoesField.value && observacoesField.value.trim() !== '') {
+                    observacoesField.classList.remove('is-invalid');
+                } else {
+                    observacoesField.classList.add('is-invalid');
+                }
+            }
+        });
+    }
+    
+    // Atualizar ao carregar a página
+    if (tipoSaidaSelect) {
+        atualizarObrigatoriedadeObservacoes();
+        tipoSaidaSelect.addEventListener('change', atualizarObrigatoriedadeObservacoes);
+    }
+    const destinoSelect = document.getElementById('organograma-destino-select');
+    
+    function atualizarObrigatoriedadeDestino() {
+        if (tipoSaidaSelect && tipoSaidaSelect.value === 'TRANSFERENCIA') {
+            if (destinoRequiredIndicator) destinoRequiredIndicator.style.display = 'inline';
+            if (destinoLabelRequired) destinoLabelRequired.style.display = 'inline';
+            if (destinoHelpRequired) destinoHelpRequired.style.display = 'inline';
+            if (destinoSelect) destinoSelect.required = true;
+        } else {
+            if (destinoRequiredIndicator) destinoRequiredIndicator.style.display = 'none';
+            if (destinoLabelRequired) destinoLabelRequired.style.display = 'none';
+            if (destinoHelpRequired) destinoHelpRequired.style.display = 'none';
+            if (destinoSelect) destinoSelect.required = false;
+        }
+    }
+    
+    if (tipoSaidaSelect) {
+        tipoSaidaSelect.addEventListener('change', atualizarObrigatoriedadeDestino);
+        // Verificar inicialmente
+        atualizarObrigatoriedadeDestino();
+    }
+    
+    // ========== GERENCIAMENTO DE MÚLTIPLOS ITENS ==========
+    const itensTbodySaida = document.getElementById('itens-saida-tbody');
+    const btnAdicionarItemSaida = document.getElementById('btn-adicionar-item-saida');
+    let itemAtualTamanhosSaida = null; // Linha do item atual sendo editado os tamanhos
+    
+    // Função para carregar lista de itens da API filtrada pela OM de origem
+    async function carregarListaItensSaida() {
+        try {
+            // Obter valores da OM de origem dos campos hidden
+            const orgaoId = document.getElementById('id_orgao_origem')?.value;
+            const grandeComandoId = document.getElementById('id_grande_comando_origem')?.value;
+            const unidadeId = document.getElementById('id_unidade_origem')?.value;
+            const subUnidadeId = document.getElementById('id_sub_unidade_origem')?.value;
+            
+            // Construir URL com parâmetros de OM
+            let url = '{% url "militares:produto_almoxarifado_list_json" %}?';
+            const params = new URLSearchParams();
+            
+            if (subUnidadeId) {
+                params.append('sub_unidade', subUnidadeId);
+            } else if (unidadeId) {
+                params.append('unidade', unidadeId);
+            } else if (grandeComandoId) {
+                params.append('grande_comando', grandeComandoId);
+            } else if (orgaoId) {
+                params.append('orgao', orgaoId);
+            }
+            
+            url += params.toString();
+            
+            const response = await fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            const data = await response.json();
+            if (data.status === 'success') {
+                return data.itens;
+            }
+        } catch (error) {
+            console.error('Erro ao carregar lista de itens:', error);
+        }
+        return [];
+    }
+    
+    // Função para atualizar todos os selects de itens com a lista filtrada
+    async function atualizarListaItens() {
+        const itens = await carregarListaItensSaida();
+        
+        // Atualizar todos os selects de itens existentes
+        document.querySelectorAll('#itens-saida-tbody .item-select').forEach(select => {
+            const valorAtual = select.value;
+            const tamanhoText = select.selectedOptions[0]?.textContent || '';
+            
+            // Limpar opções (exceto a primeira)
+            while (select.options.length > 1) {
+                select.remove(1);
+            }
+            
+            // Adicionar novos itens
+            itens.forEach(item => {
+                const tamanhoText = item.tamanho ? ` - Tamanho ${item.tamanho}` : '';
+                const option = document.createElement('option');
+                option.value = item.id;
+                option.textContent = `${item.codigo} - ${item.descricao}${tamanhoText}`;
+                if (item.id == valorAtual) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+        });
+    }
+    
+    // Função para adicionar novo item
+    async function adicionarItemSaida() {
+        if (!itensTbodySaida) return;
+        
+        // Sempre buscar lista atualizada filtrada pela OM de origem
+        const itens = await carregarListaItensSaida();
+        let itemOptions = '<option value="">Selecione um item...</option>';
+        
+        itens.forEach(item => {
+            const tamanhoText = item.tamanho ? ` - Tamanho ${item.tamanho}` : '';
+            itemOptions += `<option value="${item.id}">${item.codigo} - ${item.descricao}${tamanhoText}</option>`;
+        });
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>
+                <select class="form-select form-select-sm item-select" required>
+                    <option value="">Selecione um item...</option>
+                    ${itemOptions}
+                </select>
+            </td>
+            <td>
+                <input type="number" 
+                       class="form-control form-control-sm quantidade-item" 
+                       value="" 
+                       step="0.01" 
+                       min="0.01" 
+                       required>
+            </td>
+            <td>
+                <input type="text" 
+                       class="form-control form-control-sm tamanho-item" 
+                       value="" 
+                       placeholder="Tamanho do item">
+            </td>
+            <td>
+                <span class="estoque-disponivel-item text-muted">-</span>
+            </td>
+            <td>
+                <button type="button" 
+                        class="btn btn-sm btn-danger btn-remover-item" 
+                        title="Remover item">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        itensTbodySaida.appendChild(tr);
+        
+        // Event listeners
+        const itemSelect = tr.querySelector('.item-select');
+        const quantidadeInput = tr.querySelector('.quantidade-item');
+        const tamanhoInput = tr.querySelector('.tamanho-item');
+        const btnRemover = tr.querySelector('.btn-remover-item');
+        const estoqueSpan = tr.querySelector('.estoque-disponivel-item');
+        
+        if (itemSelect) {
+            itemSelect.addEventListener('change', function() {
+                // Atualizar tamanho e estoque quando item for selecionado
+                if (this.value) {
+                    // Obter valores da OM de origem dos campos hidden
+                    const orgaoId = document.getElementById('id_orgao_origem')?.value || '';
+                    const grandeComandoId = document.getElementById('id_grande_comando_origem')?.value || '';
+                    const unidadeId = document.getElementById('id_unidade_origem')?.value || '';
+                    const subUnidadeId = document.getElementById('id_sub_unidade_origem')?.value || '';
+                    
+                    console.log('Buscando estoque para item:', this.value);
+                    console.log('OM de origem:', { orgaoId, grandeComandoId, unidadeId, subUnidadeId });
+                    
+                    // Verificar se a OM de origem foi selecionada
+                    if (!orgaoId && !grandeComandoId && !unidadeId && !subUnidadeId) {
+                        console.warn('OM de origem não selecionada. Selecione a OM de origem primeiro.');
+                        if (estoqueSpan) {
+                            estoqueSpan.textContent = 'Selecione a OM de origem';
+                            estoqueSpan.classList.remove('text-muted', 'text-primary', 'fw-bold');
+                            estoqueSpan.classList.add('text-warning');
+                        }
+                        // Ainda buscar o tamanho mesmo sem OM
+                        fetch(`{% url 'militares:produto_almoxarifado_info' 0 %}`.replace('0', this.value))
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.status === 'success' && data.item && tamanhoInput) {
+                                    tamanhoInput.value = data.item.tamanho || '';
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Erro ao buscar informações do item:', error);
+                            });
+                        return;
+                    }
+                    
+                    // Construir URL com parâmetros de OM
+                    let url = `{% url 'militares:produto_almoxarifado_info' 0 %}`.replace('0', this.value);
+                    const params = new URLSearchParams();
+                    
+                    if (subUnidadeId) {
+                        params.append('sub_unidade', subUnidadeId);
+                    } else if (unidadeId) {
+                        params.append('unidade', unidadeId);
+                    } else if (grandeComandoId) {
+                        params.append('grande_comando', grandeComandoId);
+                    } else if (orgaoId) {
+                        params.append('orgao', orgaoId);
+                    }
+                    
+                    if (params.toString()) {
+                        url += '?' + params.toString();
+                    }
+                    
+                    console.log('URL de busca:', url);
+                    
+                    fetch(url)
+                        .then(response => response.json())
+                        .then(data => {
+                            console.log('Resposta da API:', data);
+                            if (data.status === 'success' && data.item) {
+                                // Atualizar tamanho
+                                if (tamanhoInput) {
+                                    tamanhoInput.value = data.item.tamanho || '';
+                                }
+                                
+                                // Atualizar estoque disponível
+                                if (estoqueSpan && data.item.quantidade_atual !== undefined) {
+                                    const unidade = data.item.get_unidade_medida_display || data.item.unidade_medida || '';
+                                    const quantidade = parseFloat(data.item.quantidade_atual) || 0;
+                                    console.log('Estoque encontrado:', quantidade, unidade);
+                                    estoqueSpan.textContent = `${quantidade} ${unidade}`.trim();
+                                    estoqueSpan.classList.remove('text-muted');
+                                    estoqueSpan.classList.add('text-primary', 'fw-bold');
+                                } else if (estoqueSpan) {
+                                    console.log('Estoque não disponível');
+                                    estoqueSpan.textContent = '-';
+                                    estoqueSpan.classList.add('text-muted');
+                                    estoqueSpan.classList.remove('text-primary', 'fw-bold');
+                                }
+                            } else {
+                                console.error('Resposta da API sem sucesso:', data);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Erro ao buscar informações do item:', error);
+                            if (tamanhoInput) tamanhoInput.value = '';
+                            if (estoqueSpan) {
+                                estoqueSpan.textContent = '-';
+                                estoqueSpan.classList.add('text-muted');
+                                estoqueSpan.classList.remove('text-primary', 'fw-bold');
+                            }
+                        });
+                } else {
+                    if (tamanhoInput) tamanhoInput.value = '';
+                    if (estoqueSpan) {
+                        estoqueSpan.textContent = '-';
+                        estoqueSpan.classList.add('text-muted');
+                        estoqueSpan.classList.remove('text-primary', 'fw-bold');
+                    }
+                }
+            });
+        }
+        
+        if (btnRemover) {
+            btnRemover.addEventListener('click', function() {
+                tr.remove();
+            });
+        }
+    }
+    
+    // Função para abrir modal de tamanhos
+    function abrirModalTamanhosSaida(tr) {
+        const itemId = tr.querySelector('.item-select').value;
+        if (!itemId) {
+            alert('Selecione um item primeiro.');
+            return;
+        }
+        
+        // Carregar tamanhos existentes deste item
+        const tamanhosData = tr.dataset.tamanhos ? JSON.parse(tr.dataset.tamanhos) : [];
+        const tamanhosTbody = document.getElementById('tamanhos-item-tbody-saida');
+        tamanhosTbody.innerHTML = '';
+        
+        tamanhosData.forEach(tamanho => {
+            adicionarLinhaTamanhoItemSaida(tamanho.tamanho, tamanho.quantidade);
+        });
+        
+        const modalElement = document.getElementById('modalTamanhosItemSaida');
+        
+        // Mover o modal para o body se ainda não estiver lá (garantir que está no nível correto do DOM)
+        if (modalElement.parentElement !== document.body) {
+            document.body.appendChild(modalElement);
+        }
+        
+        // Calcular z-index dinamicamente baseado nos modais existentes
+        const existingModals = document.querySelectorAll('.modal.show');
+        let maxZIndex = 1050;
+        existingModals.forEach(m => {
+            if (m !== modalElement) {
+                const zIndex = parseInt(window.getComputedStyle(m).zIndex) || 1050;
+                if (zIndex > maxZIndex) maxZIndex = zIndex;
+            }
+        });
+        
+        const newZIndex = maxZIndex + 20;
+        
+        // Aplicar z-index antes de mostrar
+        modalElement.style.zIndex = newZIndex.toString();
+        const modalDialog = modalElement.querySelector('.modal-dialog');
+        if (modalDialog) {
+            modalDialog.style.zIndex = newZIndex.toString();
+        }
+        
+        const modal = new bootstrap.Modal(modalElement, {
+            backdrop: true,
+            keyboard: true
+        });
+        
+        // Ajustar z-index após mostrar o modal
+        modalElement.addEventListener('shown.bs.modal', function() {
+            // Garantir z-index alto
+            modalElement.style.zIndex = newZIndex.toString();
+            if (modalDialog) {
+                modalDialog.style.zIndex = newZIndex.toString();
+            }
+            
+            // Ajustar backdrop
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            if (backdrops.length > 0) {
+                const lastBackdrop = backdrops[backdrops.length - 1];
+                lastBackdrop.style.zIndex = (newZIndex - 5).toString();
+            }
+        }, { once: true });
+        
+        modal.show();
+    }
+    
+    // Função para adicionar linha de tamanho no modal
+    function adicionarLinhaTamanhoItemSaida(tamanho = '', quantidade = 0) {
+        const tamanhosTbody = document.getElementById('tamanhos-item-tbody-saida');
+        if (!tamanhosTbody) return;
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>
+                <input type="text" 
+                       class="form-control form-control-sm tamanho-input-item" 
+                       value="${tamanho}" 
+                       placeholder="Ex: 35, 36, P, M, G">
+            </td>
+            <td>
+                <input type="number" 
+                       class="form-control form-control-sm quantidade-tamanho-item" 
+                       value="${quantidade}" 
+                       step="0.01" 
+                       min="0" 
+                       placeholder="0">
+            </td>
+            <td>
+                <button type="button" 
+                        class="btn btn-sm btn-danger btn-remover-tamanho-item" 
+                        title="Remover tamanho">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        tamanhosTbody.appendChild(tr);
+        
+        const quantidadeInput = tr.querySelector('.quantidade-tamanho-item');
+        const btnRemover = tr.querySelector('.btn-remover-tamanho-item');
+        
+        if (quantidadeInput) {
+            quantidadeInput.addEventListener('input', calcularTotalTamanhosItemSaida);
+        }
+        
+        if (btnRemover) {
+            btnRemover.addEventListener('click', function() {
+                tr.remove();
+                calcularTotalTamanhosItemSaida();
+            });
+        }
+        
+        calcularTotalTamanhosItemSaida();
+    }
+    
+    // Função para calcular total de tamanhos no modal
+    function calcularTotalTamanhosItemSaida() {
+        let total = 0;
+        document.querySelectorAll('#tamanhos-item-tbody-saida .quantidade-tamanho-item').forEach(input => {
+            total += parseFloat(input.value) || 0;
+        });
+        const totalSpan = document.getElementById('total-tamanhos-item-saida');
+        if (totalSpan) {
+            totalSpan.textContent = total.toFixed(2);
+        }
+        
+        // Atualizar quantidade do item na linha principal
+        if (itemAtualTamanhosSaida) {
+            const quantidadeInput = itemAtualTamanhosSaida.querySelector('.quantidade-item');
+            if (quantidadeInput) {
+                quantidadeInput.value = total.toFixed(2);
+            }
+        }
+    }
+    
+    // Event listeners
+    if (btnAdicionarItemSaida) {
+        btnAdicionarItemSaida.addEventListener('click', adicionarItemSaida);
+    }
+    
+    // Event listeners para remover item
+    document.querySelectorAll('#itens-saida-tbody .btn-remover-item').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const tr = this.closest('tr');
+            if (tr) {
+                tr.remove();
+            }
+        });
+    });
+    
+    // Carregar estoque disponível para itens existentes na edição
+    {% if not is_create and saida %}
+    document.querySelectorAll('#itens-saida-tbody tr').forEach(tr => {
+        const itemSelect = tr.querySelector('.item-select');
+        const tamanhoInput = tr.querySelector('.tamanho-item');
+        const estoqueSpan = tr.querySelector('.estoque-disponivel-item');
+        
+        if (itemSelect && itemSelect.value) {
+            // Obter valores da OM de origem dos campos hidden
+            const orgaoId = document.getElementById('id_orgao_origem')?.value;
+            const grandeComandoId = document.getElementById('id_grande_comando_origem')?.value;
+            const unidadeId = document.getElementById('id_unidade_origem')?.value;
+            const subUnidadeId = document.getElementById('id_sub_unidade_origem')?.value;
+            
+            // Construir URL com parâmetros de OM
+            let url = `{% url 'militares:produto_almoxarifado_info' 0 %}`.replace('0', itemSelect.value);
+            const params = new URLSearchParams();
+            
+            if (subUnidadeId) {
+                params.append('sub_unidade', subUnidadeId);
+            } else if (unidadeId) {
+                params.append('unidade', unidadeId);
+            } else if (grandeComandoId) {
+                params.append('grande_comando', grandeComandoId);
+            } else if (orgaoId) {
+                params.append('orgao', orgaoId);
+            }
+            
+            if (params.toString()) {
+                url += '?' + params.toString();
+            }
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success' && data.item) {
+                        // Atualizar tamanho
+                        if (tamanhoInput) {
+                            tamanhoInput.value = data.item.tamanho || '';
+                        }
+                        
+                        // Atualizar estoque disponível
+                        if (estoqueSpan && data.item.quantidade_atual !== undefined) {
+                            const unidade = data.item.get_unidade_medida_display || data.item.unidade_medida || '';
+                            const quantidade = parseFloat(data.item.quantidade_atual) || 0;
+                            estoqueSpan.textContent = `${quantidade} ${unidade}`.trim();
+                            estoqueSpan.classList.remove('text-muted');
+                            estoqueSpan.classList.add('text-primary', 'fw-bold');
+                        } else if (estoqueSpan) {
+                            estoqueSpan.textContent = '-';
+                            estoqueSpan.classList.add('text-muted');
+                            estoqueSpan.classList.remove('text-primary', 'fw-bold');
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao buscar informações do item:', error);
+                });
+        }
+    });
+    {% endif %}
+    
+    // Event listener para adicionar tamanho no modal
+    const btnAdicionarTamanhoItemSaida = document.getElementById('btn-adicionar-tamanho-item-saida');
+    if (btnAdicionarTamanhoItemSaida) {
+        btnAdicionarTamanhoItemSaida.addEventListener('click', function() {
+            adicionarLinhaTamanhoItemSaida();
+        });
+    }
+    
+    // Salvar tamanhos quando o modal fechar
+    const modalTamanhosSaida = document.getElementById('modalTamanhosItemSaida');
+    if (modalTamanhosSaida) {
+        modalTamanhosSaida.addEventListener('hidden.bs.modal', function() {
+            if (itemAtualTamanhosSaida) {
+                const tamanhosData = [];
+                document.querySelectorAll('#tamanhos-item-tbody-saida tr').forEach(tr => {
+                    const tamanhoInput = tr.querySelector('.tamanho-input-item');
+                    const quantidadeInput = tr.querySelector('.quantidade-tamanho-item');
+                    if (tamanhoInput && quantidadeInput && tamanhoInput.value.trim()) {
+                        tamanhosData.push({
+                            tamanho: tamanhoInput.value.trim(),
+                            quantidade: parseFloat(quantidadeInput.value) || 0
+                        });
+                    }
+                });
+                itemAtualTamanhosSaida.dataset.tamanhos = JSON.stringify(tamanhosData);
+                itemAtualTamanhosSaida = null;
+            }
+        });
+    }
+    
+    // Se não houver itens na criação, adicionar um item vazio
+    {% if is_create %}
+    if (itensTbodySaida && itensTbodySaida.querySelectorAll('tr').length === 0) {
+        adicionarItemSaida();
+    }
+    {% endif %}
+    
+    // Leitura de código de barras para saída
+    const codigoBarrasInput = document.getElementById('codigo_barras_input_saida');
+    const btnBuscarCodigo = document.getElementById('btn_buscar_codigo_barras_saida');
+    const itemInfoDiv = document.getElementById('item_info_saida');
+    
+    function buscarItemPorCodigoBarras(codigo) {
+        if (!codigo || codigo.trim() === '') {
+            return;
+        }
+        
+        // Validar tamanho mínimo do código
+        if (codigo.trim().length < 3) {
+            return;
+        }
+        
+        // Usar URL absoluta para evitar problemas quando carregado via AJAX
+        const buscarUrl = '/militares/almoxarifado/buscar-item/';
+        fetch(`${buscarUrl}?codigo_barras=${encodeURIComponent(codigo.trim())}`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                // Se for 404, não mostrar erro (item simplesmente não encontrado)
+                if (response.status === 404) {
+                    return response.json().then(data => {
+                        // Não fazer nada se não encontrar
+                        return null;
+                    });
+                }
+                throw new Error(`Erro ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (!data) {
+                return; // Item não encontrado, não fazer nada
+            }
+            if (data.status === 'success' && data.item) {
+                // Adicionar item à tabela de múltiplos itens
+                if (itensTbodySaida) {
+                    // Verificar se o item já existe na tabela
+                    const itemJaExiste = Array.from(itensTbodySaida.querySelectorAll('.item-select')).some(select => {
+                        return select.value === String(data.item.id);
+                    });
+                    
+                    if (!itemJaExiste) {
+                        // Adicionar novo item
+                        adicionarItemSaida();
+                        
+                        // Preencher o último item adicionado
+                        const ultimaLinha = itensTbodySaida.querySelector('tr:last-child');
+                        if (ultimaLinha) {
+                            const selectItem = ultimaLinha.querySelector('.item-select');
+                            if (selectItem) {
+                                selectItem.value = data.item.id;
+                                // Disparar evento change para atualizar dependências
+                                const event = new Event('change', { bubbles: true });
+                                selectItem.dispatchEvent(event);
+                            }
+                        }
+                    } else {
+                        // Item já existe, apenas mostrar mensagem
+                        alert('Este item já foi adicionado à saída.');
+                    }
+                }
+                
+                // Mostrar informações do item
+                document.getElementById('item_descricao_saida').textContent = 
+                    `${data.item.codigo} - ${data.item.descricao}`;
+                document.getElementById('item_estoque_saida').textContent = 
+                    `${data.item.quantidade_atual} ${data.item.unidade_medida}`;
+                itemInfoDiv.style.display = 'block';
+                
+                // Verificar se há estoque disponível
+                if (parseFloat(data.item.quantidade_atual) <= 0) {
+                    itemInfoDiv.querySelector('.alert').classList.remove('alert-info');
+                    itemInfoDiv.querySelector('.alert').classList.add('alert-warning');
+                    itemInfoDiv.querySelector('.alert').innerHTML += '<br><strong>Atenção: Estoque zerado!</strong>';
+                }
+                
+                // Limpar o campo de código de barras após um delay
+                setTimeout(() => {
+                    codigoBarrasInput.value = '';
+                    codigoBarrasInput.focus();
+                }, 500);
+            } else {
+                // Não mostrar alerta se não encontrar (pode estar digitando ainda)
+                // Apenas limpar se for uma busca explícita (botão ou Enter)
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao buscar item:', error);
+            // Não mostrar alerta para erros 404 (item não encontrado)
+            // Apenas logar o erro
+        });
+    }
+    
+    if (codigoBarrasInput) {
+        // Buscar quando o botão for clicado
+        if (btnBuscarCodigo) {
+            btnBuscarCodigo.addEventListener('click', function() {
+                buscarItemPorCodigoBarras(codigoBarrasInput.value);
+            });
+        }
+        
+        // Buscar quando Enter for pressionado
+        codigoBarrasInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                buscarItemPorCodigoBarras(codigoBarrasInput.value);
+            }
+        });
+        
+        // Focar no campo quando o modal abrir
+        codigoBarrasInput.focus();
+        
+        // Detectar quando um leitor de código de barras lê (geralmente termina com Enter)
+        let barcodeTimeout;
+        let isSearching = false; // Flag para evitar múltiplas buscas simultâneas
+        
+        codigoBarrasInput.addEventListener('input', function() {
+            clearTimeout(barcodeTimeout);
+            
+            // Se o campo estiver vazio, não fazer nada
+            if (codigoBarrasInput.value.trim().length === 0) {
+                itemInfoDiv.style.display = 'none';
+                return;
+            }
+            
+            barcodeTimeout = setTimeout(() => {
+                // Só buscar se não estiver já buscando e tiver pelo menos 3 caracteres
+                if (!isSearching && codigoBarrasInput.value.trim().length >= 3) {
+                    isSearching = true;
+                    buscarItemPorCodigoBarras(codigoBarrasInput.value.trim());
+                }
+            }, 500); // Aguardar 500ms após a última digitura
+        });
+        
+        // Wrapper para resetar flag de busca após a busca ser concluída
+        const originalBuscarItem = buscarItemPorCodigoBarras;
+        buscarItemPorCodigoBarras = function(codigo) {
+            const promise = originalBuscarItem(codigo);
+            promise.finally(() => {
+                setTimeout(() => {
+                    isSearching = false;
+                }, 500);
+            });
+            return promise;
+        };
+    }
+    
+    // Função para preencher OM de destino com a lotação atual do requisitante
+    // IMPORTANTE: Para CONSUMO, a OM de destino é preenchida automaticamente com a lotação do requisitante (apenas para registro)
+    // A OM de origem continua sendo selecionada manualmente para gerenciar o estoque
+    async function preencherOMDestinoDoRequisitante(militarId) {
+        console.log('preencherOMDestinoDoRequisitante chamada com militarId:', militarId);
+        if (!militarId) {
+            console.log('Militar ID não fornecido');
+            return;
+        }
+        
+        // Obter referências aos elementos de DESTINO
+        const orgaoDestinoHidden = document.getElementById('id_orgao_destino');
+        const grandeComandoDestinoHidden = document.getElementById('id_grande_comando_destino');
+        const unidadeDestinoHidden = document.getElementById('id_unidade_destino');
+        const subUnidadeDestinoHidden = document.getElementById('id_sub_unidade_destino');
+        const organogramaDestinoSelect = document.getElementById('organograma-destino-select');
+        
+        console.log('Elementos encontrados:', {
+            orgaoDestinoHidden: !!orgaoDestinoHidden,
+            grandeComandoDestinoHidden: !!grandeComandoDestinoHidden,
+            unidadeDestinoHidden: !!unidadeDestinoHidden,
+            subUnidadeDestinoHidden: !!subUnidadeDestinoHidden,
+            organogramaDestinoSelect: !!organogramaDestinoSelect
+        });
+        
+        try {
+            const url = `{% url "militares:militar_info_completa_ajax" %}?militar_id=${militarId}`;
+            console.log('Buscando lotação do militar:', url);
+            
+            const response = await fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            const data = await response.json();
+            console.log('Resposta da API:', data);
+            
+            if (data.success && data.militar && data.militar.lotacao_atual) {
+                const lotacao = data.militar.lotacao_atual;
+                console.log('Lotação encontrada:', lotacao);
+                
+                // Preencher campos hidden de DESTINO (prioridade: sub_unidade > unidade > grande_comando > orgao)
+                // IMPORTANTE: Isso é apenas para registro/documentação. O estoque é gerenciado pela OM de origem selecionada manualmente.
+                if (lotacao.sub_unidade_id && subUnidadeDestinoHidden) {
+                    subUnidadeDestinoHidden.value = lotacao.sub_unidade_id;
+                    if (unidadeDestinoHidden) unidadeDestinoHidden.value = '';
+                    if (grandeComandoDestinoHidden) grandeComandoDestinoHidden.value = '';
+                    if (orgaoDestinoHidden) orgaoDestinoHidden.value = '';
+                    console.log('Preenchido sub_unidade_destino:', lotacao.sub_unidade_id);
+                } else if (lotacao.unidade_id && unidadeDestinoHidden) {
+                    unidadeDestinoHidden.value = lotacao.unidade_id;
+                    if (subUnidadeDestinoHidden) subUnidadeDestinoHidden.value = '';
+                    if (grandeComandoDestinoHidden) grandeComandoDestinoHidden.value = '';
+                    if (orgaoDestinoHidden) orgaoDestinoHidden.value = '';
+                    console.log('Preenchido unidade_destino:', lotacao.unidade_id);
+                } else if (lotacao.grande_comando_id && grandeComandoDestinoHidden) {
+                    grandeComandoDestinoHidden.value = lotacao.grande_comando_id;
+                    if (unidadeDestinoHidden) unidadeDestinoHidden.value = '';
+                    if (subUnidadeDestinoHidden) subUnidadeDestinoHidden.value = '';
+                    if (orgaoDestinoHidden) orgaoDestinoHidden.value = '';
+                    console.log('Preenchido grande_comando_destino:', lotacao.grande_comando_id);
+                } else if (lotacao.orgao_id && orgaoDestinoHidden) {
+                    orgaoDestinoHidden.value = lotacao.orgao_id;
+                    if (grandeComandoDestinoHidden) grandeComandoDestinoHidden.value = '';
+                    if (unidadeDestinoHidden) unidadeDestinoHidden.value = '';
+                    if (subUnidadeDestinoHidden) subUnidadeDestinoHidden.value = '';
+                    console.log('Preenchido orgao_destino:', lotacao.orgao_id);
+                }
+                
+                // Atualizar o select do organograma de destino apenas visualmente (para registro)
+                if (organogramaDestinoSelect) {
+                    console.log('Recarregando organograma de destino...');
+                    // Recarregar organograma e selecionar a opção correspondente
+                    await carregarOrganogramaCompleto(organogramaDestinoSelect, false);
+                    
+                    // Determinar qual opção selecionar
+                    let optionId = '';
+                    if (lotacao.sub_unidade_id) {
+                        optionId = `sub_${lotacao.sub_unidade_id}`;
+                    } else if (lotacao.unidade_id) {
+                        optionId = `unidade_${lotacao.unidade_id}`;
+                    } else if (lotacao.grande_comando_id) {
+                        optionId = `gc_${lotacao.grande_comando_id}`;
+                    } else if (lotacao.orgao_id) {
+                        optionId = `orgao_${lotacao.orgao_id}`;
+                    }
+                    
+                    console.log('Tentando selecionar opção:', optionId);
+                    
+                    // Tentar selecionar a opção com múltiplas tentativas
+                    let tentativas = 0;
+                    const maxTentativas = 10;
+                    const intervalo = 200; // 200ms entre tentativas
+                    
+                    const tentarSelecionar = () => {
+                        tentativas++;
+                        if (optionId) {
+                            // Procurar pela opção no select
+                            const options = organogramaDestinoSelect.options;
+                            let optionEncontrada = null;
+                            
+                            for (let i = 0; i < options.length; i++) {
+                                const opt = options[i];
+                                // Primeiro tentar pelo value
+                                if (opt.value === optionId) {
+                                    optionEncontrada = opt;
+                                    break;
+                                }
+                                // Se não encontrar, tentar pelo dataset.valor
+                                if (opt.dataset.valor) {
+                                    try {
+                                        const valor = JSON.parse(opt.dataset.valor);
+                                        if (lotacao.sub_unidade_id && valor.sub_unidade_id == lotacao.sub_unidade_id) {
+                                            optionEncontrada = opt;
+                                            break;
+                                        } else if (!lotacao.sub_unidade_id && lotacao.unidade_id && valor.unidade_id == lotacao.unidade_id && !valor.sub_unidade_id) {
+                                            optionEncontrada = opt;
+                                            break;
+                                        } else if (!lotacao.sub_unidade_id && !lotacao.unidade_id && lotacao.grande_comando_id && valor.grande_comando_id == lotacao.grande_comando_id && !valor.unidade_id) {
+                                            optionEncontrada = opt;
+                                            break;
+                                        } else if (!lotacao.sub_unidade_id && !lotacao.unidade_id && !lotacao.grande_comando_id && lotacao.orgao_id && valor.orgao_id == lotacao.orgao_id && !valor.grande_comando_id) {
+                                            optionEncontrada = opt;
+                                            break;
+                                        }
+                                    } catch (e) {
+                                        // Ignorar erro de parse
+                                    }
+                                }
+                            }
+                            
+                            if (optionEncontrada) {
+                                organogramaDestinoSelect.value = optionEncontrada.value;
+                                // Disparar evento change para atualizar campos ocultos
+                                organogramaDestinoSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                                // Também chamar diretamente a função de atualização
+                                if (typeof atualizarCamposOcultos === 'function') {
+                                    atualizarCamposOcultos(organogramaDestinoSelect, orgaoDestinoHidden, grandeComandoDestinoHidden, unidadeDestinoHidden, subUnidadeDestinoHidden);
+                                }
+                                console.log('OM de destino preenchida com sucesso na tentativa', tentativas, 'com opção:', optionEncontrada.value);
+                                return true;
+                            } else if (tentativas < maxTentativas) {
+                                console.log(`Opção não encontrada, tentativa ${tentativas}/${maxTentativas}, procurando por:`, optionId);
+                                setTimeout(tentarSelecionar, intervalo);
+                                return false;
+                            } else {
+                                console.warn('Opção não encontrada após', maxTentativas, 'tentativas:', optionId);
+                                console.warn('Lotação do militar:', lotacao);
+                                // Mesmo sem encontrar a opção, os campos hidden já foram preenchidos
+                                return false;
+                            }
+                        }
+                        return false;
+                    };
+                    
+                    // Iniciar tentativas após um pequeno delay
+                    setTimeout(tentarSelecionar, 300);
+                } else {
+                    console.warn('organograma-destino-select não encontrado');
+                }
+            } else {
+                console.warn('Militar sem lotação atual ou dados inválidos:', data);
+            }
+        } catch (error) {
+            console.error('Erro ao buscar lotação do requisitante:', error);
+        }
+    }
+    
+    // Inicializar Select2 para o campo requisitante (militar)
+    function inicializarSelect2Requisitante() {
+        const requisitanteSelect = document.getElementById('id_requisitante');
+        if (!requisitanteSelect) {
+            console.log('Campo requisitante não encontrado');
+            return false;
+        }
+        
+        if (typeof $ === 'undefined' || typeof $.fn.select2 === 'undefined') {
+            console.log('jQuery ou Select2 não disponível');
+            return false;
+        }
+        
+        const $requisitanteSelect = $(requisitanteSelect);
+        
+        // Se já está inicializado, destruir primeiro
+        if ($requisitanteSelect.hasClass('select2-hidden-accessible')) {
+            try {
+                $requisitanteSelect.select2('destroy');
+            } catch (e) {
+                console.log('Erro ao destruir Select2 anterior:', e);
+            }
+        }
+        
+        // Garantir que o campo não esteja desabilitado
+        requisitanteSelect.disabled = false;
+        requisitanteSelect.readOnly = false;
+        
+        // Remover classe que pode causar problemas
+        $requisitanteSelect.removeClass('militar-select2');
+        
+        // Encontrar o modal pai para dropdownParent
+        const modal = $requisitanteSelect.closest('.modal');
+        const dropdownParent = modal.length ? modal : $(document.body);
+        
+        try {
+            $requisitanteSelect.select2({
+                placeholder: 'Digite o nome, matrícula ou posto do militar...',
+                allowClear: true,
+                minimumInputLength: 2,
+                width: '100%',
+                dropdownParent: dropdownParent,
+                ajax: {
+                    url: '/militares/militar-autocomplete/',
+                    dataType: 'json',
+                    delay: 300,
+                    data: function (params) {
+                        return {
+                            q: params.term || ''
+                        };
+                    },
+                    processResults: function (data) {
+                        if (data && data.results) {
+                            return {
+                                results: data.results
+                            };
+                        }
+                        return {
+                            results: []
+                        };
+                    },
+                    cache: true,
+                    transport: function(params, success, failure) {
+                        const $request = $.ajax(params);
+                        $request.then(success);
+                        $request.fail(function(jqXHR, textStatus, errorThrown) {
+                            // Ignorar erros de abort (requisições canceladas)
+                            if (textStatus !== 'abort') {
+                                failure(jqXHR, textStatus, errorThrown);
+                            }
+                        });
+                        return $request;
+                    },
+                    error: function(xhr, status, error) {
+                        // Ignorar erros de abort (requisições canceladas quando o usuário digita rápido)
+                        if (status !== 'abort') {
+                            console.error('Erro ao buscar militares:', error);
+                            console.error('Status:', status);
+                            if (xhr.responseText) {
+                                console.error('Response:', xhr.responseText);
+                            }
+                        }
+                    }
+                },
+                language: {
+                    inputTooShort: function () {
+                        return 'Digite pelo menos 2 caracteres...';
+                    },
+                    noResults: function () {
+                        return 'Nenhum militar encontrado';
+                    },
+                    searching: function () {
+                        return 'Buscando...';
+                    }
+                },
+                templateResult: function(data) {
+                    if (data.loading) {
+                        return data.text;
+                    }
+                    // Garantir que os resultados não apareçam como links
+                    var $result = $('<span>' + data.text + '</span>');
+                    return $result;
+                },
+                templateSelection: function(data) {
+                    // Garantir que a seleção não apareça como link
+                    return data.text || data.id;
+                }
+            });
+            
+            console.log('Select2 inicializado com sucesso no campo requisitante');
+            
+            // Adicionar CSS para garantir que não apareça como link
+            $requisitanteSelect.on('select2:open', function() {
+                setTimeout(function() {
+                    $('.select2-results__option').css({
+                        'text-decoration': 'none !important',
+                        'color': '#212529 !important',
+                        'cursor': 'pointer'
+                    });
+                    $('.select2-results__option a').css({
+                        'text-decoration': 'none !important',
+                        'color': '#212529 !important'
+                    });
+                }, 100);
+            });
+            
+            // Aplicar CSS imediatamente após inicialização
+            setTimeout(function() {
+                $('#id_requisitante + .select2-container .select2-selection__rendered').css({
+                    'text-decoration': 'none',
+                    'color': '#212529'
+                });
+            }, 200);
+            
+            // Se há um requisitante já selecionado (na edição), carregar os dados
+            {% if not is_create and saida and saida.requisitante %}
+            const requisitanteId = {{ saida.requisitante.id }};
+            const requisitanteText = "{{ saida.requisitante.get_posto_graduacao_display }} {{ saida.requisitante.nome_completo }} - Mat: {{ saida.requisitante.matricula }}";
+            if (requisitanteId) {
+                const option = new Option(requisitanteText, requisitanteId, true, true);
+                $requisitanteSelect.append(option).trigger('change');
+            }
+            {% endif %}
+            
+            // Quando o requisitante for selecionado e o tipo for CONSUMO, preencher OM de destino automaticamente
+            // IMPORTANTE: A OM de destino é preenchida com a lotação do requisitante (apenas para registro)
+            // A OM de origem continua sendo selecionada manualmente para gerenciar o estoque
+            $requisitanteSelect.on('select2:select', function(e) {
+                console.log('Select2 select event disparado', e.params.data);
+                const tipoSaida = document.getElementById('id_tipo_saida')?.value;
+                console.log('Tipo de saída:', tipoSaida);
+                if (tipoSaida === 'CONSUMO') {
+                    const militarId = e.params.data.id;
+                    console.log('Preenchendo OM de destino para militar:', militarId);
+                    preencherOMDestinoDoRequisitante(militarId);
+                }
+            });
+            
+            // Também usar o evento change do Select2
+            $requisitanteSelect.on('change', function() {
+                const tipoSaida = document.getElementById('id_tipo_saida')?.value;
+                const militarId = $(this).val();
+                console.log('Change event - Tipo:', tipoSaida, 'Militar ID:', militarId);
+                if (tipoSaida === 'CONSUMO' && militarId) {
+                    console.log('Preenchendo OM de destino via change event');
+                    preencherOMDestinoDoRequisitante(militarId);
+                }
+            });
+            
+            // Também verificar quando o tipo de saída mudar para CONSUMO
+            const tipoSaidaSelect = document.getElementById('id_tipo_saida');
+            if (tipoSaidaSelect) {
+                tipoSaidaSelect.addEventListener('change', function() {
+                    if (this.value === 'CONSUMO' && $requisitanteSelect.val()) {
+                        console.log('Tipo mudou para CONSUMO, preenchendo OM de destino');
+                        preencherOMDestinoDoRequisitante($requisitanteSelect.val());
+                    }
+                });
+            }
+            
+            return true;
+        } catch (e) {
+            console.error('Erro ao inicializar Select2:', e);
+            return false;
+        }
+    }
+    
+    // Tentar inicializar Select2 imediatamente e após delays
+    // Aguardar um pouco para garantir que o DOM está pronto
+    setTimeout(function() {
+        if (!inicializarSelect2Requisitante()) {
+            setTimeout(function() {
+                if (!inicializarSelect2Requisitante()) {
+                    setTimeout(inicializarSelect2Requisitante, 300);
+                }
+            }, 200);
+        }
+    }, 100);
+    
+    // Funcionalidade de gerenciamento de tamanhos
+    {% if not is_create and saida and saida.requer_tamanhos %}
+    const tamanhosTbody = document.getElementById('tamanhos-tbody');
+    const btnAdicionarTamanho = document.getElementById('btn-adicionar-tamanho');
+    const totalTamanhosSpan = document.getElementById('total-tamanhos');
+    const quantidadeInput = document.getElementById('id_quantidade');
+    
+    // Função para calcular total de tamanhos
+    function calcularTotalTamanhos() {
+        let total = 0;
+        const quantidadeInputs = document.querySelectorAll('#tamanhos-tbody .quantidade-input');
+        quantidadeInputs.forEach(input => {
+            const valor = parseFloat(input.value) || 0;
+            total += valor;
+        });
+        if (totalTamanhosSpan) {
+            totalTamanhosSpan.textContent = total.toFixed(2);
+        }
+        if (quantidadeInput) {
+            quantidadeInput.value = total.toFixed(2);
+        }
+        return total;
+    }
+    
+    // Função para adicionar nova linha de tamanho
+    function adicionarLinhaTamanho(tamanho = '', quantidade = 0) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>
+                <input type="text" 
+                       class="form-control form-control-sm tamanho-input" 
+                       value="${tamanho}" 
+                       placeholder="Ex: 35, 36, P, M, G">
+            </td>
+            <td>
+                <input type="number" 
+                       class="form-control form-control-sm quantidade-input" 
+                       value="${quantidade}" 
+                       step="0.01" 
+                       min="0" 
+                       placeholder="0">
+            </td>
+            <td>
+                <button type="button" 
+                        class="btn btn-sm btn-danger btn-remover-tamanho" 
+                        title="Remover tamanho">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        tamanhosTbody.appendChild(tr);
+        
+        // Event listeners
+        const quantidadeInput = tr.querySelector('.quantidade-input');
+        if (quantidadeInput) {
+            quantidadeInput.addEventListener('input', calcularTotalTamanhos);
+        }
+        
+        const btnRemover = tr.querySelector('.btn-remover-tamanho');
+        if (btnRemover) {
+            btnRemover.addEventListener('click', function() {
+                tr.remove();
+                calcularTotalTamanhos();
+            });
+        }
+    }
+    
+    // Event listener para adicionar tamanho
+    if (btnAdicionarTamanho) {
+        btnAdicionarTamanho.addEventListener('click', function() {
+            adicionarLinhaTamanho();
+        });
+    }
+    
+    // Event listeners para remover tamanho
+    document.querySelectorAll('.btn-remover-tamanho').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const tr = this.closest('tr');
+            if (tr) {
+                tr.remove();
+                calcularTotalTamanhos();
+            }
+        });
+    });
+    
+    // Event listeners para calcular total quando quantidade mudar
+    document.querySelectorAll('.quantidade-input').forEach(input => {
+        input.addEventListener('input', calcularTotalTamanhos);
+    });
+    
+    // Calcular total inicial
+    calcularTotalTamanhos();
+    {% endif %}
+    
+    // Verificar se é EPI/Uniforme/Calçado na criação
+    {% if is_create %}
+    const itemSelect = document.getElementById('id_item');
+    const tamanhosSection = document.getElementById('tamanhos-section');
+    const tamanhosTbodyCreate = document.getElementById('tamanhos-tbody-create');
+    const btnAdicionarTamanhoCreate = document.getElementById('btn-adicionar-tamanho-create');
+    const totalTamanhosCreate = document.getElementById('total-tamanhos-create');
+    const quantidadeInput = document.getElementById('id_quantidade');
+    
+    // Função para calcular total de tamanhos na criação
+    function calcularTotalTamanhosCreate() {
+        let total = 0;
+        const quantidadeInputs = document.querySelectorAll('#tamanhos-tbody-create .quantidade-input');
+        quantidadeInputs.forEach(input => {
+            const valor = parseFloat(input.value) || 0;
+            total += valor;
+        });
+        if (totalTamanhosCreate) {
+            totalTamanhosCreate.textContent = total.toFixed(2);
+        }
+        if (quantidadeInput) {
+            quantidadeInput.value = total.toFixed(2);
+        }
+        return total;
+    }
+    
+    // Função para adicionar linha de tamanho na criação
+    function adicionarLinhaTamanhoCreate(tamanho = '', quantidade = 0) {
+        if (!tamanhosTbodyCreate) return;
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>
+                <input type="text" 
+                       class="form-control form-control-sm tamanho-input" 
+                       value="${tamanho}" 
+                       placeholder="Ex: 35, 36, P, M, G">
+            </td>
+            <td>
+                <input type="number" 
+                       class="form-control form-control-sm quantidade-input" 
+                       value="${quantidade}" 
+                       step="0.01" 
+                       min="0" 
+                       placeholder="0">
+            </td>
+            <td>
+                <button type="button" 
+                        class="btn btn-sm btn-danger btn-remover-tamanho" 
+                        title="Remover tamanho">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        tamanhosTbodyCreate.appendChild(tr);
+        
+        // Event listeners
+        const quantidadeInput = tr.querySelector('.quantidade-input');
+        if (quantidadeInput) {
+            quantidadeInput.addEventListener('input', calcularTotalTamanhosCreate);
+        }
+        
+        const btnRemover = tr.querySelector('.btn-remover-tamanho');
+        if (btnRemover) {
+            btnRemover.addEventListener('click', function() {
+                tr.remove();
+                calcularTotalTamanhosCreate();
+            });
+        }
+        
+        calcularTotalTamanhosCreate();
+    }
+    
+    // Event listener para adicionar tamanho na criação
+    if (btnAdicionarTamanhoCreate) {
+        btnAdicionarTamanhoCreate.addEventListener('click', function() {
+            adicionarLinhaTamanhoCreate();
+        });
+    }
+    
+    function verificarSeEPIUniforme() {
+        if (!tamanhosSection || !itemSelect) return;
+        
+        const selectedOption = itemSelect.options[itemSelect.selectedIndex];
+        if (!selectedOption || !selectedOption.value) {
+            tamanhosSection.style.display = 'none';
+            return;
+        }
+        
+        // Buscar informações do item via AJAX
+        fetch(`{% url 'militares:produto_almoxarifado_info' 0 %}`.replace('0', selectedOption.value))
+            .then(response => response.json())
+            .then(data => {
+                if (data.requer_tamanhos) {
+                    tamanhosSection.style.display = 'block';
+                } else {
+                    tamanhosSection.style.display = 'none';
+                    if (tamanhosTbodyCreate) {
+                        tamanhosTbodyCreate.innerHTML = '';
+                        calcularTotalTamanhosCreate();
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao verificar item:', error);
+            });
+    }
+    
+    if (itemSelect) {
+        itemSelect.addEventListener('change', verificarSeEPIUniforme);
+    }
+    
+    // Verificar inicialmente
+    verificarSeEPIUniforme();
+    {% endif %}
+})();
+</script>
+

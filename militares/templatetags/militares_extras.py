@@ -1,5 +1,6 @@
 from django import template
 from django.utils.safestring import mark_safe
+from ..models import Publicacao
 
 register = template.Library()
 
@@ -9,9 +10,23 @@ def get_item(dictionary, key):
     return dictionary.get(key, key)
 
 @register.filter
+def lookup(dictionary, key):
+    """Filtro para acessar um dicionário por chave"""
+    if dictionary and key in dictionary:
+        return dictionary[key]
+    return None
+
+@register.filter
 def split(value, arg):
     """Divide uma string em uma lista usando o separador especificado"""
     return value.split(arg)
+
+@register.filter
+def after_slash(value):
+    """Retorna apenas a parte após a barra (/) se existir, senão retorna o valor original"""
+    if '/' in str(value):
+        return str(value).split('/')[-1].strip()
+    return value
 
 @register.filter
 def sum_vagas_fixadas(queryset):
@@ -139,4 +154,12 @@ def criptografar_cpf(cpf):
         return cpf
     
     # Retornar CPF criptografado
-    return f"{cpf_limpo[:3]}.***.***-{cpf_limpo[-2:]}" 
+    return f"{cpf_limpo[:3]}.***.***-{cpf_limpo[-2:]}"
+
+@register.simple_tag
+def get_notas_boletim(numero_boletim):
+    """Retorna as notas que estão incluídas em um boletim"""
+    return Publicacao.objects.filter(
+        tipo='NOTA',
+        numero_boletim=numero_boletim
+    ).order_by('numero') 

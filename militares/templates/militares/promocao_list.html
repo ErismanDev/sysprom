@@ -95,7 +95,8 @@
                                 <option value="ANTIGUIDADE" {% if request.GET.criterio == 'ANTIGUIDADE' %}selected{% endif %}>Antiguidade</option>
                                 <option value="MERECIMENTO" {% if request.GET.criterio == 'MERECIMENTO' %}selected{% endif %}>Merecimento</option>
                                 <option value="POST_MORTEM" {% if request.GET.criterio == 'POST_MORTEM' %}selected{% endif %}>Post Mortem</option>
-                                <option value="RESSARCIMENTO" {% if request.GET.criterio == 'RESSARCIMENTO' %}selected{% endif %}>Ressarcimento</option>
+                                <option value="RESSARCIMENTO" {% if request.GET.criterio == 'RESSARCIMENTO' %}selected{% endif %}>Ressarcimento de Preterição</option>
+                                <option value="CONDICOES_ESPECIAIS" {% if request.GET.criterio == 'CONDICOES_ESPECIAIS' %}selected{% endif %}>Condições Especiais</option>
                             </select>
                         </div>
                         <div class="col-md-2">
@@ -105,6 +106,14 @@
                         <div class="col-md-2">
                             <input type="date" name="data_fim" class="form-control" placeholder="Data fim"
                                    value="{{ request.GET.data_fim }}">
+                        </div>
+                        <div class="col-md-2">
+                            <select name="registros" class="form-select">
+                                <option value="20" {% if request.GET.registros == '20' or not request.GET.registros %}selected{% endif %}>20 por página</option>
+                                <option value="10" {% if request.GET.registros == '10' %}selected{% endif %}>10 por página</option>
+                                <option value="50" {% if request.GET.registros == '50' %}selected{% endif %}>50 por página</option>
+                                <option value="100" {% if request.GET.registros == '100' %}selected{% endif %}>100 por página</option>
+                            </select>
                         </div>
                         <div class="col-md-2">
                             <button type="submit" class="btn btn-primary w-100">
@@ -117,6 +126,28 @@
 
             <!-- Lista de Promoções -->
             <div class="card shadow-lg border-0">
+                <div class="card-header bg-light border-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0 text-primary">
+                                <i class="fas fa-list me-2"></i>Lista de Promoções
+                            </h6>
+                            <small class="text-muted">
+                                Mostrando {{ promocoes.start_index|default:1 }} a {{ promocoes.end_index|default:0 }} de {{ total_promocoes }} promoções
+                            </small>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <label for="registros" class="form-label me-2 mb-0 text-muted">Registros por página:</label>
+                            <select id="registros" name="registros" class="form-select form-select-sm" style="width: auto;">
+                                {% for opcao in opcoes_registros %}
+                                    <option value="{{ opcao }}" {% if opcao == registros_por_pagina %}selected{% endif %}>
+                                        {{ opcao }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
                 <div class="card-body p-0">
                     {% if promocoes %}
                         <div class="table-responsive">
@@ -181,7 +212,7 @@
                                                    class="btn btn-sm btn-outline-primary" title="Ver detalhes">
                                                     <i class="fas fa-eye"></i>
                                                 </a>
-                                                <a href="#" class="btn btn-sm btn-outline-secondary" title="Editar">
+                                                <a href="{% url 'militares:promocao_update' promocao.pk %}" class="btn btn-sm btn-outline-secondary" title="Editar">
                                                     <i class="fas fa-edit"></i>
                                                 </a>
                                                 <a href="{% url 'militares:promocao_delete' promocao.pk %}" class="btn btn-sm btn-outline-danger" title="Excluir">
@@ -202,12 +233,12 @@
                                 <ul class="pagination justify-content-center mb-0">
                                     {% if page_obj.has_previous %}
                                         <li class="page-item">
-                                            <a class="page-link" href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.criterio %}&criterio={{ request.GET.criterio }}{% endif %}{% if request.GET.data_inicio %}&data_inicio={{ request.GET.data_inicio }}{% endif %}{% if request.GET.data_fim %}&data_fim={{ request.GET.data_fim }}{% endif %}">
+                                            <a class="page-link" href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.criterio %}&criterio={{ request.GET.criterio }}{% endif %}{% if request.GET.data_inicio %}&data_inicio={{ request.GET.data_inicio }}{% endif %}{% if request.GET.data_fim %}&data_fim={{ request.GET.data_fim }}{% endif %}{% if request.GET.registros %}&registros={{ request.GET.registros }}{% endif %}">
                                                 <i class="fas fa-angle-double-left"></i>
                                             </a>
                                         </li>
                                         <li class="page-item">
-                                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.criterio %}&criterio={{ request.GET.criterio }}{% endif %}{% if request.GET.data_inicio %}&data_inicio={{ request.GET.data_inicio }}{% endif %}{% if request.GET.data_fim %}&data_fim={{ request.GET.data_fim }}{% endif %}">
+                                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.criterio %}&criterio={{ request.GET.criterio }}{% endif %}{% if request.GET.data_inicio %}&data_inicio={{ request.GET.data_inicio }}{% endif %}{% if request.GET.data_fim %}&data_fim={{ request.GET.data_fim }}{% endif %}{% if request.GET.registros %}&registros={{ request.GET.registros }}{% endif %}">
                                                 <i class="fas fa-angle-left"></i>
                                             </a>
                                         </li>
@@ -220,19 +251,19 @@
                                             </li>
                                         {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
                                             <li class="page-item">
-                                                <a class="page-link" href="?page={{ num }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.criterio %}&criterio={{ request.GET.criterio }}{% endif %}{% if request.GET.data_inicio %}&data_inicio={{ request.GET.data_inicio }}{% endif %}{% if request.GET.data_fim %}&data_fim={{ request.GET.data_fim }}{% endif %}">{{ num }}</a>
+                                                <a class="page-link" href="?page={{ num }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.criterio %}&criterio={{ request.GET.criterio }}{% endif %}{% if request.GET.data_inicio %}&data_inicio={{ request.GET.data_inicio }}{% endif %}{% if request.GET.data_fim %}&data_fim={{ request.GET.data_fim }}{% endif %}{% if request.GET.registros %}&registros={{ request.GET.registros }}{% endif %}">{{ num }}</a>
                                             </li>
                                         {% endif %}
                                     {% endfor %}
 
                                     {% if page_obj.has_next %}
                                         <li class="page-item">
-                                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.criterio %}&criterio={{ request.GET.criterio }}{% endif %}{% if request.GET.data_inicio %}&data_inicio={{ request.GET.data_inicio }}{% endif %}{% if request.GET.data_fim %}&data_fim={{ request.GET.data_fim }}{% endif %}">
+                                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.criterio %}&criterio={{ request.GET.criterio }}{% endif %}{% if request.GET.data_inicio %}&data_inicio={{ request.GET.data_inicio }}{% endif %}{% if request.GET.data_fim %}&data_fim={{ request.GET.data_fim }}{% endif %}{% if request.GET.registros %}&registros={{ request.GET.registros }}{% endif %}">
                                                 <i class="fas fa-angle-right"></i>
                                             </a>
                                         </li>
                                         <li class="page-item">
-                                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.criterio %}&criterio={{ request.GET.criterio }}{% endif %}{% if request.GET.data_inicio %}&data_inicio={{ request.GET.data_inicio }}{% endif %}{% if request.GET.data_fim %}&data_fim={{ request.GET.data_fim }}{% endif %}">
+                                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.criterio %}&criterio={{ request.GET.criterio }}{% endif %}{% if request.GET.data_inicio %}&data_inicio={{ request.GET.data_inicio }}{% endif %}{% if request.GET.data_fim %}&data_fim={{ request.GET.data_fim }}{% endif %}{% if request.GET.registros %}&registros={{ request.GET.registros }}{% endif %}">
                                                 <i class="fas fa-angle-double-right"></i>
                                             </a>
                                         </li>
@@ -313,6 +344,20 @@ $(document).ready(function() {
         if ($(this).val()) {
             $('form').submit();
         }
+    });
+    
+    // Auto-submit quando mudar registros por página
+    $('select[name="registros"]').change(function() {
+        $('form').submit();
+    });
+    
+    // Auto-submit quando mudar o seletor do cabeçalho
+    $('#registros').change(function() {
+        // Manter todos os filtros atuais
+        var currentUrl = new URL(window.location);
+        currentUrl.searchParams.set('registros', $(this).val());
+        currentUrl.searchParams.set('page', '1'); // Voltar para primeira página
+        window.location.href = currentUrl.toString();
     });
     
     // Tooltips

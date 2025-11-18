@@ -166,6 +166,14 @@ def configuracoes_cartucheira(request):
             'cor': 'dark',
             'categoria': 'Material Bélico'
         })
+        configuracoes.append({
+            'titulo': 'Configurações de Munições',
+            'descricao': 'Configurar munições do sistema',
+            'icone': 'fa-bullseye',
+            'url': 'militares:configuracao_municao_list',
+            'cor': 'dark',
+            'categoria': 'Material Bélico'
+        })
     
     # ===== ALMOXARIFADO =====
     if menu_permissions.get('show_almoxarifado') or request.user.is_superuser:

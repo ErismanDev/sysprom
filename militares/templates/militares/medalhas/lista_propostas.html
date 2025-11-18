@@ -1,0 +1,649 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Propostas Salvas - SysProm - CBMEPI{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Busca Discreta */
+    .search-discreet {
+        position: relative;
+        margin: 20px 0;
+        transition: all 0.3s ease;
+    }
+    
+    .search-input-discreet {
+        width: 100%;
+        max-width: 400px;
+        padding: 12px 45px 12px 45px;
+        border: 2px solid #e9ecef;
+        border-radius: 25px;
+        font-size: 14px;
+        background: white;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    
+    .search-input-discreet:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        transform: translateY(-1px);
+    }
+    
+    .search-icon-discreet {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+        font-size: 16px;
+        z-index: 2;
+        transition: color 0.3s ease;
+    }
+    
+    .search-input-discreet:focus + .search-icon-discreet {
+        color: #667eea;
+    }
+    
+    .search-clear-discreet {
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: #6c757d;
+        cursor: pointer;
+        font-size: 14px;
+        display: none;
+        transition: color 0.3s ease;
+    }
+    
+    .search-clear-discreet:hover {
+        color: #dc3545;
+    }
+    
+    /* Filtros Discretos */
+    .filters-discreet {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .filter-select-discreet {
+        padding: 8px 12px;
+        border: 1px solid #dee2e6;
+        border-radius: 20px;
+        background: white;
+        font-size: 13px;
+        transition: all 0.3s ease;
+        min-width: 120px;
+    }
+    
+    .filter-select-discreet:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+    }
+    
+    /* Estilos específicos para propostas */
+    .bg-gradient-primary { background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); }
+    .card.shadow-lg { box-shadow: 0 1rem 3rem rgba(0,0,0,.175) !important; }
+    .table th { background-color: #f8f9fa; border-top: none; font-weight: 600; color: #495057; }
+    .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.875rem; }
+    .btn-icon { width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+    
+    /* Animações */
+    .fade-in {
+        animation: fadeIn 0.3s ease-in;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Responsivo */
+    @media (max-width: 768px) {
+        .search-input-discreet {
+            max-width: 100%;
+            font-size: 16px;
+        }
+        
+        .filters-discreet {
+            flex-direction: column;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Campo oculto para armazenar ID da proposta para exclusão -->
+<input type="hidden" id="propostaIdParaExcluir" value="">
+
+<!-- Token CSRF para formulários -->
+{% csrf_token %}
+
+<div class="container-fluid">
+    <div class="col-lg-12">
+        <!-- Cabeçalho -->
+        <div class="card shadow-lg border-0 mb-4">
+            <div class="card-header bg-gradient-primary text-white py-3">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-file-alt fa-2x me-3"></i>
+                        <div>
+                            <h4 class="mb-0">Propostas Salvas</h4>
+                            <small class="opacity-75">Gerencie todas as propostas de medalhas criadas no sistema</small>
+                        </div>
+                    </div>
+                    <div class="btn-group">
+                        <a href="{% url 'militares:concessoes_list' %}" class="btn btn-outline-light">
+                            <i class="fas fa-arrow-left me-2"></i>Voltar às Concessões
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Busca Discreta -->
+        <div class="search-discreet">
+            <div class="container">
+                <div class="row justify-content-center">
+                    <div class="col-lg-6">
+                        <div class="position-relative">
+                            <input type="text" 
+                                   id="pesquisaPropostas" 
+                                   class="search-input-discreet" 
+                                   placeholder="🔍 Digite o número, título ou descrição da proposta..."
+                                   autocomplete="off">
+                            <i class="fas fa-search search-icon-discreet"></i>
+                            <button class="search-clear-discreet" id="searchClear" title="Limpar busca">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Filtros Discretos -->
+                        <form id="filtrosForm" method="get" class="filters-discreet">
+                            <select name="status" id="filterStatus" class="filter-select-discreet">
+                                <option value="">Todos os Status</option>
+                                {% for status_code, status_name in status_choices %}
+                                <option value="{{ status_code }}" {% if status_atual == status_code %}selected{% endif %}>
+                                    {{ status_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-filter me-1"></i>Filtrar
+                            </button>
+                            <a href="{% url 'militares:lista_propostas' %}" class="btn btn-outline-secondary btn-sm">
+                                <i class="fas fa-times me-1"></i>Limpar
+                            </a>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Estatísticas -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card bg-primary text-white">
+                    <div class="card-body text-center">
+                        <h4>{{ total_propostas }}</h4>
+                        <small>Total de Propostas</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body text-center">
+                        <h4>{{ propostas_assinadas|default:0 }}</h4>
+                        <small>Assinadas</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-warning text-white">
+                    <div class="card-body text-center">
+                        <h4>{{ propostas_rascunho|default:0 }}</h4>
+                        <small>Rascunho</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-info text-white">
+                    <div class="card-body text-center">
+                        <h4>{{ propostas_aprovadas|default:0 }}</h4>
+                        <small>Aprovadas</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista de Propostas -->
+        <div class="card shadow-lg border-0">
+            <div class="card-header bg-light border-0">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0 text-primary">
+                            <i class="fas fa-list me-2"></i>Lista de Propostas
+                        </h6>
+                        <small class="text-muted">
+                            {% if propostas %}
+                                Mostrando {{ propostas.start_index|default:1 }} a {{ propostas.end_index|default:propostas|length }} de {{ total_propostas }} propostas
+                            {% else %}
+                                Nenhuma proposta encontrada
+                            {% endif %}
+                        </small>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                {% if propostas %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">Nº</th>
+                                <th style="width: 350px;">Título</th>
+                                <th>Status</th>
+                                <th>Concessões</th>
+                                <th>Assinaturas</th>
+                                <th>Criada em</th>
+                                <th>Criado por</th>
+                                <th class="text-end" style="width:160px;">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for proposta in propostas %}
+                            <tr>
+                                <td>
+                                    <span class="badge bg-secondary" style="font-size:0.9em; letter-spacing:0.5px; color: white; font-weight: normal;">
+                                        {{ proposta.numero_proposta }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="fw-bold" style="word-wrap: break-word; max-width: 300px;">{{ proposta.titulo }}</div>
+                                    {% if proposta.descricao %}
+                                        <small class="text-muted">{{ proposta.descricao|truncatechars:80 }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if proposta.status == 'RASCUNHO' %}
+                                        <span class="badge bg-warning">Rascunho</span>
+                                    {% elif proposta.status == 'APROVADA' %}
+                                        <span class="badge bg-success">Aprovada</span>
+                                    {% elif proposta.status == 'EM_ANALISE' %}
+                                        <span class="badge bg-info">Em Análise</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ proposta.get_status_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-primary">{{ proposta.get_total_concessoes }}</span>
+                                </td>
+                                <td>
+                                    {% if proposta.assinaturas.exists %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-signature fa-fw"></i> {{ proposta.assinaturas.count }}
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-light text-dark">0</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <i class="fas fa-calendar-alt text-muted me-1"></i>
+                                    {{ proposta.criado_em|date:'d/m/Y H:i' }}
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-sm bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2">
+                                            {{ proposta.criado_por.get_full_name|first|upper|default:"U" }}
+                                        </div>
+                                        <div>
+                                            <div class="fw-bold">{{ proposta.criado_por.get_full_name|default:proposta.criado_por.username }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="text-end">
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <!-- Botão de Visualizar -->
+                                        <a href="{% url 'militares:visualizar_proposta' proposta.pk %}" 
+                                           class="btn btn-outline-primary btn-icon" 
+                                           title="Visualizar Proposta">
+                                            <i class="fas fa-eye fa-fw fa-lg"></i>
+                                        </a>
+                                        
+                                        <!-- Botão de Delete -->
+                                        <button type="button" 
+                                                class="btn btn-outline-danger btn-icon" 
+                                                title="Excluir Proposta"
+                                                onclick="confirmarExclusao({{ proposta.pk }}, '{{ proposta.titulo|escapejs }}')">
+                                            <i class="fas fa-trash fa-fw fa-lg"></i>
+                                        </button>
+                                        
+
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Paginação -->
+                {% if propostas.has_other_pages %}
+                <div class="card-footer bg-light">
+                    <nav aria-label="Paginação das propostas">
+                        <ul class="pagination justify-content-center mb-0">
+                            {% if propostas.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1{% if status_atual %}&status={{ status_atual }}{% endif %}">
+                                        <i class="fas fa-angle-double-left"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ propostas.previous_page_number }}{% if status_atual %}&status={{ status_atual }}{% endif %}">
+                                        <i class="fas fa-angle-left"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                            
+                            {% for num in propostas.paginator.page_range %}
+                                {% if propostas.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                {% elif num > propostas.number|add:'-3' and num < propostas.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}{% if status_atual %}&status={{ status_atual }}{% endif %}">{{ num }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if propostas.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ propostas.next_page_number }}{% if status_atual %}&status={{ status_atual }}{% endif %}">
+                                        <i class="fas fa-angle-right"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ propostas.paginator.num_pages }}{% if status_atual %}&status={{ status_atual }}{% endif %}">
+                                        <i class="fas fa-angle-double-right"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
+                
+                {% else %}
+                <!-- Estado vazio -->
+                <div class="text-center py-5">
+                    <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
+                    <h4 class="text-muted">Nenhuma proposta encontrada</h4>
+                    <p class="text-muted">
+                        {% if status_atual %}
+                            Não há propostas com o status "{{ status_atual }}".
+                        {% else %}
+                            Ainda não foram criadas propostas no sistema.
+                        {% endif %}
+                    </p>
+                    <a href="{% url 'militares:concessoes_list' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Criar Primeira Proposta
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação de Exclusão -->
+<div class="modal fade" id="modalConfirmacaoExclusao" tabindex="-1" aria-labelledby="modalTituloExclusao" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="modalTituloExclusao">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Confirmar Exclusão
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body" id="modalMensagemExclusao">
+                <!-- Conteúdo será preenchido via JavaScript -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-danger" id="btnConfirmarExclusao">
+                    <i class="fas fa-trash me-2"></i>Sim, Excluir
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Funções globais para exclusão
+function confirmarExclusao(propostaId, titulo) {
+    console.log('confirmarExclusao chamada com:', propostaId, titulo);
+    console.log('Tipo do propostaId:', typeof propostaId);
+    console.log('Tipo do titulo:', typeof titulo);
+    
+    // Verificar se os parâmetros são válidos
+    if (!propostaId || propostaId === 'undefined' || propostaId === 'null') {
+        console.error('ID da proposta inválido:', propostaId);
+        alert('Erro: ID da proposta inválido. Tente novamente.');
+        return;
+    }
+    
+    if (!titulo || titulo === 'undefined' || titulo === 'null') {
+        console.error('Título da proposta inválido:', titulo);
+        alert('Erro: Título da proposta inválido. Tente novamente.');
+        return;
+    }
+    
+    // Definir o ID da proposta no campo oculto
+    const campoOculto = document.getElementById('propostaIdParaExcluir');
+    if (!campoOculto) {
+        console.error('Campo oculto não encontrado!');
+        alert('Erro: Campo oculto não encontrado. Recarregue a página.');
+        return;
+    }
+    
+    campoOculto.value = propostaId;
+    console.log('ID da proposta definido no campo oculto:', propostaId);
+    console.log('Valor do campo oculto após definição:', campoOculto.value);
+    
+    // Mostrar modal de confirmação
+    const modal = document.getElementById('modalConfirmacaoExclusao');
+    const modalTitulo = document.getElementById('modalTituloExclusao');
+    const modalMensagem = document.getElementById('modalMensagemExclusao');
+    const btnConfirmar = document.getElementById('btnConfirmarExclusao');
+    
+    if (modal && modalTitulo && modalMensagem && btnConfirmar) {
+        modalTitulo.textContent = `Excluir Proposta`;
+        modalMensagem.innerHTML = `
+            <p><strong>Tem certeza que deseja excluir a proposta?</strong></p>
+            <p class="text-danger mb-2"><strong>"${titulo}"</strong></p>
+            <p class="text-muted small">Esta ação não pode ser desfeita e removerá:</p>
+            <ul class="text-muted small">
+                <li>Todas as concessões relacionadas</li>
+                <li>Todas as assinaturas da proposta</li>
+                <li>A proposta em si</li>
+            </ul>
+        `;
+        
+        // Configurar o botão de confirmação
+        btnConfirmar.onclick = function() {
+            console.log('Usuário confirmou exclusão no modal, executando...');
+            const bootstrapModal = bootstrap.Modal.getInstance(modal);
+            if (bootstrapModal) {
+                bootstrapModal.hide();
+            }
+            executarExclusao();
+        };
+        
+        // Mostrar o modal
+        const bootstrapModal = new bootstrap.Modal(modal);
+        bootstrapModal.show();
+    } else {
+        console.error('Elementos do modal não encontrados, usando confirmação simples');
+        if (confirm(`Tem certeza que deseja excluir a proposta "${titulo}"?\n\nEsta ação não pode ser desfeita e removerá todas as concessões e assinaturas relacionadas.`)) {
+            console.log('Usuário confirmou exclusão, executando...');
+            executarExclusao();
+        } else {
+            console.log('Usuário cancelou exclusão');
+        }
+    }
+}
+
+function executarExclusao() {
+    console.log('executarExclusao chamada');
+    
+    // Obter o ID da proposta do campo oculto
+    const propostaId = document.getElementById('propostaIdParaExcluir').value;
+    console.log('Proposta ID:', propostaId);
+    
+    if (!propostaId) {
+        console.error('ID da proposta não encontrado no campo oculto!');
+        alert('Erro: ID da proposta não encontrado. Tente novamente.');
+        return;
+    }
+    
+    // Buscar o token CSRF
+    const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    if (!csrfToken) {
+        console.error('Token CSRF não encontrado!');
+        alert('Erro: Token de segurança não encontrado. Recarregue a página e tente novamente.');
+        return;
+    }
+    
+    console.log('Token CSRF encontrado:', csrfToken.value.substring(0, 10) + '...');
+    
+    // Criar um formulário dinamicamente
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `/militares/medalhas/propostas/${propostaId}/excluir/`;
+    
+    // Adicionar CSRF token
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrfmiddlewaretoken';
+    csrfInput.value = csrfToken.value;
+    form.appendChild(csrfInput);
+    
+    // Adicionar ID da proposta
+    const propostaInput = document.createElement('input');
+    propostaInput.type = 'hidden';
+    propostaInput.name = 'proposta_id';
+    propostaInput.value = propostaId;
+    form.appendChild(propostaInput);
+    
+    // Adicionar ao DOM e enviar
+    document.body.appendChild(form);
+    console.log('Formulário criado e enviando...');
+    console.log('Form action:', form.action);
+    console.log('Form method:', form.method);
+    console.log('CSRF token presente:', csrfInput.value ? 'Sim' : 'Não');
+    console.log('Proposta ID no form:', propostaInput.value);
+    
+    // Verificar se todos os campos estão presentes
+    const formData = new FormData(form);
+    console.log('FormData contents:');
+    for (let [key, value] of formData.entries()) {
+        console.log(`${key}: ${value}`);
+    }
+    
+    console.log('Enviando formulário...');
+    
+    // Adicionar evento de submit para debug
+    form.addEventListener('submit', function(e) {
+        console.log('Evento submit disparado!');
+        console.log('Form action final:', this.action);
+        console.log('Form method final:', this.method);
+    });
+    
+    // Tentar enviar o formulário usando fetch para mais controle
+    console.log('Tentando enviar formulário via fetch...');
+    
+    fetch(`/militares/medalhas/propostas/${propostaId}/excluir/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken.value,
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+            'csrfmiddlewaretoken': csrfToken.value,
+            'proposta_id': propostaId
+        })
+    })
+    .then(response => {
+        console.log('Resposta recebida:', response);
+        console.log('Status:', response.status);
+        console.log('Status Text:', response.statusText);
+        
+        if (response.redirected) {
+            console.log('Redirecionamento detectado para:', response.url);
+            window.location.href = response.url;
+        } else if (response.ok) {
+            console.log('Requisição bem-sucedida!');
+            // Recarregar a página para mostrar as mensagens
+            window.location.reload();
+        } else {
+            console.error('Erro na requisição:', response.status, response.statusText);
+            alert('Erro ao excluir proposta. Status: ' + response.status);
+        }
+    })
+    .catch(error => {
+        console.error('Erro na requisição fetch:', error);
+        alert('Erro ao excluir proposta: ' + error.message);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Verificar se o token CSRF está presente
+    const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    if (csrfToken) {
+        console.log('Token CSRF carregado com sucesso:', csrfToken.value.substring(0, 10) + '...');
+    } else {
+        console.error('Token CSRF não encontrado na página!');
+    }
+    
+    // Funcionalidade de busca discreta
+    const searchInput = document.getElementById('pesquisaPropostas');
+    const searchClear = document.getElementById('searchClear');
+    
+    if (searchInput && searchClear) {
+        // Mostrar botão de limpar quando houver texto
+        searchInput.addEventListener('input', function() {
+            if (this.value.length > 0) {
+                searchClear.style.display = 'block';
+            } else {
+                searchClear.style.display = 'none';
+            }
+        });
+        
+        // Limpar busca
+        searchClear.addEventListener('click', function() {
+            searchInput.value = '';
+            searchInput.focus();
+            this.style.display = 'none';
+        });
+        
+        // Mostrar botão de limpar se já houver texto
+        if (searchInput.value.length > 0) {
+            searchClear.style.display = 'block';
+        }
+    }
+});
+</script>
+
+
+{% endblock %}

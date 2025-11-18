@@ -1,0 +1,530 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if object %}Editar{% else %}Novo{% endif %} Férias{% endblock %}
+
+{% block extra_css %}
+<style>
+.select2-container {
+    width: 100% !important;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-umbrella-beach me-2 text-info"></i>
+                        {% if object %}Editar Férias{% else %}Nova Férias{% endif %}
+                    </h2>
+                    <p class="text-muted mb-0">
+                        {% if object %}Editando férias de {{ object.militar.nome_guerra }}{% else %}Registrar novas férias{% endif %}
+                    </p>
+                </div>
+                <div>
+                    <a href="{% url 'militares:ferias_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Voltar para Lista
+                    </a>
+                </div>
+            </div>
+            
+            {% if form.non_field_errors %}
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <h5 class="alert-heading">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Erro de Validação</strong>
+                        </h5>
+                        <hr>
+                        {% for error in form.non_field_errors %}
+                            <div class="mb-2 text-danger">{{ error|safe }}</div>
+                        {% endfor %}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-edit me-2"></i>Dados das Férias
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <form method="post" enctype="multipart/form-data" novalidate>
+                                {% csrf_token %}
+                                
+                                {% if form.plano.value %}
+                                <div class="row">
+                                    <div class="col-md-12 mb-3">
+                                        <label for="{{ form.plano.id_for_label }}" class="form-label">
+                                            Plano de Férias
+                                        </label>
+                                        {{ form.plano }}
+                                        {% if form.plano.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.plano.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% else %}
+                                <input type="hidden" name="plano" value="{{ form.plano.value|default:'' }}">
+                                {% endif %}
+                                
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.militar.id_for_label }}" class="form-label">
+                                            Militar <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.militar }}
+                                        {% if form.militar.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.militar.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.tipo.id_for_label }}" class="form-label">
+                                            Tipo de Férias <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.tipo }}
+                                        {% if form.tipo.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.tipo.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ form.ano_referencia.id_for_label }}" class="form-label">
+                                            Ano de Referência <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.ano_referencia }}
+                                        {% if form.ano_referencia.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.ano_referencia.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ form.data_inicio.id_for_label }}" class="form-label">
+                                            Data de Início <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.data_inicio }}
+                                        {% if form.data_inicio.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.data_inicio.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ form.data_fim.id_for_label }}" class="form-label">
+                                            Data de Fim <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.data_fim }}
+                                        {% if form.data_fim.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.data_fim.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-12 mb-3">
+                                        <div class="alert alert-info">
+                                            <strong><i class="fas fa-calendar-day me-2"></i>Duração das Férias:</strong>
+                                            <span id="duracao-dias" class="fw-bold text-primary ms-2">-</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ form.quantidade_dias.id_for_label }}" class="form-label">
+                                            Quantidade de Dias <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.quantidade_dias }}
+                                        {% if form.quantidade_dias.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.quantidade_dias.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ form.status.id_for_label }}" class="form-label">
+                                            Status <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.status }}
+                                        {% if form.status.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.status.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ form.documento_referencia.id_for_label }}" class="form-label">
+                                            Documento de Referência
+                                        </label>
+                                        {{ form.documento_referencia }}
+                                        {% if form.documento_referencia.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.documento_referencia.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ form.numero_documento.id_for_label }}" class="form-label">
+                                            Documento de Publicação
+                                        </label>
+                                        {{ form.numero_documento }}
+                                        {% if form.numero_documento.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.numero_documento.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-12 mb-3">
+                                        <label for="{{ form.observacoes.id_for_label }}" class="form-label">
+                                            Observações
+                                        </label>
+                                        {{ form.observacoes }}
+                                        {% if form.observacoes.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.observacoes.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <!-- Opção de Upload de Documento (Opcional) -->
+                                <div class="mt-4 pt-4 border-top">
+                                    <h6 class="mb-3">
+                                        <i class="fas fa-file-upload me-2 text-primary"></i>Upload de Documento (Opcional)
+                                    </h6>
+                                    <div class="row">
+                                        <div class="col-md-12 mb-3">
+                                            <label class="form-label">Arquivo</label>
+                                            {{ documento_form.arquivo }}
+                                            <small class="form-text text-muted">O tipo e informações do documento já foram informados acima.</small>
+                                        </div>
+                                    </div>
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        <small>O upload de documento é opcional. Você pode anexar documentos depois na página de detalhes.</small>
+                                    </div>
+                                    {% if object and documentos %}
+                                    <div class="mt-3">
+                                        <h6 class="mb-2">
+                                            <i class="fas fa-file-alt me-2"></i>Documentos Já Anexados ({{ documentos|length }})
+                                        </h6>
+                                        <div class="list-group">
+                                            {% for doc in documentos %}
+                                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <strong>{{ doc.get_tipo_display }}</strong> - {{ doc.titulo }}
+                                                    <br><small class="text-muted">
+                                                        <i class="fas fa-calendar me-1"></i>{{ doc.data_upload|date:"d/m/Y H:i" }}
+                                                        <i class="fas fa-user me-1 ms-2"></i>{{ doc.upload_por.get_full_name|default:doc.upload_por.username }}
+                                                    </small>
+                                                </div>
+                                                <div>
+                                                    <a href="{{ doc.arquivo.url }}" target="_blank" class="btn btn-sm btn-outline-primary" title="Visualizar">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="d-flex justify-content-between mt-4">
+                                    <a href="{% url 'militares:ferias_list' %}" class="btn btn-secondary">
+                                        <i class="fas fa-times me-2"></i>Cancelar
+                                    </a>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save me-2"></i>Salvar
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-info-circle me-2"></i>Informações
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted">
+                                <small>
+                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                    <strong>Atenção:</strong> Ao criar férias com status "Usufruindo", a situação do militar será automaticamente atualizada para "Férias". Ao terminar as férias (status "Usufruída"), a situação voltará automaticamente para "Pronto".
+                                </small>
+                            </p>
+                            <p class="text-muted">
+                                <small>
+                                    <i class="fas fa-calendar-check me-1"></i>
+                                    O ano de referência é o ano ao qual as férias se referem, não necessariamente o ano em que estão sendo usufruídas.
+                                </small>
+                            </p>
+                            <p class="text-muted">
+                                <small>
+                                    <i class="fas fa-file-alt me-1"></i>
+                                    Documento de referência e número são opcionais, mas recomendados para rastreabilidade.
+                                </small>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let calculandoDias = false; // Flag para evitar loops infinitos
+let timeoutDataInicio = null;
+let timeoutQuantidadeDias = null;
+
+function atualizarDuracaoExibida() {
+    const dataInicio = document.getElementById('id_data_inicio');
+    const dataFim = document.getElementById('id_data_fim');
+    const duracaoSpan = document.getElementById('duracao-dias');
+    
+    if (!dataInicio || !dataFim || !duracaoSpan) {
+        return;
+    }
+    
+    const dataInicioValue = dataInicio.value;
+    const dataFimValue = dataFim.value;
+    
+    if (!dataInicioValue || !dataFimValue) {
+        duracaoSpan.textContent = '-';
+        return;
+    }
+    
+    const inicio = new Date(dataInicioValue + 'T00:00:00');
+    const fim = new Date(dataFimValue + 'T00:00:00');
+    
+    if (fim < inicio) {
+        duracaoSpan.textContent = 'Data fim deve ser posterior à data início';
+        duracaoSpan.className = 'fw-bold text-danger ms-2';
+        return;
+    }
+    
+    // Calcular diferença em dias, incluindo dia inicial e final
+    // Exemplo: dia 1 a dia 30 = 30 dias (dia 1, 2, 3, ..., 30)
+    const diffTime = fim.getTime() - inicio.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 para incluir o dia inicial
+    
+    duracaoSpan.className = 'fw-bold text-primary ms-2';
+    duracaoSpan.textContent = `${diffDays} dia${diffDays !== 1 ? 's' : ''}`;
+}
+
+function atualizarDuracaoApenas() {
+    // Apenas atualiza a exibição da duração, sem modificar campos
+    atualizarDuracaoExibida();
+}
+
+function calcularDataFim() {
+    if (calculandoDias) return; // Evitar loop
+    
+    const dataInicioInput = document.getElementById('id_data_inicio');
+    const dataFimInput = document.getElementById('id_data_fim');
+    const quantidadeDiasInput = document.getElementById('id_quantidade_dias');
+    
+    if (!dataInicioInput || !dataFimInput || !quantidadeDiasInput) {
+        return;
+    }
+    
+    const dataInicio = dataInicioInput.value;
+    
+    if (!dataInicio) {
+        return;
+    }
+    
+    // Obter quantidade de dias (padrão: 30)
+    let quantidadeDias = 30;
+    if (quantidadeDiasInput.value && quantidadeDiasInput.value.trim() !== '') {
+        quantidadeDias = parseInt(quantidadeDiasInput.value) || 30;
+    } else {
+        // Se não estiver preenchida, definir como 30
+        quantidadeDiasInput.value = 30;
+        quantidadeDias = 30;
+    }
+    
+    // Validar quantidade de dias
+    if (quantidadeDias < 1) {
+        quantidadeDias = 1;
+        quantidadeDiasInput.value = 1;
+    }
+    
+    // Calcular data fim: data início + (quantidade_dias - 1) dias
+    // Exemplo: se começa dia 1 e são 30 dias, termina dia 30 (dia 1, 2, 3, ..., 30)
+    // Então: dia 1 + (30 - 1) = dia 1 + 29 = dia 30
+    try {
+        const inicio = new Date(dataInicio + 'T00:00:00');
+        
+        // Verificar se a data é válida
+        if (isNaN(inicio.getTime())) {
+            return;
+        }
+        
+        const fim = new Date(inicio);
+        fim.setDate(fim.getDate() + quantidadeDias - 1);
+        
+        // Formatar data no formato YYYY-MM-DD
+        const ano = fim.getFullYear();
+        const mes = String(fim.getMonth() + 1).padStart(2, '0');
+        const dia = String(fim.getDate()).padStart(2, '0');
+        const dataFimFormatada = `${ano}-${mes}-${dia}`;
+        
+        // Preencher o campo data_fim
+        calculandoDias = true;
+        dataFimInput.value = dataFimFormatada;
+        calculandoDias = false;
+        
+        // Atualizar apenas a exibição da duração
+        atualizarDuracaoExibida();
+    } catch (e) {
+        console.error('Erro ao calcular data fim:', e);
+    }
+}
+
+// Chamar a função quando as datas mudarem
+document.addEventListener('DOMContentLoaded', function() {
+    const dataInicio = document.getElementById('id_data_inicio');
+    const dataFim = document.getElementById('id_data_fim');
+    const quantidadeDiasInput = document.getElementById('id_quantidade_dias');
+    
+    if (dataInicio && dataFim && quantidadeDiasInput) {
+        // Inicializar quantidade de dias como 30 se estiver vazio
+        if (!quantidadeDiasInput.value || quantidadeDiasInput.value.trim() === '') {
+            quantidadeDiasInput.value = 30;
+        }
+        
+        // Quando a data início mudar (change), calcular automaticamente a data fim
+        dataInicio.addEventListener('change', function() {
+            clearTimeout(timeoutDataInicio);
+            timeoutDataInicio = setTimeout(function() {
+                if (dataInicio.value) {
+                    calcularDataFim();
+                }
+            }, 100);
+        });
+        
+        // Quando a data início mudar (input - para date pickers), calcular automaticamente
+        dataInicio.addEventListener('input', function() {
+            clearTimeout(timeoutDataInicio);
+            timeoutDataInicio = setTimeout(function() {
+                if (dataInicio.value) {
+                    calcularDataFim();
+                }
+            }, 100);
+        });
+        
+        // Quando a quantidade de dias mudar (change), recalcular data fim
+        quantidadeDiasInput.addEventListener('change', function() {
+            clearTimeout(timeoutQuantidadeDias);
+            if (!calculandoDias && dataInicio.value) {
+                calcularDataFim();
+            }
+        });
+        
+        // Quando a quantidade de dias mudar (input - digitação), recalcular data fim com debounce
+        quantidadeDiasInput.addEventListener('input', function() {
+            clearTimeout(timeoutQuantidadeDias);
+            timeoutQuantidadeDias = setTimeout(function() {
+                if (!calculandoDias && dataInicio.value) {
+                    // Validar se é um número válido
+                    const valor = parseInt(quantidadeDiasInput.value);
+                    if (!isNaN(valor) && valor > 0) {
+                        calcularDataFim();
+                    }
+                }
+            }, 300); // Aguardar 300ms após parar de digitar
+        });
+        
+        // Quando a data fim mudar manualmente, apenas atualizar a exibição da duração
+        dataFim.addEventListener('change', function() {
+            if (!calculandoDias) {
+                atualizarDuracaoApenas();
+            }
+        });
+        
+        dataFim.addEventListener('input', function() {
+            if (!calculandoDias) {
+                atualizarDuracaoApenas();
+            }
+        });
+        
+        // Atualizar exibição ao carregar a página se já houver valores
+        if (dataInicio.value && dataFim.value) {
+            atualizarDuracaoApenas();
+        }
+        
+        // Se tiver data início e não tiver data fim, calcular automaticamente
+        if (dataInicio.value && !dataFim.value) {
+            calcularDataFim();
+        }
+        
+        // Observar mudanças no DOM para date pickers que podem inserir valores dinamicamente
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'value') {
+                    if (mutation.target === dataInicio && dataInicio.value) {
+                        calcularDataFim();
+                    }
+                }
+            });
+        });
+        
+        observer.observe(dataInicio, { attributes: true, attributeFilter: ['value'] });
+    }
+    
+    // Inicializar Select2 para o campo militar
+    if (typeof $ !== 'undefined' && $.fn.select2) {
+        $('.militar-select2').select2({
+            ajax: {
+                url: '/militares/militar-autocomplete/',
+                dataType: 'json',
+                delay: 250,
+                data: function (params) {
+                    return {
+                        q: params.term
+                    };
+                },
+                processResults: function (data) {
+                    return {
+                        results: data.results
+                    };
+                },
+                cache: true
+            },
+            minimumInputLength: 2,
+            placeholder: 'Digite o nome, matrícula ou posto do militar...',
+            allowClear: true
+        });
+    }
+});
+</script>
+{% endblock %}
+

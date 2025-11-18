@@ -1,0 +1,269 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load money_filters %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Cabeçalho -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">{{ page_title }}</h1>
+                    <p class="text-muted mb-0">Configure o orçamento de planejadas para o mês</p>
+                </div>
+                <div>
+                    <a href="{% url 'militares:orcamento_planejadas_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Voltar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulário -->
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cog me-2"></i>Configurações do Orçamento
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="ano" class="form-label">
+                                        Ano *
+                                    </label>
+                                    <select class="form-select" id="ano" name="ano" required>
+                                        <option value="">Selecione o ano</option>
+                                        {% for ano in anos_disponiveis %}
+                                            <option value="{{ ano }}" 
+                                                    {% if orcamento and orcamento.ano == ano %}selected{% endif %}>
+                                                {{ ano }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="mes" class="form-label">
+                                        Mês *
+                                    </label>
+                                    <select class="form-select" id="mes" name="mes" required>
+                                        <option value="">Selecione o mês</option>
+                                        {% for valor, nome in meses_choices %}
+                                            <option value="{{ valor }}" 
+                                                    {% if orcamento and orcamento.mes == valor %}selected{% endif %}>
+                                                {{ nome }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="mb-3">
+                                    <label for="valor_total" class="form-label">
+                                        Valor Total Disponível *
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">R$</span>
+                                        <input type="text" 
+                                               class="form-control" 
+                                               id="valor_total" 
+                                               name="valor_total" 
+                                               value="{% if orcamento %}{{ orcamento.valor_total|floatformat:2 }}{% endif %}"
+                                               placeholder="Digite o valor"
+                                               required>
+                                    </div>
+                                    <div class="form-text">Valor total disponibilizado para planejadas no mês</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="mb-3">
+                                    <label for="observacoes" class="form-label">
+                                        Observações
+                                    </label>
+                                    <textarea class="form-control" 
+                                              id="observacoes" 
+                                              name="observacoes" 
+                                              rows="3"
+                                              placeholder="Observações sobre o orçamento...">{% if orcamento %}{{ orcamento.observacoes }}{% endif %}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {% if orcamento %}
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" 
+                                               type="checkbox" 
+                                               id="ativo" 
+                                               name="ativo"
+                                               {% if orcamento.ativo %}checked{% endif %}>
+                                        <label class="form-check-label" for="ativo">
+                                            Orçamento ativo
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <!-- Opção para copiar distribuição do mês anterior (apenas na criação) -->
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="mb-3">
+                                    <div class="alert alert-info">
+                                        <div class="form-check">
+                                            <input class="form-check-input" 
+                                                   type="checkbox" 
+                                                   id="copiar_distribuicao_anterior" 
+                                                   name="copiar_distribuicao_anterior"
+                                                   value="true">
+                                            <label class="form-check-label" for="copiar_distribuicao_anterior">
+                                                <strong>Copiar distribuição do mês anterior</strong>
+                                            </label>
+                                        </div>
+                                        <small class="text-muted">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Se marcado, a distribuição do mês anterior será copiada proporcionalmente para este novo orçamento.
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="d-flex gap-2">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save me-2"></i>
+                                        {% if orcamento %}Atualizar{% else %}Criar{% endif %} Orçamento
+                                    </button>
+                                    <a href="{% url 'militares:orcamento_planejadas_list' %}" class="btn btn-outline-secondary">
+                                        <i class="fas fa-times me-2"></i>Cancelar
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const valorInput = document.getElementById('valor_total');
+    const form = document.querySelector('form');
+    
+    // Converter valor inicial de americano para brasileiro
+    if (valorInput.value) {
+        let valor = valorInput.value;
+        // Se tem ponto como separador decimal, converter para vírgula
+        if (valor.includes('.')) {
+            valor = valor.replace('.', ',');
+        }
+        valorInput.value = valor;
+    }
+    
+    // Formatação em tempo real - campo limpo
+    valorInput.addEventListener('input', function(e) {
+        let value = e.target.value;
+        
+        // Se o valor está vazio, não fazer nada
+        if (!value) {
+            return;
+        }
+        
+        // Se já está formatado corretamente, não reformatar
+        if (value.match(/^\d{1,3}(\.\d{3})*,\d{2}$/)) {
+            return;
+        }
+        
+        // Remover tudo que não é dígito
+        const digitsOnly = value.replace(/\D/g, '');
+        
+        if (digitsOnly.length === 0) {
+            e.target.value = '';
+            return;
+        }
+        
+        // Formatar apenas quando tiver 3 ou mais dígitos
+        if (digitsOnly.length >= 3) {
+            // Adicionar vírgula para decimais
+            const formatted = digitsOnly.slice(0, -2) + ',' + digitsOnly.slice(-2);
+            
+            // Adicionar pontos para milhares
+            const parts = formatted.split(',');
+            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            
+            e.target.value = parts.join(',');
+        } else {
+            // Para 1-2 dígitos, deixar como está (sem formatação)
+            e.target.value = digitsOnly;
+        }
+    });
+    
+    // Conversão antes do envio
+    form.addEventListener('submit', function(e) {
+        const valor = valorInput.value.trim();
+        if (valor) {
+            // Lógica correta: se tem vírgula, é formato brasileiro
+            let valorConvertido;
+            if (valor.includes(',')) {
+                // Formato brasileiro: 120.000,50 -> 120000.50
+                valorConvertido = valor.replace(/\./g, '').replace(',', '.');
+            } else {
+                // Formato americano: 120000.50 -> 120000.50 (já está correto)
+                valorConvertido = valor;
+            }
+            
+            // Garantir que é um número válido e maior que zero
+            const valorNumerico = parseFloat(valorConvertido);
+            if (isNaN(valorNumerico) || valorNumerico <= 0) {
+                e.preventDefault();
+                alert('Por favor, insira um valor numérico válido maior que zero.');
+                valorInput.focus();
+                return false;
+            }
+            
+            valorInput.value = valorConvertido;
+        } else {
+            e.preventDefault();
+            alert('Por favor, preencha o valor total.');
+            valorInput.focus();
+            return false;
+        }
+    });
+    
+    // Máscara de entrada
+    valorInput.addEventListener('keypress', function(e) {
+        // Permite apenas números, vírgula e backspace
+        if (!/[0-9,]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete') {
+            e.preventDefault();
+        }
+    });
+    
+});
+</script>
+{% endblock %}

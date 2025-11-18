@@ -1,0 +1,166 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Assinaturas do Boletim{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-signature"></i>
+                        Assinaturas do Boletim: {{ boletim.titulo }}
+                    </h3>
+                    <div class="card-tools">
+                        <a href="{% url 'militares:boletins_ostensivos_list' %}" class="btn btn-sm btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Voltar
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Informações do Boletim -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h5>Informações do Boletim</h5>
+                            <p><strong>Número:</strong> {{ boletim.numero }}</p>
+                            <p><strong>Data de Publicação:</strong> {{ boletim.data_publicacao|date:"d/m/Y" }}</p>
+                            <p><strong>Status:</strong> 
+                                <span class="badge badge-{% if boletim.status == 'APROVADA' %}success{% elif boletim.status == 'REVISADA' %}warning{% elif boletim.status == 'EM_EDICAO' %}info{% else %}secondary{% endif %}">
+                                    {{ boletim.get_status_display }}
+                                </span>
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Conteúdo</h5>
+                            <div class="border p-3" style="max-height: 200px; overflow-y: auto;">
+                                {{ boletim.topicos|safe }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Formulário de Assinatura -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title">Assinar Boletim</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form method="post" action="{% url 'militares:assinar_boletim' boletim.pk %}">
+                                        {% csrf_token %}
+                                        <div class="row">
+                                            <div class="col-md-4">
+                                                <div class="form-group">
+                                                    <label for="funcao_id">Função:</label>
+                                                    <select name="funcao_id" id="funcao_id" class="form-control" required>
+                                                        <option value="">Selecione uma função</option>
+                                                        {% for funcao in funcoes_usuario %}
+                                                        <option value="{{ funcao.id }}">
+                                                            {{ funcao.nome }}
+                                                            {% if funcao.orgao %} - {{ funcao.orgao }}{% endif %}
+                                                            {% if funcao.grande_comando %} - {{ funcao.grande_comando }}{% endif %}
+                                                            {% if funcao.unidade %} - {{ funcao.unidade }}{% endif %}
+                                                            {% if funcao.sub_unidade %} - {{ funcao.sub_unidade }}{% endif %}
+                                                        </option>
+                                                        {% endfor %}
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="form-group">
+                                                    <label for="tipo_assinatura">Tipo de Assinatura:</label>
+                                                    <select name="tipo_assinatura" id="tipo_assinatura" class="form-control" required>
+                                                        <option value="">Selecione o tipo</option>
+                                                        <option value="REVISAO">Revisão</option>
+                                                        <option value="APROVACAO">Aprovação</option>
+                                                        <option value="EDICAO">Edição</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="form-group">
+                                                    <label for="observacoes">Observações:</label>
+                                                    <textarea name="observacoes" id="observacoes" class="form-control" rows="3" placeholder="Observações opcionais"></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-12">
+                                                <button type="submit" class="btn btn-primary">
+                                                    <i class="fas fa-signature"></i> Assinar
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lista de Assinaturas -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title">Assinaturas Existentes</h5>
+                                </div>
+                                <div class="card-body">
+                                    {% if assinaturas %}
+                                    <div class="table-responsive">
+                                        <table class="table table-striped">
+                                            <thead>
+                                                <tr>
+                                                    <th>Assinado por</th>
+                                                    <th>Função</th>
+                                                    <th>Tipo</th>
+                                                    <th>Data</th>
+                                                    <th>Observações</th>
+                                                    <th>Ações</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for assinatura in assinaturas %}
+                                                <tr>
+                                                    <td>{{ assinatura.assinado_por.get_full_name|default:assinatura.assinado_por.username }}</td>
+                                                    <td>{{ assinatura.funcao_militar.nome }}</td>
+                                                    <td>
+                                                        <span class="badge badge-{% if assinatura.tipo_assinatura == 'APROVACAO' %}success{% elif assinatura.tipo_assinatura == 'REVISAO' %}warning{% elif assinatura.tipo_assinatura == 'EDICAO' %}info{% else %}secondary{% endif %}">
+                                                            {{ assinatura.get_tipo_assinatura_display }}
+                                                        </span>
+                                                    </td>
+                                                    <td>{{ assinatura.data_assinatura|date:"d/m/Y H:i" }}</td>
+                                                    <td>{{ assinatura.observacoes|default:"-" }}</td>
+                                                    <td>
+                                                        {% if assinatura.assinado_por == request.user %}
+                                                        <a href="{% url 'militares:retirar_assinatura_boletim' boletim.pk assinatura.pk %}" 
+                                                           class="btn btn-sm btn-danger"
+                                                           onclick="return confirm('Tem certeza que deseja retirar esta assinatura?')">
+                                                            <i class="fas fa-trash"></i> Retirar
+                                                        </a>
+                                                        {% else %}
+                                                        <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    {% else %}
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle"></i>
+                                        Nenhuma assinatura encontrada para este boletim.
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

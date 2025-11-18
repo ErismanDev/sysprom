@@ -1,0 +1,2414 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load money_filters %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<!-- CSRF Token para JavaScript -->
+{% csrf_token %}
+
+<div class="container-fluid">
+    <!-- Cabeçalho -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">{{ page_title }}</h1>
+                    <p class="text-muted mb-0">Gerencie as operações planejadas do sistema</p>
+                </div>
+                <div>
+                    <a href="{% url 'militares:planejadas_list' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-sync me-2"></i>Atualizar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estatísticas -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="text-center p-3 border rounded">
+                <i class="fas fa-list fa-2x text-primary mb-2"></i>
+                <h4 class="text-primary">{{ total_planejadas }}</h4>
+                <p class="text-muted mb-0">Total de Operações</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="text-center p-3 border rounded">
+                <i class="fas fa-dollar-sign fa-2x text-success mb-2"></i>
+                <h4 class="text-success">R$ {{ valor_total|floatformat:2 }}</h4>
+                <p class="text-muted mb-0">Valor Total</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="text-center p-3 border rounded">
+                <i class="fas fa-calendar fa-2x text-info mb-2"></i>
+                <h4 class="text-info">{{ planejadas|length }}</h4>
+                <p class="text-muted mb-0">Nesta Página</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="text-center p-3 border rounded">
+                <i class="fas fa-filter fa-2x text-warning mb-2"></i>
+                <h4 class="text-warning">Filtros</h4>
+                <p class="text-muted mb-0">Aplicados</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Informações sobre Filtros Hierárquicos -->
+    {% if funcao_atual and opcoes_hierarquicas %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-info-circle fa-2x me-3"></i>
+                    <div>
+                        <h6 class="mb-1">
+                            <strong>Sistema de Filtros Hierárquicos</strong>
+                        </h6>
+                           <p class="mb-0">
+                               <strong>Tipo de Acesso:</strong> {{ funcao_atual.funcao_militar.get_acesso_display }}
+                               <br>
+                               <strong>Sua Instância:</strong> 
+                               {% if funcao_atual.sub_unidade %}
+                                   Sub-Unidade: {{ funcao_atual.sub_unidade.nome }}
+                               {% elif funcao_atual.unidade %}
+                                   Unidade: {{ funcao_atual.unidade.nome }}
+                               {% elif funcao_atual.grande_comando %}
+                                   Grande Comando: {{ funcao_atual.grande_comando.nome }}
+                               {% elif funcao_atual.orgao %}
+                                   Órgão: {{ funcao_atual.orgao.nome }}
+                               {% endif %}
+                               <br>
+                               <small class="text-muted">
+                                   Você vê apenas as operações do seu tipo de acesso. 
+                                   Use o filtro "Instância" para ver operações da sua instância específica.
+                               </small>
+                           </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Filtros -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <!-- Filtro Hierárquico -->
+                        {% if opcoes_hierarquicas %}
+                        <div class="col-md-3">
+                            <label for="pesquisa_origem_dropdown" class="form-label">
+                                <i class="fas fa-sitemap me-1"></i>Instância
+                            </label>
+                            <select class="form-select" id="pesquisa_origem_dropdown" name="pesquisa_origem_dropdown">
+                                <option value="">Minha Instância</option>
+                                {% for opcao in opcoes_hierarquicas %}
+                                    <option value="{{ opcao.valor }}" 
+                                            {% if filtros.pesquisa_origem_dropdown == opcao.valor %}selected{% endif %}>
+                                        {{ opcao.texto }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+           <small class="form-text text-muted">
+               <i class="fas fa-info-circle me-1"></i>
+               Selecione sua instância baseada no seu tipo de acesso
+           </small>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="col-md-3">
+                            <label for="search" class="form-label">Buscar</label>
+                            <input type="text" class="form-control" id="search" name="search" 
+                                   value="{{ filtros.search }}" placeholder="Nome, descrição ou cidade...">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="origem" class="form-label">Origem</label>
+                            <select class="form-select" id="origem" name="origem">
+                                <option value="">Todas</option>
+                                {% for origem in origens %}
+                                    <option value="{{ origem }}" {% if filtros.origem == origem %}selected{% endif %}>{{ origem }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="cidade" class="form-label">Cidade</label>
+                            <select class="form-select" id="cidade" name="cidade">
+                                <option value="">Todas</option>
+                                {% for cidade in cidades %}
+                                    <option value="{{ cidade }}" {% if filtros.cidade == cidade %}selected{% endif %}>{{ cidade }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="semana" class="form-label">Semana</label>
+                            <select class="form-select" id="semana" name="semana">
+                                <option value="">Todas</option>
+                                {% for semana in semanas %}
+                                    <option value="{{ semana }}" {% if filtros.semana == semana %}selected{% endif %}>{{ semana }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="status" class="form-label">Status</label>
+                            <select class="form-select" id="status" name="status">
+                                <option value="">Todos</option>
+                                {% for status in status_opcoes %}
+                                    <option value="{{ status }}" {% if filtros.status == status %}selected{% endif %}>{{ status }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <div class="d-grid gap-2 d-md-flex">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="limparFiltros()">
+                                    <i class="fas fa-eraser"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botão Nova Planejada -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex justify-content-end">
+                <a href="{% url 'militares:planejada_create' %}" class="btn btn-success">
+                    <i class="fas fa-plus me-2"></i>Nova Planejada
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela de Planejadas -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>Operações Planejadas
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="text-center">
+                                        <input type="checkbox" class="form-check-input" id="selectAll">
+                                    </th>
+                                    <th class="text-center">ID</th>
+                                    <th>Origem</th>
+                                    <th>Nome</th>
+                                    <th class="text-center">Anexos</th>
+                                    <th>Cidade</th>
+                                    <th class="text-center">Data/Hora</th>
+                                    <th class="text-center">Tipo/Valores</th>
+                                    <th class="text-center">Bombeiros</th>
+                                    <th class="text-center">Operador</th>
+                                    <th class="text-center">Aprovador</th>
+                                    <th class="text-center">Fiscal</th>
+                                    <th class="text-center">Controles</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for planejada in planejadas %}
+                                <tr {% if planejada.excluido %}class="table-danger" style="opacity: 0.7;"{% endif %}>
+                                    <td class="text-center">
+                                        <input type="checkbox" class="form-check-input" value="{{ planejada.id }}">
+                                    </td>
+                                    <td class="text-center">
+                                        {{ planejada.id }}
+                                    </td>
+                                    <td>
+                                        <span class="origem-badge" 
+                                              data-bs-toggle="tooltip" 
+                                              data-bs-placement="top" 
+                                              data-origem-completa="{{ planejada.origem }}"
+                                              title="{{ planejada.origem }}">
+                                            {{ planejada.origem|truncatechars:30 }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-start">
+                                            <i class="fas fa-file-alt text-primary me-2 mt-1"></i>
+                                            <div class="flex-grow-1">
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <strong class="d-block nome-operacao">{{ planejada.nome }}</strong>
+                                                    {% if planejada.excluido %}
+                                                        <span class="badge bg-danger">EXCLUÍDO</span>
+                                                    {% endif %}
+                                                </div>
+                                                {% if planejada.descricao %}
+                                                    <small class="text-muted d-block mt-1" style="max-width: 200px;">{{ planejada.descricao|truncatechars:50 }}</small>
+                                                {% endif %}
+                                                {% if planejada.excluido and planejada.justificativa_exclusao %}
+                                                    <small class="text-danger d-block mt-1" style="max-width: 300px;">
+                                                        <i class="fas fa-comment me-1"></i>{{ planejada.justificativa_exclusao|truncatechars:80 }}
+                                                    </small>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        {% if planejada.link_pdf_nota %}
+                                            <a href="{{ planejada.link_pdf_nota }}" target="_blank" class="btn btn-outline-primary btn-sm" title="Abrir PDF da nota">
+                                                <i class="fas fa-file-pdf"></i>
+                                            </a>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ planejada.cidade }}</td>
+                                    <td class="text-center">
+                                        <div class="d-flex flex-column align-items-center">
+                                            <div class="d-flex align-items-center mb-1">
+                                                <i class="fas fa-calendar text-primary me-1"></i>
+                                                <small class="fw-bold">{{ planejada.data_operacao|date:"d/m/Y" }}</small>
+                                            </div>
+                                            <div class="mb-1">
+                                                <small class="text-muted">{{ planejada.get_semana_display }}</small>
+                                            </div>
+                                            <div class="d-flex align-items-center gap-1">
+                                                <small>{{ planejada.hora_inicio|time:"H:i" }}</small>
+                                                <i class="fas fa-arrow-right text-muted"></i>
+                                                <small>{{ planejada.hora_termino|time:"H:i" }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="text-center align-middle">
+                                        <div class="d-flex flex-column align-items-center justify-content-center">
+                                            <div class="fw-bold mb-1 fs-6">{{ planejada.tipo_planejada|default:"P1" }}</div>
+                                            <div class="text-success small fw-bold">R$ {{ planejada.valor|floatformat:2 }}</div>
+                                            <div class="text-primary small fw-bold">Total: R$ {{ planejada.valor_total|floatformat:2 }}</div>
+                                        </div>
+                                    </td>
+                                    <td class="text-center align-middle">
+                                        <div class="d-flex flex-column align-items-center justify-content-center gap-2">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="badge bg-primary fs-6">{{ planejada.policiais|default:"1" }}</span>
+                                                <button type="button" class="btn btn-outline-primary btn-sm militares-btn" 
+                                                        data-planejada-id="{{ planejada.id }}"
+                                                        data-planejada-nome="{{ planejada.nome }}"
+                                                        title="Ver militares da planejada">
+                                                    <i class="fas fa-users"></i>
+                                                </button>
+                                            </div>
+                                            <small class="text-muted text-center">
+                                                {% if planejada.militares.count > 0 %}
+                                                    {{ planejada.militares.count }} escalado{{ planejada.militares.count|pluralize }}
+                                                {% else %}
+                                                    Nenhum escalado
+                                                {% endif %}
+                                            </small>
+                                        </div>
+                                    </td>
+                                    <!-- Coluna Operador -->
+                                    <td class="text-center align-middle">
+                                        <div class="d-flex justify-content-center">
+                                            {% if pode_operador %}
+                                                <button type="button" class="btn btn-sm {% if planejada.assinatura_operador %}btn-success{% else %}btn-outline-primary{% endif %} assinatura-btn" 
+                                                        data-planejada-id="{{ planejada.id }}" 
+                                                        data-planejada-nome="{{ planejada.nome }}"
+                                                        data-planejada-data="{{ planejada.data_operacao|date:'d/m/Y' }}"
+                                                        data-planejada-tipo="{{ planejada.tipo_planejada|default:'P1' }}"
+                                                        data-planejada-status="{{ planejada.status }}"
+                                                        data-tipo="operador"
+                                                        {% if planejada.assinatura_operador %}disabled{% else %}onclick="abrirModalAssinaturaOperador(this)"{% endif %}
+                                                        title="{% if planejada.assinatura_operador %}Assinado por {{ planejada.assinatura_operador.nome_completo }} em {{ planejada.data_assinatura_operador|date:'d/m/Y H:i' }}{% else %}Assinar como Operador{% endif %}">
+                                                    <i class="fas fa-signature"></i>
+                                                </button>
+                                            {% else %}
+                                                <span class="text-muted" title="Sem permissão para assinar como operador">
+                                                    <i class="fas fa-lock"></i>
+                                                </span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    
+                                    <!-- Coluna Aprovador -->
+                                    <td class="text-center align-middle">
+                                        <div class="d-flex justify-content-center">
+                                            {% if pode_aprovador %}
+                                                <button type="button" class="btn btn-sm {% if planejada.assinatura_aprovador %}btn-success{% else %}btn-outline-warning{% endif %} assinatura-btn" 
+                                                        data-planejada-id="{{ planejada.id }}" 
+                                                        data-planejada-nome="{{ planejada.nome }}"
+                                                        data-planejada-data="{{ planejada.data_operacao|date:'d/m/Y' }}"
+                                                        data-planejada-tipo="{{ planejada.tipo_planejada|default:'P1' }}"
+                                                        data-planejada-status="{{ planejada.status }}"
+                                                        data-tipo="aprovador"
+                                                        {% if planejada.assinatura_aprovador %}disabled{% else %}onclick="abrirModalAssinaturaAprovador(this)"{% endif %}
+                                                        title="{% if planejada.assinatura_aprovador %}Aprovado por {{ planejada.assinatura_aprovador.nome_completo }} em {{ planejada.data_assinatura_aprovador|date:'d/m/Y H:i' }}{% else %}Aprovar Planejada{% endif %}">
+                                                    <i class="fas fa-check-circle"></i>
+                                                </button>
+                                            {% else %}
+                                                <span class="text-muted" title="Sem permissão para aprovar planejadas">
+                                                    <i class="fas fa-lock"></i>
+                                                </span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    
+                                    <!-- Coluna Fiscal -->
+                                    <td class="text-center align-middle">
+                                        <div class="d-flex justify-content-center">
+                                            {% if planejada.data_operacao.date <= today %}
+                                                {% if pode_fiscal %}
+                                                    <button type="button" class="btn btn-sm {% if planejada.assinatura_fiscal %}btn-success{% else %}btn-outline-info{% endif %} assinatura-btn" 
+                                                            data-planejada-id="{{ planejada.id }}" 
+                                                            data-planejada-nome="{{ planejada.nome }}"
+                                                            data-planejada-data="{{ planejada.data_operacao|date:'d/m/Y' }}"
+                                                            data-planejada-tipo="{{ planejada.tipo_planejada|default:'P1' }}"
+                                                            data-planejada-status="{{ planejada.status }}"
+                                                            data-tipo="fiscal"
+                                                            {% if planejada.assinatura_fiscal %}disabled{% else %}onclick="abrirModalAssinaturaFiscal(this)"{% endif %}
+                                                            title="{% if planejada.assinatura_fiscal %}Atestado por {{ planejada.assinatura_fiscal.nome_completo }} em {{ planejada.data_assinatura_fiscal|date:'d/m/Y H:i' }}{% else %}Atestar Realização{% endif %}">
+                                                        <i class="fas fa-clipboard-check"></i>
+                                                    </button>
+                                                {% else %}
+                                                    <span class="text-muted" title="Sem permissão para atestar como fiscal">
+                                                        <i class="fas fa-lock"></i>
+                                                    </span>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="text-muted small">Aguardando data</span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td class="text-center align-middle">
+                                        <div class="d-flex flex-column align-items-center justify-content-center gap-2">
+                                            <!-- Status Badge -->
+                                            <span class="badge 
+                                                {% if planejada.status == 'ativo' %}bg-success
+                                                {% elif planejada.status == 'concluido' %}bg-primary
+                                                {% elif planejada.status == 'cancelado' %}bg-danger
+                                                {% elif planejada.status == 'suspenso' %}bg-warning
+                                                {% else %}bg-secondary{% endif %}">
+                                                {{ planejada.get_status_display }}
+                                            </span>
+                                            
+                                            <!-- Botões de Ação -->
+                                            <div class="d-flex gap-1">
+                                                <button type="button" class="btn btn-outline-info btn-sm detalhes-btn" 
+                                                        data-bs-toggle="modal" data-bs-target="#planejadaModal"
+                                                        data-planejada-id="{{ planejada.id }}"
+                                                        data-planejada-origem="{{ planejada.origem }}"
+                                                        data-planejada-nome="{{ planejada.nome }}"
+                                                        data-planejada-cidade="{{ planejada.cidade }}"
+                                                        data-planejada-semana="{{ planejada.get_semana_display }}"
+                                                        data-planejada-data="{{ planejada.data_operacao|date:'d/m/Y' }}"
+                                                        data-planejada-tipo="{{ planejada.tipo_planejada|default:'P1' }}"
+                                                        data-planejada-hora-inicio="{{ planejada.hora_inicio|time:'H:i' }}"
+                                                        data-planejada-hora-termino="{{ planejada.hora_termino|time:'H:i' }}"
+                                                        data-planejada-valor="{{ planejada.valor|floatformat:2 }}"
+                                                        data-planejada-valor-total="{{ planejada.valor_total|floatformat:2 }}"
+                                                        data-planejada-policiais="{{ planejada.policiais|default:'1' }}"
+                                                        data-planejada-descricao="{{ planejada.descricao|default:'' }}"
+                                                        data-planejada-responsavel="{{ planejada.responsavel|default:'' }}"
+                                                        data-planejada-status="{{ planejada.get_status_display }}"
+                                                        data-planejada-observacoes="{{ planejada.observacoes|default:'' }}"
+                                                        data-planejada-numero-nota="{{ planejada.numero_nota|default:'' }}"
+                                                        data-planejada-data-nota="{{ planejada.data_nota|date:'d/m/Y'|default:'' }}"
+                                                        data-planejada-link-pdf="{{ planejada.link_pdf_nota|default:'' }}"
+                                                        {% if planejada.excluido %}disabled{% endif %}
+                                                        title="{% if planejada.excluido %}Operação excluída{% else %}Ver detalhes{% endif %}">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                {% if not planejada.excluido %}
+                                                <a href="{% url 'militares:planejada_gerar_pdf' planejada.id %}" class="btn btn-outline-secondary btn-sm" title="Gerar PDF" target="_blank">
+                                                    <i class="fas fa-file-pdf"></i>
+                                                </a>
+                                                {% endif %}
+                                                {% if user.is_superuser and not planejada.excluido %}
+                                                <button type="button" class="btn btn-outline-danger btn-sm" 
+                                                        data-bs-toggle="modal" data-bs-target="#modalExcluirPlanejada"
+                                                        data-planejada-id="{{ planejada.id }}"
+                                                        data-planejada-nome="{{ planejada.nome }}"
+                                                        title="Excluir operação planejada"
+                                                        onclick="
+                                                        // Definir dados globalmente antes de abrir o modal
+                                                        window.planejadaIdParaExcluir = '{{ planejada.id }}';
+                                                        window.planejadaNomeParaExcluir = '{{ planejada.nome }}';
+                                                        
+                                                        // Forçar abertura do modal correto
+                                                        setTimeout(() => {
+                                                            const modalExclusao = document.getElementById('modalExcluirPlanejada');
+                                                            if (modalExclusao && typeof bootstrap !== 'undefined') {
+                                                                const modalInstance = new bootstrap.Modal(modalExclusao);
+                                                                modalInstance.show();
+                                                            }
+                                                        }, 100);">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                                {% endif %}
+                                                {% if planejada.excluido %}
+                                                <span class="text-muted small" title="Operação excluída em {{ planejada.data_exclusao|date:'d/m/Y H:i' }} por {{ planejada.excluido_por.get_full_name|default:planejada.excluido_por.username }}">
+                                                    <i class="fas fa-ban"></i>
+                                                </span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="13" class="text-center py-4">
+                                        <div class="text-muted">
+                                            <i class="fas fa-inbox fa-3x mb-3"></i>
+                                            <h5>Nenhuma operação encontrada</h5>
+                                            <p>Ajuste os filtros ou adicione novas operações planejadas.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Paginação -->
+    {% if planejadas.has_other_pages %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <nav aria-label="Navegação de páginas">
+                <ul class="pagination justify-content-center">
+                    {% if planejadas.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}{% if origem %}&origem={{ origem }}{% endif %}{% if cidade %}&cidade={{ cidade }}{% endif %}{% if semana %}&semana={{ semana }}{% endif %}{% if status %}&status={{ status }}{% endif %}">
+                                <i class="fas fa-angle-double-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ planejadas.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if origem %}&origem={{ origem }}{% endif %}{% if cidade %}&cidade={{ cidade }}{% endif %}{% if semana %}&semana={{ semana }}{% endif %}{% if status %}&status={{ status }}{% endif %}">
+                                <i class="fas fa-angle-left"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+
+                    {% for num in planejadas.paginator.page_range %}
+                        {% if planejadas.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                        {% elif num > planejadas.number|add:'-3' and num < planejadas.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}{% if search %}&search={{ search }}{% endif %}{% if origem %}&origem={{ origem }}{% endif %}{% if cidade %}&cidade={{ cidade }}{% endif %}{% if semana %}&semana={{ semana }}{% endif %}{% if status %}&status={{ status }}{% endif %}">{{ num }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if planejadas.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ planejadas.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if origem %}&origem={{ origem }}{% endif %}{% if cidade %}&cidade={{ cidade }}{% endif %}{% if semana %}&semana={{ semana }}{% endif %}{% if status %}&status={{ status }}{% endif %}">
+                                <i class="fas fa-angle-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ planejadas.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if origem %}&origem={{ origem }}{% endif %}{% if cidade %}&cidade={{ cidade }}{% endif %}{% if semana %}&semana={{ semana }}{% endif %}{% if status %}&status={{ status }}{% endif %}">
+                                <i class="fas fa-angle-double-right"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Modal de Assinatura - Operador -->
+    <div class="modal fade" id="modalAssinarOperador" tabindex="-1" aria-labelledby="modalAssinarOperadorLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-primary text-white border-0">
+                    <h5 class="modal-title" id="modalAssinarOperadorLabel">
+                        <i class="fas fa-signature me-2"></i>
+                        Assinar como Operador
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Informações da Planejada -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-muted mb-3">Informações da Operação</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>Nome:</strong> <span id="planejadaNomeOperador">-</span>
+                                    </div>
+                                <div class="col-md-6">
+                                    <strong>Data:</strong> <span id="planejadaDataOperador">-</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Tipo:</strong> <span id="planejadaTipoOperador">-</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Status:</strong> <span id="planejadaStatusOperador">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Formulário de Assinatura -->
+                    <form id="formAssinaturaOperador">
+                        {% csrf_token %}
+                        <input type="hidden" id="planejadaIdOperador" name="planejada_id">
+                        
+                        <!-- Campo para selecionar função -->
+                        <div class="mb-3">
+                            <label for="funcao_assinatura_modal_operador" class="form-label"><strong>Função para Assinatura *</strong></label>
+                            <select class="form-select" id="funcao_assinatura_modal_operador" name="funcao_assinatura" required>
+                                <option value="">Selecione uma função...</option>
+                            </select>
+                            <div class="form-text">Selecione a função que será exibida na assinatura da operação.</div>
+                                </div>
+                        
+                                    <div class="mb-3">
+                            <label for="observacoes_modal_operador" class="form-label">Observações (opcional)</label>
+                            <textarea name="observacoes" id="observacoes_modal_operador" class="form-control" rows="3" placeholder="Observações sobre a assinatura..."></textarea>
+                                    </div>
+
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Atenção:</strong> A assinatura eletrônica tem a mesma validade de uma assinatura física. 
+                            Certifique-se de que todas as informações estão corretas antes de assinar.
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="confirmarAssinaturaOperador()">
+                        <i class="fas fa-signature me-1"></i>Assinar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Assinatura - Aprovador -->
+    <div class="modal fade" id="modalAssinarAprovador" tabindex="-1" aria-labelledby="modalAssinarAprovadorLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-warning text-dark border-0">
+                    <h5 class="modal-title" id="modalAssinarAprovadorLabel">
+                        <i class="fas fa-check-circle me-2"></i>
+                        Aprovar Operação
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Informações da Planejada -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-muted mb-3">Informações da Operação</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>Nome:</strong> <span id="planejadaNomeAprovador">-</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Data:</strong> <span id="planejadaDataAprovador">-</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Tipo:</strong> <span id="planejadaTipoAprovador">-</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Status:</strong> <span id="planejadaStatusAprovador">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Formulário de Assinatura -->
+                    <form id="formAssinaturaAprovador">
+                        {% csrf_token %}
+                        <input type="hidden" id="planejadaIdAprovador" name="planejada_id">
+                        
+                        <!-- Campo para selecionar função -->
+                                    <div class="mb-3">
+                            <label for="funcao_assinatura_modal_aprovador" class="form-label"><strong>Função para Assinatura *</strong></label>
+                            <select class="form-select" id="funcao_assinatura_modal_aprovador" name="funcao_assinatura" required>
+                                <option value="">Selecione uma função...</option>
+                            </select>
+                            <div class="form-text">Selecione a função que será exibida na assinatura da operação.</div>
+                                    </div>
+                        
+                                    <div class="mb-3">
+                            <label for="observacoes_modal_aprovador" class="form-label">Observações (opcional)</label>
+                            <textarea name="observacoes" id="observacoes_modal_aprovador" class="form-control" rows="3" placeholder="Observações sobre a aprovação..."></textarea>
+                                    </div>
+
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Atenção:</strong> A assinatura eletrônica tem a mesma validade de uma assinatura física. 
+                            Certifique-se de que todas as informações estão corretas antes de assinar.
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Cancelar
+                    </button>
+                    <button type="button" class="btn btn-warning" onclick="confirmarAssinaturaAprovador()">
+                        <i class="fas fa-check-circle me-1"></i>Aprovar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Assinatura - Fiscal -->
+    <div class="modal fade" id="modalAssinarFiscal" tabindex="-1" aria-labelledby="modalAssinarFiscalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-info text-white border-0">
+                    <h5 class="modal-title" id="modalAssinarFiscalLabel">
+                        <i class="fas fa-clipboard-check me-2"></i>
+                        Atestar Realização
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Informações da Planejada -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-muted mb-3">Informações da Operação</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>Nome:</strong> <span id="planejadaNomeFiscal">-</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Data:</strong> <span id="planejadaDataFiscal">-</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Tipo:</strong> <span id="planejadaTipoFiscal">-</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Status:</strong> <span id="planejadaStatusFiscal">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Formulário de Assinatura -->
+                    <form id="formAssinaturaFiscal">
+                        {% csrf_token %}
+                        <input type="hidden" id="planejadaIdFiscal" name="planejada_id">
+                        
+                        <!-- Campo para selecionar função -->
+                                    <div class="mb-3">
+                            <label for="funcao_assinatura_modal_fiscal" class="form-label"><strong>Função para Assinatura *</strong></label>
+                            <select class="form-select" id="funcao_assinatura_modal_fiscal" name="funcao_assinatura" required>
+                                <option value="">Selecione uma função...</option>
+                            </select>
+                            <div class="form-text">Selecione a função que será exibida na assinatura da operação.</div>
+                                    </div>
+                        
+                                    <div class="mb-3">
+                            <label for="observacoes_modal_fiscal" class="form-label">Observações (opcional)</label>
+                            <textarea name="observacoes" id="observacoes_modal_fiscal" class="form-control" rows="3" placeholder="Observações sobre o atestado..."></textarea>
+                                    </div>
+
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Atenção:</strong> A assinatura eletrônica tem a mesma validade de uma assinatura física. 
+                            Certifique-se de que todas as informações estão corretas antes de assinar.
+                                </div>
+                    </form>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Cancelar
+                    </button>
+                    <button type="button" class="btn btn-info" onclick="confirmarAssinaturaFiscal()">
+                        <i class="fas fa-clipboard-check me-1"></i>Atestar
+                    </button>
+                </div>
+            </div>
+                            </div>
+                        </div>
+
+    <!-- Modal de Detalhes da Operação Planejada -->
+    <div class="modal fade" id="planejadaModal" tabindex="-1" aria-labelledby="planejadaModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content documento-oficial">
+                <div class="modal-header quadro-header">
+                    <div class="d-flex justify-content-between align-items-center w-100">
+                        <div>
+                            <h4 class="modal-title mb-0" id="planejadaModalLabel">
+                                <i class="fas fa-shield-alt me-2"></i>QUADRO DE OPERAÇÃO PLANEJADA
+                            </h4>
+                            <small class="text-muted">Corpo de Bombeiros Militar do Estado do Piauí</small>
+                        </div>
+                        <div class="text-end">
+                            <div class="quadro-numero" id="modal-id">Nº -</div>
+                            <button type="button" class="btn btn-outline-secondary btn-sm ms-2" onclick="window.print()" title="Imprimir">
+                                <i class="fas fa-print"></i>
+                            </button>
+                            <button type="button" class="btn-close ms-2" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-body documento-body">
+                    <!-- Cabeçalho do Quadro -->
+                    <div class="quadro-cabecalho mb-4">
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="quadro-titulo-principal">
+                                    <h2 class="quadro-titulo mb-2" id="modal-nome">-</h2>
+                                    <div class="quadro-subtitulo" id="modal-descricao">-</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-3">
+                                <div class="quadro-info-item">
+                                    <div class="quadro-label">DATA:</div>
+                                    <div class="quadro-valor" id="modal-data">-</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="quadro-info-item">
+                                    <div class="quadro-label">HORÁRIO:</div>
+                                    <div class="quadro-valor">
+                                        <span id="modal-hora-inicio">-</span> às <span id="modal-hora-termino">-</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="quadro-info-item">
+                                    <div class="quadro-label">TIPO:</div>
+                                    <div class="quadro-valor" id="modal-tipo">-</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="quadro-info-item">
+                                    <div class="quadro-label">STATUS:</div>
+                                    <div class="quadro-valor" id="modal-status">-</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Grid principal de informações -->
+                    <div class="row">
+                        <!-- Seção de Informações Operacionais -->
+                        <div class="col-lg-12 mb-4">
+                            <div class="quadro-secao">
+                                <h3 class="quadro-secao-titulo">
+                                    <i class="fas fa-info-circle me-2"></i>INFORMAÇÕES OPERACIONAIS
+                                </h3>
+                                <div class="quadro-grid">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="quadro-item">
+                                                <div class="quadro-label">ORIGEM:</div>
+                                                <div class="quadro-valor" id="modal-origem">-</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="quadro-item">
+                                                <div class="quadro-label">CIDADE:</div>
+                                                <div class="quadro-valor" id="modal-cidade">-</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="quadro-item">
+                                                <div class="quadro-label">DIA:</div>
+                                                <div class="quadro-valor" id="modal-semana">-</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="quadro-item">
+                                                <div class="quadro-label">Nº DE BOMBEIROS:</div>
+                                                <div class="quadro-valor" id="modal-policiais">-</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="quadro-item">
+                                                <div class="quadro-label">VALOR UNITÁRIO:</div>
+                                                <div class="quadro-valor" id="modal-valor">-</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="quadro-item">
+                                                <div class="quadro-label">VALOR TOTAL:</div>
+                                                <div class="quadro-valor" id="modal-valor-total">-</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+
+                    </div>
+
+                    <!-- Militares Escalados - Seção completa -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="quadro-secao">
+                                <h3 class="quadro-secao-titulo">
+                                    <i class="fas fa-users me-2"></i>MILITARES ESCALADOS
+                                </h3>
+                                <div class="card-body">
+                                    <div id="modal-militares-lista">
+                                        <div class="text-center py-4">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Carregando...</span>
+                                            </div>
+                                            <p class="mt-2 text-muted">Carregando militares...</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Assinaturas Eletrônicas -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="quadro-secao">
+                                <h3 class="quadro-secao-titulo">
+                                    <i class="fas fa-signature me-2"></i>ASSINATURAS ELETRÔNICAS
+                                </h3>
+                                <div class="card-body">
+                                    <div id="modal-assinaturas-lista">
+                                        <div class="text-center py-4">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Carregando...</span>
+                                            </div>
+                                            <p class="mt-2 text-muted">Carregando assinaturas...</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Fechar
+                    </button>
+                    <a href="#" class="btn btn-primary" id="modal-editar-btn">
+                        <i class="fas fa-edit me-2"></i>Editar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Militares da Planejada -->
+<div class="modal fade" id="militaresModal" tabindex="-1" aria-labelledby="militaresModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="militaresModalLabel">
+                    <i class="fas fa-users me-2"></i>Militares da Planejada
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Planejada:</strong> <span id="modal-militares-planejada-nome">-</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card border-0 bg-light">
+                            <div class="card-body">
+                                <h6 class="card-title text-primary">
+                                    <i class="fas fa-list me-2"></i>Lista de Militares
+                                </h6>
+                                <div id="militares-lista">
+                                    <div class="text-center py-4">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Carregando...</span>
+                                        </div>
+                                        <p class="mt-2 text-muted">Carregando militares...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Exclusão de Planejada -->
+<div class="modal fade" id="modalExcluirPlanejada" tabindex="-1" aria-labelledby="modalExcluirPlanejadaLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="modalExcluirPlanejadaLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Confirmar Exclusão
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger">
+                    <i class="fas fa-ban me-2"></i>
+                    <strong>Atenção!</strong> Esta ação não pode ser desfeita.
+                </div>
+                
+                <p>Tem certeza que deseja excluir a operação planejada:</p>
+                <div class="card border-danger">
+                    <div class="card-body">
+                        <h6 class="card-title text-danger" id="modalExcluirNome">-</h6>
+                        <p class="card-text text-muted mb-0">
+                            <strong>ID:</strong> <span id="modalExcluirId">-</span>
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <h6 class="text-muted">
+                        <i class="fas fa-info-circle me-2"></i>O que será excluído:
+                    </h6>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-danger me-2"></i>Dados da operação planejada</li>
+                        <li><i class="fas fa-check text-danger me-2"></i>Militares escalados</li>
+                        <li><i class="fas fa-check text-danger me-2"></i>Histórico de gastos</li>
+                    </ul>
+                </div>
+                
+                <div class="mt-4">
+                    <label for="justificativaExclusao" class="form-label">
+                        <i class="fas fa-comment me-2"></i>Justificativa da Exclusão <span class="text-danger">*</span>
+                    </label>
+                    <textarea class="form-control" id="justificativaExclusao" rows="3" 
+                              placeholder="Descreva o motivo da exclusão desta operação planejada..." required></textarea>
+                    <div class="form-text">Esta informação será registrada no histórico da operação.</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-danger" id="btnConfirmarExclusao">
+                    <i class="fas fa-trash me-1"></i>Excluir Definitivamente
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Funções globais para assinatura -->
+<script>
+// Funções para abrir modais de assinatura
+function abrirModalAssinaturaOperador(button) {
+    const planejadaId = button.getAttribute('data-planejada-id');
+    const planejadaNome = button.getAttribute('data-planejada-nome');
+    const planejadaData = button.getAttribute('data-planejada-data');
+    const planejadaTipo = button.getAttribute('data-planejada-tipo');
+    const planejadaStatus = button.getAttribute('data-planejada-status');
+    
+    // Preencher informações no modal
+    document.getElementById('planejadaIdOperador').value = planejadaId;
+    document.getElementById('planejadaNomeOperador').textContent = planejadaNome;
+    document.getElementById('planejadaDataOperador').textContent = planejadaData;
+    document.getElementById('planejadaTipoOperador').textContent = planejadaTipo;
+    document.getElementById('planejadaStatusOperador').textContent = planejadaStatus;
+    
+    // Carregar funções do usuário
+    carregarFuncoesUsuario('funcao_assinatura_modal_operador');
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('modalAssinarOperador'));
+    modal.show();
+}
+
+function abrirModalAssinaturaAprovador(button) {
+    const planejadaId = button.getAttribute('data-planejada-id');
+    const planejadaNome = button.getAttribute('data-planejada-nome');
+    const planejadaData = button.getAttribute('data-planejada-data');
+    const planejadaTipo = button.getAttribute('data-planejada-tipo');
+    const planejadaStatus = button.getAttribute('data-planejada-status');
+    
+    // Preencher informações no modal
+    document.getElementById('planejadaIdAprovador').value = planejadaId;
+    document.getElementById('planejadaNomeAprovador').textContent = planejadaNome;
+    document.getElementById('planejadaDataAprovador').textContent = planejadaData;
+    document.getElementById('planejadaTipoAprovador').textContent = planejadaTipo;
+    document.getElementById('planejadaStatusAprovador').textContent = planejadaStatus;
+    
+    // Carregar funções do usuário
+    carregarFuncoesUsuario('funcao_assinatura_modal_aprovador');
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('modalAssinarAprovador'));
+    modal.show();
+}
+
+function abrirModalAssinaturaFiscal(button) {
+    const planejadaId = button.getAttribute('data-planejada-id');
+    const planejadaNome = button.getAttribute('data-planejada-nome');
+    const planejadaData = button.getAttribute('data-planejada-data');
+    const planejadaTipo = button.getAttribute('data-planejada-tipo');
+    const planejadaStatus = button.getAttribute('data-planejada-status');
+    
+    // Preencher informações no modal
+    document.getElementById('planejadaIdFiscal').value = planejadaId;
+    document.getElementById('planejadaNomeFiscal').textContent = planejadaNome;
+    document.getElementById('planejadaDataFiscal').textContent = planejadaData;
+    document.getElementById('planejadaTipoFiscal').textContent = planejadaTipo;
+    document.getElementById('planejadaStatusFiscal').textContent = planejadaStatus;
+    
+    // Carregar funções do usuário
+    carregarFuncoesUsuario('funcao_assinatura_modal_fiscal');
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('modalAssinarFiscal'));
+    modal.show();
+}
+
+// Função para carregar funções do usuário
+function carregarFuncoesUsuario(selectId) {
+    fetch('/militares/api/funcoes-usuario/')
+        .then(response => response.json())
+        .then(data => {
+            const select = document.getElementById(selectId);
+            select.innerHTML = '<option value="">Selecione uma função...</option>';
+            
+            if (data.success && data.funcoes) {
+                data.funcoes.forEach(funcao => {
+                    const option = document.createElement('option');
+                    option.value = funcao.nome;
+                    option.textContent = funcao.nome;
+                    if (funcao.ativo) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                });
+            } else {
+                console.error('Erro ao carregar funções:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao carregar funções:', error);
+        });
+}
+
+// Funções de confirmação de assinatura
+function confirmarAssinaturaOperador() {
+    const form = document.getElementById('formAssinaturaOperador');
+    const formData = new FormData(form);
+    
+    fetch(`/militares/api/assinatura-planejada/${formData.get('planejada_id')}/operador/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Assinatura realizada com sucesso!');
+            location.reload();
+        } else {
+            alert('Erro: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Erro ao assinar:', error);
+        alert('Erro ao assinar: ' + error.message);
+    });
+}
+
+function confirmarAssinaturaAprovador() {
+    const form = document.getElementById('formAssinaturaAprovador');
+    const formData = new FormData(form);
+    
+    fetch(`/militares/api/assinatura-planejada/${formData.get('planejada_id')}/aprovador/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Aprovação realizada com sucesso!');
+            location.reload();
+        } else {
+            alert('Erro: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Erro ao aprovar:', error);
+        alert('Erro ao aprovar: ' + error.message);
+    });
+}
+
+function confirmarAssinaturaFiscal() {
+    const form = document.getElementById('formAssinaturaFiscal');
+    const formData = new FormData(form);
+    
+    fetch(`/militares/api/assinatura-planejada/${formData.get('planejada_id')}/fiscal/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Atestado realizado com sucesso!');
+            location.reload();
+        } else {
+            alert('Erro: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Erro ao atestar:', error);
+        alert('Erro ao atestar: ' + error.message);
+    });
+}
+
+// Função para limpar todos os filtros
+function limparFiltros() {
+    // Limpar todos os campos de filtro
+    document.querySelector('input[name="search"]').value = '';
+    document.querySelector('select[name="origem"]').value = '';
+    document.querySelector('input[name="cidade"]').value = '';
+    document.querySelector('select[name="semana"]').value = '';
+    document.querySelector('select[name="status"]').value = '';
+    
+    // Limpar filtro hierárquico se existir
+    const pesquisaOrigemDropdown = document.querySelector('select[name="pesquisa_origem_dropdown"]');
+    if (pesquisaOrigemDropdown) {
+        pesquisaOrigemDropdown.value = '';
+    }
+    
+    // Submeter o formulário para aplicar os filtros limpos
+    document.querySelector('form').submit();
+}
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Processar badges de origem para mostrar apenas a instância final com ascendência no tooltip
+    document.querySelectorAll('.origem-badge').forEach(function(badge) {
+        const origemCompleta = badge.getAttribute('data-origem-completa');
+        if (origemCompleta && origemCompleta.includes('|')) {
+            // Dividir por "|" para obter as partes da hierarquia
+            const partes = origemCompleta.split('|');
+            const instanciaFinal = partes[partes.length - 1].trim();
+            
+            // Mostrar apenas a instância final no badge
+            badge.textContent = instanciaFinal.length > 30 ? instanciaFinal.substring(0, 30) + '...' : instanciaFinal;
+            
+            // Criar tooltip com ascendência (hierarquia sem a instância final)
+            const ascendencia = partes.slice(0, -1).join(' | ');
+            if (ascendencia.trim()) {
+                badge.setAttribute('title', `Ascendência: ${ascendencia}`);
+            }
+        }
+    });
+    
+    // Inicializar tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Selecionar todos os checkboxes
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const itemCheckboxes = document.querySelectorAll('input[type="checkbox"][value]');
+    
+    selectAllCheckbox.addEventListener('change', function() {
+        itemCheckboxes.forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+    });
+    
+    // Atualizar checkbox "Selecionar todos" baseado nos checkboxes individuais
+    itemCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const checkedCount = document.querySelectorAll('input[type="checkbox"][value]:checked').length;
+            selectAllCheckbox.checked = checkedCount === itemCheckboxes.length;
+            selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < itemCheckboxes.length;
+        });
+    });
+
+    // Modal de detalhes da operação planejada
+    const planejadaModal = document.getElementById('planejadaModal');
+    const modalEditarBtn = document.getElementById('modal-editar-btn');
+    
+    // Event listener para botões que abrem o modal
+    document.querySelectorAll('.detalhes-btn').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            // Preencher dados do modal
+            document.getElementById('modal-id').textContent = 'Nº ' + this.getAttribute('data-planejada-id');
+            document.getElementById('modal-origem').textContent = this.getAttribute('data-planejada-origem');
+            document.getElementById('modal-nome').textContent = this.getAttribute('data-planejada-nome');
+            document.getElementById('modal-cidade').textContent = this.getAttribute('data-planejada-cidade');
+            document.getElementById('modal-semana').textContent = this.getAttribute('data-planejada-semana');
+            document.getElementById('modal-data').textContent = this.getAttribute('data-planejada-data');
+            document.getElementById('modal-tipo').textContent = this.getAttribute('data-planejada-tipo');
+            document.getElementById('modal-hora-inicio').textContent = this.getAttribute('data-planejada-hora-inicio');
+            document.getElementById('modal-hora-termino').textContent = this.getAttribute('data-planejada-hora-termino');
+            document.getElementById('modal-descricao').textContent = this.getAttribute('data-planejada-descricao') || 'Sem descrição';
+            document.getElementById('modal-valor').textContent = 'R$ ' + this.getAttribute('data-planejada-valor');
+            document.getElementById('modal-valor-total').textContent = 'R$ ' + this.getAttribute('data-planejada-valor-total');
+            document.getElementById('modal-status').textContent = this.getAttribute('data-planejada-status');
+            document.getElementById('modal-policiais').textContent = this.getAttribute('data-planejada-policiais') || '1';
+            
+            // Atualizar título do modal
+            document.getElementById('planejadaModalLabel').innerHTML = 
+                '<i class="fas fa-info-circle me-2"></i>Detalhes - ' + this.getAttribute('data-planejada-nome');
+            
+            // Configurar botão de editar
+            const planejadaId = this.getAttribute('data-planejada-id');
+            const editarBtn = document.getElementById('modal-editar-btn');
+            
+            // Remover event listeners anteriores clonando o botão
+            const novoBtn = editarBtn.cloneNode(true);
+            editarBtn.parentNode.replaceChild(novoBtn, editarBtn);
+            
+            // Configurar href
+            novoBtn.href = `/militares/operacoes-planejadas/${planejadaId}/editar/`;
+            
+            // Adicionar novo event listener
+            novoBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                // Fechar o modal primeiro
+                const modal = bootstrap.Modal.getInstance(document.getElementById('planejadaModal'));
+                if (modal) {
+                    modal.hide();
+                }
+                // Redirecionar após um pequeno delay
+                setTimeout(() => {
+                    window.location.href = `/militares/operacoes-planejadas/${planejadaId}/editar/`;
+                }, 300);
+            });
+            
+            // Carregar militares da planejada
+            carregarMilitaresModalDetalhes(planejadaId);
+            carregarAssinaturasModalDetalhes(planejadaId);
+            
+            // Forçar abertura do modal se necessário
+            setTimeout(() => {
+                const modal = document.getElementById('planejadaModal');
+                if (modal) {
+                    if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                        const modalInstance = new bootstrap.Modal(modal);
+                        modalInstance.show();
+                    } else {
+                        // Fallback: mostrar modal via CSS
+                        modal.style.display = 'block';
+                        modal.classList.add('show');
+                        document.body.classList.add('modal-open');
+                    }
+                } else {
+                }
+            }, 100);
+        });
+    });
+    
+    // Limpar modal quando fechado
+    planejadaModal.addEventListener('hidden.bs.modal', function() {
+        // Resetar todos os campos
+        document.getElementById('modal-id').textContent = 'Nº -';
+        document.getElementById('modal-origem').textContent = '-';
+        document.getElementById('modal-nome').textContent = '-';
+        document.getElementById('modal-cidade').textContent = '-';
+        document.getElementById('modal-semana').textContent = '-';
+        document.getElementById('modal-data').textContent = '-';
+        document.getElementById('modal-tipo').textContent = '-';
+        document.getElementById('modal-hora-inicio').textContent = '-';
+        document.getElementById('modal-hora-termino').textContent = '-';
+        document.getElementById('modal-valor').textContent = 'R$ 0,00';
+        document.getElementById('modal-valor-total').textContent = 'R$ 0,00';
+        document.getElementById('modal-descricao').textContent = '-';
+        document.getElementById('modal-status').textContent = '-';
+        document.getElementById('modal-policiais').textContent = '-';
+        
+        // Resetar lista de militares
+        document.getElementById('modal-militares-lista').innerHTML = `
+            <div class="text-center py-3">
+                <div class="spinner-border text-primary spinner-border-sm" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-2 text-muted mb-0">Carregando militares...</p>
+            </div>
+        `;
+        
+        // Resetar título
+        document.getElementById('planejadaModalLabel').innerHTML = 
+            '<i class="fas fa-info-circle me-2"></i>Detalhes da Operação Planejada';
+    });
+
+    // Modal de militares da planejada
+    const militaresModal = document.getElementById('militaresModal');
+    
+    // Event listener para botões que abrem o modal de militares
+    document.addEventListener('click', function(e) {
+        // Verificar se é um botão de militares (não de exclusão)
+        if (e.target.closest('.militares-btn') && !e.target.closest('[data-bs-target="#modalExcluirPlanejada"]')) {
+            e.preventDefault();
+            
+            const button = e.target.closest('.militares-btn');
+            const planejadaId = button.getAttribute('data-planejada-id');
+            const planejadaNome = button.getAttribute('data-planejada-nome');
+            
+            // Atualizar título do modal
+            document.getElementById('militaresModalLabel').innerHTML = 
+                '<i class="fas fa-users me-2"></i>Militares da Planejada';
+            
+            // Atualizar nome da planejada
+            document.getElementById('modal-militares-planejada-nome').textContent = planejadaNome;
+            
+            // Carregar militares via AJAX
+            carregarMilitaresPlanejada(planejadaId);
+            
+            // Abrir modal manualmente
+            const modalElement = document.getElementById('militaresModal');
+            
+            if (modalElement) {
+                // Tentar abrir modal com Bootstrap
+                if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    try {
+                        const modal = new bootstrap.Modal(modalElement);
+                        modal.show();
+                    } catch (error) {
+                        console.error('Erro ao abrir modal com Bootstrap:', error);
+                        // Fallback: mostrar modal via CSS
+                        modalElement.style.display = 'block';
+                        modalElement.classList.add('show');
+                        document.body.classList.add('modal-open');
+                    }
+                } else {
+                    // Fallback: mostrar modal via CSS
+                    modalElement.style.display = 'block';
+                    modalElement.classList.add('show');
+                    document.body.classList.add('modal-open');
+                }
+            } else {
+                console.error('Modal element não encontrado!');
+            }
+        }
+    });
+    
+    // Função para carregar assinaturas da planejada no modal de detalhes
+    function carregarAssinaturasModalDetalhes(planejadaId) {
+        console.log('🔍 Carregando assinaturas para planejada ID:', planejadaId);
+        
+        const assinaturasLista = document.getElementById('modal-assinaturas-lista');
+        if (!assinaturasLista) {
+            console.error('❌ Elemento modal-assinaturas-lista não encontrado');
+            return;
+        }
+        
+        // Mostrar loading
+        assinaturasLista.innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-2 text-muted">Carregando assinaturas...</p>
+            </div>
+        `;
+        
+        fetch(`/militares/operacoes-planejadas/${planejadaId}/assinaturas/`)
+            .then(response => {
+                console.log('📡 Resposta HTTP:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('📊 Dados das assinaturas recebidos:', data);
+                
+                if (data.success && data.assinaturas && data.assinaturas.length > 0) {
+                    console.log('✅ Exibindo', data.assinaturas.length, 'assinaturas');
+                    exibirAssinaturasModal(data.assinaturas);
+                } else {
+                    console.log('ℹ️ Nenhuma assinatura encontrada');
+                    assinaturasLista.innerHTML = `
+                        <div class="text-center py-4">
+                            <i class="fas fa-signature text-muted" style="font-size: 2rem;"></i>
+                            <p class="mt-2 text-muted">Nenhuma assinatura eletrônica registrada.</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('❌ Erro ao carregar assinaturas:', error);
+                assinaturasLista.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Erro ao carregar assinaturas: ${error.message}
+                    </div>
+                `;
+            });
+    }
+
+    // Função para exibir assinaturas no modal (estilo igual às notas)
+    function exibirAssinaturasModal(assinaturas) {
+        console.log('🎨 Exibindo assinaturas no modal:', assinaturas);
+        
+        const assinaturasLista = document.getElementById('modal-assinaturas-lista');
+        if (!assinaturasLista) {
+            console.error('❌ Elemento modal-assinaturas-lista não encontrado');
+            return;
+        }
+        
+        let assinaturasHtml = '';
+        
+        assinaturas.forEach((assinatura, index) => {
+            console.log(`🎨 Processando assinatura ${index + 1}:`, assinatura);
+            
+            // Formatar data e hora no padrão brasileiro
+            const dataFormatada = new Date(assinatura.data_assinatura).toLocaleDateString('pt-BR');
+            const horaFormatada = new Date(assinatura.data_assinatura).toLocaleTimeString('pt-BR', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+            
+            assinaturasHtml += `
+                <div style="display: flex; align-items: flex-start; border: 1px solid #888; border-radius: 6px; margin-bottom: 10px; background: #fafafa;">
+                    <div style="padding: 8px;">
+                        <img src="/static/assinasyspro.png" width="100" height="70" alt="Logo AssinaSysPro" style="background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    </div>
+                    <div style="flex-grow: 1;">
+                        <div style="padding: 8px; font-size: 15px; text-align: justify; display: flex; align-items: center; justify-content: space-between;">
+                            <div style="flex-grow: 1;">
+                                Documento assinado eletronicamente por <b>${assinatura.assinado_por}</b> <b>- ${assinatura.funcao_assinatura || "Função não registrada"}</b>, em ${dataFormatada}, às ${horaFormatada}, conforme horário oficial de Brasília, com fundamento na Portaria XXX/2025 Gab. Cmdo. Geral/CBMEPI de XX de XXXXX de 2025.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        assinaturasLista.innerHTML = assinaturasHtml;
+    }
+    
+    // Função para carregar militares no modal de detalhes
+    function carregarMilitaresModalDetalhes(planejadaId) {
+        const militaresLista = document.getElementById('modal-militares-lista');
+        
+        // Mostrar loading
+        militaresLista.innerHTML = `
+            <div class="text-center py-3">
+                <div class="spinner-border text-primary spinner-border-sm" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-2 text-muted mb-0">Carregando militares...</p>
+            </div>
+        `;
+        
+        // Fazer requisição AJAX
+        fetch(`/militares/planejadas/${planejadaId}/militares/`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    if (data.militares && data.militares.length > 0) {
+                        let html = '<div class="row">';
+                        data.militares.forEach(function(militar) {
+                            // Calcular valor individual (valor total dividido pelo número de militares)
+                            const valorTotal = parseFloat(document.getElementById('modal-valor-total').textContent.replace('R$ ', '').replace(',', '.'));
+                            const numMilitares = data.militares.length;
+                            const valorIndividual = numMilitares > 0 ? (valorTotal / numMilitares).toFixed(2) : '0,00';
+                            
+                            html += `
+                                <div class="col-md-6 mb-3">
+                                    <div class="card border-0 shadow-sm">
+                                        <div class="card-body">
+                                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                                <div class="d-flex align-items-center">
+                                                    <div class="avatar bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                                        <i class="fas fa-user"></i>
+                                                    </div>
+                                                    <div>
+                                                        <div class="fw-bold text-dark">${militar.nome_completo}</div>
+                                                        <div class="text-muted small">
+                                                            <span class="badge bg-secondary me-1">${militar.posto_grad}</span>
+                                                            <span class="text-muted">${militar.matricula}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="text-end">
+                                                    <div class="h6 text-success mb-0">R$ ${valorIndividual.replace('.', ',')}</div>
+                                                    <small class="text-muted">Valor Individual</small>
+                                                </div>
+                                            </div>
+                                            <div class="text-muted small">
+                                                <i class="fas fa-map-marker-alt me-1"></i>${militar.lotacao}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        html += '</div>';
+                        militaresLista.innerHTML = html;
+                    } else {
+                        militaresLista.innerHTML = `
+                            <div class="text-center py-3">
+                                <i class="fas fa-users text-muted fa-2x mb-2"></i>
+                                <p class="text-muted mb-0">Nenhum militar escalado</p>
+                            </div>
+                        `;
+                    }
+                } else {
+                    militaresLista.innerHTML = `
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Erro ao carregar militares: ${data.message || 'Erro desconhecido'}
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar militares:', error);
+                militaresLista.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        Erro ao carregar militares: ${error.message}
+                    </div>
+                `;
+            });
+    }
+
+    // Função para carregar militares da planejada
+    function carregarMilitaresPlanejada(planejadaId) {
+        const militaresLista = document.getElementById('militares-lista');
+        
+        // Mostrar loading
+        militaresLista.innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-2 text-muted">Carregando militares...</p>
+            </div>
+        `;
+        
+        // Fazer requisição AJAX
+        fetch(`/militares/planejadas/${planejadaId}/militares/`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    if (data.militares && data.militares.length > 0) {
+                        let html = '<div class="row">';
+                        data.militares.forEach(function(militar) {
+                            html += `
+                                <div class="col-md-6 mb-3">
+                                    <div class="card border-0 bg-white shadow-sm">
+                                        <div class="card-body">
+                                            <div class="d-flex align-items-center justify-content-between">
+                                                <div class="d-flex align-items-center">
+                                                    <div class="avatar bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                                        <i class="fas fa-user"></i>
+                                                    </div>
+                                                    <div>
+                                                        <h6 class="mb-1">${militar.nome_completo}</h6>
+                                                        <small class="text-muted">${militar.posto_grad || 'Militar'}</small>
+                                                    </div>
+                                                </div>
+                                                <button type="button" class="btn btn-outline-danger btn-sm" 
+                                                        onclick="removerMilitarPlanejada(${militar.id}, '${militar.nome_completo}', ${planejadaId})"
+                                                        title="Remover militar da operação">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        html += '</div>';
+                        militaresLista.innerHTML = html;
+                    } else {
+                        militaresLista.innerHTML = `
+                            <div class="text-center py-4">
+                                <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                                <h5 class="text-muted">Nenhum militar cadastrado</h5>
+                                <p class="text-muted">Esta planejada ainda não possui militares associados.</p>
+                            </div>
+                        `;
+                    }
+                } else {
+                    militaresLista.innerHTML = `
+                        <div class="text-center py-4">
+                            <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                            <h5 class="text-warning">Erro ao carregar militares</h5>
+                            <p class="text-muted">${data.message || 'Ocorreu um erro ao carregar os militares.'}</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar militares:', error);
+                militaresLista.innerHTML = `
+                    <div class="text-center py-4">
+                        <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                        <h5 class="text-danger">Erro de conexão</h5>
+                        <p class="text-muted">Erro: ${error.message}</p>
+                        <p class="text-muted">URL: /militares/planejadas/${planejadaId}/militares/</p>
+                    </div>
+                `;
+            });
+    }
+    
+    // Limpar modal de militares quando fechado
+    militaresModal.addEventListener('hidden.bs.modal', function() {
+        document.getElementById('modal-militares-planejada-nome').textContent = '-';
+        document.getElementById('militares-lista').innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-2 text-muted">Carregando militares...</p>
+            </div>
+        `;
+    });
+    
+    // Modal de exclusão de planejada
+    const modalExcluirPlanejada = document.getElementById('modalExcluirPlanejada');
+    const btnConfirmarExclusao = document.getElementById('btnConfirmarExclusao');
+    let planejadaIdParaExcluir = null;
+    
+    // Configurar modal de exclusão
+    modalExcluirPlanejada.addEventListener('show.bs.modal', function(event) {
+        const button = event.relatedTarget;
+        
+        // Verificar se o botão existe (pode ser null se aberto via JavaScript)
+        if (button) {
+            planejadaIdParaExcluir = button.getAttribute('data-planejada-id');
+            const planejadaNome = button.getAttribute('data-planejada-nome');
+            
+            document.getElementById('modalExcluirNome').textContent = planejadaNome;
+            document.getElementById('modalExcluirId').textContent = planejadaIdParaExcluir;
+        } else {
+            // Se não há botão (aberto via JavaScript), usar dados globais
+            if (window.planejadaIdParaExcluir && window.planejadaNomeParaExcluir) {
+                planejadaIdParaExcluir = window.planejadaIdParaExcluir;
+                document.getElementById('modalExcluirNome').textContent = window.planejadaNomeParaExcluir;
+                document.getElementById('modalExcluirId').textContent = window.planejadaIdParaExcluir;
+            }
+        }
+    });
+    
+    // Confirmar exclusão
+    btnConfirmarExclusao.addEventListener('click', function() {
+        
+        if (planejadaIdParaExcluir) {
+            // Mostrar loading
+            btnConfirmarExclusao.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Excluindo...';
+            btnConfirmarExclusao.disabled = true;
+
+            // Obter CSRF token
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+            if (!csrfToken) {
+                alert('Erro: Token de segurança não encontrado');
+                btnConfirmarExclusao.innerHTML = '<i class="fas fa-trash me-1"></i>Excluir Definitivamente';
+                btnConfirmarExclusao.disabled = false;
+                return;
+            }
+
+            // Obter justificativa
+            const justificativa = document.getElementById('justificativaExclusao').value.trim();
+            if (!justificativa) {
+                alert('Por favor, informe a justificativa da exclusão.');
+                btnConfirmarExclusao.innerHTML = '<i class="fas fa-trash me-1"></i>Excluir Definitivamente';
+                btnConfirmarExclusao.disabled = false;
+                return;
+            }
+
+            // Fazer requisição de exclusão
+            const formData = new FormData();
+            formData.append('justificativa', justificativa);
+            
+            fetch(`/militares/operacoes-planejadas/${planejadaIdParaExcluir}/excluir/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken.value,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    // Disparar evento de exclusão para outras páginas
+                    const eventoExclusao = new CustomEvent('planejadaExcluida', {
+                        detail: {
+                            budget_updated: data.budget_updated || false,
+                            valor_liberado: data.valor_liberado || 0,
+                            origem: data.origem || '',
+                            timestamp: new Date().toISOString()
+                        }
+                    });
+                    document.dispatchEvent(eventoExclusao);
+                    
+                    // Salvar no localStorage para comunicação entre abas
+                    localStorage.setItem('planejadaExcluida', JSON.stringify({
+                        budget_updated: data.budget_updated || false,
+                        valor_liberado: data.valor_liberado || 0,
+                        origem: data.origem || '',
+                        timestamp: new Date().toISOString()
+                    }));
+                    
+                    // Mostrar mensagem de sucesso com informações sobre valor liberado
+                    let mensagem = data.message;
+                    if (data.valor_liberado && data.origem) {
+                        mensagem += `\n\n💰 Valor liberado: R$ ${data.valor_liberado.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+                        mensagem += `\n🏢 Para: ${data.origem}`;
+                    }
+                    alert(mensagem);
+                    
+                    // Sucesso - recarregar página
+                    window.location.reload();
+                } else {
+                    // Erro - mostrar mensagem
+                    alert('Erro ao excluir: ' + (data.message || 'Erro desconhecido'));
+                    btnConfirmarExclusao.innerHTML = '<i class="fas fa-trash me-1"></i>Excluir Definitivamente';
+                    btnConfirmarExclusao.disabled = false;
+                }
+            })
+            .catch(error => {
+                alert('Erro ao excluir: ' + error.message);
+                btnConfirmarExclusao.innerHTML = '<i class="fas fa-trash me-1"></i>Excluir Definitivamente';
+                btnConfirmarExclusao.disabled = false;
+            });
+        } else {
+            alert('Erro: ID da operação não encontrado');
+        }
+    });
+    
+    // Limpar modal quando fechado
+    modalExcluirPlanejada.addEventListener('hidden.bs.modal', function() {
+        planejadaIdParaExcluir = null;
+        document.getElementById('modalExcluirNome').textContent = '-';
+        document.getElementById('modalExcluirId').textContent = '-';
+        btnConfirmarExclusao.innerHTML = '<i class="fas fa-trash me-1"></i>Excluir Definitivamente';
+        btnConfirmarExclusao.disabled = false;
+    });
+    
+    // Funções para abrir modais de assinatura
+    function abrirModalAssinaturaOperador(button) {
+        const planejadaId = button.getAttribute('data-planejada-id');
+        const planejadaNome = button.getAttribute('data-planejada-nome');
+        const planejadaData = button.getAttribute('data-planejada-data');
+        const planejadaTipo = button.getAttribute('data-planejada-tipo');
+        const planejadaStatus = button.getAttribute('data-planejada-status');
+        
+        // Preencher informações no modal
+        document.getElementById('planejadaIdOperador').value = planejadaId;
+        document.getElementById('planejadaNomeOperador').textContent = planejadaNome;
+        document.getElementById('planejadaDataOperador').textContent = planejadaData;
+        document.getElementById('planejadaTipoOperador').textContent = planejadaTipo;
+        document.getElementById('planejadaStatusOperador').textContent = planejadaStatus;
+        
+        // Carregar funções do usuário
+        carregarFuncoesUsuario('funcao_assinatura_modal_operador');
+        
+        // Mostrar modal
+        const modal = new bootstrap.Modal(document.getElementById('modalAssinarOperador'));
+        modal.show();
+    }
+    
+    function abrirModalAssinaturaAprovador(button) {
+        const planejadaId = button.getAttribute('data-planejada-id');
+        const planejadaNome = button.getAttribute('data-planejada-nome');
+        const planejadaData = button.getAttribute('data-planejada-data');
+        const planejadaTipo = button.getAttribute('data-planejada-tipo');
+        const planejadaStatus = button.getAttribute('data-planejada-status');
+        
+        // Preencher informações no modal
+        document.getElementById('planejadaIdAprovador').value = planejadaId;
+        document.getElementById('planejadaNomeAprovador').textContent = planejadaNome;
+        document.getElementById('planejadaDataAprovador').textContent = planejadaData;
+        document.getElementById('planejadaTipoAprovador').textContent = planejadaTipo;
+        document.getElementById('planejadaStatusAprovador').textContent = planejadaStatus;
+        
+        // Carregar funções do usuário
+        carregarFuncoesUsuario('funcao_assinatura_modal_aprovador');
+        
+        // Mostrar modal
+        const modal = new bootstrap.Modal(document.getElementById('modalAssinarAprovador'));
+        modal.show();
+    }
+    
+    function abrirModalAssinaturaFiscal(button) {
+        const planejadaId = button.getAttribute('data-planejada-id');
+        const planejadaNome = button.getAttribute('data-planejada-nome');
+        const planejadaData = button.getAttribute('data-planejada-data');
+        const planejadaTipo = button.getAttribute('data-planejada-tipo');
+        const planejadaStatus = button.getAttribute('data-planejada-status');
+        
+        // Preencher informações no modal
+        document.getElementById('planejadaIdFiscal').value = planejadaId;
+        document.getElementById('planejadaNomeFiscal').textContent = planejadaNome;
+        document.getElementById('planejadaDataFiscal').textContent = planejadaData;
+        document.getElementById('planejadaTipoFiscal').textContent = planejadaTipo;
+        document.getElementById('planejadaStatusFiscal').textContent = planejadaStatus;
+        
+        // Carregar funções do usuário
+        carregarFuncoesUsuario('funcao_assinatura_modal_fiscal');
+        
+        // Mostrar modal
+        const modal = new bootstrap.Modal(document.getElementById('modalAssinarFiscal'));
+        modal.show();
+    }
+    
+    // Função para carregar funções do usuário
+    function carregarFuncoesUsuario(selectId) {
+        fetch('/militares/api/funcoes-usuario/')
+            .then(response => response.json())
+            .then(data => {
+                const select = document.getElementById(selectId);
+                select.innerHTML = '<option value="">Selecione uma função...</option>';
+                
+                if (data.success && data.funcoes) {
+                    data.funcoes.forEach(funcao => {
+                        const option = document.createElement('option');
+                        option.value = funcao.nome;
+                        option.textContent = funcao.nome;
+                        if (funcao.ativo) {
+                            option.selected = true;
+                        }
+                        select.appendChild(option);
+                    });
+                } else {
+                    console.error('Erro ao carregar funções:', data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar funções:', error);
+            });
+    }
+    
+    // Funções de confirmação de assinatura
+    function confirmarAssinaturaOperador() {
+        const form = document.getElementById('formAssinaturaOperador');
+        const formData = new FormData(form);
+        
+        fetch('/militares/api/assinatura-planejada/' + formData.get('planejada_id') + '/operador/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Fechar modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('modalAssinarOperador'));
+                modal.hide();
+                
+                // Mostrar modal de sucesso
+                mostrarModalSucesso('Assinatura realizada com sucesso!', 'A planejada foi assinada pelo operador com sucesso.');
+            } else {
+                mostrarModalErro(data.error || 'Erro ao processar assinatura');
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            mostrarModalErro('Erro ao processar assinatura');
+        });
+    }
+    
+    function confirmarAssinaturaAprovador() {
+        const form = document.getElementById('formAssinaturaAprovador');
+        const formData = new FormData(form);
+        
+        fetch('/militares/api/assinatura-planejada/' + formData.get('planejada_id') + '/aprovador/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Fechar modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('modalAssinarAprovador'));
+                modal.hide();
+                
+                // Mostrar modal de sucesso
+                mostrarModalSucesso('Aprovação realizada com sucesso!', 'A planejada foi aprovada com sucesso.');
+            } else {
+                mostrarModalErro(data.error || 'Erro ao processar aprovação');
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            mostrarModalErro('Erro ao processar aprovação');
+        });
+    }
+    
+    function confirmarAssinaturaFiscal() {
+        const form = document.getElementById('formAssinaturaFiscal');
+        const formData = new FormData(form);
+        
+        fetch('/militares/api/assinatura-planejada/' + formData.get('planejada_id') + '/fiscal/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Fechar modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('modalAssinarFiscal'));
+                modal.hide();
+                
+                // Mostrar modal de sucesso
+                mostrarModalSucesso('Atestado realizado com sucesso!', 'A planejada foi atestada pelo fiscal com sucesso.');
+            } else {
+                mostrarModalErro(data.error || 'Erro ao processar atestado');
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            mostrarModalErro('Erro ao processar atestado');
+        });
+    }
+    
+    // Função para remover militar da planejada
+    window.removerMilitarPlanejada = function(militarId, militarNome, planejadaId) {
+        if (!confirm(`Tem certeza que deseja remover o militar "${militarNome}" desta operação?`)) {
+            return;
+        }
+        
+        // Obter CSRF token
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (!csrfToken) {
+            alert('Erro: Token de segurança não encontrado');
+            return;
+        }
+        
+        // Fazer requisição de remoção
+        const formData = new FormData();
+        formData.append('militar_id', militarId);
+        
+        fetch(`/militares/operacoes-planejadas/${planejadaId}/api/remover-militar/`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': csrfToken.value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                // Recarregar lista de militares
+                carregarMilitaresPlanejada(planejadaId);
+            } else {
+                alert('Erro: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao remover militar:', error);
+            alert('Erro ao remover militar: ' + error.message);
+        });
+    };
+    
+    // Funções para modais de sucesso e erro
+    function mostrarModalSucesso(titulo, mensagem) {
+        document.getElementById('modalSucessoTitulo').textContent = titulo;
+        document.getElementById('modalSucessoMensagem').textContent = mensagem;
+        
+        const modal = new bootstrap.Modal(document.getElementById('modalSucesso'));
+        modal.show();
+    }
+    
+    function mostrarModalErro(mensagem) {
+        document.getElementById('modalErroMensagem').textContent = mensagem;
+        
+        const modal = new bootstrap.Modal(document.getElementById('modalErro'));
+        modal.show();
+    }
+    
+    function recarregarPagina() {
+        window.location.reload();
+    }
+    
+});
+</script>
+
+<style>
+    /* Estilos para a tabela de planejadas */
+    .table th,
+    .table td {
+        vertical-align: middle;
+        padding: 0.75rem 0.5rem;
+    }
+    
+    .table th {
+        font-weight: 600;
+        background-color: #f8f9fa;
+    }
+    
+    /* Estilo para quebra de linha do nome da operação */
+    .nome-operacao {
+        word-wrap: break-word;
+        word-break: break-word;
+        hyphens: auto;
+        line-height: 1.3;
+        max-width: 200px;
+        white-space: normal;
+    }
+    
+    /* Estilos para quadro militar */
+    .documento-oficial {
+        font-family: 'Arial', sans-serif;
+        background: white;
+        border: 2px solid #000;
+    }
+    
+    .quadro-header {
+        background: #000;
+        color: white;
+        border-bottom: 3px solid #000;
+        padding: 1.5rem;
+    }
+    
+    .documento-body {
+        background: white;
+        padding: 2rem;
+    }
+    
+    .quadro-cabecalho {
+        border-bottom: 2px solid #000;
+        padding-bottom: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .quadro-titulo {
+        color: #000;
+        font-weight: bold;
+        font-size: 1.8rem;
+        margin-bottom: 0.5rem;
+        text-align: center;
+        text-transform: uppercase;
+    }
+    
+    .quadro-subtitulo {
+        color: #666;
+        font-size: 1.1rem;
+        text-align: center;
+        font-style: italic;
+    }
+    
+    .quadro-info-item {
+        text-align: center;
+        padding: 0.5rem;
+        border: 1px solid #ddd;
+        margin-bottom: 0.5rem;
+    }
+    
+    .quadro-label {
+        font-weight: bold;
+        font-size: 0.9rem;
+        color: #000;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .quadro-valor {
+        color: #333;
+        font-size: 1rem;
+        margin-top: 0.25rem;
+        font-weight: 500;
+    }
+    
+    .quadro-secao {
+        margin-bottom: 2rem;
+        border: 2px solid #000;
+        overflow: hidden;
+    }
+    
+    .quadro-secao-titulo {
+        background: #000;
+        color: white;
+        padding: 1rem 1.5rem;
+        margin: 0;
+        font-size: 1.2rem;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .quadro-grid {
+        padding: 1.5rem;
+        background: #f8f9fa;
+    }
+    
+    .quadro-item {
+        margin-bottom: 1rem;
+        padding: 0.75rem;
+        border: 1px solid #ddd;
+        background: white;
+    }
+    
+    .quadro-item:last-child {
+        border-bottom: 1px solid #ddd;
+    }
+    
+    .quadro-numero {
+        background: #000;
+        color: white;
+        padding: 0.5rem 1rem;
+        font-weight: bold;
+        font-size: 1.1rem;
+        border-radius: 4px;
+    }
+    
+    /* Estilos para botões de assinatura */
+    .assinatura-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+        padding: 0;
+        border-radius: 4px;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .assinatura-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .assinatura-btn.btn-success {
+        background-color: #28a745;
+        border-color: #28a745;
+    }
+    
+    .assinatura-btn.btn-outline-primary {
+        border-color: #007bff;
+        color: #007bff;
+    }
+    
+    .assinatura-btn.btn-outline-warning {
+        border-color: #ffc107;
+        color: #ffc107;
+    }
+    
+    .assinatura-btn.btn-outline-info {
+        border-color: #17a2b8;
+        color: #17a2b8;
+    }
+    
+    /* Melhorar alinhamento da tabela */
+    .table tbody tr {
+        vertical-align: middle;
+    }
+    
+    .table tbody td {
+        vertical-align: middle;
+        padding: 0.75rem 0.5rem;
+    }
+    
+    /* Centralizar conteúdo das células */
+    .table tbody td > div {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 40px;
+    }
+    
+    /* Estilos para impressão */
+    @media print {
+        .documento-oficial {
+            box-shadow: none;
+            border: 2px solid #000 !important;
+        }
+        
+        .quadro-header {
+            background: #000 !important;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+        }
+        
+        .quadro-secao-titulo {
+            background: #000 !important;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+        }
+        
+        .btn-close, .btn {
+            display: none !important;
+        }
+        
+        .modal-dialog {
+            max-width: none !important;
+            margin: 0 !important;
+        }
+        
+        .modal-content {
+            border: 2px solid #000 !important;
+            box-shadow: none !important;
+        }
+        
+        .quadro-item {
+            border: 1px solid #000 !important;
+        }
+        
+        .quadro-secao {
+            border: 2px solid #000 !important;
+        }
+    }
+        border-bottom: 2px solid #dee2e6;
+    }
+    
+    .table td {
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+    
+    /* Estilos para dados simples */
+    .table td {
+        font-size: 0.9rem;
+    }
+    
+    /* Valores monetários */
+    .table td.text-end span {
+        font-family: 'Courier New', monospace;
+        font-weight: 600;
+    }
+    
+    /* Checkbox styling */
+    .form-check-input {
+        margin: 0;
+    }
+    
+    /* Paginação */
+    .pagination .page-link {
+        color: #0d6efd;
+        border-color: #dee2e6;
+    }
+    
+    .pagination .page-item.active .page-link {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+    }
+    
+    .pagination .page-link:hover {
+        color: #0a58ca;
+        background-color: #e9ecef;
+        border-color: #dee2e6;
+    }
+</style>
+
+<!-- Modal de Sucesso -->
+<div class="modal fade" id="modalSucesso" tabindex="-1" aria-labelledby="modalSucessoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="modalSucessoLabel">
+                    <i class="fas fa-check-circle me-2"></i>Sucesso!
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="mb-3">
+                    <i class="fas fa-check-circle fa-3x text-success"></i>
+                </div>
+                <h6 id="modalSucessoTitulo" class="mb-2">Operação realizada com sucesso!</h6>
+                <p id="modalSucessoMensagem" class="text-muted mb-0">A operação foi concluída com sucesso.</p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-success" data-bs-dismiss="modal" onclick="recarregarPagina()">
+                    <i class="fas fa-check me-2"></i>OK
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Erro -->
+<div class="modal fade" id="modalErro" tabindex="-1" aria-labelledby="modalErroLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="modalErroLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="mb-3">
+                    <i class="fas fa-exclamation-triangle fa-3x text-danger"></i>
+                </div>
+                <h6 class="mb-2">Ocorreu um erro</h6>
+                <p id="modalErroMensagem" class="text-muted mb-0">Não foi possível processar a operação.</p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-danger" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,421 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Tombamentos - Lista{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-file-alt me-2 text-primary"></i>Tombamentos de Bens Móveis
+                    </h2>
+                    <p class="text-muted mb-0">Registros de tombamento, transferências e baixas</p>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#criarTombamentoModal">
+                        <i class="fas fa-plus me-2"></i>Novo Tombamento
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Cards de Estatísticas -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-file-alt fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_tombamentos }}</h4>
+                            <p class="mb-0">Total de Tombamentos</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card success">
+                        <div class="card-body text-center">
+                            <i class="fas fa-plus-circle fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ tombamentos_entrada }}</h4>
+                            <p class="mb-0">Entradas</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card info">
+                        <div class="card-body text-center">
+                            <i class="fas fa-exchange-alt fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ tombamentos_transferencia }}</h4>
+                            <p class="mb-0">Transferências</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card warning">
+                        <div class="card-body text-center">
+                            <i class="fas fa-minus-circle fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ tombamentos_baixa }}</h4>
+                            <p class="mb-0">Baixas</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Pesquisa</label>
+                            <input type="text" name="search" class="form-control" 
+                                   value="{{ search }}" placeholder="Nº tombamento, descrição...">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Tipo</label>
+                            <select name="tipo" class="form-select">
+                                <option value="">Todos</option>
+                                {% for tipo_val, tipo_nome in tipos %}
+                                    <option value="{{ tipo_val }}" {% if tipo == tipo_val %}selected{% endif %}>
+                                        {{ tipo_nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Data Início</label>
+                            <input type="date" name="data_inicio" class="form-control" value="{{ data_inicio }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Data Fim</label>
+                            <input type="date" name="data_fim" class="form-control" value="{{ data_fim }}">
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                            <a href="{% url 'militares:tombamento_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Limpar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Lista de Tombamentos -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Lista de Tombamentos
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if tombamentos %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Data</th>
+                                        <th>Bem Móvel</th>
+                                        <th>Tipo</th>
+                                        <th>Origem</th>
+                                        <th>Destino</th>
+                                        <th>Valor</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for tombamento in tombamentos %}
+                                        <tr>
+                                            <td>{{ tombamento.data_tombamento|date:"d/m/Y" }}</td>
+                                            <td>
+                                                <strong>{{ tombamento.bem_movel.numero_tombamento }}</strong><br>
+                                                <small class="text-muted">{{ tombamento.bem_movel.descricao|truncatewords:5 }}</small>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-info">
+                                                    {{ tombamento.get_tipo_tombamento_display }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <small>{{ tombamento.get_origem_formatada|default:"-" }}</small>
+                                            </td>
+                                            <td>
+                                                <small>{{ tombamento.get_destino_formatada|default:"-" }}</small>
+                                            </td>
+                                            <td>
+                                                {% if tombamento.valor_atual %}
+                                                    R$ {{ tombamento.valor_atual|floatformat:2 }}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <button type="button" 
+                                                        class="btn btn-sm btn-primary btn-editar-tombamento" 
+                                                        data-tombamento-id="{{ tombamento.pk }}"
+                                                        title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button type="button" 
+                                                        class="btn btn-sm btn-danger btn-excluir-tombamento" 
+                                                        data-tombamento-id="{{ tombamento.pk }}"
+                                                        data-tombamento-nome="{{ tombamento.bem_movel.numero_tombamento }}"
+                                                        title="Excluir">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if is_paginated %}
+                            <nav aria-label="Paginação">
+                                <ul class="pagination justify-content-center mt-4">
+                                    {% if page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}{% if tipo %}&tipo={{ tipo }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}">
+                                                <i class="fas fa-angle-double-left"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if tipo %}&tipo={{ tipo }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}">
+                                                <i class="fas fa-angle-left"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                    
+                                    <li class="page-item disabled">
+                                        <span class="page-link">
+                                            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                                        </span>
+                                    </li>
+                                    
+                                    {% if page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if tipo %}&tipo={{ tipo }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}">
+                                                <i class="fas fa-angle-right"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if tipo %}&tipo={{ tipo }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}">
+                                                <i class="fas fa-angle-double-right"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Nenhum tombamento encontrado.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Criar Tombamento -->
+<div class="modal fade" id="criarTombamentoModal" tabindex="-1" aria-labelledby="criarTombamentoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="criarTombamentoModalContent">
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Editar Tombamento -->
+<div class="modal fade" id="editarTombamentoModal" tabindex="-1" aria-labelledby="editarTombamentoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="editarTombamentoModalContent">
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Excluir Tombamento -->
+<div class="modal fade" id="excluirTombamentoModal" tabindex="-1" aria-labelledby="excluirTombamentoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" id="excluirTombamentoModalContent">
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-danger" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Modal de Criar
+    const criarTombamentoModal = document.getElementById('criarTombamentoModal');
+    const criarTombamentoModalContent = document.getElementById('criarTombamentoModalContent');
+    
+    if (criarTombamentoModal && criarTombamentoModalContent) {
+        criarTombamentoModal.addEventListener('show.bs.modal', function(event) {
+            criarTombamentoModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            fetch('{% url "militares:tombamento_create" %}', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.html) {
+                    criarTombamentoModalContent.innerHTML = data.html;
+                    setTimeout(function() {
+                        const scripts = criarTombamentoModalContent.querySelectorAll('script');
+                        scripts.forEach(function(oldScript) {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(attr => {
+                                newScript.setAttribute(attr.name, attr.value);
+                            });
+                            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                            oldScript.parentNode.replaceChild(newScript, oldScript);
+                        });
+                    }, 100);
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                criarTombamentoModalContent.innerHTML = `
+                    <div class="modal-body">
+                        <div class="alert alert-danger">Erro ao carregar formulário.</div>
+                    </div>
+                `;
+            });
+        });
+    }
+    
+    // Modal de Editar
+    const editarTombamentoModal = document.getElementById('editarTombamentoModal');
+    const editarTombamentoModalContent = document.getElementById('editarTombamentoModalContent');
+    
+    document.querySelectorAll('.btn-editar-tombamento').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const tombamentoId = this.getAttribute('data-tombamento-id');
+            
+            editarTombamentoModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            const modal = new bootstrap.Modal(editarTombamentoModal);
+            modal.show();
+            
+            fetch(`/militares/tombamentos/${tombamentoId}/editar/`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.html) {
+                    editarTombamentoModalContent.innerHTML = data.html;
+                    setTimeout(function() {
+                        const scripts = editarTombamentoModalContent.querySelectorAll('script');
+                        scripts.forEach(function(oldScript) {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(attr => {
+                                newScript.setAttribute(attr.name, attr.value);
+                            });
+                            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                            oldScript.parentNode.replaceChild(newScript, oldScript);
+                        });
+                    }, 100);
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                editarTombamentoModalContent.innerHTML = `
+                    <div class="modal-body">
+                        <div class="alert alert-danger">Erro ao carregar formulário.</div>
+                    </div>
+                `;
+            });
+        });
+    });
+    
+    // Modal de Excluir
+    const excluirTombamentoModal = document.getElementById('excluirTombamentoModal');
+    const excluirTombamentoModalContent = document.getElementById('excluirTombamentoModalContent');
+    
+    document.querySelectorAll('.btn-excluir-tombamento').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const tombamentoId = this.getAttribute('data-tombamento-id');
+            const tombamentoNome = this.getAttribute('data-tombamento-nome');
+            
+            excluirTombamentoModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-danger" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando...</p>
+                </div>
+            `;
+            
+            const modal = new bootstrap.Modal(excluirTombamentoModal);
+            modal.show();
+            
+            fetch(`/militares/tombamentos/${tombamentoId}/excluir/`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.html) {
+                    excluirTombamentoModalContent.innerHTML = data.html;
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                excluirTombamentoModalContent.innerHTML = `
+                    <div class="modal-body">
+                        <div class="alert alert-danger">Erro ao carregar confirmação.</div>
+                    </div>
+                `;
+            });
+        });
+    });
+});
+</script>
+{% endblock %}
+

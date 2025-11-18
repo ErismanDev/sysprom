@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Saídas de Munição{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-arrow-up text-warning me-2"></i>Saídas de Munição
+                    </h2>
+                    <p class="text-muted mb-0">Registro de saídas de munição do estoque</p>
+                </div>
+                <div>
+                    <a href="{% url 'militares:saida_municao_create' %}" class="btn btn-warning">
+                        <i class="fas fa-plus me-2"></i>Nova Saída
+                    </a>
+                    <a href="{% url 'militares:municao_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-boxes me-2"></i>Estoque
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Munição</label>
+                            <select name="municao" class="form-select">
+                                <option value="">Todas</option>
+                                {% for m in municoes %}
+                                    <option value="{{ m.pk }}" {% if request.GET.municao == m.pk|stringformat:"s" %}selected{% endif %}>
+                                        {{ m.get_calibre_display }} - {{ m.get_organizacao }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Tipo de Saída</label>
+                            <select name="tipo_saida" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="CAUTELA_INDIVIDUAL" {% if request.GET.tipo_saida == 'CAUTELA_INDIVIDUAL' %}selected{% endif %}>Cautela Individual</option>
+                                <option value="CAUTELA_COLETIVA" {% if request.GET.tipo_saida == 'CAUTELA_COLETIVA' %}selected{% endif %}>Cautela Coletiva</option>
+                                <option value="TREINAMENTO" {% if request.GET.tipo_saida == 'TREINAMENTO' %}selected{% endif %}>Treinamento</option>
+                                <option value="OPERACAO" {% if request.GET.tipo_saida == 'OPERACAO' %}selected{% endif %}>Operação</option>
+                                <option value="OUTROS" {% if request.GET.tipo_saida == 'OUTROS' %}selected{% endif %}>Outros</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-search me-2"></i>Filtrar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Lista -->
+            <div class="card">
+                <div class="card-body">
+                    {% if saidas %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Data</th>
+                                        <th>Munição</th>
+                                        <th class="text-end">Quantidade</th>
+                                        <th>Tipo</th>
+                                        <th>Cautela</th>
+                                        <th>Devolvido</th>
+                                        <th>Responsável</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for saida in saidas %}
+                                        <tr>
+                                            <td>{{ saida.data_saida|date:"d/m/Y H:i" }}</td>
+                                            <td>
+                                                <a href="{% url 'militares:municao_detail' saida.municao.pk %}">
+                                                    {{ saida.municao.get_calibre_display }} - {{ saida.municao.get_organizacao }}
+                                                </a>
+                                            </td>
+                                            <td class="text-end"><strong>{{ saida.quantidade }}</strong></td>
+                                            <td>{{ saida.get_tipo_saida_display }}</td>
+                                            <td>
+                                                {% if saida.cautela_individual %}
+                                                    <a href="{% url 'militares:cautela_arma_detail' saida.cautela_individual.pk %}">
+                                                        Cautela #{{ saida.cautela_individual.pk }}
+                                                    </a>
+                                                {% elif saida.cautela_coletiva %}
+                                                    <a href="{% url 'militares:cautela_arma_coletiva_detail' saida.cautela_coletiva.pk %}">
+                                                        Coletiva #{{ saida.cautela_coletiva.pk }}
+                                                    </a>
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <span class="badge {% if saida.totalmente_devolvida %}bg-success{% else %}bg-warning{% endif %}">
+                                                    {{ saida.quantidade_devolvida }}/{{ saida.quantidade }}
+                                                </span>
+                                            </td>
+                                            <td>{{ saida.responsavel.get_full_name|default:saida.responsavel.username }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if is_paginated %}
+                            <nav aria-label="Paginação">
+                                <ul class="pagination justify-content-center">
+                                    {% if page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1{% if request.GET.municao %}&municao={{ request.GET.municao }}{% endif %}{% if request.GET.tipo_saida %}&tipo_saida={{ request.GET.tipo_saida }}{% endif %}">Primeira</a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.municao %}&municao={{ request.GET.municao }}{% endif %}{% if request.GET.tipo_saida %}&tipo_saida={{ request.GET.tipo_saida }}{% endif %}">Anterior</a>
+                                        </li>
+                                    {% endif %}
+                                    <li class="page-item active">
+                                        <span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+                                    </li>
+                                    {% if page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.municao %}&municao={{ request.GET.municao }}{% endif %}{% if request.GET.tipo_saida %}&tipo_saida={{ request.GET.tipo_saida }}{% endif %}">Próxima</a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.municao %}&municao={{ request.GET.municao }}{% endif %}{% if request.GET.tipo_saida %}&tipo_saida={{ request.GET.tipo_saida }}{% endif %}">Última</a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>Nenhuma saída encontrada.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

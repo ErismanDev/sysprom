@@ -50,7 +50,7 @@ class Command(BaseCommand):
             # Executar reordenação
             if dry_run:
                 # Em modo de teste, apenas mostrar o que seria feito
-                militares = Militar.objects.filter(situacao='AT')
+                militares = Militar.objects.filter(classificacao='ATIVO')
                 if posto:
                     militares = militares.filter(posto_graduacao=posto)
                 if quadro:

@@ -1,0 +1,292 @@
+{% load static %}
+
+<div class="modal-header bg-primary text-white">
+    <h5 class="modal-title" id="criarConfiguracaoArmaModalLabel">
+        <i class="fas fa-cog me-2"></i>
+        {% if object %}Editar Configuração de Arma{% else %}Nova Configuração de Arma{% endif %}
+    </h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+
+<form id="formCriarConfiguracaoArma" method="post" action="{% if object %}{% url 'militares:configuracao_arma_update' object.pk %}{% else %}{% url 'militares:configuracao_arma_create' %}{% endif %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+        <div class="row">
+            <div class="col-md-12 mb-3">
+                <label for="{{ form.imagem.id_for_label }}" class="form-label">
+                    Imagem da Arma <span class="text-danger">*</span>
+                </label>
+                {{ form.imagem }}
+                {% if form.imagem.errors %}
+                    <div class="invalid-feedback d-block">{{ form.imagem.errors }}</div>
+                {% endif %}
+                {% if object and object.imagem %}
+                    <div class="mt-2">
+                        <small class="text-muted">Imagem atual:</small><br>
+                        <img src="{{ object.imagem.url }}" 
+                             alt="{{ object.marca }} {{ object.modelo }}" 
+                             class="img-thumbnail" 
+                             style="max-height: 150px;">
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.tipo.id_for_label }}" class="form-label">
+                    Tipo <span class="text-danger">*</span>
+                </label>
+                {{ form.tipo }}
+                {% if form.tipo.errors %}
+                    <div class="invalid-feedback d-block">{{ form.tipo.errors }}</div>
+                {% endif %}
+            </div>
+            <div class="col-md-6 mb-3" id="tipo-acessorio-campo" style="display: none;">
+                <label for="{{ form.tipo_acessorio.id_for_label }}" class="form-label">
+                    Tipo de Acessório <span class="text-danger">*</span>
+                </label>
+                {{ form.tipo_acessorio }}
+                {% if form.tipo_acessorio.errors %}
+                    <div class="invalid-feedback d-block">{{ form.tipo_acessorio.errors }}</div>
+                {% endif %}
+            </div>
+            <div class="col-md-6 mb-3" id="calibre-campo">
+                <label for="{{ form.calibre.id_for_label }}" class="form-label">
+                    Calibre <span class="text-danger" id="calibre-required">*</span>
+                </label>
+                {{ form.calibre }}
+                {% if form.calibre.errors %}
+                    <div class="invalid-feedback d-block">{{ form.calibre.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.marca.id_for_label }}" class="form-label">
+                    Marca <span class="text-danger">*</span>
+                </label>
+                {{ form.marca }}
+                {% if form.marca.errors %}
+                    <div class="invalid-feedback d-block">{{ form.marca.errors }}</div>
+                {% endif %}
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.modelo.id_for_label }}" class="form-label">
+                    Modelo <span class="text-danger">*</span>
+                </label>
+                {{ form.modelo }}
+                {% if form.modelo.errors %}
+                    <div class="invalid-feedback d-block">{{ form.modelo.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-12 mb-3">
+                <div class="form-check">
+                    {{ form.ativo }}
+                    <label class="form-check-label" for="{{ form.ativo.id_for_label }}">
+                        Ativo
+                    </label>
+                </div>
+                {% if form.ativo.errors %}
+                    <div class="invalid-feedback d-block">{{ form.ativo.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save me-2"></i>Salvar
+        </button>
+    </div>
+</form>
+
+<script>
+(function() {
+    // Executar imediatamente, não esperar DOMContentLoaded
+    // porque o conteúdo é carregado via AJAX
+    // Usar função para buscar elementos dinamicamente
+    // Buscar dentro do modal principal para garantir que encontre mesmo com modais aninhados
+    function getModalPrincipal() {
+        // Tentar encontrar o modal principal de configuração de arma
+        const modalContent = document.getElementById('criarConfiguracaoArmaModalContent');
+        if (modalContent) {
+            return modalContent;
+        }
+        const modal = document.getElementById('criarConfiguracaoArmaModal');
+        if (modal) {
+            return modal;
+        }
+        return document;
+    }
+    
+    function getTipoSelect() {
+        // Buscar em vários lugares possíveis
+        const modalPrincipal = getModalPrincipal();
+        let elemento = modalPrincipal.querySelector('#id_tipo');
+        if (!elemento) {
+            elemento = document.getElementById('id_tipo');
+        }
+        if (!elemento) {
+            // Tentar buscar por name também
+            elemento = modalPrincipal.querySelector('select[name="tipo"]');
+        }
+        if (!elemento) {
+            elemento = document.querySelector('select[name="tipo"]');
+        }
+        return elemento;
+    }
+    
+    function getTipoAcessorioCampo() {
+        const modalPrincipal = getModalPrincipal();
+        return modalPrincipal.querySelector('#tipo-acessorio-campo') || document.getElementById('tipo-acessorio-campo');
+    }
+    
+    function getTipoAcessorioSelect() {
+        const modalPrincipal = getModalPrincipal();
+        return modalPrincipal.querySelector('#id_tipo_acessorio') || document.getElementById('id_tipo_acessorio');
+    }
+    
+    function getCalibreCampo() {
+        const modalPrincipal = getModalPrincipal();
+        return modalPrincipal.querySelector('#calibre-campo') || document.getElementById('calibre-campo');
+    }
+    
+    function getCalibreSelect() {
+        // Buscar em vários lugares possíveis
+        const modalPrincipal = getModalPrincipal();
+        let elemento = modalPrincipal.querySelector('#id_calibre');
+        if (!elemento) {
+            elemento = document.getElementById('id_calibre');
+        }
+        if (!elemento) {
+            // Tentar buscar por name também
+            elemento = modalPrincipal.querySelector('select[name="calibre"]');
+        }
+        if (!elemento) {
+            elemento = document.querySelector('select[name="calibre"]');
+        }
+        return elemento;
+    }
+    
+    function getCalibreRequired() {
+        const modalPrincipal = getModalPrincipal();
+        return modalPrincipal.querySelector('#calibre-required') || document.getElementById('calibre-required');
+    }
+    
+    function toggleCamposAcessorio() {
+        const tipoSelect = getTipoSelect();
+        const tipo = tipoSelect ? tipoSelect.value : '';
+        
+        const tipoAcessorioCampo = getTipoAcessorioCampo();
+        const tipoAcessorioSelect = getTipoAcessorioSelect();
+        const calibreRequired = getCalibreRequired();
+        const calibreSelect = getCalibreSelect();
+        
+        if (tipo === 'ACESSORIO') {
+            if (tipoAcessorioCampo) tipoAcessorioCampo.style.display = 'block';
+            if (tipoAcessorioSelect) tipoAcessorioSelect.required = true;
+            if (calibreRequired) calibreRequired.style.display = 'none';
+            if (calibreSelect) calibreSelect.required = false;
+        } else {
+            if (tipoAcessorioCampo) tipoAcessorioCampo.style.display = 'none';
+            if (tipoAcessorioSelect) {
+                tipoAcessorioSelect.required = false;
+                tipoAcessorioSelect.value = '';
+            }
+            if (calibreRequired) calibreRequired.style.display = 'inline';
+            if (calibreSelect) calibreSelect.required = true;
+        }
+    }
+    
+    // Inicializar após um pequeno delay para garantir que os elementos estejam no DOM
+    setTimeout(function() {
+        toggleCamposAcessorio();
+        
+        const tipoSelect = getTipoSelect();
+        if (tipoSelect) {
+            tipoSelect.addEventListener('change', toggleCamposAcessorio);
+        }
+    }, 100);
+    
+    // Submeter formulário via AJAX
+    const formCriarConfiguracaoArma = document.getElementById('formCriarConfiguracaoArma');
+    if (formCriarConfiguracaoArma) {
+        formCriarConfiguracaoArma.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(formCriarConfiguracaoArma);
+            const submitButton = formCriarConfiguracaoArma.querySelector('button[type="submit"]');
+            const originalText = submitButton.innerHTML;
+            
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Salvando...';
+            
+            fetch(formCriarConfiguracaoArma.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => {
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    return response.json();
+                } else {
+                    return response.text().then(text => {
+                        throw new Error('Resposta não é JSON');
+                    });
+                }
+            })
+            .then(data => {
+                if (data.success) {
+                    if (typeof showToast === 'function') {
+                        showToast('success', data.message || 'Configuração de arma salva com sucesso!');
+                    } else {
+                        alert(data.message || 'Configuração de arma salva com sucesso!');
+                    }
+                    
+                    const modalElement = document.getElementById('criarConfiguracaoArmaModal');
+                    if (modalElement) {
+                        const modal = bootstrap.Modal.getInstance(modalElement);
+                        if (modal) {
+                            modal.hide();
+                        }
+                    }
+                    
+                    setTimeout(function() {
+                        if (data.redirect_url) {
+                            window.location.href = data.redirect_url;
+                        } else {
+                            window.location.reload();
+                        }
+                    }, 300);
+                } else {
+                    let errorMessage = data.message || 'Erro ao salvar configuração de arma.';
+                    if (data.errors) {
+                        errorMessage += '\n\nErros:\n';
+                        for (const field in data.errors) {
+                            errorMessage += field + ': ' + data.errors[field].join(', ') + '\n';
+                        }
+                    }
+                    alert(errorMessage);
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert('Erro ao salvar configuração de arma. Tente novamente.');
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalText;
+            });
+        });
+    }
+})(); // IIFE - executa imediatamente
+</script>
+

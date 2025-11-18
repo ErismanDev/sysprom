@@ -1,0 +1,513 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load almoxarifado_filters %}
+
+{% block title %}Almoxarifado - Detalhes do Item{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-warehouse me-2 text-primary"></i>Detalhes do Item
+                    </h2>
+                    <p class="text-muted mb-0">
+                        {{ item.get_codigo_limpo }} - {{ item.descricao }}
+                        {% if item.tamanho %}
+                            <span class="badge bg-info ms-2">{{ item.tamanho }}</span>
+                        {% endif %}
+                    </p>
+                </div>
+                <div>
+                    <a href="{% url 'militares:produto_almoxarifado_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Voltar
+                    </a>
+                    {% if pode_criar or user.is_superuser %}
+                    <a href="{% url 'militares:produto_almoxarifado_duplicate' item.pk %}" 
+                       class="btn btn-success"
+                       onclick="return confirm('Deseja duplicar este item? Uma cópia será criada e você poderá editá-la.');">
+                        <i class="fas fa-copy me-2"></i>Duplicar Item
+                    </a>
+                    {% endif %}
+                    <a href="{% url 'militares:produto_almoxarifado_pdf' item.pk %}" 
+                       class="btn btn-danger" 
+                       target="_blank">
+                        <i class="fas fa-file-pdf me-2"></i>Gerar PDF
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Informações do Item -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-info-circle me-2"></i>Informações do Item
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                {% if item.imagem %}
+                                <div class="col-md-12 mb-4 text-center">
+                                    <img src="{{ item.imagem.url }}" 
+                                         alt="{{ item.descricao }}" 
+                                         class="img-fluid rounded shadow-sm" 
+                                         style="max-height: 400px; max-width: 100%; object-fit: contain; cursor: pointer;"
+                                         data-bs-toggle="modal" 
+                                         data-bs-target="#imagemModal">
+                                    <p class="text-muted mt-2 mb-0">
+                                        <small>Clique na imagem para ampliar</small>
+                                    </p>
+                                </div>
+                                {% endif %}
+                                <div class="col-md-6 mb-3">
+                                    <strong>Código:</strong><br>
+                                    {{ item.get_codigo_limpo }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <strong>Código de Barras:</strong><br>
+                                    {% if item.codigo_barras %}
+                                        <span class="badge bg-primary">{{ item.codigo_barras }}</span>
+                                        <a href="{% url 'militares:produto_almoxarifado_barcode' item.pk %}" 
+                                           target="_blank" 
+                                           class="btn btn-sm btn-outline-primary ms-2"
+                                           title="Visualizar código de barras">
+                                            <i class="fas fa-barcode"></i>
+                                        </a>
+                                    {% else %}
+                                        <span class="text-muted">Não definido</span>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <strong>QR Code:</strong><br>
+                                    <a href="{% url 'militares:produto_almoxarifado_qrcode' item.pk %}?format=image" 
+                                       target="_blank" 
+                                       class="btn btn-sm btn-outline-success"
+                                       title="Visualizar QR Code">
+                                        <i class="fas fa-qrcode me-2"></i>Ver QR Code
+                                    </a>
+                                    <img src="{% url 'militares:produto_almoxarifado_qrcode' item.pk %}?format=image" 
+                                         alt="QR Code {{ item.codigo }}" 
+                                         class="ms-2"
+                                         style="width: 80px; height: 80px;">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <strong>Categoria:</strong><br>
+                                    {{ item.get_categoria_display }}
+                                </div>
+                                <div class="col-md-12 mb-3">
+                                    <strong>Descrição:</strong><br>
+                                    {{ item.descricao }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <strong>Unidade de Medida:</strong><br>
+                                    {{ item.get_unidade_medida_display }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <strong>Status:</strong><br>
+                                    <span class="badge bg-{% if item.ativo %}success{% else %}secondary{% endif %}">
+                                        {% if item.ativo %}Ativo{% else %}Inativo{% endif %}
+                                    </span>
+                                </div>
+                                {% if item.marca or item.modelo or item.tamanho %}
+                                {% if item.marca %}
+                                <div class="col-md-6 mb-3">
+                                    <strong>Marca:</strong><br>
+                                    {{ item.marca }}
+                                </div>
+                                {% endif %}
+                                {% if item.modelo %}
+                                <div class="col-md-6 mb-3">
+                                    <strong>Modelo:</strong><br>
+                                    {{ item.modelo }}
+                                </div>
+                                {% endif %}
+                                {% if item.tamanho %}
+                                <div class="col-md-6 mb-3">
+                                    <strong>Tamanho/Numeração:</strong><br>
+                                    <span class="badge bg-info fs-6">{{ item.tamanho }}</span>
+                                </div>
+                                {% endif %}
+                                {% endif %}
+                                {% if item.localizacao %}
+                                <div class="col-md-12 mb-3">
+                                    <strong>Localização:</strong><br>
+                                    {{ item.localizacao }}
+                                </div>
+                                {% endif %}
+                                {% if item.fornecedor_principal %}
+                                <div class="col-md-12 mb-3">
+                                    <strong>Fornecedor Principal:</strong><br>
+                                    {{ item.fornecedor_principal }}
+                                </div>
+                                {% endif %}
+                                {% if item.observacoes %}
+                                <div class="col-md-12 mb-3">
+                                    <strong>Observações:</strong><br>
+                                    {{ item.observacoes|linebreaks }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Estoque -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-boxes me-2"></i>Informações de Estoque
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <div class="text-center p-3 bg-light rounded">
+                                        <strong class="d-block text-muted">
+                                            {% if nome_om_visualizacao %}
+                                                Estoque em {{ nome_om_visualizacao }}
+                                            {% else %}
+                                                Quantidade Atual
+                                            {% endif %}
+                                        </strong>
+                                        <h3 class="mb-0">
+                                            {% if estoque_om_visualizacao is not None %}
+                                                {{ estoque_om_visualizacao|formatar_quantidade_unidade:item.unidade_medida }}
+                                            {% else %}
+                                                {{ item.quantidade_atual|formatar_quantidade_unidade:item.unidade_medida }}
+                                            {% endif %}
+                                        </h3>
+                                        {% if nome_om_visualizacao %}
+                                            <small class="text-muted">
+                                                {% if e_om_criacao %}
+                                                    OM de criação do produto
+                                                {% else %}
+                                                    Total do produto: 
+                                                    {% if estoque_total_produto is not None %}
+                                                        {{ estoque_total_produto|formatar_quantidade_unidade:item.unidade_medida }}
+                                                    {% else %}
+                                                        {{ item.quantidade_atual|formatar_quantidade_unidade:item.unidade_medida }}
+                                                    {% endif %}
+                                                {% endif %}
+                                            </small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="text-center p-3 bg-light rounded">
+                                        <strong class="d-block text-muted">Total do Produto</strong>
+                                        <h3 class="mb-0">
+                                            {% if estoque_total_produto is not None %}
+                                                {{ estoque_total_produto|formatar_quantidade_unidade:item.unidade_medida }}
+                                            {% else %}
+                                                {{ item.quantidade_atual|formatar_quantidade_unidade:item.unidade_medida }}
+                                            {% endif %}
+                                        </h3>
+                                        <small class="text-muted">Soma de todos os estoques</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="text-center p-3 bg-light rounded">
+                                        <strong class="d-block text-muted">Estoque Mínimo</strong>
+                                        <h3 class="mb-0">{{ item.estoque_minimo }}</h3>
+                                        <small class="text-muted">{{ item.get_unidade_medida_display }}</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="text-center p-3 bg-light rounded">
+                                        <strong class="d-block text-muted">Estoque Máximo</strong>
+                                        <h3 class="mb-0">{{ item.estoque_maximo }}</h3>
+                                        <small class="text-muted">{{ item.get_unidade_medida_display }}</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-12">
+                                    <strong>Status do Estoque:</strong>
+                                    {% if status_estoque_om %}
+                                        <span class="badge bg-{{ status_estoque_color_om }} ms-2">
+                                            {{ status_estoque_om }}
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-{{ item.get_status_estoque_color }} ms-2">
+                                            {{ item.get_status_estoque_display }}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                                {% if item.valor_unitario %}
+                                <div class="col-md-12 mt-3">
+                                    <strong>Valor Unitário:</strong> R$ {{ item.valor_unitario|floatformat:2 }}<br>
+                                    <strong>Valor Total do Estoque:</strong> R$ {{ item.get_valor_total_estoque|floatformat:2 }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Lista de OMs com Estoque -->
+                            {% if oms_com_estoque %}
+                            <div class="mt-4">
+                                <h6 class="mb-3">
+                                    <i class="fas fa-list me-2"></i>Estoque por Organização Militar
+                                </h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Organização Militar</th>
+                                                <th class="text-end">Quantidade</th>
+                                                <th class="text-center">Status</th>
+                                                <th class="text-center">Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for om_estoque in oms_com_estoque %}
+                                            <tr>
+                                                <td>
+                                                    {{ om_estoque.nome }}
+                                                    {% if om_estoque.e_om_criacao %}
+                                                        <span class="badge bg-info ms-2">OM de Criação</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td class="text-end">
+                                                    <strong>{{ om_estoque.estoque|formatar_quantidade_unidade:item.unidade_medida }}</strong>
+                                                </td>
+                                                <td class="text-center">
+                                                    {% if om_estoque.estoque <= 0 %}
+                                                        <span class="badge bg-danger">Esgotado</span>
+                                                    {% elif om_estoque.estoque <= item.estoque_minimo %}
+                                                        <span class="badge bg-warning">Crítico</span>
+                                                    {% elif om_estoque.estoque >= item.estoque_maximo %}
+                                                        <span class="badge bg-info">Acima do Máximo</span>
+                                                    {% else %}
+                                                        <span class="badge bg-success">Normal</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td class="text-center">
+                                                    <a href="?{% if om_estoque.tipo == 'sub' %}sub_unidade{% elif om_estoque.tipo == 'unidade' %}unidade{% elif om_estoque.tipo == 'gc' %}grande_comando{% else %}orgao{% endif %}={{ om_estoque.id }}" 
+                                                       class="btn btn-sm btn-outline-primary"
+                                                       title="Visualizar estoque nesta OM">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Histórico de Movimentações -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card mb-4">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-history me-2"></i>Histórico Completo de Movimentações
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% if movimentacoes %}
+                                <div class="table-responsive">
+                                    <table class="table table-hover table-striped align-middle">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th style="width: 100px;"><i class="fas fa-calendar me-1"></i>Data</th>
+                                                <th style="width: 80px;"><i class="fas fa-tag me-1"></i>Tipo</th>
+                                                <th style="width: 120px;"><i class="fas fa-boxes me-1"></i>Quantidade</th>
+                                                <th style="width: 150px;"><i class="fas fa-info-circle me-1"></i>Tipo de Movimentação</th>
+                                                <th><i class="fas fa-file-alt me-1"></i>Detalhes</th>
+                                                <th style="width: 100px;" class="text-center"><i class="fas fa-cog me-1"></i>Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for mov in movimentacoes %}
+                                                <tr>
+                                                    <td><strong>{{ mov.data|date:"d/m/Y" }}</strong></td>
+                                                    <td>
+                                                        {% if mov.tipo == 'ENTRADA' %}
+                                                            <span class="badge bg-success">
+                                                                <i class="fas fa-arrow-down me-1"></i>Entrada
+                                                            </span>
+                                                        {% elif mov.tipo == 'CRIACAO' %}
+                                                            <span class="badge bg-primary">
+                                                                <i class="fas fa-plus-circle me-1"></i>Criação
+                                                            </span>
+                                                        {% else %}
+                                                            <span class="badge bg-danger">
+                                                                <i class="fas fa-arrow-up me-1"></i>Saída
+                                                            </span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        <strong class="text-primary">{{ mov.quantidade|formatar_quantidade_unidade:item.unidade_medida }}</strong>
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge bg-info">{{ mov.tipo_mov }}</span>
+                                                    </td>
+                                                    <td>
+                                                        {% if mov.tipo == 'CRIACAO' %}
+                                                            <div style="text-align: justify; font-size: 14px; line-height: 1.5;">
+                                                                {{ mov.observacoes }}
+                                                                {% if mov.objeto.criado_por %}
+                                                                    <br><strong>Criado por:</strong> {{ mov.objeto.criado_por.get_full_name|default:mov.objeto.criado_por.username }}
+                                                                {% endif %}
+                                                            </div>
+                                                        {% elif mov.tipo == 'ENTRADA' %}
+                                                            {% with entrada=mov.objeto %}
+                                                                <div style="text-align: justify; font-size: 14px; line-height: 1.5;">
+                                                                    {% if entrada.fornecedor %}
+                                                                        <strong>Fornecedor:</strong> {{ entrada.fornecedor }}<br>
+                                                                    {% endif %}
+                                                                    {% if entrada.nota_fiscal %}
+                                                                        <strong>Nota Fiscal:</strong> {{ entrada.nota_fiscal }}<br>
+                                                                    {% endif %}
+                                                                    {% if entrada.get_destino_formatada %}
+                                                                        <strong>Destino:</strong> {{ entrada.get_destino_formatada }}<br>
+                                                                    {% endif %}
+                                                                    {% if entrada.responsavel %}
+                                                                        <strong>Responsável:</strong> {{ entrada.responsavel.get_posto_graduacao_display }} {{ entrada.responsavel.nome_completo }}<br>
+                                                                    {% endif %}
+                                                                    {% if entrada.observacoes %}
+                                                                        <small class="text-muted"><em>{{ entrada.observacoes|truncatewords:15 }}</em></small>
+                                                                    {% endif %}
+                                                                </div>
+                                                            {% endwith %}
+                                                        {% else %}
+                                                            {% with saida=mov.objeto %}
+                                                                <div style="text-align: justify; font-size: 14px; line-height: 1.5;">
+                                                                    {% if saida.requisitante %}
+                                                                        <strong>Requisitante:</strong> {{ saida.requisitante.get_posto_graduacao_display }} {{ saida.requisitante.nome_completo }}<br>
+                                                                    {% endif %}
+                                                                    {% if saida.get_origem_formatada %}
+                                                                        <strong>Origem:</strong> {{ saida.get_origem_formatada }}<br>
+                                                                    {% endif %}
+                                                                    {% if saida.get_destino_formatada %}
+                                                                        <strong>Destino:</strong> {{ saida.get_destino_formatada }}<br>
+                                                                    {% endif %}
+                                                                    {% if saida.responsavel_entrega %}
+                                                                        <strong>Responsável Entrega:</strong> {{ saida.responsavel_entrega.get_posto_graduacao_display }} {{ saida.responsavel_entrega.nome_completo }}<br>
+                                                                    {% endif %}
+                                                                    {% if saida.observacoes %}
+                                                                        <small class="text-muted"><em>{{ saida.observacoes|truncatewords:15 }}</em></small>
+                                                                    {% endif %}
+                                                                </div>
+                                                            {% endwith %}
+                                                        {% endif %}
+                                                    </td>
+                                                    <td class="text-center">
+                                                        {% if mov.tipo == 'CRIACAO' %}
+                                                            <span class="text-muted">-</span>
+                                                        {% elif mov.tipo == 'ENTRADA' %}
+                                                            <a href="{% url 'militares:entrada_almoxarifado_detail' mov.objeto.pk %}" 
+                                                               class="btn btn-sm btn-info" 
+                                                               title="Ver detalhes"
+                                                               data-bs-toggle="modal" 
+                                                               data-bs-target="#modalEntrada{{ mov.objeto.pk }}">
+                                                                <i class="fas fa-eye"></i>
+                                                            </a>
+                                                        {% else %}
+                                                            <a href="{% url 'militares:saida_almoxarifado_detail' mov.objeto.pk %}" 
+                                                               class="btn btn-sm btn-info" 
+                                                               title="Ver detalhes"
+                                                               data-bs-toggle="modal" 
+                                                               data-bs-target="#modalSaida{{ mov.objeto.pk }}">
+                                                                <i class="fas fa-eye"></i>
+                                                            </a>
+                                                        {% endif %}
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-info text-center">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Nenhuma movimentação registrada para este item.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Histórico de Alterações do Sistema -->
+            {% if historico %}
+            <div class="row">
+                <div class="col-12">
+                    <div class="card mb-4">
+                        <div class="card-header bg-secondary text-white">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-clock me-2"></i>Histórico de Alterações do Sistema
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover table-sm align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width: 150px;"><i class="fas fa-calendar me-1"></i>Data/Hora</th>
+                                            <th><i class="fas fa-user me-1"></i>Usuário</th>
+                                            <th><i class="fas fa-info-circle me-1"></i>Alteração</th>
+                                            <th><i class="fas fa-file-alt me-1"></i>Detalhes</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for hist in historico %}
+                                            <tr>
+                                                <td><small>{{ hist.data_alteracao|date:"d/m/Y H:i" }}</small></td>
+                                                <td>
+                                                    {% if hist.usuario %}
+                                                        <small>{{ hist.usuario.get_full_name|default:hist.usuario.username }}</small>
+                                                    {% else %}
+                                                        <small class="text-muted">Sistema</small>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-info">{{ hist.tipo_alteracao }}</span>
+                                                </td>
+                                                <td>
+                                                    <small style="text-align: justify; font-size: 13px; line-height: 1.4;">
+                                                        {{ hist.descricao|default:"-" }}
+                                                    </small>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal para visualizar imagem em tamanho maior -->
+{% if item.imagem %}
+<div class="modal fade" id="imagemModal" tabindex="-1" aria-labelledby="imagemModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="imagemModalLabel">{{ item.get_codigo_limpo }} - {{ item.descricao }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body text-center p-0">
+                <img src="{{ item.imagem.url }}" alt="{{ item.descricao }}" class="img-fluid" style="max-height: 80vh;">
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+

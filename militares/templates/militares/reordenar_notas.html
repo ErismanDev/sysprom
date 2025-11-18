@@ -1,0 +1,303 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Reordenar Notas{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="card-title mb-0">
+                        <i class="fas fa-sort-numeric-up text-warning"></i>
+                        Reordenar Números das Notas
+                    </h3>
+                    <a href="{% url 'militares:notas_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i>
+                        Voltar para Notas
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Atenção:</strong> Esta ação irá reordenar todos os números das notas sequencialmente. 
+                        A operação não pode ser desfeita automaticamente.
+                    </div>
+                    
+                    <!-- Estatísticas atuais -->
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="card bg-info text-white">
+                                <div class="card-body text-center">
+                                    <h4 class="card-title">{{ total_notas }}</h4>
+                                    <p class="card-text">Total de Notas</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body text-center">
+                                    <h4 class="card-title">
+                                        {% if primeira_nota %}{{ primeira_nota.numero }}{% else %}N/A{% endif %}
+                                    </h4>
+                                    <p class="card-text">Primeira Nota</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h4 class="card-title">
+                                        {% if ultima_nota %}{{ ultima_nota.numero }}{% else %}N/A{% endif %}
+                                    </h4>
+                                    <p class="card-text">Última Nota</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Formulário de reordenação -->
+                    <form method="post" id="reordenarForm">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="numero_apartir" class="form-label">
+                                        <i class="fas fa-filter"></i>
+                                        A partir de qual número
+                                    </label>
+                                    <input type="number" 
+                                           class="form-control" 
+                                           id="numero_apartir" 
+                                           name="numero_apartir" 
+                                           value="1" 
+                                           min="1" 
+                                           max="999"
+                                           required>
+                                    <div class="form-text">
+                                        Reordenar apenas notas a partir deste número
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="numero_inicial" class="form-label">
+                                        <i class="fas fa-hashtag"></i>
+                                        Novo número inicial
+                                    </label>
+                                    <input type="number" 
+                                           class="form-control" 
+                                           id="numero_inicial" 
+                                           name="numero_inicial" 
+                                           value="1" 
+                                           min="1" 
+                                           max="999"
+                                           required>
+                                    <div class="form-text">
+                                        Número inicial da nova sequência
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label class="form-label">
+                                        <i class="fas fa-info-circle"></i>
+                                        Sequência Resultante
+                                    </label>
+                                    <div class="alert alert-light" id="sequenciaPreview">
+                                        <small>Digite os números para ver a sequência</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Análise de lacunas -->
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-search"></i>
+                                            Análise de Lacunas nos Números
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="lacunasAnalysis">
+                                            <small class="text-muted">Analisando números existentes...</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="history.back()">
+                                        <i class="fas fa-times"></i>
+                                        Cancelar
+                                    </button>
+                                    <button type="submit" class="btn btn-warning" id="btnReordenar">
+                                        <i class="fas fa-sort-numeric-up"></i>
+                                        Reordenar Notas
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const numeroApartirInput = document.getElementById('numero_apartir');
+    const numeroInicialInput = document.getElementById('numero_inicial');
+    const preview = document.getElementById('sequenciaPreview');
+    const lacunasAnalysis = document.getElementById('lacunasAnalysis');
+    const btnReordenar = document.getElementById('btnReordenar');
+    
+    // Dados do servidor
+    const numerosExistentes = {{ numeros_existentes|safe }};
+    const totalNotas = {{ total_notas }};
+    
+    function analisarLacunas() {
+        if (numerosExistentes.length === 0) {
+            lacunasAnalysis.innerHTML = '<small class="text-muted">Nenhuma nota encontrada</small>';
+            return;
+        }
+        
+        let lacunas = [];
+        let numerosConsecutivos = [];
+        
+        // Encontrar lacunas
+        for (let i = 1; i < numerosExistentes.length; i++) {
+            const diff = numerosExistentes[i] - numerosExistentes[i-1];
+            if (diff > 1) {
+                lacunas.push({
+                    inicio: numerosExistentes[i-1] + 1,
+                    fim: numerosExistentes[i] - 1,
+                    tamanho: diff - 1
+                });
+            }
+        }
+        
+        // Encontrar sequências consecutivas
+        let sequenciaAtual = [numerosExistentes[0]];
+        for (let i = 1; i < numerosExistentes.length; i++) {
+            if (numerosExistentes[i] === numerosExistentes[i-1] + 1) {
+                sequenciaAtual.push(numerosExistentes[i]);
+            } else {
+                if (sequenciaAtual.length > 1) {
+                    numerosConsecutivos.push(sequenciaAtual);
+                }
+                sequenciaAtual = [numerosExistentes[i]];
+            }
+        }
+        if (sequenciaAtual.length > 1) {
+            numerosConsecutivos.push(sequenciaAtual);
+        }
+        
+        let html = '<div class="row">';
+        
+        // Mostrar lacunas encontradas
+        if (lacunas.length > 0) {
+            html += '<div class="col-md-6">';
+            html += '<h6 class="text-danger"><i class="fas fa-exclamation-triangle"></i> Lacunas Encontradas:</h6>';
+            html += '<ul class="list-unstyled">';
+            lacunas.forEach(lacuna => {
+                if (lacuna.tamanho === 1) {
+                    html += `<li><span class="badge bg-danger">${lacuna.inicio.toString().padStart(3, '0')}</span></li>`;
+                } else {
+                    html += `<li><span class="badge bg-danger">${lacuna.inicio.toString().padStart(3, '0')} - ${lacuna.fim.toString().padStart(3, '0')}</span> (${lacuna.tamanho} números)</li>`;
+                }
+            });
+            html += '</ul></div>';
+        } else {
+            html += '<div class="col-md-6"><h6 class="text-success"><i class="fas fa-check"></i> Nenhuma lacuna encontrada</h6></div>';
+        }
+        
+        // Mostrar estatísticas
+        html += '<div class="col-md-6">';
+        html += '<h6 class="text-info"><i class="fas fa-chart-bar"></i> Estatísticas:</h6>';
+        html += `<ul class="list-unstyled">
+            <li><strong>Total de notas:</strong> ${totalNotas}</li>
+            <li><strong>Menor número:</strong> ${numerosExistentes[0].toString().padStart(3, '0')}</li>
+            <li><strong>Maior número:</strong> ${numerosExistentes[numerosExistentes.length-1].toString().padStart(3, '0')}</li>
+            <li><strong>Sequências consecutivas:</strong> ${numerosConsecutivos.length}</li>
+        </ul></div>';
+        
+        html += '</div>';
+        lacunasAnalysis.innerHTML = html;
+    }
+    
+    function atualizarPreview() {
+        const numeroApartir = parseInt(numeroApartirInput.value) || 1;
+        const numeroInicial = parseInt(numeroInicialInput.value) || 1;
+        
+        // Contar quantas notas serão afetadas
+        let notasAfetadas = 0;
+        for (let num of numerosExistentes) {
+            if (num >= numeroApartir) {
+                notasAfetadas++;
+            }
+        }
+        
+        if (notasAfetadas > 0) {
+            let sequencia = '';
+            for (let i = 0; i < Math.min(notasAfetadas, 5); i++) {
+                const num = numeroInicial + i;
+                sequencia += `${num.toString().padStart(3, '0')}`;
+                if (i < Math.min(notasAfetadas, 5) - 1) sequencia += ', ';
+            }
+            if (notasAfetadas > 5) {
+                sequencia += ` ... até ${(numeroInicial + notasAfetadas - 1).toString().padStart(3, '0')}`;
+            }
+            preview.innerHTML = `<strong>Sequência:</strong> ${sequencia}<br><small class="text-muted">${notasAfetadas} notas serão reordenadas</small>`;
+        } else {
+            preview.innerHTML = '<small class="text-warning">Nenhuma nota será afetada com estes parâmetros</small>';
+        }
+    }
+    
+    numeroApartirInput.addEventListener('input', atualizarPreview);
+    numeroInicialInput.addEventListener('input', atualizarPreview);
+    
+    // Inicializar
+    analisarLacunas();
+    atualizarPreview();
+    
+    // Confirmação antes de reordenar
+    document.getElementById('reordenarForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const numeroApartir = parseInt(numeroApartirInput.value) || 1;
+        const numeroInicial = parseInt(numeroInicialInput.value) || 1;
+        
+        // Contar quantas notas serão afetadas
+        let notasAfetadas = 0;
+        for (let num of numerosExistentes) {
+            if (num >= numeroApartir) {
+                notasAfetadas++;
+            }
+        }
+        
+        if (notasAfetadas === 0) {
+            alert('Nenhuma nota será afetada com estes parâmetros.');
+            return;
+        }
+        
+        const confirmacao = `Tem certeza que deseja reordenar ${notasAfetadas} notas?\n\n` +
+                           `A partir do número: ${numeroApartir.toString().padStart(3, '0')}\n` +
+                           `Nova sequência: ${numeroInicial.toString().padStart(3, '0')} até ${(numeroInicial + notasAfetadas - 1).toString().padStart(3, '0')}\n\n` +
+                           `Esta ação não pode ser desfeita automaticamente!`;
+        
+        if (confirm(confirmacao)) {
+            this.submit();
+        }
+    });
+});
+</script>
+{% endblock %}

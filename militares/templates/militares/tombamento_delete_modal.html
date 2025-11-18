@@ -1,0 +1,106 @@
+<div class="modal-header bg-danger text-white">
+    <h5 class="modal-title" id="excluirTombamentoModalLabel">
+        <i class="fas fa-exclamation-triangle me-2"></i>Confirmar Exclusão
+    </h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<form id="formExcluirTombamento" method="post" action="{% url 'militares:tombamento_delete' tombamento.pk %}">
+    {% csrf_token %}
+    <div class="modal-body">
+        <div class="text-center mb-4">
+            <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+            <h5>Deseja realmente excluir este tombamento?</h5>
+            <p class="text-muted">
+                Esta ação não pode ser desfeita.
+            </p>
+        </div>
+        
+        <div class="alert alert-warning">
+            <strong>Tombamento:</strong> {{ tombamento.bem_movel.numero_tombamento }}<br>
+            <strong>Tipo:</strong> {{ tombamento.get_tipo_tombamento_display }}<br>
+            <strong>Data:</strong> {{ tombamento.data_tombamento|date:"d/m/Y" }}
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <i class="fas fa-times me-2"></i>Cancelar
+        </button>
+        <button type="submit" class="btn btn-danger">
+            <i class="fas fa-trash me-2"></i>Sim, Excluir
+        </button>
+    </div>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('formExcluirTombamento');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Excluindo...';
+            
+            fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => {
+                // Verificar status antes de fazer parse do JSON
+                if (!response.ok) {
+                    // Tentar fazer parse do JSON mesmo em caso de erro (pode conter mensagem)
+                    return response.json().then(data => {
+                        throw { status: response.status, data: data };
+                    }).catch(() => {
+                        // Se não conseguir fazer parse, lançar erro genérico
+                        throw { status: response.status, data: { message: 'Erro ao processar resposta do servidor.' } };
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'alert alert-success alert-dismissible fade show';
+                    alertDiv.innerHTML = `
+                        <i class="fas fa-check-circle me-2"></i>${data.message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    `;
+                    document.body.insertBefore(alertDiv, document.body.firstChild);
+                    
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('excluirTombamentoModal'));
+                    if (modal) {
+                        modal.hide();
+                    }
+                    
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    alert(data.message || 'Erro ao excluir. Tente novamente.');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+                
+                // Tratar erro 403 especificamente
+                if (error.status === 403) {
+                    alert(error.data?.message || 'Acesso negado. Você não tem permissão para realizar esta ação.');
+                } else {
+                    alert(error.data?.message || 'Erro ao excluir. Tente novamente.');
+                }
+            });
+        });
+    }
+});
+</script>
+

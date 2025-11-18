@@ -1,0 +1,763 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Títulos de Publicações{% endblock %}
+
+{% block extra_css %}
+<style>
+    .titulo-list {
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    
+    .titulo-item {
+        border-bottom: 1px solid #e9ecef;
+        padding: 20px;
+        transition: background-color 0.3s ease;
+    }
+    
+    .titulo-item:last-child {
+        border-bottom: none;
+    }
+    
+    .titulo-item:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .titulo-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    
+    .titulo-info {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    
+    .titulo-numero {
+        background: #007bff;
+        color: white;
+        padding: 4px 10px;
+        border-radius: 15px;
+        font-weight: bold;
+        font-size: 0.85em;
+        min-width: 30px;
+        text-align: center;
+    }
+    
+    .titulo-tipo {
+        background: #28a745;
+        color: white;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 0.75em;
+        font-weight: 500;
+    }
+    
+    .titulo-nome {
+        font-size: 1.1em;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+    
+    .titulo-topicos {
+        color: #666;
+        line-height: 1.5;
+        white-space: pre-line;
+        margin-top: 8px;
+        font-size: 0.9em;
+    }
+    
+    .titulo-actions {
+        display: flex;
+        gap: 8px;
+    }
+    
+    .titulo-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 10px;
+        font-size: 0.85em;
+        color: #6c757d;
+    }
+    
+    .stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .stats-number {
+        font-size: 2.5em;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    
+    .stats-label {
+        font-size: 0.9em;
+        opacity: 0.9;
+    }
+    
+    .btn-custom {
+        border-radius: 6px;
+        padding: 8px 16px;
+        font-weight: 500;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #6c757d;
+    }
+    
+    .empty-state i {
+        font-size: 4em;
+        margin-bottom: 20px;
+        opacity: 0.5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    {% csrf_token %}
+    <!-- Cabeçalho -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-file-alt me-2"></i>
+                Títulos de Publicações
+            </h1>
+            <p class="text-muted mb-0">Gerencie os títulos de publicações do sistema</p>
+        </div>
+        <div class="d-flex gap-2">
+            {% if user.is_superuser %}
+            <button type="button" class="btn btn-outline-secondary btn-custom" id="reordenarBtn" data-bs-toggle="tooltip" data-bs-placement="top" title="Reordenar numeração automaticamente">
+                <i class="fas fa-sort-numeric-down me-2"></i>
+                Reordenar
+            </button>
+            {% endif %}
+            <a href="{% url 'militares:titulo_publicacao_create' %}" class="btn btn-primary btn-custom">
+                <i class="fas fa-plus me-2"></i>
+                Novo Título
+            </a>
+        </div>
+    </div>
+
+    <!-- Estatísticas -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="stats-card">
+                <div class="stats-number">{{ total_titulos }}</div>
+                <div class="stats-label">Total de Títulos</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stats-card">
+                <div class="stats-number">{{ titulos_ativos }}</div>
+                <div class="stats-label">Títulos Ativos</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stats-card">
+                <div class="stats-number">{{ titulos_inativos }}</div>
+                <div class="stats-label">Títulos Inativos</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros de Pesquisa -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-filter me-2"></i>
+                Filtros de Pesquisa
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="get" id="filtrosForm">
+                <div class="row g-3">
+                    <!-- Campo de Busca -->
+                    <div class="col-md-6">
+                        <label for="q" class="form-label">
+                            <i class="fas fa-search me-1"></i>
+                            Buscar títulos
+                        </label>
+                        <input type="text" 
+                               class="form-control" 
+                               id="q" 
+                               name="q" 
+                               value="{{ filtros.query }}"
+                               placeholder="Digite título, tópicos ou tipo...">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Busca por título, tópicos ou tipo de publicação
+                        </small>
+                    </div>
+                    
+                    <!-- Filtro por Status -->
+                    <div class="col-md-3">
+                        <label for="status" class="form-label">
+                            <i class="fas fa-toggle-on me-1"></i>
+                            Status
+                        </label>
+                        <select class="form-select" id="status" name="status">
+                            <option value="">Todos os status</option>
+                            <option value="ativo" {% if filtros.status == 'ativo' %}selected{% endif %}>Ativos</option>
+                            <option value="inativo" {% if filtros.status == 'inativo' %}selected{% endif %}>Inativos</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Filtro por Tipo -->
+                    <div class="col-md-3">
+                        <label for="tipo" class="form-label">
+                            <i class="fas fa-tag me-1"></i>
+                            Tipo
+                        </label>
+                        <select class="form-select" id="tipo" name="tipo">
+                            <option value="">Todos os tipos</option>
+                            {% for value, label in tipos_choices %}
+                                <option value="{{ value }}" {% if filtros.tipo == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Seletor de Itens por Página -->
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <label for="per_page" class="form-label">
+                            <i class="fas fa-list me-1"></i>
+                            Itens por página
+                        </label>
+                        <select class="form-select" id="per_page" name="per_page" onchange="aplicarFiltroItens()">
+                            <option value="10" {% if filtros.per_page == 10 %}selected{% endif %}>10 itens</option>
+                            <option value="20" {% if filtros.per_page == 20 or not filtros.per_page %}selected{% endif %}>20 itens</option>
+                            <option value="50" {% if filtros.per_page == 50 %}selected{% endif %}>50 itens</option>
+                            <option value="100" {% if filtros.per_page == 100 %}selected{% endif %}>100 itens</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Botões de Ação -->
+                <div class="row mt-3">
+                    <div class="col-md-6 d-flex align-items-end">
+                        <div class="btn-group w-100" role="group">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search"></i>
+                                Aplicar Filtros
+                            </button>
+                            <a href="{% url 'militares:titulos_publicacao_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i>
+                                Limpar Filtros
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <!-- Informações dos Resultados -->
+                    <div class="col-md-6 d-flex align-items-end">
+                        <div class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            {% if filtros.query or filtros.status or filtros.tipo %}
+                                Mostrando {{ resultados_count }} resultado{{ resultados_count|pluralize }} de {{ total_titulos }} títulos
+                            {% else %}
+                                Total de {{ total_titulos }} títulos cadastrados
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Lista de Títulos -->
+    {% if titulos %}
+        <div class="titulo-list">
+            {% for titulo in titulos %}
+            <div class="titulo-item">
+                <div class="titulo-header">
+                    <div class="titulo-info">
+                        <span class="titulo-numero">#{{ titulo.ordem }}</span>
+                        <span class="titulo-tipo">{{ titulo.get_tipo_display }}</span>
+                        <h5 class="titulo-nome">{{ titulo.titulo }}</h5>
+                    </div>
+                    <div class="titulo-actions">
+                        <a href="{% url 'militares:titulo_publicacao_edit' titulo.pk %}" 
+                           class="btn btn-sm btn-outline-primary" 
+                           data-bs-toggle="tooltip" 
+                           data-bs-placement="top" 
+                           title="Editar título">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        {% if user.is_superuser %}
+                        <button type="button" 
+                                class="btn btn-sm btn-outline-danger delete-btn" 
+                                data-titulo-id="{{ titulo.pk }}"
+                                data-titulo-nome="{{ titulo.titulo }}"
+                                data-titulo-tipo="{{ titulo.get_tipo_display }}"
+                                data-titulo-topicos="{{ titulo.get_topicos_display }}"
+                                data-bs-toggle="tooltip" 
+                                data-bs-placement="top" 
+                                title="Excluir título">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                {% if titulo.topicos %}
+                <div class="titulo-topicos">
+                    <strong>Tópicos:</strong> {{ titulo.get_topicos_display }}
+                </div>
+                {% endif %}
+                
+                <div class="titulo-meta">
+                    <span>
+                        <i class="fas fa-calendar me-1"></i>
+                        Criado em {{ titulo.data_criacao|date:"d/m/Y H:i" }}
+                    </span>
+                    <span>
+                        <i class="fas fa-user me-1"></i>
+                        {{ titulo.criado_por.get_full_name|default:titulo.criado_por.username }}
+                    </span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Paginação -->
+        {% if titulos.has_other_pages %}
+        <nav aria-label="Paginação" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if titulos.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}{% if request.GET.status %}status={{ request.GET.status }}&{% endif %}{% if request.GET.tipo %}tipo={{ request.GET.tipo }}&{% endif %}{% if request.GET.per_page %}per_page={{ request.GET.per_page }}&{% endif %}page=1">
+                            <i class="fas fa-angle-double-left"></i> Primeira
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}{% if request.GET.status %}status={{ request.GET.status }}&{% endif %}{% if request.GET.tipo %}tipo={{ request.GET.tipo }}&{% endif %}{% if request.GET.per_page %}per_page={{ request.GET.per_page }}&{% endif %}page={{ titulos.previous_page_number }}">
+                            <i class="fas fa-angle-left"></i> Anterior
+                        </a>
+                    </li>
+                {% endif %}
+                
+                <!-- Páginas numeradas -->
+                {% for num in titulos.paginator.page_range %}
+                    {% if titulos.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                    {% elif num > titulos.number|add:'-3' and num < titulos.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}{% if request.GET.status %}status={{ request.GET.status }}&{% endif %}{% if request.GET.tipo %}tipo={{ request.GET.tipo }}&{% endif %}{% if request.GET.per_page %}per_page={{ request.GET.per_page }}&{% endif %}page={{ num }}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if titulos.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}{% if request.GET.status %}status={{ request.GET.status }}&{% endif %}{% if request.GET.tipo %}tipo={{ request.GET.tipo }}&{% endif %}{% if request.GET.per_page %}per_page={{ request.GET.per_page }}&{% endif %}page={{ titulos.next_page_number }}">
+                            Próxima <i class="fas fa-angle-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}{% if request.GET.status %}status={{ request.GET.status }}&{% endif %}{% if request.GET.tipo %}tipo={{ request.GET.tipo }}&{% endif %}{% if request.GET.per_page %}per_page={{ request.GET.per_page }}&{% endif %}page={{ titulos.paginator.num_pages }}">
+                            Última <i class="fas fa-angle-double-right"></i>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+            
+            <!-- Informações da Paginação -->
+            <div class="text-center text-muted mt-2">
+                <small>
+                    <i class="fas fa-info-circle me-1"></i>
+                    Página {{ titulos.number }} de {{ titulos.paginator.num_pages }} 
+                    ({{ titulos.paginator.count }} títulos no total)
+                </small>
+            </div>
+        </nav>
+        {% endif %}
+    {% else %}
+        <div class="empty-state">
+            <i class="fas fa-file-alt"></i>
+            <h4>Nenhum título encontrado</h4>
+            <p>
+                {% if filtros.query or filtros.status or filtros.tipo %}
+                    Nenhum título corresponde aos filtros aplicados. Tente ajustar os critérios de busca.
+                {% else %}
+                    Comece criando seu primeiro título de publicação.
+                {% endif %}
+            </p>
+            {% if not filtros.query and not filtros.status and not filtros.tipo %}
+                <a href="{% url 'militares:titulo_publicacao_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>
+                    Criar Primeiro Título
+                </a>
+            {% else %}
+                <a href="{% url 'militares:titulos_publicacao_list' %}" class="btn btn-secondary">
+                    <i class="fas fa-times me-2"></i>
+                    Limpar Filtros
+                </a>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+
+<!-- Modal de Exclusão -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title" id="deleteModalLabel">
+                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                    Confirmar Exclusão
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning d-flex align-items-center" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <div>
+                        <strong>Atenção!</strong> Esta ação não pode ser desfeita.
+                    </div>
+                </div>
+                
+                <p class="mb-3">Tem certeza que deseja excluir o seguinte título de publicação?</p>
+                
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <h6 class="card-title mb-2" id="modal-titulo-nome"></h6>
+                        <div class="row">
+                            <div class="col-6">
+                                <small class="text-muted">Tipo:</small><br>
+                                <span class="badge bg-primary" id="modal-titulo-tipo"></span>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted">Tópicos:</small><br>
+                                <span id="modal-titulo-topicos"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>
+                    Cancelar
+                </button>
+                <form id="deleteForm" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash me-1"></i>
+                        Sim, Excluir
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        console.log('JavaScript carregado - Títulos de Publicações');
+        
+        // Inicializar tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+        
+        console.log('Tooltips inicializados:', tooltipList.length);
+        
+        // Adicionar animação aos itens da lista
+        $('.titulo-item').each(function(index) {
+            $(this).css('animation-delay', (index * 0.05) + 's');
+            $(this).addClass('fade-in');
+        });
+        
+        // Adicionar efeito hover nos botões de ação
+        $('.titulo-actions .btn').hover(
+            function() {
+                $(this).addClass('shadow-sm');
+            },
+            function() {
+                $(this).removeClass('shadow-sm');
+            }
+        );
+        
+        // Configurar modal de exclusão (apenas para superusuários)
+        var deleteButtons = $('.delete-btn');
+        console.log('Botões de exclusão encontrados:', deleteButtons.length);
+        
+        if (deleteButtons.length > 0) {
+            deleteButtons.on('click', function(e) {
+                e.preventDefault();
+                console.log('Botão de exclusão clicado!');
+                
+                var tituloId = $(this).data('titulo-id');
+                var tituloNome = $(this).data('titulo-nome');
+                var tituloTipo = $(this).data('titulo-tipo');
+                var tituloTopicos = $(this).data('titulo-topicos');
+                
+                console.log('Botão clicado:', tituloNome, 'ID:', tituloId);
+                
+                // Atualizar conteúdo do modal
+                $('#modal-titulo-nome').text(tituloNome);
+                $('#modal-titulo-tipo').text(tituloTipo);
+                $('#modal-titulo-topicos').text(tituloTopicos);
+                
+                // Configurar action do formulário
+                $('#deleteForm').attr('action', '/militares/titulos-publicacao/' + tituloId + '/excluir/');
+                
+                // Abrir modal
+                $('#deleteModal').modal('show');
+            });
+        } else {
+            console.log('Nenhum botão de exclusão encontrado - usuário não é superusuário');
+        }
+        
+        // Adicionar animação ao modal
+        $('#deleteModal').on('shown.bs.modal', function () {
+            $(this).find('.modal-content').addClass('animate__animated animate__zoomIn');
+        });
+        
+        // Limpar animação ao fechar
+        $('#deleteModal').on('hidden.bs.modal', function () {
+            $(this).find('.modal-content').removeClass('animate__animated animate__zoomIn');
+        });
+        
+        // Botão de reordenar
+        $('#reordenarBtn').on('click', function() {
+            if (confirm('Tem certeza que deseja reordenar a numeração de todos os títulos? Esta ação irá reorganizar automaticamente a ordem de exibição.')) {
+                // Mostrar loading
+                var btn = $(this);
+                var originalText = btn.html();
+                btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Reordenando...');
+                
+                // Fazer requisição AJAX
+                $.ajax({
+                    url: '/militares/titulos-publicacao/reordenar/',
+                    type: 'POST',
+                    data: {
+                        'csrfmiddlewaretoken': $('[name=csrfmiddlewaretoken]').val()
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            // Mostrar mensagem de sucesso
+                            showAlert('success', 'Títulos reordenados com sucesso!', 'A numeração foi reorganizada automaticamente.');
+                            
+                            // Recarregar a página após 1 segundo
+                            setTimeout(function() {
+                                location.reload();
+                            }, 1000);
+                        } else {
+                            showAlert('error', 'Erro ao reordenar', response.message || 'Ocorreu um erro inesperado.');
+                        }
+                    },
+                    error: function() {
+                        showAlert('error', 'Erro de conexão', 'Não foi possível conectar ao servidor.');
+                    },
+                    complete: function() {
+                        // Restaurar botão
+                        btn.prop('disabled', false).html(originalText);
+                    }
+                });
+            }
+        });
+        
+        // Função para mostrar alertas
+        function showAlert(type, title, message) {
+            var alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+            var icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle';
+            
+            var alertHtml = `
+                <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                    <i class="fas ${icon} me-2"></i>
+                    <strong>${title}</strong> ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            
+            // Inserir alerta no topo da página
+            $('.container-fluid').prepend(alertHtml);
+            
+            // Remover alerta após 5 segundos
+            setTimeout(function() {
+                $('.alert').fadeOut();
+            }, 5000);
+        }
+        
+        // Funcionalidades de filtro dinâmico
+        function aplicarFiltroItens() {
+            const itensSelect = document.getElementById('per_page');
+            const itensPorPagina = itensSelect.value;
+            
+            // Preservar parâmetros de filtro existentes
+            const urlParams = new URLSearchParams(window.location.search);
+            urlParams.set('per_page', itensPorPagina);
+            // Manter a página atual ou ir para página 1 se não houver página específica
+            if (!urlParams.get('page')) {
+                urlParams.set('page', '1');
+            }
+            
+            // Redirecionar com os novos parâmetros
+            window.location.href = '?' + urlParams.toString();
+        }
+        
+        // Auto-submit do formulário quando filtros mudam (exceto per_page)
+        document.addEventListener('DOMContentLoaded', function() {
+            const statusSelect = document.getElementById('status');
+            const tipoSelect = document.getElementById('tipo');
+            
+            if (statusSelect) {
+                statusSelect.addEventListener('change', function() {
+                    // Pequeno delay para permitir que o usuário veja a mudança
+                    setTimeout(function() {
+                        document.getElementById('filtrosForm').submit();
+                    }, 100);
+                });
+            }
+            
+            if (tipoSelect) {
+                tipoSelect.addEventListener('change', function() {
+                    // Pequeno delay para permitir que o usuário veja a mudança
+                    setTimeout(function() {
+                        document.getElementById('filtrosForm').submit();
+                    }, 100);
+                });
+            }
+        });
+        
+        // Busca com debounce no campo de texto
+        let searchTimeout;
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('q');
+            
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    clearTimeout(searchTimeout);
+                    
+                    // Se o campo estiver vazio, não fazer busca
+                    if (this.value.trim() === '') {
+                        return;
+                    }
+                    
+                    // Debounce: aguardar 500ms antes de submeter
+                    searchTimeout = setTimeout(function() {
+                        document.getElementById('filtrosForm').submit();
+                    }, 500);
+                });
+                
+                // Permitir busca com Enter
+                searchInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        clearTimeout(searchTimeout);
+                        document.getElementById('filtrosForm').submit();
+                    }
+                });
+            }
+        });
+    });
+</script>
+
+<style>
+    .fade-in {
+        animation: fadeInUp 0.3s ease-out forwards;
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    
+    @keyframes fadeInUp {
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Estilos do modal */
+    .modal-content {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+    
+    .modal-header {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 15px 15px 0 0;
+    }
+    
+    .modal-title {
+        font-weight: 600;
+        color: #495057;
+    }
+    
+    .modal-body {
+        padding: 2rem;
+    }
+    
+    .modal-footer {
+        background: #f8f9fa;
+        border-radius: 0 0 15px 15px;
+        padding: 1rem 2rem;
+    }
+    
+    .btn-close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        opacity: 0.7;
+    }
+    
+    .btn-close:hover {
+        opacity: 1;
+    }
+    
+    /* Animações do modal */
+    .animate__zoomIn {
+        animation: zoomIn 0.3s ease-out;
+    }
+    
+    @keyframes zoomIn {
+        from {
+            opacity: 0;
+            transform: scale(0.8);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+    
+    /* Estilo dos tooltips */
+    .tooltip {
+        font-size: 0.875rem;
+    }
+    
+    .tooltip-inner {
+        background-color: #495057;
+        border-radius: 6px;
+        padding: 8px 12px;
+    }
+    
+    .bs-tooltip-top .tooltip-arrow::before {
+        border-top-color: #495057;
+    }
+    
+    .bs-tooltip-bottom .tooltip-arrow::before {
+        border-bottom-color: #495057;
+    }
+</style>
+{% endblock %}

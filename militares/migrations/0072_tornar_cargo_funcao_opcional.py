@@ -11,16 +11,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name="permissaofuncao",
-            name="cargo_funcao",
-            field=models.ForeignKey(
-                blank=True,
-                null=True,
-                on_delete=django.db.models.deletion.CASCADE,
-                related_name="permissoes",
-                to="militares.cargofuncao",
-                verbose_name="Cargo/Função",
-            ),
-        ),
+        # NOTA: Esta operação foi removida porque PermissaoFuncao só é criado na migração 0140
+        # O campo funcao_militar já é criado como opcional (null=True, blank=True) na migração 0140
     ]

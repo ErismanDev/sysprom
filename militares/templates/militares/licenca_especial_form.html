@@ -1,0 +1,562 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if object %}Editar{% else %}Nova{% endif %} Licença Especial{% endblock %}
+
+{% block extra_css %}
+<style>
+.select2-container {
+    width: 100% !important;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-certificate me-2 text-warning"></i>
+                        {% if object %}Editar Licença Especial{% else %}Nova Licença Especial{% endif %}
+                    </h2>
+                    <p class="text-muted mb-0">
+                        {% if object %}Editando licença de {{ object.militar.nome_guerra }}{% else %}Registrar nova licença especial decorrente de decênio trabalhado{% endif %}
+                    </p>
+                </div>
+                <div>
+                    {% if plano %}
+                        <a href="{% url 'militares:plano_licenca_especial_detail' plano.pk %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Voltar para o Plano
+                        </a>
+                    {% else %}
+                        <a href="{% url 'militares:licenca_especial_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Voltar para Lista
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+            
+            {% if plano %}
+            <div class="row mb-3">
+                <div class="col-12">
+                    <div class="alert alert-info d-flex align-items-center">
+                        <i class="fas fa-info-circle fa-2x me-3"></i>
+                        <div>
+                            <strong>Adicionando licença ao plano:</strong> {{ plano.titulo }}
+                            <br>
+                            <small class="text-muted">Ano: {{ plano.ano_plano }} | Status: {{ plano.get_status_display }}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if form.non_field_errors %}
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <h5 class="alert-heading">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Erro de Validação</strong>
+                        </h5>
+                        <hr>
+                        {% for error in form.non_field_errors %}
+                            <div class="mb-2 text-danger">{{ error|safe }}</div>
+                        {% endfor %}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-edit me-2"></i>Dados da Licença Especial
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <form method="post" novalidate>
+                                {% csrf_token %}
+                                
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.militar.id_for_label }}" class="form-label">
+                                            Militar <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.militar }}
+                                        {% if form.militar.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.militar.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-3 mb-3">
+                                        <label for="{{ form.decenio.id_for_label }}" class="form-label">
+                                            Decênio <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.decenio }}
+                                        <small class="form-text text-muted">Ex: 1 para 1º decênio, 2 para 2º decênio, etc.</small>
+                                        {% if form.decenio.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.decenio.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <!-- Informação do Período do Decênio -->
+                                    <div class="col-md-12 mb-3" id="periodo-decenio-wrapper" style="display: none;">
+                                        <div class="card border-primary shadow-sm">
+                                            <div class="card-body p-3">
+                                                <div class="d-flex align-items-center">
+                                                    <div class="me-3">
+                                                        <i class="fas fa-calendar-check fa-2x text-primary"></i>
+                                                    </div>
+                                                    <div class="flex-grow-1">
+                                                        <h6 class="card-title mb-1 text-primary">
+                                                            <i class="fas fa-info-circle me-2"></i>
+                                                            Período do <span id="numero-decenio-text"></span> Decênio
+                                                        </h6>
+                                                        <p class="card-text mb-0">
+                                                            <span class="badge bg-primary fs-6 me-2" id="periodo-decenio-text">-</span>
+                                                            <small class="text-muted">
+                                                                <i class="fas fa-clock me-1"></i>
+                                                                <span id="duracao-decenio-text"></span>
+                                                            </small>
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-3 mb-3">
+                                        <label for="{{ form.quantidade_meses.id_for_label }}" class="form-label">
+                                            Quantidade de Meses <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.quantidade_meses }}
+                                        {% if form.quantidade_meses.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.quantidade_meses.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.data_inicio.id_for_label }}" class="form-label">
+                                            Data de Início <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.data_inicio }}
+                                        {% if form.data_inicio.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.data_inicio.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.data_fim.id_for_label }}" class="form-label">
+                                            Data de Fim <span class="text-muted">(calculada automaticamente)</span>
+                                        </label>
+                                        {{ form.data_fim }}
+                                        <small class="form-text text-muted">Calculada automaticamente baseada na data de início e quantidade de meses</small>
+                                        {% if form.data_fim.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.data_fim.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-12 mb-3">
+                                        <div class="alert alert-info">
+                                            <strong><i class="fas fa-calendar-day me-2"></i>Duração:</strong>
+                                            <span id="duracao-meses" class="fw-bold text-primary ms-2">-</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.status.id_for_label }}" class="form-label">
+                                            Status <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.status }}
+                                        {% if form.status.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.status.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.documento_referencia.id_for_label }}" class="form-label">
+                                            Documento de Referência
+                                        </label>
+                                        {{ form.documento_referencia }}
+                                        {% if form.documento_referencia.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.documento_referencia.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-12 mb-3">
+                                        <label for="{{ form.numero_documento.id_for_label }}" class="form-label">
+                                            Número do Documento
+                                        </label>
+                                        {{ form.numero_documento }}
+                                        {% if form.numero_documento.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.numero_documento.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-12 mb-3">
+                                        <label for="{{ form.observacoes.id_for_label }}" class="form-label">
+                                            Observações
+                                        </label>
+                                        {{ form.observacoes }}
+                                        {% if form.observacoes.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.observacoes.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="d-flex justify-content-between mt-4">
+                                    <a href="{% url 'militares:licenca_especial_list' %}" class="btn btn-secondary">
+                                        <i class="fas fa-times me-2"></i>Cancelar
+                                    </a>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save me-2"></i>Salvar
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-info-circle me-2"></i>Informações
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted">
+                                <small>
+                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                    <strong>Atenção:</strong> A licença especial é calculada em meses. Ao informar a data de início e quantidade de meses, a data de fim será calculada automaticamente.
+                                </small>
+                            </p>
+                            <p class="text-muted">
+                                <small>
+                                    <i class="fas fa-calendar-check me-1"></i>
+                                    O decênio é calculado a partir da data de ingresso do militar. O sistema valida se o decênio informado é compatível com o tempo de serviço do militar.
+                                </small>
+                            </p>
+                            <p class="text-muted">
+                                <small>
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Ao criar licença com status "Usufruindo", a situação do militar será automaticamente atualizada para "Afastamento/Férias". Ao terminar (status "Usufruída"), a situação voltará para "Pronto".
+                                </small>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Variável global para armazenar a data de ingresso do militar
+let dataIngressoMilitar = null;
+
+function calcularDataFimLicenca() {
+    const dataInicioInput = document.getElementById('id_data_inicio');
+    const dataFimInput = document.getElementById('id_data_fim');
+    const quantidadeMesesInput = document.getElementById('id_quantidade_meses');
+    const duracaoSpan = document.getElementById('duracao-meses');
+    
+    if (!dataInicioInput || !dataFimInput || !quantidadeMesesInput) {
+        return;
+    }
+    
+    const dataInicio = dataInicioInput.value;
+    const quantidadeMeses = parseInt(quantidadeMesesInput.value) || 0;
+    
+    if (!dataInicio || quantidadeMeses <= 0) {
+        if (duracaoSpan) duracaoSpan.textContent = '-';
+        return;
+    }
+    
+    try {
+        const inicio = new Date(dataInicio + 'T00:00:00');
+        
+        if (isNaN(inicio.getTime())) {
+            return;
+        }
+        
+        // Adicionar meses e subtrair 1 dia para obter o último dia do período
+        const fim = new Date(inicio);
+        fim.setMonth(fim.getMonth() + quantidadeMeses);
+        fim.setDate(fim.getDate() - 1);
+        
+        // Formatar data no formato YYYY-MM-DD
+        const ano = fim.getFullYear();
+        const mes = String(fim.getMonth() + 1).padStart(2, '0');
+        const dia = String(fim.getDate()).padStart(2, '0');
+        const dataFimFormatada = `${ano}-${mes}-${dia}`;
+        
+        dataFimInput.value = dataFimFormatada;
+        
+        if (duracaoSpan) {
+            duracaoSpan.textContent = `${quantidadeMeses} mês${quantidadeMeses !== 1 ? 'es' : ''}`;
+        }
+    } catch (e) {
+        console.error('Erro ao calcular data fim:', e);
+    }
+}
+
+function mostrarPeriodoDecenio() {
+    const militarSelect = document.getElementById('id_militar');
+    const decenioInput = document.getElementById('id_decenio');
+    const periodoWrapper = document.getElementById('periodo-decenio-wrapper');
+    
+    if (!militarSelect || !decenioInput) {
+        console.log('Elementos não encontrados:', {militarSelect: !!militarSelect, decenioInput: !!decenioInput});
+        return;
+    }
+    
+    // Obter o valor do militar - pode ser do Select2 ou do campo normal
+    let militarId = null;
+    if (typeof $ !== 'undefined' && $(militarSelect).hasClass('select2-hidden-accessible')) {
+        // Se está usando Select2, pegar o valor do Select2
+        militarId = $(militarSelect).val();
+    } else {
+        // Se não está usando Select2, pegar o valor normal
+        militarId = militarSelect.value;
+    }
+    
+    const decenio = parseInt(decenioInput.value) || 0;
+    
+    console.log('mostrarPeriodoDecenio chamado:', {militarId, decenio});
+    
+    if (!militarId || !decenio || decenio <= 0) {
+        if (periodoWrapper) periodoWrapper.style.display = 'none';
+        return;
+    }
+    
+    // Se já temos a data de ingresso armazenada, usar ela
+    if (dataIngressoMilitar && militarId === dataIngressoMilitar.militarId) {
+        console.log('Usando data de ingresso armazenada:', dataIngressoMilitar.dataIngresso);
+        exibirPeriodoDecenio(dataIngressoMilitar.dataIngresso, decenio);
+        return;
+    }
+    
+    // Buscar data de ingresso do militar via AJAX
+    console.log('Buscando data de ingresso para militar:', militarId);
+    fetch(`/militares/militar/${militarId}/data-ingresso/`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Resposta recebida:', data);
+            if (data.data_ingresso) {
+                dataIngressoMilitar = {
+                    militarId: militarId,
+                    dataIngresso: data.data_ingresso
+                };
+                exibirPeriodoDecenio(data.data_ingresso, decenio);
+            } else if (data.error) {
+                console.error('Erro na resposta:', data.error);
+                if (periodoWrapper) periodoWrapper.style.display = 'none';
+            } else {
+                if (periodoWrapper) periodoWrapper.style.display = 'none';
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao buscar data de ingresso:', error);
+            if (periodoWrapper) periodoWrapper.style.display = 'none';
+        });
+}
+
+function exibirPeriodoDecenio(dataIngressoStr, decenio) {
+    const periodoWrapper = document.getElementById('periodo-decenio-wrapper');
+    const periodoText = document.getElementById('periodo-decenio-text');
+    const numeroDecenioText = document.getElementById('numero-decenio-text');
+    const duracaoDecenioText = document.getElementById('duracao-decenio-text');
+    
+    if (!dataIngressoStr || !decenio || !periodoWrapper || !periodoText) {
+        return;
+    }
+    
+    try {
+        const dataIngresso = new Date(dataIngressoStr + 'T00:00:00');
+        
+        if (isNaN(dataIngresso.getTime())) {
+            periodoWrapper.style.display = 'none';
+            return;
+        }
+        
+        // Calcular datas do decênio
+        // 1º decênio: data_inicio = data_ingresso, data_fim = data_ingresso + 10 anos
+        // 2º decênio: data_inicio = data_ingresso + 10 anos, data_fim = data_ingresso + 20 anos
+        // 3º decênio: data_inicio = data_ingresso + 20 anos, data_fim = data_ingresso + 30 anos
+        // etc.
+        
+        // Extrair dia, mês e ano da data de ingresso
+        const diaIngresso = dataIngresso.getDate();
+        const mesIngresso = dataIngresso.getMonth(); // 0-11
+        const anoIngresso = dataIngresso.getFullYear();
+        
+        const anosInicio = (decenio - 1) * 10;
+        const anosFim = decenio * 10;
+        
+        // Criar data de início do decênio preservando exatamente o mesmo dia e mês
+        const dataInicioDecenio = new Date(anoIngresso + anosInicio, mesIngresso, diaIngresso);
+        
+        // Criar data de fim do decênio preservando exatamente o mesmo dia e mês, apenas mudando o ano
+        const dataFimDecenio = new Date(anoIngresso + anosFim, mesIngresso, diaIngresso);
+        
+        // Formatar data no formato DD/MM/YYYY para exibição (com zeros à esquerda)
+        function formatarDataBR(data) {
+            const dia = String(data.getDate()).padStart(2, '0');
+            const mes = String(data.getMonth() + 1).padStart(2, '0');
+            const ano = data.getFullYear();
+            return `${dia}/${mes}/${ano}`;
+        }
+        
+        // Calcular duração em anos (sempre 10 anos para um decênio)
+        const diffYears = 10;
+        const diffMonths = 0;
+        
+        // Exibir informações no formato completo: "01/03/1994 a 01/03/2004"
+        const dataInicioFormatada = formatarDataBR(dataInicioDecenio);
+        const dataFimFormatada = formatarDataBR(dataFimDecenio);
+        periodoText.textContent = `${dataInicioFormatada} a ${dataFimFormatada}`;
+        
+        if (numeroDecenioText) {
+            // Converter número para ordinal (1º, 2º, 3º, etc.)
+            const ordinais = ['', '1º', '2º', '3º', '4º', '5º', '6º', '7º', '8º', '9º', '10º'];
+            numeroDecenioText.textContent = ordinais[decenio] || `${decenio}º`;
+        }
+        
+        if (duracaoDecenioText) {
+            let duracaoTexto = '';
+            if (diffYears > 0) {
+                duracaoTexto = `${diffYears} ano${diffYears > 1 ? 's' : ''}`;
+                if (diffMonths > 0) {
+                    duracaoTexto += ` e ${diffMonths} mês${diffMonths > 1 ? 'es' : ''}`;
+                }
+            } else {
+                duracaoTexto = `${diffMonths} mês${diffMonths > 1 ? 'es' : ''}`;
+            }
+            duracaoDecenioText.textContent = `Duração: ${duracaoTexto}`;
+        }
+        
+        periodoWrapper.style.display = 'block';
+    } catch (e) {
+        console.error('Erro ao calcular período do decênio:', e);
+        periodoWrapper.style.display = 'none';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const dataInicio = document.getElementById('id_data_inicio');
+    const quantidadeMeses = document.getElementById('id_quantidade_meses');
+    const decenioInput = document.getElementById('id_decenio');
+    const militarSelect = document.getElementById('id_militar');
+    
+    if (dataInicio && quantidadeMeses) {
+        dataInicio.addEventListener('change', calcularDataFimLicenca);
+        dataInicio.addEventListener('input', calcularDataFimLicenca);
+        quantidadeMeses.addEventListener('change', calcularDataFimLicenca);
+        quantidadeMeses.addEventListener('input', calcularDataFimLicenca);
+        
+        // Calcular ao carregar se já houver valores
+        if (dataInicio.value && quantidadeMeses.value) {
+            calcularDataFimLicenca();
+        }
+    }
+    
+    // Inicializar Select2 para o campo militar
+    if (typeof $ !== 'undefined' && $.fn.select2 && militarSelect) {
+        $(militarSelect).select2({
+            ajax: {
+                url: '/militares/militar-autocomplete/',
+                dataType: 'json',
+                delay: 250,
+                data: function (params) {
+                    return { q: params.term };
+                },
+                processResults: function (data) {
+                    return { results: data.results };
+                },
+                cache: true
+            },
+            minimumInputLength: 2,
+            placeholder: 'Digite o nome, matrícula ou posto do militar...',
+            allowClear: true
+        }).on('select2:select', function (e) {
+            console.log('Militar selecionado via Select2:', e.params.data.id);
+            // Quando um militar é selecionado, limpar a data de ingresso armazenada
+            dataIngressoMilitar = null;
+            // Se já houver decênio preenchido, mostrar o período
+            if (decenioInput && decenioInput.value) {
+                setTimeout(function() {
+                    mostrarPeriodoDecenio();
+                }, 100);
+            }
+        }).on('select2:clear', function() {
+            console.log('Militar desmarcado');
+            dataIngressoMilitar = null;
+            const periodoWrapper = document.getElementById('periodo-decenio-wrapper');
+            if (periodoWrapper) periodoWrapper.style.display = 'none';
+        });
+        
+        // Também adicionar listener ao evento change nativo (caso o valor seja alterado de outra forma)
+        $(militarSelect).on('change', function() {
+            console.log('Militar alterado (evento change):', $(this).val());
+            dataIngressoMilitar = null;
+            if (decenioInput && decenioInput.value) {
+                setTimeout(function() {
+                    mostrarPeriodoDecenio();
+                }, 100);
+            }
+        });
+    } else if (militarSelect) {
+        // Se não estiver usando Select2, adicionar listener normal
+        militarSelect.addEventListener('change', function() {
+            console.log('Militar alterado (evento nativo):', this.value);
+            dataIngressoMilitar = null;
+            if (decenioInput && decenioInput.value) {
+                mostrarPeriodoDecenio();
+            }
+        });
+    }
+    
+    // Adicionar listener ao campo decênio
+    if (decenioInput) {
+        decenioInput.addEventListener('change', mostrarPeriodoDecenio);
+        decenioInput.addEventListener('input', mostrarPeriodoDecenio);
+    }
+    
+    // Se já houver militar e decênio preenchidos ao carregar, mostrar período
+    if (militarSelect && militarSelect.value && decenioInput && decenioInput.value) {
+        mostrarPeriodoDecenio();
+    }
+});
+</script>
+{% endblock %}
+

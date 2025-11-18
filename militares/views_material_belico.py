@@ -20,8 +20,8 @@ from io import BytesIO
 import qrcode
 import base64
 
-from .models import Arma, ArmaParticular, MovimentacaoArma, Militar, Orgao, GrandeComando, Unidade, SubUnidade, ConfiguracaoArma, HistoricoAlteracaoArma, AssinaturaMovimentacaoArma, TransferenciaArma, CautelaArma, CautelaArmaColetiva, CautelaArmaColetivaItem
-from .forms import ArmaForm, ArmaParticularForm, MovimentacaoArmaForm, ConfiguracaoArmaForm, TransferenciaArmaForm, CautelaArmaForm, DevolucaoCautelaArmaForm
+from .models import Arma, ArmaParticular, MovimentacaoArma, Militar, Orgao, GrandeComando, Unidade, SubUnidade, ConfiguracaoArma, ConfiguracaoMunicao, HistoricoAlteracaoArma, AssinaturaMovimentacaoArma, TransferenciaArma, CautelaArma, CautelaArmaColetiva, CautelaArmaColetivaItem
+from .forms import ArmaForm, ArmaParticularForm, MovimentacaoArmaForm, ConfiguracaoArmaForm, ConfiguracaoMunicaoForm, TransferenciaArmaForm, CautelaArmaForm, DevolucaoCautelaArmaForm
 
 
 class ArmaListView(LoginRequiredMixin, ListView):
@@ -758,12 +758,40 @@ class ArmaParticularCreateView(LoginRequiredMixin, CreateView):
     
     def form_valid(self, form):
         form.instance.criado_por = self.request.user
+        
+        # Se for requisição AJAX, retornar JSON
+        response = super().form_valid(form)
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True,
+                'message': f'Arma particular {form.instance.numero_serie} cadastrada com sucesso!',
+                'redirect_url': str(self.success_url)
+            })
+        
         messages.success(self.request, f'Arma particular {form.instance.numero_serie} cadastrada com sucesso!')
-        return super().form_valid(form)
+        return response
     
     def form_invalid(self, form):
+        # Se for requisição AJAX e houver erros, retornar JSON com erros
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'errors': form.errors,
+                'message': 'Erro ao processar formulário. Verifique os campos.'
+            }, status=400)
         messages.error(self.request, 'Por favor, corrija os erros no formulário.')
         return super().form_invalid(form)
+    
+    def get(self, request, *args, **kwargs):
+        # Se for requisição AJAX (GET), retornar HTML do formulário
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            self.object = None
+            form = self.get_form()
+            context = self.get_context_data(form=form)
+            from django.template.loader import render_to_string
+            html = render_to_string('militares/arma_particular_form_modal_content.html', context, request=request)
+            return JsonResponse({'html': html})
+        return super().get(request, *args, **kwargs)
 
 
 class ArmaParticularDetailView(LoginRequiredMixin, DetailView):
@@ -771,6 +799,16 @@ class ArmaParticularDetailView(LoginRequiredMixin, DetailView):
     model = ArmaParticular
     template_name = 'militares/arma_particular_detail.html'
     context_object_name = 'arma_particular'
+    
+    def get(self, request, *args, **kwargs):
+        # Se for requisição AJAX (GET), retornar HTML do modal
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            self.object = self.get_object()
+            context = self.get_context_data()
+            from django.template.loader import render_to_string
+            html = render_to_string('militares/arma_particular_detail_modal_content.html', context, request=request)
+            return JsonResponse({'html': html})
+        return super().get(request, *args, **kwargs)
 
 
 class ArmaParticularUpdateView(LoginRequiredMixin, UpdateView):
@@ -780,15 +818,42 @@ class ArmaParticularUpdateView(LoginRequiredMixin, UpdateView):
     template_name = 'militares/arma_particular_form.html'
     
     def get_success_url(self):
-        return reverse('militares:arma_particular_detail', kwargs={'pk': self.object.pk})
+        return reverse('militares:arma_particular_list')
     
     def form_valid(self, form):
+        # Se for requisição AJAX, retornar JSON
+        response = super().form_valid(form)
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True,
+                'message': f'Arma particular {form.instance.numero_serie} atualizada com sucesso!',
+                'redirect_url': str(self.get_success_url())
+            })
+        
         messages.success(self.request, f'Arma particular {form.instance.numero_serie} atualizada com sucesso!')
-        return super().form_valid(form)
+        return response
     
     def form_invalid(self, form):
+        # Se for requisição AJAX e houver erros, retornar JSON com erros
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'errors': form.errors,
+                'message': 'Erro ao processar formulário. Verifique os campos.'
+            }, status=400)
         messages.error(self.request, 'Por favor, corrija os erros no formulário.')
         return super().form_invalid(form)
+    
+    def get(self, request, *args, **kwargs):
+        # Se for requisição AJAX (GET), retornar HTML do formulário
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            self.object = self.get_object()
+            form = self.get_form()
+            context = self.get_context_data(form=form)
+            from django.template.loader import render_to_string
+            html = render_to_string('militares/arma_particular_form_modal_content.html', context, request=request)
+            return JsonResponse({'html': html})
+        return super().get(request, *args, **kwargs)
 
 
 class ArmaParticularDeleteView(LoginRequiredMixin, DeleteView):
@@ -2122,12 +2187,40 @@ class ConfiguracaoArmaCreateView(LoginRequiredMixin, CreateView):
     
     def form_valid(self, form):
         form.instance.criado_por = self.request.user
+        
+        # Se for requisição AJAX, retornar JSON
+        response = super().form_valid(form)
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True,
+                'message': 'Configuração de arma cadastrada com sucesso!',
+                'redirect_url': str(self.success_url)
+            })
+        
         messages.success(self.request, 'Configuração de arma cadastrada com sucesso!')
-        return super().form_valid(form)
+        return response
     
     def form_invalid(self, form):
+        # Se for requisição AJAX e houver erros, retornar JSON com erros
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'errors': form.errors,
+                'message': 'Erro ao processar formulário. Verifique os campos.'
+            }, status=400)
         messages.error(self.request, 'Por favor, corrija os erros no formulário.')
         return super().form_invalid(form)
+    
+    def get(self, request, *args, **kwargs):
+        # Se for requisição AJAX (GET), retornar HTML do formulário
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            self.object = None
+            form = self.get_form()
+            context = self.get_context_data(form=form)
+            from django.template.loader import render_to_string
+            html = render_to_string('militares/configuracao_arma_form_modal_content.html', context, request=request)
+            return JsonResponse({'html': html})
+        return super().get(request, *args, **kwargs)
 
 
 class ConfiguracaoArmaDetailView(LoginRequiredMixin, DetailView):
@@ -2161,6 +2254,171 @@ class ConfiguracaoArmaDeleteView(LoginRequiredMixin, DeleteView):
     
     def delete(self, request, *args, **kwargs):
         messages.success(self.request, 'Configuração de arma excluída com sucesso!')
+        return super().delete(request, *args, **kwargs)
+
+
+# Views para Configuração de Munições
+class ConfiguracaoMunicaoListView(LoginRequiredMixin, ListView):
+    """Lista todas as configurações de munições"""
+    model = ConfiguracaoMunicao
+    template_name = 'militares/configuracao_municao_list.html'
+    context_object_name = 'configuracoes'
+    paginate_by = 20
+    
+    def get_queryset(self):
+        queryset = ConfiguracaoMunicao.objects.all().order_by('calibre', 'marca', 'modelo')
+        
+        # Filtros
+        search = self.request.GET.get('search', '')
+        calibre = self.request.GET.get('calibre', '')
+        tipo_municao = self.request.GET.get('tipo_municao', '')
+        ativo = self.request.GET.get('ativo', '')
+        
+        if search:
+            queryset = queryset.filter(
+                Q(marca__icontains=search) |
+                Q(modelo__icontains=search)
+            )
+        
+        if calibre:
+            queryset = queryset.filter(calibre=calibre)
+        
+        if tipo_municao:
+            queryset = queryset.filter(tipo_municao=tipo_municao)
+        
+        if ativo == '1':
+            queryset = queryset.filter(ativo=True)
+        elif ativo == '0':
+            queryset = queryset.filter(ativo=False)
+        
+        return queryset
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['search'] = self.request.GET.get('search', '')
+        context['calibre'] = self.request.GET.get('calibre', '')
+        context['tipo_municao'] = self.request.GET.get('tipo_municao', '')
+        context['ativo'] = self.request.GET.get('ativo', '')
+        
+        # Listas para filtros
+        context['calibres'] = ConfiguracaoMunicao.CALIBRE_CHOICES
+        context['tipos_municao'] = ConfiguracaoMunicao.TIPO_MUNICAO_CHOICES
+        
+        return context
+
+
+class ConfiguracaoMunicaoCreateView(LoginRequiredMixin, CreateView):
+    """Criar nova configuração de munição"""
+    model = ConfiguracaoMunicao
+    form_class = ConfiguracaoMunicaoForm
+    template_name = 'militares/configuracao_municao_form.html'
+    success_url = reverse_lazy('militares:configuracao_municao_list')
+    
+    def form_valid(self, form):
+        form.instance.criado_por = self.request.user
+        
+        # Se for requisição AJAX, retornar JSON
+        response = super().form_valid(form)
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True,
+                'message': 'Configuração de munição cadastrada com sucesso!',
+                'redirect_url': str(self.success_url)
+            })
+        
+        messages.success(self.request, 'Configuração de munição cadastrada com sucesso!')
+        return response
+    
+    def form_invalid(self, form):
+        # Se for requisição AJAX e houver erros, retornar JSON com erros
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'errors': form.errors,
+                'message': 'Erro ao processar formulário. Verifique os campos.'
+            }, status=400)
+        messages.error(self.request, 'Por favor, corrija os erros no formulário.')
+        return super().form_invalid(form)
+    
+    def get(self, request, *args, **kwargs):
+        # Se for requisição AJAX (GET), retornar HTML do formulário
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            self.object = None
+            form = self.get_form()
+            context = self.get_context_data(form=form)
+            from django.template.loader import render_to_string
+            html = render_to_string('militares/configuracao_municao_form_modal_content.html', context, request=request)
+            return JsonResponse({'html': html})
+        return super().get(request, *args, **kwargs)
+
+
+class ConfiguracaoMunicaoDetailView(LoginRequiredMixin, DetailView):
+    """Detalhes de uma configuração de munição"""
+    model = ConfiguracaoMunicao
+    template_name = 'militares/configuracao_municao_detail.html'
+    context_object_name = 'configuracao'
+    
+    def get(self, request, *args, **kwargs):
+        # Se for requisição AJAX (GET), retornar HTML do modal
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            self.object = self.get_object()
+            context = self.get_context_data()
+            from django.template.loader import render_to_string
+            html = render_to_string('militares/configuracao_municao_detail_modal_content.html', context, request=request)
+            return JsonResponse({'html': html})
+        return super().get(request, *args, **kwargs)
+
+
+class ConfiguracaoMunicaoUpdateView(LoginRequiredMixin, UpdateView):
+    """Editar configuração de munição"""
+    model = ConfiguracaoMunicao
+    form_class = ConfiguracaoMunicaoForm
+    template_name = 'militares/configuracao_municao_form.html'
+    success_url = reverse_lazy('militares:configuracao_municao_list')
+    
+    def form_valid(self, form):
+        # Se for requisição AJAX, retornar JSON
+        response = super().form_valid(form)
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True,
+                'message': 'Configuração de munição atualizada com sucesso!',
+                'redirect_url': str(self.success_url)
+            })
+        messages.success(self.request, 'Configuração de munição atualizada com sucesso!')
+        return response
+    
+    def form_invalid(self, form):
+        # Se for requisição AJAX e houver erros, retornar JSON com erros
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'errors': form.errors,
+                'message': 'Erro ao processar formulário. Verifique os campos.'
+            }, status=400)
+        messages.error(self.request, 'Por favor, corrija os erros no formulário.')
+        return super().form_invalid(form)
+    
+    def get(self, request, *args, **kwargs):
+        # Se for requisição AJAX (GET), retornar HTML do formulário
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            self.object = self.get_object()
+            form = self.get_form()
+            context = self.get_context_data(form=form)
+            from django.template.loader import render_to_string
+            html = render_to_string('militares/configuracao_municao_form_modal_content.html', context, request=request)
+            return JsonResponse({'html': html})
+        return super().get(request, *args, **kwargs)
+
+
+class ConfiguracaoMunicaoDeleteView(LoginRequiredMixin, DeleteView):
+    """Excluir configuração de munição"""
+    model = ConfiguracaoMunicao
+    template_name = 'militares/configuracao_municao_confirm_delete.html'
+    success_url = reverse_lazy('militares:configuracao_municao_list')
+    
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, 'Configuração de munição excluída com sucesso!')
         return super().delete(request, *args, **kwargs)
 
 

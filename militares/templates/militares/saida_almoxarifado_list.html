@@ -1,0 +1,1033 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load almoxarifado_filters %}
+
+{% block title %}Almoxarifado - Saídas{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-arrow-up me-2 text-warning"></i>Saídas de Almoxarifado
+                    </h2>
+                    <p class="text-muted mb-0">Registros de saída de materiais do almoxarifado</p>
+                </div>
+                <div>
+                    {% if pode_criar or user.is_superuser %}
+                    <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#criarSaidaModal">
+                        <i class="fas fa-plus me-2"></i>Nova Saída
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Cards de Estatísticas -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-arrow-up fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_saidas }}</h4>
+                            <p class="mb-0">Total de Saídas</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card stats-card info">
+                        <div class="card-body text-center">
+                            <i class="fas fa-calendar fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ saidas_mes }}</h4>
+                            <p class="mb-0">Saídas Este Mês</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Pesquisa</label>
+                            <input type="text" name="search" class="form-control" 
+                                   value="{{ search }}" placeholder="Código, descrição, requisição...">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Tipo de Saída</label>
+                            <select name="tipo_saida" class="form-select">
+                                <option value="">Todos</option>
+                                {% for tipo_val, tipo_nome in tipos %}
+                                    <option value="{{ tipo_val }}" {% if tipo_saida == tipo_val %}selected{% endif %}>
+                                        {{ tipo_nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Item</label>
+                            <select name="item" class="form-select">
+                                <option value="">Todos</option>
+                                {% for item in itens %}
+                                    <option value="{{ item.pk }}" {% if item_id and item.pk|stringformat:"s" == item_id %}selected{% endif %}>
+                                        {{ item.codigo }} - {{ item.descricao|truncatewords:3 }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-5 d-flex align-items-end gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                            <a href="{% url 'militares:saida_almoxarifado_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Limpar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Lista de Saídas -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Lista de Saídas
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if saidas %}
+                        <div class="table-responsive">
+                            <table class="table table-hover table-striped align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 80px;">Imagem</th>
+                                        <th style="width: 100px;">Data</th>
+                                        <th style="min-width: 200px;">Item</th>
+                                        <th style="width: 120px;">Tipo</th>
+                                        <th style="width: 120px;">Quantidade</th>
+                                        <th style="min-width: 150px;">Requisitante</th>
+                                        <th style="min-width: 150px;">Origem</th>
+                                        <th style="min-width: 150px;">Destino</th>
+                                        <th style="width: 120px;">Nº Requisição</th>
+                                        <th style="width: 180px;" class="text-center">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for saida in saidas %}
+                                        <tr>
+                                            <td>
+                                                {% if saida.tem_produtos_saida %}
+                                                    {% with primeiro_produto=saida.produtos_saida.first.produto %}
+                                                        {% if primeiro_produto.imagem %}
+                                                            <img src="{{ primeiro_produto.imagem.url }}" 
+                                                                 alt="{{ primeiro_produto.descricao }}" 
+                                                                 class="img-thumbnail" 
+                                                                 style="width: 60px; height: 60px; object-fit: cover; cursor: pointer;"
+                                                                 data-bs-toggle="modal" 
+                                                                 data-bs-target="#imagemModal{{ primeiro_produto.pk }}">
+                                                        {% else %}
+                                                            <div class="bg-light d-flex align-items-center justify-content-center" 
+                                                                 style="width: 60px; height: 60px; border-radius: 4px;">
+                                                                <i class="fas fa-image text-muted"></i>
+                                                            </div>
+                                                        {% endif %}
+                                                    {% endwith %}
+                                                {% elif saida.produto %}
+                                                    {% if saida.produto.imagem %}
+                                                        <img src="{{ saida.produto.imagem.url }}" 
+                                                             alt="{{ saida.produto.descricao }}" 
+                                                             class="img-thumbnail" 
+                                                             style="width: 60px; height: 60px; object-fit: cover; cursor: pointer;"
+                                                             data-bs-toggle="modal" 
+                                                             data-bs-target="#imagemModal{{ saida.produto.pk }}">
+                                                    {% else %}
+                                                        <div class="bg-light d-flex align-items-center justify-content-center" 
+                                                             style="width: 60px; height: 60px; border-radius: 4px;">
+                                                            <i class="fas fa-image text-muted"></i>
+                                                        </div>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <div class="bg-light d-flex align-items-center justify-content-center" 
+                                                         style="width: 60px; height: 60px; border-radius: 4px;">
+                                                        <i class="fas fa-image text-muted"></i>
+                                                    </div>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ saida.data_saida|date:"d/m/Y" }}</td>
+                                            <td>
+                                                {% if saida.tem_produtos_saida %}
+                                                    {% if saida.produtos_saida.count == 1 %}
+                                                        {% with produto_saida=saida.produtos_saida.first %}
+                                                            <strong>{{ produto_saida.produto.get_codigo_limpo }}</strong>
+                                                            <br>
+                                                            <small class="text-muted">{{ produto_saida.produto.descricao|truncatewords:5 }}</small>
+                                                            {% if produto_saida.produto.tamanho %}
+                                                                <br><small class="text-info"><i class="fas fa-ruler me-1"></i>Tamanho: {{ produto_saida.produto.tamanho }}</small>
+                                                            {% endif %}
+                                                        {% endwith %}
+                                                    {% else %}
+                                                        <strong>{{ saida.produtos_saida.count }} itens</strong><br>
+                                                        <small class="text-muted">
+                                                            {% for produto_saida in saida.produtos_saida.all|slice:":3" %}
+                                                                {{ produto_saida.produto.get_codigo_limpo }}{% if produto_saida.produto.tamanho %} <small class="text-info">(T: {{ produto_saida.produto.tamanho }})</small>{% endif %}{% if not forloop.last %}, {% endif %}
+                                                            {% endfor %}
+                                                            {% if saida.produtos_saida.count > 3 %}...{% endif %}
+                                                        </small>
+                                                    {% endif %}
+                                                {% elif saida.produto %}
+                                                    <strong>{{ saida.produto.get_codigo_limpo }}</strong>
+                                                    <br>
+                                                    <small class="text-muted">{{ saida.produto.descricao|truncatewords:5 }}</small>
+                                                    {% if saida.produto.tamanho %}
+                                                        <br><small class="text-info"><i class="fas fa-ruler me-1"></i>Tamanho: {{ saida.produto.tamanho }}</small>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-warning">
+                                                    {{ saida.get_tipo_saida_display }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                {% if saida.tem_produtos_saida %}
+                                                    {% with total=saida.get_total_quantidade %}
+                                                        {% if saida.produtos_saida.count == 1 %}
+                                                            {% with produto_saida=saida.produtos_saida.first %}
+                                                                <strong>{{ total|formatar_quantidade_unidade:produto_saida.produto.unidade_medida }}</strong>
+                                                            {% endwith %}
+                                                        {% else %}
+                                                            <strong>{{ total }}</strong> ({{ saida.produtos_saida.count }} itens)
+                                                        {% endif %}
+                                                    {% endwith %}
+                                                {% elif saida.quantidade and saida.produto %}
+                                                    <strong>{{ saida.quantidade|formatar_quantidade_unidade:saida.produto.unidade_medida }}</strong>
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if saida.requisitante %}
+                                                    {{ saida.requisitante.nome_completo }}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if saida.sub_unidade_origem %}
+                                                    <small class="text-warning fw-bold">
+                                                        <i class="fas fa-arrow-left me-1"></i>{{ saida.sub_unidade_origem }}
+                                                    </small>
+                                                {% elif saida.unidade_origem %}
+                                                    <small class="text-warning fw-bold">
+                                                        <i class="fas fa-arrow-left me-1"></i>{{ saida.unidade_origem }}
+                                                    </small>
+                                                {% elif saida.grande_comando_origem %}
+                                                    <small class="text-warning fw-bold">
+                                                        <i class="fas fa-arrow-left me-1"></i>{{ saida.grande_comando_origem }}
+                                                    </small>
+                                                {% elif saida.orgao_origem %}
+                                                    <small class="text-warning fw-bold">
+                                                        <i class="fas fa-arrow-left me-1"></i>{{ saida.orgao_origem }}
+                                                    </small>
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if saida.sub_unidade_destino %}
+                                                    <small class="text-success fw-bold">
+                                                        <i class="fas fa-arrow-right me-1"></i>{{ saida.sub_unidade_destino }}
+                                                    </small>
+                                                {% elif saida.unidade_destino %}
+                                                    <small class="text-success fw-bold">
+                                                        <i class="fas fa-arrow-right me-1"></i>{{ saida.unidade_destino }}
+                                                    </small>
+                                                {% elif saida.grande_comando_destino %}
+                                                    <small class="text-success fw-bold">
+                                                        <i class="fas fa-arrow-right me-1"></i>{{ saida.grande_comando_destino }}
+                                                    </small>
+                                                {% elif saida.orgao_destino %}
+                                                    <small class="text-success fw-bold">
+                                                        <i class="fas fa-arrow-right me-1"></i>{{ saida.orgao_destino }}
+                                                    </small>
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if saida.numero_requisicao %}
+                                                    {{ saida.numero_requisicao }}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="d-flex flex-wrap gap-1 align-items-center justify-content-center">
+                                                    <button type="button" 
+                                                            class="btn btn-sm btn-info btn-visualizar-saida" 
+                                                            data-saida-id="{{ saida.pk }}"
+                                                            title="Visualizar">
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                                    <a href="{% url 'militares:saida_almoxarifado_pdf' saida.pk %}" 
+                                                       class="btn btn-sm btn-danger" 
+                                                       target="_blank"
+                                                       title="Gerar PDF">
+                                                        <i class="fas fa-file-pdf"></i>
+                                                    </a>
+                                                    {% if saida.requisitante and saida.requisitante.user %}
+                                                        {% if saida.pk not in saidas_com_assinatura %}
+                                                            <button type="button"
+                                                                class="btn btn-sm btn-success btn-assinar-saida" 
+                                                                title="Assinar como Recebedor"
+                                                                data-saida-id="{{ saida.pk }}">
+                                                                <i class="fas fa-signature"></i>
+                                                            </button>
+                                                        {% else %}
+                                                            <span class="badge bg-success" title="Saída já assinada">
+                                                                <i class="fas fa-check"></i>
+                                                            </span>
+                                                        {% endif %}
+                                                    {% endif %}
+                                                    {% if saida.pk not in saidas_com_assinatura %}
+                                                        {% if saida.pode_editar|default:True %}
+                                                            {% if pode_editar or user.is_superuser %}
+                                                            <button type="button" 
+                                                                    class="btn btn-sm btn-primary btn-editar-saida" 
+                                                                    data-saida-id="{{ saida.pk }}"
+                                                                    title="Editar">
+                                                                <i class="fas fa-edit"></i>
+                                                            </button>
+                                                            {% endif %}
+                                                        {% endif %}
+                                                        {% if saida.pode_excluir|default:True %}
+                                                            {% if user.is_superuser %}
+                                                            <button type="button" 
+                                                                    class="btn btn-sm btn-danger btn-excluir-saida" 
+                                                                    data-saida-id="{{ saida.pk }}"
+                                                                    title="Excluir (apenas superusuários)">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                            {% endif %}
+                                                        {% endif %}
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Modais de Assinatura (um para cada saída com requisitante sem assinatura) -->
+                        {% for saida in saidas %}
+                            {% if saida.requisitante and saida.requisitante.user and saida.pk not in saidas_com_assinatura %}
+                            <!-- Modal Assinatura Saída {{ saida.pk }} -->
+                            <div class="modal fade" id="modalAssinaturaSaida{{ saida.pk }}" tabindex="-1" aria-labelledby="modalAssinaturaSaidaLabel{{ saida.pk }}" aria-hidden="true">
+                                <div class="modal-dialog modal-lg">
+                                    <div class="modal-content">
+                                        <form method="post" action="{% url 'militares:saida_almoxarifado_assinar' saida.pk %}" id="formAssinaturaSaida{{ saida.pk }}">
+                                            {% csrf_token %}
+                                            <div class="modal-header bg-success text-white">
+                                                <h5 class="modal-title" id="modalAssinaturaSaidaLabel{{ saida.pk }}">
+                                                    <i class="fas fa-signature me-2"></i>Assinar Recebimento de Material
+                                                </h5>
+                                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                                            </div>
+                                            
+                                            <!-- Declaração Fixa - Sempre Visível -->
+                                            <div class="p-3" style="background-color: #fff3cd; border-bottom: 2px solid #ffc107;">
+                                                <h6 class="fw-bold mb-3">
+                                                    <i class="fas fa-file-signature me-2"></i>Declaração de Recebimento
+                                                </h6>
+                                                <p class="mb-2 text-justify" style="font-size: 14px; line-height: 1.6;">
+                                                    <strong>Declaro, sob minha inteira responsabilidade,</strong> que recebi o(s) material(is) descrito(s) nesta saída, em perfeitas condições de conservação e funcionamento, conforme especificado. <strong>Comprometo-me a:</strong>
+                                                </p>
+                                                <ul class="mb-0 ps-4" style="font-size: 14px; line-height: 1.8;">
+                                                    <li>Zelar pela guarda, integridade e segurança do(s) material(is);</li>
+                                                    <li>Comunicar imediatamente qualquer avaria, extravio, furto ou uso indevido;</li>
+                                                    <li>Utilizar o(s) material(is) conforme legislação vigente, normas internas e ordens superiores;</li>
+                                                    <li>Responder disciplinar, civil e criminalmente por qualquer irregularidade decorrente do uso ou guarda.</li>
+                                                </ul>
+                                            </div>
+                                            
+                                            <div class="modal-body">
+                                                <div class="alert alert-info">
+                                                    <i class="fas fa-info-circle me-2"></i>
+                                                    <strong>Requisitante:</strong> {{ saida.requisitante.get_posto_graduacao_display }} {{ saida.requisitante.nome_completo }}<br>
+                                                    <strong>Data da Saída:</strong> {{ saida.data_saida|date:"d/m/Y" }}<br>
+                                                    <strong>Tipo:</strong> {{ saida.get_tipo_saida_display }}<br>
+                                                    {% if saida.tem_produtos_saida %}
+                                                        <strong>Itens:</strong> 
+                                                        {% for produto_saida in saida.produtos_saida.all %}
+                                                            {{ produto_saida.produto.get_codigo_limpo }}{% if produto_saida.produto.tamanho %} ({{ produto_saida.produto.tamanho }}){% endif %} - Qtd: {{ produto_saida.quantidade|formatar_quantidade_unidade:produto_saida.produto.unidade_medida }}{% if not forloop.last %}<br>{% endif %}
+                                                        {% endfor %}
+                                                    {% elif saida.produto %}
+                                                        <strong>Item:</strong> {{ saida.produto.get_codigo_limpo }} - {{ saida.produto.descricao }}<br>
+                                                        <strong>Quantidade:</strong> {{ saida.quantidade|formatar_quantidade_unidade:saida.produto.unidade_medida }}
+                                                    {% endif %}
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <label for="nome_requisitante_saida{{ saida.pk }}" class="form-label">Nome do Requisitante:</label>
+                                                    <input type="text" class="form-control" id="nome_requisitante_saida{{ saida.pk }}" name="nome_requisitante" value="{{ saida.requisitante.nome_completo }}" readonly>
+                                                    <div class="form-text">Nome do requisitante que recebeu o(s) material(is).</div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="senha_saida{{ saida.pk }}" class="form-label">Senha:</label>
+                                                    <input type="password" class="form-control" id="senha_saida{{ saida.pk }}" name="senha" placeholder="Digite sua senha para confirmar a assinatura" required autocomplete="current-password">
+                                                    <div class="form-text">Digite sua senha para confirmar a assinatura eletrônica e aceitar os termos acima.</div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                <button type="submit" class="btn btn-success">
+                                                    <i class="fas fa-signature me-1"></i>Confirmar Assinatura
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        <!-- Paginação -->
+                        {% if is_paginated %}
+                            <nav aria-label="Paginação">
+                                <ul class="pagination justify-content-center mt-4">
+                                    {% if page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}{% if tipo_saida %}&tipo_saida={{ tipo_saida }}{% endif %}{% if item %}&item={{ item }}{% endif %}">
+                                                <i class="fas fa-angle-double-left"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if tipo_saida %}&tipo_saida={{ tipo_saida }}{% endif %}{% if item %}&item={{ item }}{% endif %}">
+                                                <i class="fas fa-angle-left"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                    
+                                    <li class="page-item disabled">
+                                        <span class="page-link">
+                                            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                                        </span>
+                                    </li>
+                                    
+                                    <!-- Seletor de Página -->
+                                    {% if page_obj.paginator.num_pages > 1 %}
+                                    <li class="page-item">
+                                        <div class="input-group" style="width: 120px; margin: 0 5px;">
+                                            <input type="number" 
+                                                   class="form-control form-control-sm page-selector" 
+                                                   min="1" 
+                                                   max="{{ page_obj.paginator.num_pages }}" 
+                                                   value="{{ page_obj.number }}"
+                                                   style="text-align: center;">
+                                            <button class="btn btn-sm btn-outline-secondary go-to-page-btn" type="button">
+                                                <i class="fas fa-arrow-right"></i>
+                                            </button>
+                                        </div>
+                                    </li>
+                                    {% endif %}
+                                    
+                                    {% if page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if tipo_saida %}&tipo_saida={{ tipo_saida }}{% endif %}{% if item %}&item={{ item }}{% endif %}">
+                                                <i class="fas fa-angle-right"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if tipo_saida %}&tipo_saida={{ tipo_saida }}{% endif %}{% if item %}&item={{ item }}{% endif %}">
+                                                <i class="fas fa-angle-double-right"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Nenhuma saída encontrada.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Criar Saída -->
+<div class="modal fade" id="criarSaidaModal" tabindex="-1" aria-labelledby="criarSaidaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="criarSaidaModalContent">
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-warning" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Visualizar Saída -->
+<div class="modal fade" id="visualizarSaidaModal" tabindex="-1" aria-labelledby="visualizarSaidaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="visualizarSaidaModalContent">
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-info" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando detalhes...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Editar Saída -->
+<div class="modal fade" id="editarSaidaModal" tabindex="-1" aria-labelledby="editarSaidaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="editarSaidaModalContent">
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-warning" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Excluir Saída -->
+<div class="modal fade" id="excluirSaidaModal" tabindex="-1" aria-labelledby="excluirSaidaModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" id="excluirSaidaModalContent">
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-danger" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Modal de Criar
+    const criarSaidaModal = document.getElementById('criarSaidaModal');
+    const criarSaidaModalContent = document.getElementById('criarSaidaModalContent');
+    
+    if (criarSaidaModal && criarSaidaModalContent) {
+        criarSaidaModal.addEventListener('show.bs.modal', function(event) {
+            criarSaidaModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-warning" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            fetch('{% url "militares:saida_almoxarifado_create" %}', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw { status: response.status, data: data || {}, message: data?.message || `Erro ${response.status}` };
+                    }).catch(() => {
+                        throw { status: response.status, data: {}, message: `Erro ${response.status}: ${response.statusText}` };
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.html) {
+                    criarSaidaModalContent.innerHTML = data.html;
+                    setTimeout(function() {
+                        const scripts = criarSaidaModalContent.querySelectorAll('script');
+                        scripts.forEach(function(oldScript) {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(attr => {
+                                newScript.setAttribute(attr.name, attr.value);
+                            });
+                            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                            oldScript.parentNode.replaceChild(newScript, oldScript);
+                        });
+                    }, 100);
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar modal de criação:', error);
+                const errorMessage = error?.data?.message || error?.message || 'Erro ao carregar formulário.';
+                criarSaidaModalContent.innerHTML = `
+                    <div class="modal-body">
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            ${errorMessage}
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                        </div>
+                    </div>
+                `;
+            });
+        });
+    }
+    
+    // Modal de Visualizar
+    document.querySelectorAll('.btn-visualizar-saida').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const saidaId = this.getAttribute('data-saida-id');
+            const visualizarSaidaModalContent = document.getElementById('visualizarSaidaModalContent');
+            
+            visualizarSaidaModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-info" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando detalhes...</p>
+                </div>
+            `;
+            
+            const modal = new bootstrap.Modal(document.getElementById('visualizarSaidaModal'));
+            modal.show();
+            
+            fetch(`/militares/almoxarifado/saidas/${saidaId}/`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw { status: response.status, data: data || {}, message: data?.message || `Erro ${response.status}` };
+                    }).catch(() => {
+                        throw { status: response.status, data: {}, message: `Erro ${response.status}: ${response.statusText}` };
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.html) {
+                    visualizarSaidaModalContent.innerHTML = data.html;
+                    setTimeout(function() {
+                        const scripts = visualizarSaidaModalContent.querySelectorAll('script');
+                        scripts.forEach(function(oldScript) {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(attr => {
+                                newScript.setAttribute(attr.name, attr.value);
+                            });
+                            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                            oldScript.parentNode.replaceChild(newScript, oldScript);
+                        });
+                    }, 100);
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar modal de visualização:', error);
+                const errorMessage = error?.data?.message || error?.message || 'Erro ao carregar detalhes.';
+                visualizarSaidaModalContent.innerHTML = `
+                    <div class="modal-body">
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            ${errorMessage}
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                        </div>
+                    </div>
+                `;
+            });
+        });
+    });
+    
+    // Modal de Editar
+    document.querySelectorAll('.btn-editar-saida').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const saidaId = this.getAttribute('data-saida-id');
+            const editarSaidaModalContent = document.getElementById('editarSaidaModalContent');
+            
+            editarSaidaModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-warning" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            const modal = new bootstrap.Modal(document.getElementById('editarSaidaModal'));
+            modal.show();
+            
+            fetch(`/militares/almoxarifado/saidas/${saidaId}/editar/`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw { status: response.status, data: data || {}, message: data?.message || `Erro ${response.status}` };
+                    }).catch(() => {
+                        throw { status: response.status, data: {}, message: `Erro ${response.status}: ${response.statusText}` };
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.html) {
+                    editarSaidaModalContent.innerHTML = data.html;
+                    setTimeout(function() {
+                        const scripts = editarSaidaModalContent.querySelectorAll('script');
+                        scripts.forEach(function(oldScript) {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(attr => {
+                                newScript.setAttribute(attr.name, attr.value);
+                            });
+                            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                            oldScript.parentNode.replaceChild(newScript, oldScript);
+                        });
+                    }, 100);
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar modal de edição:', error);
+                const errorMessage = error?.data?.message || error?.message || 'Erro ao carregar formulário.';
+                editarSaidaModalContent.innerHTML = `
+                    <div class="modal-body">
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            ${errorMessage}
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                        </div>
+                    </div>
+                `;
+            });
+        });
+    });
+    
+    // Modal de Excluir
+    document.querySelectorAll('.btn-excluir-saida').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const saidaId = this.getAttribute('data-saida-id');
+            const excluirSaidaModalContent = document.getElementById('excluirSaidaModalContent');
+            
+            excluirSaidaModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-danger" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando...</p>
+                </div>
+            `;
+            
+            const modal = new bootstrap.Modal(document.getElementById('excluirSaidaModal'));
+            modal.show();
+            
+            fetch(`/militares/almoxarifado/saidas/${saidaId}/excluir/`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => {
+                // Verificar status antes de fazer parse do JSON
+                if (!response.ok) {
+                    // Tentar fazer parse do JSON mesmo em caso de erro (pode conter mensagem)
+                    return response.json().then(data => {
+                        // Garantir que o erro tenha a estrutura esperada
+                        const errorObj = {
+                            status: response.status,
+                            data: data || {},
+                            message: data?.message || data?.error || (response.status === 403 
+                                ? 'Você não tem permissão para realizar esta ação.' 
+                                : `Erro ${response.status}: ${response.statusText || 'Erro desconhecido'}`)
+                        };
+                        throw errorObj;
+                    }).catch(parseError => {
+                        // Se não conseguir fazer parse, lançar erro genérico com estrutura consistente
+                        const errorObj = {
+                            status: response.status,
+                            data: { 
+                                message: response.status === 403 
+                                    ? 'Você não tem permissão para realizar esta ação.'
+                                    : `Erro ${response.status}: ${response.statusText || 'Erro ao processar resposta do servidor.'}`
+                            },
+                            message: response.status === 403 
+                                ? 'Você não tem permissão para realizar esta ação.'
+                                : `Erro ${response.status}: ${response.statusText || 'Erro ao processar resposta do servidor.'}`
+                        };
+                        throw errorObj;
+                    });
+                }
+                // Capturar o status antes de tentar fazer parse
+                const responseStatus = response.status;
+                return response.json().catch(jsonError => {
+                    // Se não conseguir fazer parse do JSON, lançar erro com estrutura consistente
+                    console.error('Erro ao fazer parse do JSON:', jsonError);
+                    throw {
+                        status: responseStatus,
+                        data: { message: 'Resposta do servidor não é um JSON válido.' },
+                        message: 'Resposta do servidor não é um JSON válido.'
+                    };
+                });
+            })
+            .then(data => {
+                if (data && data.status === 'success' && data.html) {
+                    excluirSaidaModalContent.innerHTML = data.html;
+                    // Executar scripts dentro do modal após inserir o HTML
+                    setTimeout(function() {
+                        const scripts = excluirSaidaModalContent.querySelectorAll('script');
+                        scripts.forEach(function(oldScript) {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(attr => {
+                                newScript.setAttribute(attr.name, attr.value);
+                            });
+                            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                            oldScript.parentNode.replaceChild(newScript, oldScript);
+                        });
+                    }, 100);
+                } else if (data && data.html) {
+                    excluirSaidaModalContent.innerHTML = data.html;
+                    // Executar scripts dentro do modal após inserir o HTML
+                    setTimeout(function() {
+                        const scripts = excluirSaidaModalContent.querySelectorAll('script');
+                        scripts.forEach(function(oldScript) {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(attr => {
+                                newScript.setAttribute(attr.name, attr.value);
+                            });
+                            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                            oldScript.parentNode.replaceChild(newScript, oldScript);
+                        });
+                    }, 100);
+                } else {
+                    excluirSaidaModalContent.innerHTML = `
+                        <div class="modal-body">
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Erro: Resposta inválida do servidor.
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                            </div>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                // Log detalhado do erro para debug (sem tentar stringify para evitar erros circulares)
+                try {
+                    console.error('Erro ao carregar modal de exclusão:', {
+                        status: error?.status,
+                        data: error?.data,
+                        message: error?.message,
+                        errorType: typeof error,
+                        errorKeys: error ? Object.keys(error) : []
+                    });
+                } catch (logError) {
+                    console.error('Erro ao carregar modal de exclusão (erro ao fazer log):', logError);
+                    console.error('Erro original:', error);
+                }
+                
+                // Extrair informações do erro de forma segura
+                let errorStatus = null;
+                let errorData = {};
+                let errorMessage = 'Erro desconhecido ao carregar confirmação de exclusão.';
+                
+                // Tentar diferentes formas de extrair informações do erro
+                if (error && typeof error === 'object') {
+                    errorStatus = error.status || error.statusCode || null;
+                    errorData = error.data || error.error || {};
+                    
+                    // Tentar extrair mensagem de diferentes lugares
+                    if (errorData && typeof errorData === 'object') {
+                        errorMessage = errorData.message || errorData.error || errorData.detail || errorMessage;
+                    }
+                    if (error.message) {
+                        errorMessage = error.message;
+                    }
+                    if (errorData && typeof errorData === 'string') {
+                        errorMessage = errorData;
+                    }
+                } else if (error && typeof error === 'string') {
+                    errorMessage = error;
+                }
+                
+                // Tratar erro 403 especificamente
+                if (errorStatus === 403) {
+                    // Se a mensagem for genérica, usar mensagem mais amigável
+                    if (errorMessage.includes('403') || errorMessage.includes('Forbidden') || 
+                        errorMessage === 'Erro desconhecido ao carregar confirmação de exclusão.') {
+                        errorMessage = 'Você não tem permissão para realizar esta ação. Entre em contato com o administrador do sistema para solicitar esta permissão.';
+                    }
+                    
+                    excluirSaidaModalContent.innerHTML = `
+                        <div class="modal-body">
+                            <div class="alert alert-danger">
+                                <i class="fas fa-lock me-2"></i>
+                                <strong>Acesso Negado</strong>
+                                <p class="mb-0 mt-2">${errorMessage}</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    excluirSaidaModalContent.innerHTML = `
+                        <div class="modal-body">
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <strong>Erro ao carregar confirmação:</strong> ${errorMessage}
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+        });
+    });
+    
+    // Modal de Assinatura
+    document.querySelectorAll('.btn-assinar-saida').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const saidaId = this.getAttribute('data-saida-id');
+            const modal = new bootstrap.Modal(document.getElementById(`modalAssinaturaSaida${saidaId}`));
+            modal.show();
+        });
+    });
+    
+    // Submissão do formulário de assinatura via AJAX
+    document.querySelectorAll('[id^="formAssinaturaSaida"]').forEach(form => {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const saidaId = this.id.replace('formAssinaturaSaida', '');
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Assinando...';
+            
+            fetch(this.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw { status: response.status, data: data || {}, message: data?.message || `Erro ${response.status}` };
+                    }).catch(() => {
+                        throw { status: response.status, data: {}, message: `Erro ${response.status}: ${response.statusText}` };
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    const modal = bootstrap.Modal.getInstance(document.getElementById(`modalAssinaturaSaida${saidaId}`));
+                    modal.hide();
+                    location.reload();
+                } else {
+                    alert(data.message || 'Erro ao assinar saída.');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao processar assinatura:', error);
+                const errorMessage = error?.data?.message || error?.message || 'Erro ao processar assinatura. Tente novamente.';
+                alert(errorMessage);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            });
+        });
+    });
+});
+</script>
+
+<!-- Modais para visualizar imagens em tamanho maior -->
+{% for saida in saidas %}
+    {% if saida.produto and saida.produto.imagem %}
+    <div class="modal fade" id="imagemModal{{ saida.produto.pk }}" tabindex="-1" aria-labelledby="imagemModalLabel{{ saida.produto.pk }}" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="imagemModalLabel{{ saida.produto.pk }}">{{ saida.produto.get_codigo_limpo }} - {{ saida.produto.descricao }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img src="{{ saida.produto.imagem.url }}" alt="{{ saida.produto.descricao }}" class="img-fluid" style="max-height: 70vh;">
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+{% endfor %}
+
+<script>
+// Seletor de Página
+document.addEventListener('DOMContentLoaded', function() {
+    const pageSelectors = document.querySelectorAll('.page-selector');
+    const goToPageBtns = document.querySelectorAll('.go-to-page-btn');
+    
+    pageSelectors.forEach((selector, index) => {
+        const btn = goToPageBtns[index];
+        
+        // Ir para página ao clicar no botão
+        btn.addEventListener('click', function() {
+            const page = parseInt(selector.value);
+            const maxPage = parseInt(selector.max);
+            if (page >= 1 && page <= maxPage) {
+                const urlParams = new URLSearchParams(window.location.search);
+                urlParams.set('page', page);
+                window.location.href = '?' + urlParams.toString();
+            }
+        });
+        
+        // Ir para página ao pressionar Enter
+        selector.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const page = parseInt(selector.value);
+                const maxPage = parseInt(selector.max);
+                if (page >= 1 && page <= maxPage) {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    urlParams.set('page', page);
+                    window.location.href = '?' + urlParams.toString();
+                }
+            }
+        });
+    });
+});
+</script>
+
+{% endblock %}
+

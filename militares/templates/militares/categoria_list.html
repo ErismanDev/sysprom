@@ -1,0 +1,254 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Almoxarifado - Categorias{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-tags me-2 text-primary"></i>Categorias de Materiais
+                    </h2>
+                    <p class="text-muted mb-0">Gerenciar categorias do almoxarifado</p>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-primary" id="btnCriarCategoria">
+                        <i class="fas fa-plus me-2"></i>Nova Categoria
+                    </button>
+                    <a href="{% url 'militares:subcategoria_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-list me-2"></i>Subcategorias
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Pesquisa</label>
+                            <input type="text" name="search" class="form-control" 
+                                   value="{{ search }}" placeholder="Nome ou descrição...">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Status</label>
+                            <select name="ativo" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="1" {% if ativo == '1' %}selected{% endif %}>Ativos</option>
+                                <option value="0" {% if ativo == '0' %}selected{% endif %}>Inativos</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary me-2">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                            <a href="{% url 'militares:categoria_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Limpar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Tabela de Categorias -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Lista de Categorias
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if categorias %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Descrição</th>
+                                        <th>Itens Vinculados</th>
+                                        <th>Status</th>
+                                        <th>Data Criação</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for categoria in categorias %}
+                                    <tr>
+                                        <td><strong>{{ categoria.nome }}</strong></td>
+                                        <td>
+                                            {% if categoria.descricao %}
+                                                {{ categoria.descricao|truncatechars:50 }}
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">{{ categoria.itens_almoxarifado.count }}</span>
+                                        </td>
+                                        <td>
+                                            {% if categoria.ativo %}
+                                                <span class="badge bg-success">Ativo</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Inativo</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ categoria.data_criacao|date:"d/m/Y H:i" }}</td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <button type="button" class="btn btn-outline-primary btn-editar-categoria" 
+                                                        data-categoria-id="{{ categoria.pk }}" title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-outline-danger btn-excluir-categoria" 
+                                                        data-categoria-id="{{ categoria.pk }}" title="Excluir">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if is_paginated %}
+                        <nav aria-label="Paginação">
+                            <ul class="pagination justify-content-center">
+                                {% if page_obj.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">Primeira</a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">Anterior</a>
+                                    </li>
+                                {% endif %}
+                                
+                                <li class="page-item active">
+                                    <span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+                                </li>
+                                
+                                {% if page_obj.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">Próxima</a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">Última</a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-tags fa-3x mb-3 text-muted" style="opacity: 0.3;"></i>
+                            <p class="text-muted">Nenhuma categoria encontrada</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Criar/Editar Categoria -->
+<div class="modal fade" id="categoriaModal" tabindex="-1" aria-labelledby="categoriaModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" id="categoriaModalContent">
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Excluir Categoria -->
+<div class="modal fade" id="excluirCategoriaModal" tabindex="-1" aria-labelledby="excluirCategoriaModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" id="excluirCategoriaModalContent">
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-danger" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const categoriaModal = new bootstrap.Modal(document.getElementById('categoriaModal'));
+    const excluirCategoriaModal = new bootstrap.Modal(document.getElementById('excluirCategoriaModal'));
+    
+    // Botão criar categoria
+    document.getElementById('btnCriarCategoria').addEventListener('click', function() {
+        fetch('{% url "militares:categoria_create" %}', {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                document.getElementById('categoriaModalContent').innerHTML = data.html;
+                categoriaModal.show();
+            }
+        });
+    });
+    
+    // Botões editar categoria
+    document.querySelectorAll('.btn-editar-categoria').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const categoriaId = this.getAttribute('data-categoria-id');
+            fetch(`/militares/almoxarifado/categorias/${categoriaId}/editar/`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    document.getElementById('categoriaModalContent').innerHTML = data.html;
+                    categoriaModal.show();
+                }
+            });
+        });
+    });
+    
+    // Botões excluir categoria
+    document.querySelectorAll('.btn-excluir-categoria').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const categoriaId = this.getAttribute('data-categoria-id');
+            fetch(`/militares/almoxarifado/categorias/${categoriaId}/excluir/`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    document.getElementById('excluirCategoriaModalContent').innerHTML = data.html;
+                    excluirCategoriaModal.show();
+                }
+            });
+        });
+    });
+});
+</script>
+{% endblock %}
+

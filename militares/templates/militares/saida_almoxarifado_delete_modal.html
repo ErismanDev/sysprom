@@ -1,0 +1,237 @@
+{% load almoxarifado_filters %}
+<div class="modal-header bg-danger text-white">
+    <h5 class="modal-title" id="excluirSaidaModalLabel">
+        <i class="fas fa-exclamation-triangle me-2"></i>Confirmar Exclusão
+    </h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<div class="modal-body">
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        <strong>Atenção!</strong> Esta ação não pode ser desfeita e os itens serão devolvidos ao estoque de origem.
+    </div>
+    
+    {% if saida.produtos_saida.exists %}
+        {% if saida.produtos_saida.count == 1 %}
+            {% with produto_saida=saida.produtos_saida.first %}
+                {% if produto_saida.produto %}
+                    <p>Tem certeza que deseja excluir a saída do item <strong>{{ produto_saida.produto.get_codigo_limpo }} - {{ produto_saida.produto.descricao }}</strong>?</p>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Data:</strong> {{ saida.data_saida|date:"d/m/Y" }}<br>
+                        <strong>Quantidade:</strong> 
+                        {% if produto_saida.produto.unidade_medida %}
+                            {{ produto_saida.quantidade|formatar_quantidade_unidade:produto_saida.produto.unidade_medida }}
+                        {% else %}
+                            {{ produto_saida.quantidade }}
+                        {% endif %}<br>
+                        <strong>Tipo:</strong> {{ saida.get_tipo_saida_display }}<br>
+                        {% if saida.sub_unidade_origem or saida.unidade_origem or saida.grande_comando_origem or saida.orgao_origem %}
+                            <strong>Origem:</strong> 
+                            {% if saida.sub_unidade_origem %}{{ saida.sub_unidade_origem }}
+                            {% elif saida.unidade_origem %}{{ saida.unidade_origem }}
+                            {% elif saida.grande_comando_origem %}{{ saida.grande_comando_origem }}
+                            {% elif saida.orgao_origem %}{{ saida.orgao_origem }}{% endif %}
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <p>Tem certeza que deseja excluir esta saída?</p>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Data:</strong> {{ saida.data_saida|date:"d/m/Y" }}<br>
+                        <strong>Tipo:</strong> {{ saida.get_tipo_saida_display }}
+                    </div>
+                {% endif %}
+            {% endwith %}
+        {% else %}
+            <p>Tem certeza que deseja excluir esta saída com <strong>{{ saida.produtos_saida.count }} itens</strong>?</p>
+            
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Data:</strong> {{ saida.data_saida|date:"d/m/Y" }}<br>
+                <strong>Tipo:</strong> {{ saida.get_tipo_saida_display }}<br>
+                {% if saida.sub_unidade_origem or saida.unidade_origem or saida.grande_comando_origem or saida.orgao_origem %}
+                    <strong>Origem:</strong> 
+                    {% if saida.sub_unidade_origem %}{{ saida.sub_unidade_origem }}
+                    {% elif saida.unidade_origem %}{{ saida.unidade_origem }}
+                    {% elif saida.grande_comando_origem %}{{ saida.grande_comando_origem }}
+                    {% elif saida.orgao_origem %}{{ saida.orgao_origem }}{% endif %}<br>
+                {% endif %}
+                <strong>Itens que serão devolvidos:</strong>
+                <ul class="mb-0 mt-2">
+                    {% for produto_saida in saida.produtos_saida.all %}
+                        {% if produto_saida.produto %}
+                            <li>
+                                <strong>{{ produto_saida.produto.get_codigo_limpo }}</strong> - {{ produto_saida.produto.descricao|truncatewords:5 }}
+                                {% if produto_saida.produto.tamanho %}
+                                    <span class="badge bg-info ms-1">{{ produto_saida.produto.tamanho }}</span>
+                                {% endif %}
+                                (
+                                {% if produto_saida.produto.unidade_medida %}
+                                    {{ produto_saida.quantidade|formatar_quantidade_unidade:produto_saida.produto.unidade_medida }}
+                                {% else %}
+                                    {{ produto_saida.quantidade }}
+                                {% endif %}
+                                )
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+    {% else %}
+        {# Caso legado: item único #}
+        {% if saida.produto %}
+            <p>Tem certeza que deseja excluir a saída do item <strong>{{ saida.produto.get_codigo_limpo }} - {{ saida.produto.descricao }}</strong>?</p>
+            
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Data:</strong> {{ saida.data_saida|date:"d/m/Y" }}<br>
+                <strong>Quantidade:</strong> 
+                {% if saida.produto.unidade_medida %}
+                    {{ saida.quantidade|formatar_quantidade_unidade:saida.produto.unidade_medida }}
+                {% else %}
+                    {{ saida.quantidade }}
+                {% endif %}<br>
+                <strong>Tipo:</strong> {{ saida.get_tipo_saida_display }}<br>
+                {% if saida.sub_unidade_origem or saida.unidade_origem or saida.grande_comando_origem or saida.orgao_origem %}
+                    <strong>Origem:</strong> 
+                    {% if saida.sub_unidade_origem %}{{ saida.sub_unidade_origem }}
+                    {% elif saida.unidade_origem %}{{ saida.unidade_origem }}
+                    {% elif saida.grande_comando_origem %}{{ saida.grande_comando_origem }}
+                    {% elif saida.orgao_origem %}{{ saida.orgao_origem }}{% endif %}
+                {% endif %}
+            </div>
+        {% else %}
+            <p>Tem certeza que deseja excluir esta saída?</p>
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Data:</strong> {{ saida.data_saida|date:"d/m/Y" }}<br>
+                <strong>Tipo:</strong> {{ saida.get_tipo_saida_display }}
+            </div>
+        {% endif %}
+    {% endif %}
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+        <i class="fas fa-times me-2"></i>Cancelar
+    </button>
+    <form method="post" action="{% url 'militares:saida_almoxarifado_delete' saida.pk %}" id="formDeleteSaida">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">
+            <i class="fas fa-trash me-2"></i>Excluir
+        </button>
+    </form>
+</div>
+
+<script>
+(function() {
+    // Usar IIFE para evitar conflitos e garantir execução imediata
+    const form = document.getElementById('formDeleteSaida');
+    if (form) {
+        // Remover event listeners anteriores para evitar múltiplos listeners
+        const newForm = form.cloneNode(true);
+        form.parentNode.replaceChild(newForm, form);
+        
+        // Adicionar event listener ao novo formulário
+        newForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            e.stopPropagation(); // Evitar propagação do evento
+            
+            // Verificar se já está processando para evitar múltiplas submissões
+            if (newForm.dataset.processing === 'true') {
+                return false;
+            }
+            newForm.dataset.processing = 'true';
+            
+            const formData = new FormData(newForm);
+            const submitBtn = newForm.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Excluindo...';
+            
+            fetch(newForm.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => {
+                // Verificar status antes de fazer parse do JSON
+                if (!response.ok) {
+                    // Tentar fazer parse do JSON mesmo em caso de erro (pode conter mensagem)
+                    return response.json().then(data => {
+                        throw { status: response.status, data: data };
+                    }).catch(() => {
+                        // Se não conseguir fazer parse, lançar erro genérico
+                        throw { status: response.status, data: { message: 'Erro ao processar resposta do servidor.' } };
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'alert alert-success alert-dismissible fade show';
+                    alertDiv.innerHTML = `
+                        <i class="fas fa-check-circle me-2"></i>${data.message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    `;
+                    document.body.insertBefore(alertDiv, document.body.firstChild);
+                    
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('excluirSaidaModal'));
+                    if (modal) {
+                        modal.hide();
+                    }
+                    
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    alert(data.message || 'Erro ao excluir saída.');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                    newForm.dataset.processing = 'false';
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao excluir saída:', error);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+                newForm.dataset.processing = 'false';
+                
+                // Extrair mensagem de erro de forma segura
+                let errorMessage = 'Erro ao excluir saída. Tente novamente.';
+                
+                if (error && typeof error === 'object') {
+                    if (error.data && typeof error.data === 'object') {
+                        errorMessage = error.data.message || error.data.error || errorMessage;
+                    } else if (error.message) {
+                        errorMessage = error.message;
+                    }
+                } else if (typeof error === 'string') {
+                    errorMessage = error;
+                }
+                
+                // Tratar erro 403 especificamente
+                if (error?.status === 403) {
+                    // Se a mensagem for genérica, usar mensagem mais amigável
+                    if (errorMessage.includes('403') || errorMessage.includes('Forbidden') || 
+                        errorMessage === 'Erro ao excluir saída. Tente novamente.') {
+                        errorMessage = 'Você não tem permissão para excluir saídas do almoxarifado. Entre em contato com o administrador do sistema para solicitar esta permissão.';
+                    }
+                    
+                    alert(`Acesso Negado\n\n${errorMessage}`);
+                } else {
+                    alert(`Erro\n\n${errorMessage}`);
+                }
+            });
+            
+            return false;
+        });
+    }
+})();
+</script>
+

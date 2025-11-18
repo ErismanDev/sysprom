@@ -165,7 +165,7 @@ class Command(BaseCommand):
         """Criar usuarios de exemplo vinculados aos militares"""
         
         # Buscar alguns militares para vincular aos usuarios
-        militares = Militar.objects.filter(situacao='AT').order_by('posto_graduacao', 'nome_completo')
+        militares = Militar.objects.filter(classificacao='ATIVO').order_by('posto_graduacao', 'nome_completo')
         
         if not militares.exists():
             self.stdout.write("❌ Nenhum militar cadastrado encontrado. Cadastre militares primeiro.")

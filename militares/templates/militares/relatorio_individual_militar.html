@@ -1,0 +1,391 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .btn-group {
+        display: flex;
+        gap: 5px;
+    }
+    
+    .btn-group form {
+        margin: 0;
+    }
+    
+    .btn-group .btn {
+        flex: 1;
+    }
+    
+    .card-militar {
+        border-left: 4px solid #007bff;
+    }
+    
+    .badge-mes {
+        font-size: 0.9rem;
+        padding: 8px 12px;
+    }
+    
+    .table-individual {
+        font-size: 0.9rem;
+    }
+    
+    .table-individual th {
+        background-color: #f8f9fa;
+        border-top: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Cabeçalho -->
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-0">{{ page_title }}</h1>
+                <p class="text-muted mb-0">
+                    {% if tipo_relatorio == 'anual' %}
+                        Relatório anual de liquidação de operações planejadas
+                    {% else %}
+                        Relatório mensal de liquidação de operações planejadas
+                    {% endif %}
+                </p>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#modalAssinarPDFIndividual">
+                    <i class="fas fa-file-pdf me-2"></i>Exportar PDF
+                </button>
+                <a href="{% url 'militares:relatorio_mensal_liquidacao' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Voltar ao Relatório Geral
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Informações do Militar -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card card-militar shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user me-2"></i>Informações do Militar
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <strong>Nome:</strong><br>
+                            {{ militar.nome_completo }}
+                        </div>
+                        <div class="col-md-2">
+                            <strong>Posto:</strong><br>
+                            {{ militar.get_posto_graduacao_display }}
+                        </div>
+                        <div class="col-md-2">
+                            <strong>Matrícula:</strong><br>
+                            {{ militar.matricula }}
+                        </div>
+                        <div class="col-md-2">
+                            <strong>CPF:</strong><br>
+                            {{ militar.cpf }}
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Banco:</strong><br>
+                            {{ militar.banco_nome|default:"-" }}<br>
+                            <small class="text-muted">Ag: {{ militar.agencia|default:"-" }} | Conta: {{ militar.conta|default:"-" }}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estatísticas -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="flex-shrink-0 me-3">
+                        <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                            <i class="fas fa-calendar-check fa-2x"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h6 class="text-muted mb-1">
+                            {% if tipo_relatorio == 'anual' %}
+                                Planejadas no Ano
+                            {% else %}
+                                Planejadas no Mês
+                            {% endif %}
+                        </h6>
+                        <h2 class="mb-0 text-success">
+                            {% if tipo_relatorio == 'anual' %}
+                                {{ total_planejadas_geral }}
+                            {% else %}
+                                {{ quantidade_mes }}
+                            {% endif %}
+                        </h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="flex-shrink-0 me-3">
+                        <div class="bg-warning text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                            <i class="fas fa-dollar-sign fa-2x"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h6 class="text-muted mb-1">Total a Receber</h6>
+                        <h2 class="mb-0 text-warning" data-valor-moeda="{% if tipo_relatorio == 'anual' %}{{ total_geral }}{% else %}{{ total_mes }}{% endif %}">
+                            R$ {% if tipo_relatorio == 'anual' %}{{ total_geral|floatformat:2 }}{% else %}{{ total_mes|floatformat:2 }}{% endif %}
+                        </h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Relatório Anual -->
+    {% if tipo_relatorio == 'anual' %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calendar-alt me-2"></i>Resumo por Mês - {{ ano }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for mes_data in resumo_mensal %}
+                        <div class="col-md-4 mb-3">
+                            <div class="card {% if mes_data.total > 0 %}border-success{% else %}border-light{% endif %}">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title">
+                                        <span class="badge {% if mes_data.total > 0 %}bg-success{% else %}bg-secondary{% endif %} badge-mes">
+                                            {{ mes_data.mes_nome }}
+                                        </span>
+                                    </h6>
+                                    <div class="mt-2">
+                                        <small class="text-muted">Planejadas:</small><br>
+                                        <strong class="{% if mes_data.total > 0 %}text-success{% else %}text-muted{% endif %}">
+                                            {{ mes_data.quantidade }}
+                                        </strong>
+                                    </div>
+                                    <div class="mt-1">
+                                        <small class="text-muted">Valor:</small><br>
+                                        <strong class="{% if mes_data.total > 0 %}text-success{% else %}text-muted{% endif %}" data-valor-moeda="{{ mes_data.total }}">
+                                            R$ {{ mes_data.total|floatformat:2 }}
+                                        </strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detalhamento por Mês -->
+    <div class="row mt-4">
+        <div class="col-12">
+            {% for mes_data in resumo_mensal %}
+                {% if mes_data.planejadas %}
+                <div class="card mb-3">
+                    <div class="card-header bg-light">
+                        <h6 class="mb-0">
+                            <i class="fas fa-list me-2"></i>{{ mes_data.mes_nome }} - Detalhamento
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-individual table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Data</th>
+                                        <th>Nome da Operação</th>
+                                        <th>Tipo</th>
+                                        <th>Cidade</th>
+                                        <th>Valor</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for planejada in mes_data.planejadas %}
+                                    <tr>
+                                        <td>{{ planejada.data_operacao|date:"d/m/Y" }}</td>
+                                        <td>{{ planejada.nome }}</td>
+                                        <td>
+                                            <span class="badge bg-info">{{ planejada.tipo_planejada|default:"P1" }}</span>
+                                        </td>
+                                        <td>{{ planejada.cidade }}</td>
+                                        <td class="text-end">
+                                            <strong class="text-success" data-valor-moeda="{{ planejada.valor }}">
+                                                R$ {{ planejada.valor|floatformat:2 }}
+                                            </strong>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Relatório Mensal -->
+    {% else %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>Detalhamento - {{ mes_nome }}/{{ ano }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if planejadas_mes %}
+                    <div class="table-responsive">
+                        <table class="table table-individual table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Nome da Operação</th>
+                                    <th>Tipo</th>
+                                    <th>Cidade</th>
+                                    <th>Valor</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for planejada in planejadas_mes %}
+                                <tr>
+                                    <td>{{ planejada.data_operacao|date:"d/m/Y" }}</td>
+                                    <td>{{ planejada.nome }}</td>
+                                    <td>
+                                        <span class="badge bg-info">{{ planejada.tipo_planejada|default:"P1" }}</span>
+                                    </td>
+                                    <td>{{ planejada.cidade }}</td>
+                                    <td class="text-end">
+                                        <strong class="text-success" data-valor-moeda="{{ planejada.valor }}">
+                                            R$ {{ planejada.valor|floatformat:2 }}
+                                        </strong>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">Nenhuma planejada encontrada</h5>
+                        <p class="text-muted">Este militar não participou de operações planejadas em {{ mes_nome }}/{{ ano }}.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Modal para Assinar PDF Individual -->
+    <div class="modal fade" id="modalAssinarPDFIndividual" tabindex="-1" aria-labelledby="modalAssinarPDFIndividualLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="modalAssinarPDFIndividualLabel">
+                        <i class="fas fa-signature me-2"></i>Assinar PDF do Relatório Individual
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3">Selecione a função que será exibida na assinatura do relatório individual de <strong>{{ militar.nome_completo }}</strong>:</p>
+                    
+                    <div class="mb-3">
+                        <label for="funcao_assinatura_individual" class="form-label"><strong>Função para Assinatura *</strong></label>
+                        <select class="form-select" id="funcao_assinatura_individual" name="funcao_assinatura_individual" required>
+                            <option value="">Selecione uma função...</option>
+                            {% for ufm in funcoes_usuario %}
+                                <option value="{{ ufm.funcao_militar.nome }}">
+                                    {{ ufm.funcao_militar.nome }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Atenção:</strong> A assinatura eletrônica tem a mesma validade de uma assinatura física.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Cancelar
+                    </button>
+                    <button type="button" class="btn btn-danger" id="btnGerarPDFIndividualAssinado">
+                        <i class="fas fa-file-pdf me-1"></i>Gerar PDF Assinado
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Formatar valores monetários com pontuação brasileira
+        document.querySelectorAll('[data-valor-moeda]').forEach(function(el) {
+            const valor = parseFloat(el.getAttribute('data-valor-moeda'));
+            if (!isNaN(valor)) {
+                el.textContent = 'R$ ' + valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+        });
+        
+        // Configurar modal de assinatura PDF individual
+        const funcaoAssinaturaIndividual = document.getElementById('funcao_assinatura_individual');
+        const btnGerarPDFIndividual = document.getElementById('btnGerarPDFIndividualAssinado');
+        
+        if (funcaoAssinaturaIndividual && btnGerarPDFIndividual) {
+            // Inicialmente desabilitar botão
+            btnGerarPDFIndividual.disabled = true;
+            
+            // Habilitar/desabilitar botão baseado na seleção da função
+            funcaoAssinaturaIndividual.addEventListener('change', function() {
+                btnGerarPDFIndividual.disabled = !this.value;
+            });
+            
+            // Ação do botão de gerar PDF assinado
+            btnGerarPDFIndividual.addEventListener('click', function() {
+                const funcao = funcaoAssinaturaIndividual.value;
+                
+                if (!funcao) {
+                    alert('Por favor, selecione uma função para a assinatura.');
+                    return;
+                }
+                
+                // Gerar PDF em nova aba com função selecionada
+                const url = "{% url 'militares:relatorio_individual_militar_pdf' %}?militar_id={{ militar.id }}&mes={{ mes }}&ano={{ ano }}&tipo={{ tipo_relatorio }}&funcao=" + encodeURIComponent(funcao);
+                window.open(url, '_blank');
+                
+                // Fechar modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('modalAssinarPDFIndividual'));
+                if (modal) {
+                    modal.hide();
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

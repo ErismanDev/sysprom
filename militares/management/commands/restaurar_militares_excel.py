@@ -305,7 +305,7 @@ class Command(BaseCommand):
         
         # Valores padrão para campos obrigatórios
         if 'situacao' not in dados or not dados['situacao']:
-            dados['situacao'] = 'AT'
+            dados['classificacao'] = 'ATIVO'
         
         if 'quadro' not in dados or not dados['quadro']:
             dados['quadro'] = 'COMB'

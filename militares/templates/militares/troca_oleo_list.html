@@ -1,0 +1,297 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load money_filters %}
+
+{% block title %}Controle de Troca de Óleo - Trocas de Óleo{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-oil-can me-2 text-primary"></i>Controle de Troca de Óleo
+                    </h2>
+                    <p class="text-muted mb-0">Gerenciar trocas de óleo de viaturas</p>
+                </div>
+                <div>
+                    {% if 'VIATURAS_CRIAR' in menu_permissions or user.is_superuser %}
+                    <a href="{% url 'militares:troca_oleo_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Nova Troca de Óleo
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Cards de Estatísticas -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-list fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_trocas }}</h4>
+                            <p class="mb-0">Total de Trocas</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card info">
+                        <div class="card-body text-center">
+                            <i class="fas fa-flask fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_litros|floatformat:0 }}</h4>
+                            <p class="mb-0">Total de Litros</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card success">
+                        <div class="card-body text-center">
+                            <i class="fas fa-dollar-sign fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_valor|currency_br }}</h4>
+                            <p class="mb-0">Total Gasto</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card warning">
+                        <div class="card-body text-center">
+                            <i class="fas fa-chart-line fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ media_valor|currency_br }}</h4>
+                            <p class="mb-0">Média por Troca</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Pesquisa</label>
+                            <input type="text" name="search" class="form-control" 
+                                   value="{{ search }}" placeholder="Placa, oficina, observações...">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Viatura</label>
+                            <select name="viatura" class="form-select">
+                                <option value="">Todas</option>
+                                {% for viatura in viaturas %}
+                                    <option value="{{ viatura.id }}" {% if viatura_id == viatura.id|stringformat:"s" %}selected{% endif %}>
+                                        {{ viatura.placa }}{% if viatura.prefixo %} ({{ viatura.prefixo }}){% endif %}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Tipo de Óleo</label>
+                            <select name="tipo_oleo" class="form-select">
+                                <option value="">Todos</option>
+                                {% for tipo_val, tipo_nome in tipos_oleo %}
+                                    <option value="{{ tipo_val }}" {% if tipo_oleo == tipo_val %}selected{% endif %}>
+                                        {{ tipo_nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Data Início</label>
+                            <input type="date" name="data_inicio" class="form-control" value="{{ data_inicio }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Data Fim</label>
+                            <input type="date" name="data_fim" class="form-control" value="{{ data_fim }}">
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label">Ativo</label>
+                            <select name="ativo" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="1" {% if ativo == '1' %}selected{% endif %}>Sim</option>
+                                <option value="0" {% if ativo == '0' %}selected{% endif %}>Não</option>
+                            </select>
+                        </div>
+                        <div class="col-md-12 d-flex align-items-end gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                            <a href="{% url 'militares:troca_oleo_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Limpar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Lista de Trocas de Óleo -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Lista de Trocas de Óleo
+                    </h6>
+                    <div>
+                        <a href="{% url 'militares:troca_oleo_create' %}" class="btn btn-success btn-sm">
+                            <i class="fas fa-plus me-2"></i>Nova Troca de Óleo
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if trocas_oleo %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Data/Hora</th>
+                                        <th>Viatura</th>
+                                        <th>Tipo de Óleo</th>
+                                        <th>Quantidade</th>
+                                        <th>Valor</th>
+                                        <th>KM</th>
+                                        <th>Oficina</th>
+                                        <th>Filtros</th>
+                                        <th>Responsável</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for troca in trocas_oleo %}
+                                        <tr {% if troca.pk in trocas_proximas %}class="table-warning"{% endif %}>
+                                            <td>{{ troca.data_troca|date:"d/m/Y H:i" }}</td>
+                                            <td>
+                                                <a href="{% url 'militares:viatura_detail' troca.viatura.pk %}">
+                                                    {{ troca.viatura.placa }}
+                                                    {% if troca.viatura.prefixo %}
+                                                        <span class="text-muted">({{ troca.viatura.prefixo }})</span>
+                                                    {% endif %}
+                                                </a>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-info">{{ troca.get_tipo_oleo_display }}</span>
+                                            </td>
+                                            <td>{{ troca.quantidade_litros|floatformat:2 }} L</td>
+                                            <td class="fw-bold text-success">{{ troca.valor_total|currency_br }}</td>
+                                            <td>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    {{ troca.km_troca|floatformat:0 }}
+                                                    {% if troca.proximo_km_troca %}
+                                                        <div>
+                                                            <small class="text-muted">Próx: {{ troca.proximo_km_troca|floatformat:0 }}</small>
+                                                            {% if troca.pk in trocas_proximas %}
+                                                                <span class="badge bg-danger ms-1" title="Troca de óleo próxima!">
+                                                                    <i class="fas fa-exclamation-triangle"></i> Atenção!
+                                                                </span>
+                                                            {% endif %}
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                            <td>{{ troca.fornecedor_oficina|default:"-" }}</td>
+                                            <td>
+                                                {% if troca.trocou_filtro_oleo or troca.trocou_filtro_combustivel or troca.trocou_filtro_ar or troca.adicionou_aditivo_arrefecimento %}
+                                                    <div>
+                                                        {% if troca.trocou_filtro_oleo %}
+                                                            <span class="badge bg-info me-1" title="Filtro de Óleo"><i class="fas fa-filter"></i> Óleo</span>
+                                                        {% endif %}
+                                                        {% if troca.trocou_filtro_combustivel %}
+                                                            <span class="badge bg-warning me-1" title="Filtro de Combustível"><i class="fas fa-gas-pump"></i> Comb.</span>
+                                                        {% endif %}
+                                                        {% if troca.trocou_filtro_ar %}
+                                                            <span class="badge bg-primary me-1" title="Filtro de Ar"><i class="fas fa-snowflake"></i> Ar</span>
+                                                        {% endif %}
+                                                        {% if troca.adicionou_aditivo_arrefecimento %}
+                                                            <span class="badge bg-danger me-1" title="Aditivo de Arrefecimento"><i class="fas fa-thermometer-half"></i> Adit.</span>
+                                                        {% endif %}
+                                                    </div>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if troca.responsavel %}
+                                                    {{ troca.responsavel.get_posto_graduacao_display }} {{ troca.responsavel.nome_completo }}
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    {% if 'VIATURAS_VISUALIZAR' in menu_permissions or user.is_superuser %}
+                                                    <a href="{% url 'militares:troca_oleo_detail' troca.pk %}" 
+                                                       class="btn btn-sm btn-outline-info" title="Ver detalhes">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                    {% endif %}
+                                                    {% if 'VIATURAS_VISUALIZAR' in menu_permissions or user.is_superuser %}
+                                                    <a href="{% url 'militares:troca_oleo_pdf' troca.pk %}" 
+                                                       class="btn btn-sm btn-outline-danger" title="Gerar PDF da Nota" target="_blank">
+                                                        <i class="fas fa-file-pdf"></i>
+                                                    </a>
+                                                    {% endif %}
+                                                    {% if 'VIATURAS_EDITAR' in menu_permissions or user.is_superuser %}
+                                                    <a href="{% url 'militares:troca_oleo_update' troca.pk %}" 
+                                                       class="btn btn-sm btn-outline-primary" title="Editar">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                    {% endif %}
+                                                    {% if 'VIATURAS_EXCLUIR' in menu_permissions or user.is_superuser %}
+                                                    <a href="{% url 'militares:troca_oleo_delete' troca.pk %}" 
+                                                       class="btn btn-sm btn-outline-danger" title="Excluir"
+                                                       onclick="return confirm('Tem certeza que deseja excluir esta troca de óleo?');">
+                                                        <i class="fas fa-trash"></i>
+                                                    </a>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if is_paginated %}
+                            <nav aria-label="Paginação">
+                                <ul class="pagination justify-content-center">
+                                    {% if page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}{% if viatura_id %}&viatura={{ viatura_id }}{% endif %}{% if tipo_oleo %}&tipo_oleo={{ tipo_oleo }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">Primeira</a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if viatura_id %}&viatura={{ viatura_id }}{% endif %}{% if tipo_oleo %}&tipo_oleo={{ tipo_oleo }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">Anterior</a>
+                                        </li>
+                                    {% endif %}
+                                    
+                                    <li class="page-item active">
+                                        <span class="page-link">
+                                            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                                        </span>
+                                    </li>
+                                    
+                                    {% if page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if viatura_id %}&viatura={{ viatura_id }}{% endif %}{% if tipo_oleo %}&tipo_oleo={{ tipo_oleo }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">Próxima</a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if viatura_id %}&viatura={{ viatura_id }}{% endif %}{% if tipo_oleo %}&tipo_oleo={{ tipo_oleo }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">Última</a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>Nenhuma troca de óleo encontrada.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

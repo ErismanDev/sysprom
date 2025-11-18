@@ -1,0 +1,395 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Detalhes do Log - SysProm{% endblock %}
+
+{% block extra_css %}
+<style>
+    .log-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .log-level-badge {
+        font-size: 0.875rem;
+        padding: 0.5rem 1rem;
+    }
+    
+    .detail-card {
+        border-left: 4px solid #dee2e6;
+        transition: all 0.3s ease;
+    }
+    
+    .detail-card.info { border-left-color: #17a2b8; }
+    .detail-card.warning { border-left-color: #ffc107; }
+    .detail-card.error { border-left-color: #dc3545; }
+    .detail-card.critical { border-left-color: #721c24; }
+    .detail-card.debug { border-left-color: #6c757d; }
+    
+    .json-display {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 15px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.875rem;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    
+    .traceback-display {
+        background: #f8f9fa;
+        border: 1px solid #dc3545;
+        border-radius: 4px;
+        padding: 15px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.875rem;
+        color: #721c24;
+        max-height: 400px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+    }
+    
+    .status-badge {
+        font-size: 0.875rem;
+        padding: 0.5rem 1rem;
+    }
+    
+    .action-buttons {
+        position: sticky;
+        top: 20px;
+        z-index: 100;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Cabeçalho do Log -->
+    <div class="log-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="h3 mb-2">
+                    <i class="fas fa-clipboard-list"></i>
+                    Detalhes do Log #{{ log.pk }}
+                </h1>
+                <p class="mb-0">{{ log.descricao }}</p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <span class="badge log-level-badge bg-{{ log.get_nivel_color }}">
+                    <i class="{{ log.get_nivel_icon }}"></i>
+                    {{ log.get_nivel_display }}
+                </span>
+                <div class="mt-2">
+                    <small class="text-white-50">
+                        {{ log.timestamp|date:"d/m/Y H:i:s" }}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botões de Ação -->
+    <div class="action-buttons mb-4">
+        <div class="btn-group">
+            <a href="{% url 'militares:logs_sistema_list' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Voltar à Lista
+            </a>
+            {% if not log.processado %}
+                <a href="{% url 'militares:logs_sistema_marcar_processado' log.pk %}" 
+                   class="btn btn-success"
+                   onclick="return confirm('Marcar este log como processado?')">
+                    <i class="fas fa-check"></i> Marcar como Processado
+                </a>
+            {% endif %}
+            {% if not log.notificado %}
+                <a href="{% url 'militares:logs_sistema_marcar_notificado' log.pk %}" 
+                   class="btn btn-info"
+                   onclick="return confirm('Marcar este log como notificado?')">
+                    <i class="fas fa-bell"></i> Marcar como Notificado
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Informações Principais -->
+        <div class="col-lg-8">
+            <!-- Informações Básicas -->
+            <div class="card detail-card {{ log.nivel|lower }} mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle"></i> Informações Básicas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-4">Módulo:</dt>
+                                <dd class="col-sm-8">
+                                    <span class="badge bg-secondary">{{ log.get_modulo_display }}</span>
+                                </dd>
+                                
+                                <dt class="col-sm-4">Ação:</dt>
+                                <dd class="col-sm-8">{{ log.get_acao_display }}</dd>
+                                
+                                <dt class="col-sm-4">Usuário:</dt>
+                                <dd class="col-sm-8">
+                                    {% if log.usuario %}
+                                        <span class="text-primary">{{ log.usuario.get_full_name|default:log.usuario.username }}</span>
+                                        <br><small class="text-muted">{{ log.usuario.email }}</small>
+                                    {% else %}
+                                        <span class="text-muted">Sistema</span>
+                                    {% endif %}
+                                </dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-4">Status:</dt>
+                                <dd class="col-sm-8">
+                                    {% if log.processado %}
+                                        <span class="badge status-badge bg-success">
+                                            <i class="fas fa-check"></i> Processado
+                                        </span>
+                                    {% else %}
+                                        <span class="badge status-badge bg-warning">
+                                            <i class="fas fa-clock"></i> Pendente
+                                        </span>
+                                    {% endif %}
+                                    
+                                    {% if log.notificado %}
+                                        <br><span class="badge status-badge bg-info mt-1">
+                                            <i class="fas fa-bell"></i> Notificado
+                                        </span>
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-4">Tempo Execução:</dt>
+                                <dd class="col-sm-8">
+                                    {% if log.tempo_execucao %}
+                                        {{ log.tempo_execucao }}s
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-4">Método HTTP:</dt>
+                                <dd class="col-sm-8">
+                                    {% if log.metodo_http %}
+                                        <span class="badge bg-primary">{{ log.metodo_http }}</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Descrição Completa -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-align-left"></i> Descrição Completa
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">{{ log.descricao }}</p>
+                </div>
+            </div>
+
+            <!-- Objeto Afetado -->
+            {% if log.modelo_afetado or log.objeto_id or log.objeto_str %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-database"></i> Objeto Afetado
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        {% if log.modelo_afetado %}
+                        <dt class="col-sm-3">Modelo:</dt>
+                        <dd class="col-sm-9">
+                            <code>{{ log.modelo_afetado }}</code>
+                        </dd>
+                        {% endif %}
+                        
+                        {% if log.objeto_id %}
+                        <dt class="col-sm-3">ID do Objeto:</dt>
+                        <dd class="col-sm-9">
+                            <code>{{ log.objeto_id }}</code>
+                        </dd>
+                        {% endif %}
+                        
+                        {% if log.objeto_str %}
+                        <dt class="col-sm-3">Representação:</dt>
+                        <dd class="col-sm-9">{{ log.objeto_str }}</dd>
+                        {% endif %}
+                    </dl>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Detalhes Adicionais -->
+            {% if log.detalhes %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-code"></i> Detalhes Adicionais
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="json-display">
+                        {{ log.get_detalhes_formatados|safe }}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Erro e Traceback -->
+            {% if log.erro or log.traceback %}
+            <div class="card border-danger mb-4">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle"></i> Erro e Traceback
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if log.erro %}
+                    <h6>Erro:</h6>
+                    <div class="alert alert-danger">
+                        {{ log.erro }}
+                    </div>
+                    {% endif %}
+                    
+                    {% if log.traceback %}
+                    <h6>Traceback:</h6>
+                    <div class="traceback-display">
+                        {{ log.traceback }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar com Informações Técnicas -->
+        <div class="col-lg-4">
+            <!-- Informações da Requisição -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-globe"></i> Informações da Requisição
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-4">IP:</dt>
+                        <dd class="col-sm-8">
+                            {% if log.ip_address %}
+                                <code>{{ log.ip_address }}</code>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </dd>
+                        
+                        <dt class="col-sm-4">URL:</dt>
+                        <dd class="col-sm-8">
+                            {% if log.url %}
+                                <a href="{{ log.url }}" target="_blank" class="text-break">
+                                    {{ log.url|truncatechars:50 }}
+                                </a>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </dd>
+                    </dl>
+                    
+                    {% if log.user_agent %}
+                    <h6>User Agent:</h6>
+                    <small class="text-muted">
+                        <code>{{ log.user_agent|truncatechars:100 }}</code>
+                    </small>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Observações -->
+            {% if log.observacoes %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-sticky-note"></i> Observações
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">{{ log.observacoes }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Logs Relacionados -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-link"></i> Logs Relacionados
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small">
+                        Logs do mesmo usuário nas últimas 24h:
+                    </p>
+                    {% for related_log in logs_relacionados %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <small class="text-muted">{{ related_log.timestamp|date:"H:i" }}</small>
+                            <br>
+                            <small>{{ related_log.get_descricao_resumida }}</small>
+                        </div>
+                        <a href="{% url 'militares:logs_sistema_detail' related_log.pk %}" 
+                           class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted small">Nenhum log relacionado encontrado.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Syntax highlighting for JSON
+    document.addEventListener('DOMContentLoaded', function() {
+        const jsonElements = document.querySelectorAll('.json-display');
+        jsonElements.forEach(function(element) {
+            try {
+                const json = JSON.parse(element.textContent);
+                element.innerHTML = JSON.stringify(json, null, 2);
+            } catch (e) {
+                // If not valid JSON, keep as is
+            }
+        });
+    });
+    
+    // Confirm before marking as processed/notified
+    document.querySelectorAll('a[href*="marcar-processado"], a[href*="marcar-notificado"]').forEach(function(link) {
+        link.addEventListener('click', function(e) {
+            if (!confirm('Tem certeza que deseja marcar este log?')) {
+                e.preventDefault();
+            }
+        });
+    });
+</script>
+{% endblock %} 

@@ -91,7 +91,7 @@ def calcular_proxima_numeracao_antiguidade(posto_graduacao, militar_excluir=None
     # Buscar militares do mesmo posto
     militares_mesmo_posto = Militar.objects.filter(
         posto_graduacao=posto_graduacao,
-        situacao='AT'
+        classificacao='ATIVO'
     )
     
     # Excluir militar específico se fornecido
@@ -279,16 +279,16 @@ def obter_funcao_atual_usuario(usuario, request=None):
                 return f"Membro da {tipo_comissao}"
     
     # Se não tem militar ou não é membro de comissão, verificar funções diretas do usuário
-    from .models import UsuarioFuncao
-    funcoes_ativas = UsuarioFuncao.objects.filter(
+    from .models import UsuarioFuncaoMilitar
+    funcoes_ativas = UsuarioFuncaoMilitar.objects.filter(
         usuario=usuario,
-        status='ATIVO'
-    ).select_related('cargo_funcao')
+        ativo=True
+    ).select_related('funcao_militar')
     
     if funcoes_ativas.exists():
         # Pegar a primeira função ativa
         funcao = funcoes_ativas.first()
-        return funcao.cargo_funcao.nome
+        return funcao.funcao_militar.nome
     
     # Se não tem função específica, retornar função genérica
     return "Usuário do Sistema" 
@@ -313,16 +313,16 @@ def debug_funcoes_usuario(usuario):
         for membro in membros_ativos:
             print(f"- Tipo: {membro.tipo}, Comissão: {membro.comissao.get_tipo_display()}")
     
-    from .models import UsuarioFuncao
-    funcoes_ativas = UsuarioFuncao.objects.filter(
+    from .models import UsuarioFuncaoMilitar
+    funcoes_ativas = UsuarioFuncaoMilitar.objects.filter(
         usuario=usuario,
-        status='ATIVO'
-    ).select_related('cargo_funcao')
+        ativo=True
+    ).select_related('funcao_militar')
     
     print(f"Total de funções ativas: {funcoes_ativas.count()}")
     
     for funcao in funcoes_ativas:
-        print(f"- Função: {funcao.cargo_funcao.nome}")
+        print(f"- Função: {funcao.funcao_militar.nome}")
     
     print("=== FIM DEBUG ===") 
 
@@ -447,6 +447,24 @@ def gerar_autenticador_veracidade(objeto, request=None, url_personalizada=None, 
                 url_autenticacao = f"{protocol}://{current_site.domain}{reverse('militares:verificar_autenticidade')}"
             else:
                 url_autenticacao = f"http://127.0.0.1:8000{reverse('militares:verificar_autenticidade')}"
+        elif tipo_documento == 'proposta':
+            from django.urls import reverse
+            from django.contrib.sites.shortcuts import get_current_site
+            if request:
+                current_site = get_current_site(request)
+                protocol = 'https' if request.is_secure() else 'http'
+                url_autenticacao = f"{protocol}://{current_site.domain}{reverse('militares:verificar_autenticidade')}"
+            else:
+                url_autenticacao = f"http://127.0.0.1:8000{reverse('militares:verificar_autenticidade')}"
+        elif tipo_documento == 'historico_abastecimento':
+            from django.urls import reverse
+            from django.contrib.sites.shortcuts import get_current_site
+            if request:
+                current_site = get_current_site(request)
+                protocol = 'https' if request.is_secure() else 'http'
+                url_autenticacao = f"{protocol}://{current_site.domain}{reverse('militares:verificar_autenticidade')}"
+            else:
+                url_autenticacao = f"http://127.0.0.1:8000{reverse('militares:verificar_autenticidade')}"
         else:
             from django.urls import reverse
             from django.contrib.sites.shortcuts import get_current_site
@@ -494,7 +512,7 @@ def gerar_autenticador_veracidade(objeto, request=None, url_personalizada=None, 
         'codigo_crc': codigo_crc
     }
 
-def adicionar_autenticador_pdf(story, objeto, request=None, url_personalizada=None):
+def adicionar_autenticador_pdf(story, objeto, request=None, url_personalizada=None, tipo_documento=None):
     """
     Adiciona o autenticador de veracidade ao PDF
     
@@ -503,17 +521,19 @@ def adicionar_autenticador_pdf(story, objeto, request=None, url_personalizada=No
         objeto: O objeto do documento
         request: Objeto request do Django (opcional)
         url_personalizada: URL personalizada para autenticação (opcional)
+        tipo_documento: Tipo do documento para personalizar a URL (opcional)
     """
     from reportlab.platypus import Spacer, HRFlowable, Paragraph, Table, TableStyle
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib import colors
+    from reportlab.lib.units import cm
     
     # Gerar dados do autenticador
-    autenticador = gerar_autenticador_veracidade(objeto, request, url_personalizada)
+    autenticador = gerar_autenticador_veracidade(objeto, request, url_personalizada, tipo_documento)
     
-    # Adicionar separador
-    story.append(Spacer(1, 13))
-    story.append(HRFlowable(width="100%", thickness=1, spaceAfter=10, spaceBefore=10, color=colors.grey))
+    # Adicionar separador mínimo
+    story.append(Spacer(1, 1))
+    story.append(HRFlowable(width="100%", thickness=1, spaceAfter=1, spaceBefore=1, color=colors.grey))
     
     # Criar estilo para texto pequeno
     style_small = ParagraphStyle('small', fontSize=9)
@@ -534,4 +554,150 @@ def adicionar_autenticador_pdf(story, objeto, request=None, url_personalizada=No
         ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
     ]))
     
-    story.append(rodape_table) 
+    story.append(rodape_table)
+    
+    # Sem espaçamento final - autenticador colado no fim da folha 
+
+def criar_rodape_sistema_pdf(request):
+    """
+    Cria funções de callback para adicionar rodapé com dados do sistema em todas as páginas do PDF.
+    
+    Retorna uma tupla (add_rodape_first, add_rodape_later) que pode ser usada em:
+    doc.build(story, onFirstPage=add_rodape_first, onLaterPages=add_rodape_later)
+    
+    Args:
+        request: Objeto request do Django para obter informações do usuário
+        
+    Returns:
+        tuple: (função para primeira página, função para páginas seguintes)
+    """
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.units import cm
+    import pytz
+    
+    # Preparar informações para o rodapé
+    brasilia_tz = pytz.timezone('America/Sao_Paulo')
+    data_geracao_pdf = timezone.now().astimezone(brasilia_tz).strftime('%d/%m/%Y às %H:%M:%S')
+    usuario_geracao = request.user.get_full_name() or request.user.username
+    if hasattr(request.user, 'militar') and request.user.militar:
+        usuario_geracao = f"{request.user.militar.get_posto_graduacao_display()} {request.user.militar.nome_completo}"
+    
+    def add_rodape_sistema(canvas, doc):
+        """Adiciona rodapé com dados do sistema em todas as páginas"""
+        canvas.saveState()
+        
+        # Configurar fonte
+        try:
+            canvas.setFont("Arial", 7)
+        except:
+            canvas.setFont("Helvetica", 7)
+        
+        # Posição do rodapé (inferior)
+        page_num = canvas.getPageNumber()
+        y_pos = 0.8*cm
+        
+        # Linha separadora
+        canvas.setStrokeColor(colors.grey)
+        canvas.setLineWidth(0.5)
+        canvas.line(1.5*cm, 1.2*cm, A4[0] - 1.5*cm, 1.2*cm)
+        
+        # Informações do sistema
+        canvas.setFillColor(colors.black)
+        
+        # Data de geração
+        texto_data = f"Gerado em: {data_geracao_pdf}"
+        canvas.drawString(1.5*cm, y_pos, texto_data)
+        
+        # Usuário que gerou
+        texto_usuario = f"Por: {usuario_geracao}"
+        canvas.drawString(1.5*cm, y_pos - 0.3*cm, texto_usuario)
+        
+        # Número da página (centro)
+        texto_pagina = f"Página {page_num}"
+        try:
+            text_width = canvas.stringWidth(texto_pagina, "Arial", 7)
+        except:
+            text_width = canvas.stringWidth(texto_pagina, "Helvetica", 7)
+        x_pos_pagina = (A4[0] - text_width) / 2
+        canvas.drawString(x_pos_pagina, y_pos, texto_pagina)
+        
+        # Sistema (direita)
+        texto_sistema = "SYSGABOM-CBMEPI"
+        try:
+            text_width = canvas.stringWidth(texto_sistema, "Arial", 7)
+        except:
+            text_width = canvas.stringWidth(texto_sistema, "Helvetica", 7)
+        x_pos_sistema = A4[0] - 1.5*cm - text_width
+        canvas.drawString(x_pos_sistema, y_pos, texto_sistema)
+        
+        canvas.restoreState()
+    
+    def add_rodape_first(canvas, doc):
+        add_rodape_sistema(canvas, doc)
+    
+    def add_rodape_later(canvas, doc):
+        add_rodape_sistema(canvas, doc)
+    
+    return (add_rodape_first, add_rodape_later)
+
+
+def obter_caminho_assinatura_eletronica():
+    """
+    Retorna o caminho para a imagem de assinatura eletrônica.
+    Usa assinasyspro.png para assinaturas eletrônicas e logo_cbmepi.png para cabeçalhos.
+    """
+    import os
+    from django.conf import settings
+    
+    # Primeiro tenta encontrar assinasyspro.png
+    logo_path = os.path.join(settings.STATIC_ROOT, 'assinasyspro.png')
+    if not os.path.exists(logo_path):
+        logo_path = os.path.join(settings.STATICFILES_DIRS[0], 'assinasyspro.png') if settings.STATICFILES_DIRS else os.path.join(settings.BASE_DIR, 'static', 'assinasyspro.png')
+    
+    # Se não encontrar assinasyspro.png, usa logo_cbmepi.png como fallback
+    if not os.path.exists(logo_path):
+        logo_path = os.path.join(settings.STATIC_ROOT, 'logo_cbmepi.png')
+        if not os.path.exists(logo_path):
+            logo_path = os.path.join(settings.STATICFILES_DIRS[0], 'logo_cbmepi.png') if settings.STATICFILES_DIRS else os.path.join(settings.BASE_DIR, 'static', 'logo_cbmepi.png')
+    
+    return logo_path
+
+
+def get_user_permissions(request):
+    """
+    Obtém as permissões do usuário para o módulo de Notas
+    """
+    if not request.user.is_authenticated:
+        return {}
+    
+    try:
+        from .models import UsuarioFuncaoMilitar
+        
+        # Obter função ativa do usuário
+        usuario_funcao = UsuarioFuncaoMilitar.objects.filter(
+            usuario=request.user,
+            ativo=True
+        ).first()
+        
+        if not usuario_funcao:
+            return {}
+        
+        funcao = usuario_funcao.funcao_militar
+        
+        # Obter permissões da função
+        permissoes = funcao.get_menu_permissions()
+        
+        return {}
+        
+    except Exception as e:
+        print(f"Erro ao obter permissões do usuário: {e}")
+        return {}
+
+
+def check_permission(request, permission_name):
+    """
+    Verifica se o usuário tem uma permissão específica
+    """
+    permissoes = get_user_permissions(request)
+    return permissoes.get(permission_name, False) 

@@ -1,16 +1,116 @@
 from django.contrib import admin
+from .models import (
+    Medalha, ConcessaoMedalha, PropostaMedalha, AssinaturaConcessaoMedalha, AssinaturaPropostaMedalha,
+    Qualificacao, FuncaoMilitar, Publicacao, Militar, FichaConceitoOficiais, FichaConceitoPracas, 
+    QuadroAcesso, ItemQuadroAcesso, Promocao, Vaga, Curso, MedalhaCondecoracao, Documento, 
+    Intersticio, PrevisaoVaga, ComissaoPromocao, MembroComissao, SessaoComissao, PresencaSessao, 
+    DeliberacaoComissao, VotoDeliberacao, DocumentoSessao, JustificativaEncerramento, AtaSessao, 
+    AssinaturaAta, ModeloAta, NotificacaoSessao, MensagemInstantanea, Chat, MensagemChat, Chamada, CargoComissao, UsuarioFuncaoMilitar,
+    CalendarioPromocao, ItemCalendarioPromocao, AssinaturaCalendarioPromocao, AlmanaqueMilitar, 
+    AssinaturaAlmanaque, LogSistema,     PlanoFerias, Ferias, DocumentoFerias, PlanoLicencaEspecial, LicencaEspecial, Viatura, AbastecimentoViatura, ManutencaoViatura,
+    TrocaOleoViatura, HistoricoAbastecimentoAssinado, AssinaturaHistoricoAbastecimento, Arma, ArmaParticular, MovimentacaoArma, ConfiguracaoArma, HistoricoAlteracaoArma, AssinaturaMovimentacaoArma, TransferenciaArma, CautelaArma,
+    BemMovel, TombamentoBemMovel, HistoricoTombamento, ProdutoAlmoxarifado, EntradaAlmoxarifado, SaidaAlmoxarifado, HistoricoAlmoxarifado, ProcessoAdministrativo
+)
+
+
+
 from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django.http import HttpResponseRedirect
 from django.contrib import messages
 from django.utils import timezone
-from .models import (
-    Militar, FichaConceitoOficiais, FichaConceitoPracas, QuadroAcesso, ItemQuadroAcesso,
-    Promocao, Vaga, Curso, MedalhaCondecoracao, Documento, Intersticio, PrevisaoVaga,
-    ComissaoPromocao, MembroComissao, SessaoComissao, PresencaSessao, DeliberacaoComissao, VotoDeliberacao, DocumentoSessao, JustificativaEncerramento, AtaSessao, AssinaturaAta, ModeloAta, NotificacaoSessao, CargoComissao, UsuarioFuncao, CargoFuncao, PermissaoFuncao, PerfilAcesso,
-    CalendarioPromocao, ItemCalendarioPromocao, AssinaturaCalendarioPromocao, AlmanaqueMilitar, AssinaturaAlmanaque
-)
+
+
+@admin.register(Medalha)
+class MedalhaAdmin(admin.ModelAdmin):
+    list_display = ("codigo", "nome", "tipo", "grau_tempo_servico", "ativo")
+    list_filter = ("tipo", "grau_tempo_servico", "ativo")
+    search_fields = ("codigo", "nome")
+    ordering = ("nome",)
+
+
+@admin.register(ConcessaoMedalha)
+class ConcessaoMedalhaAdmin(admin.ModelAdmin):
+    list_display = ("medalha", "beneficiario", "data_concessao", "portaria_numero")
+    list_filter = ("medalha__tipo", "data_concessao")
+    search_fields = ("medalha__nome", "militar__nome_completo", "nome_externo", "documento_externo", "portaria_numero")
+    autocomplete_fields = ("medalha", "militar")
+
+    def beneficiario(self, obj):
+        if obj.militar:
+            return f"{obj.militar.get_posto_graduacao_display()} {obj.militar.nome_completo}"
+        return obj.nome_externo or "Externo"
+
+
+@admin.register(AssinaturaConcessaoMedalha)
+class AssinaturaConcessaoMedalhaAdmin(admin.ModelAdmin):
+    list_display = ("concessao", "assinado_por", "tipo_assinatura", "data_assinatura", "funcao_assinatura")
+    list_filter = ("tipo_assinatura", "data_assinatura")
+    search_fields = ("concessao__medalha__nome", "assinado_por__username", "assinado_por__first_name", "assinado_por__last_name")
+    readonly_fields = ("data_assinatura",)
+    autocomplete_fields = ("concessao", "assinado_por")
+    
+    fieldsets = (
+        ('Informações da Assinatura', {
+            'fields': ('concessao', 'assinado_por', 'tipo_assinatura', 'funcao_assinatura')
+        }),
+        ('Detalhes', {
+            'fields': ('observacoes', 'data_assinatura')
+        }),
+    )
+
+
+@admin.register(PropostaMedalha)
+class PropostaMedalhaAdmin(admin.ModelAdmin):
+    list_display = ("numero_proposta", "titulo", "status", "criado_por", "criado_em", "total_concessoes")
+    list_filter = ("status", "criado_em")
+    search_fields = ("numero_proposta", "titulo", "criado_por__username")
+    readonly_fields = ("numero_proposta", "criado_em", "atualizado_em")
+    filter_horizontal = ("concessoes",)
+    
+    fieldsets = (
+        ('Informações Básicas', {
+            'fields': ('numero_proposta', 'titulo', 'descricao', 'status')
+        }),
+        ('Concessões', {
+            'fields': ('concessoes',)
+        }),
+        ('Controle', {
+            'fields': ('criado_por', 'criado_em', 'atualizado_em')
+        }),
+        ('Aprovação', {
+            'fields': ('aprovado_por', 'aprovado_em', 'observacoes_aprovacao'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def total_concessoes(self, obj):
+        return obj.get_total_concessoes()
+    total_concessoes.short_description = "Total de Concessões"
+    
+    def save_model(self, request, obj, form, change):
+        if not change:  # Se for uma nova proposta
+            obj.criado_por = request.user
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(AssinaturaPropostaMedalha)
+class AssinaturaPropostaMedalhaAdmin(admin.ModelAdmin):
+    list_display = ("proposta", "assinado_por", "tipo_assinatura", "data_assinatura", "funcao_assinatura")
+    list_filter = ("tipo_assinatura", "data_assinatura")
+    search_fields = ("proposta__numero_proposta", "proposta__titulo", "assinado_por__username", "assinado_por__first_name", "assinado_por__last_name")
+    readonly_fields = ("data_assinatura",)
+    autocomplete_fields = ("proposta", "assinado_por")
+    
+    fieldsets = (
+        ('Informações da Assinatura', {
+            'fields': ('proposta', 'assinado_por', 'tipo_assinatura', 'funcao_assinatura')
+        }),
+        ('Detalhes', {
+            'fields': ('observacoes', 'data_assinatura')
+        }),
+    )
 
 
 @admin.register(Documento)
@@ -160,7 +260,7 @@ class DocumentoInline(admin.TabularInline):
 class FichaConceitoOficiaisAdmin(admin.ModelAdmin):
     list_display = [
         'militar', 'pontuacao_total',
-        'tempo_posto', 'cursos_especializacao', 'medalha_federal', 'elogio_individual',
+        'tempo_posto_extenso', 'cursos_especializacao', 'medalha_federal', 'elogio_individual',
         'punicao_repreensao', 'punicao_detencao', 'punicao_prisao', 'falta_aproveitamento',
         'data_registro'
     ]
@@ -168,7 +268,7 @@ class FichaConceitoOficiaisAdmin(admin.ModelAdmin):
         'militar__quadro', 'militar__posto_graduacao'
     ]
     search_fields = ['militar__nome_completo', 'militar__matricula']
-    readonly_fields = ['pontuacao_total', 'data_registro']
+    readonly_fields = ['pontuacao_total', 'data_registro', 'tempo_posto_extenso']
     fieldsets = (
         ('Identificação', {
             'fields': ('militar',)
@@ -180,7 +280,9 @@ class FichaConceitoOficiaisAdmin(admin.ModelAdmin):
         }),
         ('Pontos Positivos', {
             'fields': (
-                'tempo_posto', 'cursos_especializacao', 'cursos_csbm', 'cursos_cfsd', 'cursos_chc', 'cursos_chsgt',
+                ('tempo_posto_anos', 'tempo_posto_meses', 'tempo_posto_dias'),
+                'tempo_posto_extenso',
+                'cursos_especializacao', 'cursos_csbm', 'cursos_cfsd', 'cursos_chc', 'cursos_chsgt',
                 'cursos_cas', 'cursos_cho', 'cursos_cfo', 'cursos_cao', 'cursos_instrutor_csbm',
                 'cursos_civis_superior', 'cursos_civis_especializacao', 'cursos_civis_mestrado', 'cursos_civis_doutorado',
                 'medalha_federal', 'medalha_estadual', 'medalha_cbmepi',
@@ -205,8 +307,8 @@ class FichaConceitoOficiaisAdmin(admin.ModelAdmin):
 class FichaConceitoOficiaisInline(admin.TabularInline):
     model = FichaConceitoOficiais
     extra = 0
-    fields = ['pontuacao_total', 'tempo_posto', 'cursos_especializacao', 'cursos_csbm', 'medalha_federal', 'elogio_individual', 'punicao_repreensao', 'punicao_detencao', 'punicao_prisao', 'falta_aproveitamento']
-    readonly_fields = ['pontuacao_total']
+    fields = ['pontuacao_total', 'tempo_posto_extenso', 'cursos_especializacao', 'cursos_csbm', 'medalha_federal', 'elogio_individual', 'punicao_repreensao', 'punicao_detencao', 'punicao_prisao', 'falta_aproveitamento']
+    readonly_fields = ['pontuacao_total', 'tempo_posto_extenso']
 
     def pontuacao_total(self, obj):
         return obj.calcular_pontos()
@@ -217,7 +319,7 @@ class FichaConceitoOficiaisInline(admin.TabularInline):
 class FichaConceitoPracasAdmin(admin.ModelAdmin):
     list_display = [
         'militar', 'pontuacao_total',
-        'tempo_posto', 'cursos_especializacao', 'medalha_federal', 'elogio_individual',
+        'tempo_posto_extenso', 'cursos_especializacao', 'medalha_federal', 'elogio_individual',
         'punicao_repreensao', 'punicao_detencao', 'punicao_prisao', 'falta_aproveitamento',
         'data_registro'
     ]
@@ -225,7 +327,7 @@ class FichaConceitoPracasAdmin(admin.ModelAdmin):
         'militar__quadro', 'militar__posto_graduacao'
     ]
     search_fields = ['militar__nome_completo', 'militar__matricula']
-    readonly_fields = ['pontuacao_total', 'data_registro']
+    readonly_fields = ['pontuacao_total', 'data_registro', 'tempo_posto_extenso']
     fieldsets = (
         ('Identificação', {
             'fields': ('militar',)
@@ -237,7 +339,9 @@ class FichaConceitoPracasAdmin(admin.ModelAdmin):
         }),
         ('Pontos Positivos', {
             'fields': (
-                'tempo_posto', 'cursos_especializacao', 'cursos_cfsd', 'cursos_chc', 'cursos_chsgt',
+                ('tempo_posto_anos', 'tempo_posto_meses', 'tempo_posto_dias'),
+                'tempo_posto_extenso',
+                'cursos_especializacao', 'cursos_cfsd', 'cursos_chc', 'cursos_chsgt',
                 'cursos_cas', 'cursos_cho', 'cursos_civis_tecnico', 'cursos_civis_superior', 
                 'cursos_civis_especializacao', 'cursos_civis_mestrado', 'cursos_civis_doutorado',
                 'medalha_federal', 'medalha_estadual', 'medalha_cbmepi',
@@ -280,7 +384,7 @@ class MilitarAdmin(admin.ModelAdmin):
         'quadro', 'posto_graduacao', 'situacao', 'sexo',
         'data_ingresso', 'data_promocao_atual'
     ]
-    search_fields = ['matricula', 'nome_completo', 'nome_guerra', 'cpf']
+    search_fields = ['matricula', 'nome_completo', 'nome_guerra', 'cpf', 'rgbm', 'titulo_eleitor']
     readonly_fields = [
         'idade', 'tempo_servico', 'tempo_posto_atual', 'apto_promocao_antiguidade',
         'get_pontuacao_ficha_conceito', 'data_cadastro', 'data_atualizacao'
@@ -320,13 +424,39 @@ class MilitarAdmin(admin.ModelAdmin):
     fieldsets = (
         ('Informações Pessoais', {
             'fields': (
-                'numeracao_antiguidade', 'matricula', 'nome_completo', 'nome_guerra', 'cpf', 'rg', 'orgao_expedidor',
-                'data_nascimento', 'sexo'
+                'numeracao_antiguidade', 'matricula', 'nome_completo', 'nome_guerra', 'cpf', 'rg', 'rgbm', 'orgao_expedidor',
+                'data_nascimento', 'sexo', 'etnia', 'grupo_sanguineo', 'fator_rh'
+            )
+        }),
+        ('Dados Familiares', {
+            'fields': (
+                'nome_pai', 'nome_mae', 'nacionalidade', 'naturalidade', 'uf_naturalidade'
+            )
+        }),
+        ('Documentos', {
+            'fields': (
+                'titulo_eleitor', 'zona_eleitoral', 'secao_eleitoral', 'cnh_numero', 'cnh_categoria', 'cnh_validade'
+            )
+        }),
+        ('Dados Bancários', {
+            'fields': (
+                'banco_codigo', 'banco_nome', 'agencia', 'conta', 'pis_pasep'
+            )
+        }),
+        ('Dados Físicos', {
+            'fields': (
+                'altura', 'peso'
+            )
+        }),
+        ('Fardamento', {
+            'fields': (
+                'combat_shirt', 'camisa', 'calca', 'comprimento_calca', 
+                'gorro', 'coturno'
             )
         }),
         ('Informações Militares', {
             'fields': (
-                'quadro', 'posto_graduacao', 'data_ingresso', 'data_promocao_atual', 'situacao'
+                'quadro', 'posto_graduacao', 'data_ingresso', 'data_promocao_atual', 'situacao', 'classificacao', 'comportamento'
             )
         }),
         ('Informações de Contato', {
@@ -443,7 +573,7 @@ class MilitarAdmin(admin.ModelAdmin):
         for (posto, quadro), militares_grupo in grupos.items():
             # Buscar todos os militares ativos deste posto/quadro
             todos_militares = Militar.objects.filter(
-                situacao='AT',
+                classificacao='ATIVO',
                 posto_graduacao=posto,
                 quadro=quadro
             ).order_by('data_promocao_atual')
@@ -467,7 +597,7 @@ class MilitarAdmin(admin.ModelAdmin):
         total = 0
         for posto, quadro in grupos:
             militares = Militar.objects.filter(
-                situacao='AT',
+                classificacao='ATIVO',
                 posto_graduacao=posto,
                 quadro=quadro
             ).order_by('numeracao_antiguidade', 'pk')
@@ -514,9 +644,9 @@ class ItemQuadroAcessoAdmin(admin.ModelAdmin):
 class PromocaoAdmin(admin.ModelAdmin):
     list_display = [
         'militar', 'posto_anterior', 'posto_novo', 'criterio', 
-        'data_promocao', 'data_publicacao', 'numero_ato'
+        'data_promocao', 'data_publicacao', 'numero_ato', 'is_historica'
     ]
-    list_filter = ['criterio', 'data_promocao', 'data_publicacao', 'militar__quadro']
+    list_filter = ['criterio', 'data_promocao', 'data_publicacao', 'militar__quadro', 'is_historica']
     search_fields = ['militar__nome_completo', 'militar__matricula', 'numero_ato']
     readonly_fields = ['data_registro']
 
@@ -981,153 +1111,191 @@ class NotificacaoSessaoAdmin(admin.ModelAdmin):
     limpar_notificacoes_antigas.short_description = "Limpar notificações antigas"
 
 
-@admin.register(UsuarioFuncao)
+@admin.register(MensagemInstantanea)
+class MensagemInstantaneaAdmin(admin.ModelAdmin):
+    list_display = ['titulo', 'remetente', 'tipo', 'prioridade', 'ativa', 'lida', 'data_criacao']
+    list_filter = ['tipo', 'prioridade', 'lida', 'ativa', 'data_criacao']
+    search_fields = ['titulo', 'mensagem', 'remetente__username', 'destinatario__username']
+    readonly_fields = ['data_criacao', 'data_leitura']
+    date_hierarchy = 'data_criacao'
+    actions = ['marcar_como_lidas', 'desativar_mensagens', 'ativar_mensagens']
+    
+    fieldsets = (
+        ('Informações Básicas', {
+            'fields': ('remetente', 'tipo', 'titulo', 'mensagem', 'prioridade')
+        }),
+        ('Destinatários', {
+            'fields': ('destinatario', 'destinatarios_ids'),
+            'description': 'Para mensagens específicas, selecione um destinatário. Para grupos, use o campo destinatarios_ids.'
+        }),
+        ('Status e Validade', {
+            'fields': ('ativa', 'lida', 'data_criacao', 'data_leitura', 'expira_em')
+        }),
+    )
+    
+    def marcar_como_lidas(self, request, queryset):
+        from django.utils import timezone
+        count = queryset.filter(lida=False).count()
+        queryset.filter(lida=False).update(lida=True, data_leitura=timezone.now())
+        self.message_user(request, f'{count} mensagem(ns) marcada(s) como lida(s).')
+    marcar_como_lidas.short_description = "Marcar como lidas"
+    
+    def desativar_mensagens(self, request, queryset):
+        count = queryset.filter(ativa=True).count()
+        queryset.filter(ativa=True).update(ativa=False)
+        self.message_user(request, f'{count} mensagem(ns) desativada(s).')
+    desativar_mensagens.short_description = "Desativar mensagens selecionadas"
+    
+    def ativar_mensagens(self, request, queryset):
+        count = queryset.filter(ativa=False).count()
+        queryset.filter(ativa=False).update(ativa=True)
+        self.message_user(request, f'{count} mensagem(ns) ativada(s).')
+    ativar_mensagens.short_description = "Ativar mensagens selecionadas"
+
+
+@admin.register(Chat)
+class ChatAdmin(admin.ModelAdmin):
+    list_display = ['id', 'participante1', 'participante2', 'ultima_atualizacao', 'ativo']
+    list_filter = ['ativo', 'ultima_atualizacao']
+    search_fields = ['participante1__username', 'participante2__username']
+    readonly_fields = ['data_criacao', 'ultima_atualizacao']
+    date_hierarchy = 'ultima_atualizacao'
+
+
+@admin.register(Chamada)
+class ChamadaAdmin(admin.ModelAdmin):
+    list_display = ('id', 'chat', 'iniciador', 'tipo', 'status', 'data_inicio', 'data_fim', 'duracao_segundos')
+    list_filter = ('tipo', 'status', 'data_inicio')
+    search_fields = ('chat__id', 'iniciador__username', 'iniciador__first_name', 'iniciador__last_name')
+    readonly_fields = ('data_inicio', 'data_fim', 'duracao_segundos')
+    date_hierarchy = 'data_inicio'
+    ordering = ('-data_inicio',)
+
+
+@admin.register(MensagemChat)
+class MensagemChatAdmin(admin.ModelAdmin):
+    list_display = ['id', 'chat', 'remetente', 'data_envio', 'lida']
+    list_filter = ['lida', 'data_envio']
+    search_fields = ['mensagem', 'remetente__username']
+    readonly_fields = ['data_envio', 'data_leitura']
+    date_hierarchy = 'data_envio'
+
+
+@admin.register(UsuarioFuncaoMilitar)
 class UsuarioFuncaoAdmin(admin.ModelAdmin):
     list_display = [
         'usuario',
-        'cargo_funcao_nome',
-        'tipo_funcao',
-        'status',
-        'data_inicio',
-        'data_fim',
-        'esta_ativo',
+        'funcao_militar',
+        'orgao',
+        'unidade',
+        'ativo',
+        'data_criacao',
     ]
     list_filter = [
-        'tipo_funcao',
-        'status',
-        'data_inicio',
-        'data_fim',
-        'cargo_funcao__nome',
+        'ativo',
+        'data_criacao',
+        'funcao_militar__nome',
+        'orgao__nome',
     ]
     search_fields = [
         'usuario__username',
         'usuario__first_name',
         'usuario__last_name',
-        'cargo_funcao__nome',
-        'descricao',
+        'funcao_militar__nome',
     ]
-    readonly_fields = ['data_registro', 'data_atualizacao']
-    date_hierarchy = 'data_inicio'
-    autocomplete_fields = ['usuario', 'cargo_funcao']
+    readonly_fields = ['data_criacao', 'data_atualizacao']
+    date_hierarchy = 'data_criacao'
+    autocomplete_fields = ['usuario', 'funcao_militar']
 
     fieldsets = (
         ('Informações Gerais', {
-            'fields': ('usuario', 'cargo_funcao', 'tipo_funcao', 'status', 'descricao')
+            'fields': ('usuario', 'funcao_militar', 'ativo')
         }),
-        ('Período', {
-            'fields': ('data_inicio', 'data_fim')
+        ('Lotação', {
+            'fields': ('orgao', 'grande_comando', 'unidade', 'sub_unidade')
         }),
         ('Controle', {
-            'fields': ('data_registro', 'data_atualizacao'),
+            'fields': ('data_criacao', 'data_atualizacao'),
             'classes': ('collapse',)
         }),
     )
 
-    def cargo_funcao_nome(self, obj):
-        return obj.cargo_funcao.nome if obj.cargo_funcao else '-'
-    cargo_funcao_nome.short_description = 'Cargo/Função'
-
-    def esta_ativo(self, obj):
-        return obj.status == 'ATIVO'
-    esta_ativo.boolean = True
-    esta_ativo.short_description = 'Ativo?'
 
 
-@admin.register(CargoFuncao)
-class CargoFuncaoAdmin(admin.ModelAdmin):
-    list_display = ['nome', 'descricao', 'ativo', 'ordem', 'data_criacao']
-    list_filter = ['ativo', 'data_criacao']
+@admin.register(FuncaoMilitar)
+class FuncaoMilitarAdmin(admin.ModelAdmin):
+    """Admin para Função Militar"""
+    list_display = [
+        'id', 'nome', 'acesso_sigilo_display', 'ordem', 'acesso_display', 
+        'nivel', 'grupo_display', 'publicacao_display', 'ativo', 'data_criacao'
+    ]
+    list_filter = [
+        'acesso_sigilo', 'acesso', 'nivel', 'grupo', 'publicacao', 'ativo', 'data_criacao'
+    ]
     search_fields = ['nome', 'descricao']
     ordering = ['ordem', 'nome']
+    list_editable = ['ordem', 'ativo']
     readonly_fields = ['data_criacao', 'data_atualizacao']
-    fieldsets = (
-        ('Informações do Cargo/Função', {
-            'fields': ('nome', 'descricao', 'ativo', 'ordem')
-        }),
-        ('Controle', {
-            'fields': ('data_criacao', 'data_atualizacao'),
-            'classes': ('collapse',)
-        }),
-    )
-
-
-@admin.register(PermissaoFuncao)
-class PermissaoFuncaoAdmin(admin.ModelAdmin):
-    list_display = [
-        'cargo_funcao',
-        'modulo',
-        'acesso',
-        'ativo',
-        'data_criacao',
-    ]
-    list_filter = [
-        'cargo_funcao',
-        'modulo',
-        'acesso',
-        'ativo',
-        'data_criacao',
-    ]
-    search_fields = [
-        'cargo_funcao__nome',
-        'modulo',
-        'acesso',
-        'observacoes',
-    ]
-    readonly_fields = ['data_criacao', 'data_atualizacao']
-    ordering = ['cargo_funcao__nome', 'modulo', 'acesso']
     
     fieldsets = (
-        ('Informações da Permissão', {
-            'fields': ('cargo_funcao', 'modulo', 'acesso', 'ativo')
+        ('Informações Básicas', {
+            'fields': ('nome', 'descricao', 'ordem', 'ativo')
         }),
-        ('Observações', {
-            'fields': ('observacoes',),
-            'classes': ('collapse',)
+        ('Configurações de Acesso', {
+            'fields': ('acesso_sigilo', 'acesso')
         }),
-        ('Controle', {
-            'fields': ('data_criacao', 'data_atualizacao'),
-            'classes': ('collapse',)
+        ('Configurações de Hierarquia', {
+            'fields': ('nivel', 'grupo', 'publicacao')
         }),
-    )
-
-
-@admin.register(PerfilAcesso)
-class PerfilAcessoAdmin(admin.ModelAdmin):
-    list_display = [
-        'nome',
-        'descricao',
-        'ativo',
-        'data_criacao',
-        'total_permissoes',
-    ]
-    list_filter = [
-        'ativo',
-        'data_criacao',
-    ]
-    search_fields = [
-        'nome',
-        'descricao',
-    ]
-    readonly_fields = ['data_criacao', 'data_atualizacao']
-    filter_horizontal = ['permissoes']
-    
-    fieldsets = (
-        ('Informações do Perfil', {
-            'fields': ('nome', 'descricao', 'ativo')
+        ('Menus Principais', {
+            'fields': (
+                'menu_dashboard', 'menu_efetivo', 'menu_inativos', 
+                'menu_usuarios', 'menu_permissoes'
+            ),
+            'classes': ('wide',)
         }),
-        ('Permissões', {
-            'fields': ('permissoes',),
-            'description': 'Selecione as permissões que este perfil deve ter'
+        ('Seção de Promoções', {
+            'fields': (
+                'menu_fichas_oficiais', 'menu_fichas_pracas', 'menu_quadros_acesso', 
+                'menu_quadros_fixacao', 'menu_almanaques', 'menu_promocoes', 
+                'menu_calendarios', 'menu_comissoes', 'menu_meus_votos', 
+                'menu_intersticios', 'menu_gerenciar_intersticios', 'menu_gerenciar_previsao'
+            ),
+            'classes': ('wide',)
         }),
-        ('Controle', {
+        ('Administração', {
+            'fields': (
+                'menu_administracao', 'menu_logs', 'menu_medalhas', 'menu_lotacoes'
+            ),
+            'classes': ('wide',)
+        }),
+        ('Configurações Especiais', {
+            'fields': ('menu_apenas_visualizacao',),
+            'classes': ('wide',)
+        }),
+        ('Informações do Sistema', {
             'fields': ('data_criacao', 'data_atualizacao'),
             'classes': ('collapse',)
         }),
     )
     
-    def total_permissoes(self, obj):
-        return obj.permissoes.count()
-    total_permissoes.short_description = 'Total de Permissões'
+    def acesso_sigilo_display(self, obj):
+        return obj.acesso_sigilo_display
+    acesso_sigilo_display.short_description = 'Acesso/Sigilo'
+    
+    def acesso_display(self, obj):
+        return obj.acesso_display
+    acesso_display.short_description = 'Acesso'
+    
+    def grupo_display(self, obj):
+        return obj.grupo_display
+    grupo_display.short_description = 'Grupo'
+    
+    def publicacao_display(self, obj):
+        return obj.publicacao_display
+    publicacao_display.short_description = 'Publicação'
+
+
 
 
 class ItemCalendarioPromocaoInline(admin.TabularInline):
@@ -1170,7 +1338,9 @@ class CalendarioPromocaoAdmin(admin.ModelAdmin):
             novo_calendario = CalendarioPromocao.objects.create(
                 ano=calendario.ano,
                 semestre=calendario.semestre,
+                tipo=calendario.tipo,
                 ativo=False,
+
                 observacoes=f"Cópia do calendário {calendario.periodo_completo}"
             )
             
@@ -1319,14 +1489,14 @@ class AlmanaqueMilitarAdmin(admin.ModelAdmin):
 @admin.register(AssinaturaAlmanaque)
 class AssinaturaAlmanaqueAdmin(admin.ModelAdmin):
     list_display = [
-        'almanaque', 'assinado_por', 'cargo_funcao', 'data_assinatura'
+        'almanaque', 'assinado_por', 'funcao_militar', 'data_assinatura'
     ]
     list_filter = [
         'data_assinatura', 'almanaque__tipo'
     ]
     search_fields = [
         'assinado_por__username', 'assinado_por__first_name', 'assinado_por__last_name',
-        'cargo_funcao', 'observacoes'
+        'funcao_militar', 'observacoes'
     ]
     readonly_fields = [
         'data_assinatura'
@@ -1335,7 +1505,7 @@ class AssinaturaAlmanaqueAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ('Informações da Assinatura', {
-            'fields': ('almanaque', 'assinado_por', 'cargo_funcao')
+            'fields': ('almanaque', 'assinado_por', 'funcao_militar')
         }),
         ('Detalhes', {
             'fields': ('observacoes',)
@@ -1347,4 +1517,817 @@ class AssinaturaAlmanaqueAdmin(admin.ModelAdmin):
     )
 
 
+@admin.register(LogSistema)
+class LogSistemaAdmin(admin.ModelAdmin):
+    list_display = [
+        'timestamp', 'nivel', 'modulo', 'acao', 'usuario', 'descricao_resumida', 'ip_address'
+    ]
+    list_filter = [
+        'nivel', 'modulo', 'acao', 'timestamp', 'processado', 'notificado'
+    ]
+    search_fields = [
+        'descricao', 'usuario__username', 'usuario__first_name', 'usuario__last_name',
+        'modelo_afetado', 'objeto_str', 'ip_address'
+    ]
+    readonly_fields = [
+        'timestamp', 'nivel', 'modulo', 'acao', 'usuario', 'descricao', 'detalhes',
+        'modelo_afetado', 'objeto_id', 'objeto_str', 'ip_address', 'user_agent', 'url',
+        'metodo_http', 'tempo_execucao', 'erro', 'traceback', 'processado', 'notificado'
+    ]
+    date_hierarchy = 'timestamp'
+    ordering = ['-timestamp']
+    list_per_page = 50
+    actions = ['marcar_como_processado', 'marcar_como_notificado', 'limpar_logs_antigos']
+    
+    fieldsets = (
+        ('Informações Básicas', {
+            'fields': ('timestamp', 'nivel', 'modulo', 'acao', 'usuario')
+        }),
+        ('Descrição', {
+            'fields': ('descricao', 'detalhes')
+        }),
+        ('Objeto Afetado', {
+            'fields': ('modelo_afetado', 'objeto_id', 'objeto_str'),
+            'classes': ('collapse',)
+        }),
+        ('Informações da Requisição', {
+            'fields': ('ip_address', 'user_agent', 'url', 'metodo_http'),
+            'classes': ('collapse',)
+        }),
+        ('Performance e Erros', {
+            'fields': ('tempo_execucao', 'erro', 'traceback'),
+            'classes': ('collapse',)
+        }),
+        ('Controle', {
+            'fields': ('processado', 'notificado', 'observacoes')
+        }),
+    )
+    
+    def descricao_resumida(self, obj):
+        return obj.get_descricao_resumida()
+    descricao_resumida.short_description = "Descrição"
+    
+    def marcar_como_processado(self, request, queryset):
+        count = queryset.count()
+        queryset.update(processado=True)
+        self.message_user(request, f'{count} log(s) marcado(s) como processado(s).')
+    marcar_como_processado.short_description = "Marcar como processado"
+    
+    def marcar_como_notificado(self, request, queryset):
+        count = queryset.count()
+        queryset.update(notificado=True)
+        self.message_user(request, f'{count} log(s) marcado(s) como notificado(s).')
+    marcar_como_notificado.short_description = "Marcar como notificado"
+    
+    def limpar_logs_antigos(self, request, queryset):
+        from datetime import timedelta
+        from django.utils import timezone
+        
+        # Por padrão, remover logs com mais de 30 dias
+        data_limite = timezone.now() - timedelta(days=30)
+        logs_removidos = LogSistema.objects.filter(timestamp__lt=data_limite).count()
+        LogSistema.objects.filter(timestamp__lt=data_limite).delete()
+        
+        self.message_user(request, f'{logs_removidos} log(s) antigo(s) removido(s).')
+    limpar_logs_antigos.short_description = "Limpar logs antigos (30+ dias)"
+    
+    def has_add_permission(self, request):
+        """Impede a criação manual de logs"""
+        return request.user.is_superuser
+    
+    def has_change_permission(self, request, obj=None):
+        """Permite apenas editar campos de controle para superusuários"""
+        return request.user.is_superuser
+    
+    def has_delete_permission(self, request, obj=None):
+        """Permite exclusão apenas para superusuários"""
+        return request.user.is_superuser
+    
+    class Media:
+        css = {
+            'all': ('admin/css/logs.css',)
+        }
+
+
+@admin.register(Qualificacao)
+class QualificacaoAdmin(admin.ModelAdmin):
+    list_display = ('militar', 'nome_curso', 'tipo', 'carga_horaria', 'instituicao', 'status_verificacao_display', 'data_conclusao')
+    list_filter = ('tipo', 'status_verificacao', 'data_conclusao', 'data_cadastro')
+    search_fields = ('militar__nome_completo', 'nome_curso', 'instituicao')
+    autocomplete_fields = ('militar',)
+    readonly_fields = ('data_cadastro', 'data_atualizacao')
+    
+    fieldsets = (
+        ('Informações Básicas', {
+            'fields': ('militar', 'tipo', 'nome_curso', 'carga_horaria', 'instituicao')
+        }),
+        ('Datas', {
+            'fields': ('data_inicio', 'data_conclusao')
+        }),
+        ('Verificação', {
+            'fields': ('status_verificacao', 'observacoes')
+        }),
+        ('Documento', {
+            'fields': ('arquivo_certificado',)
+        }),
+        ('Metadados', {
+            'fields': ('data_cadastro', 'data_atualizacao'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def status_verificacao_display(self, obj):
+        return obj.status_verificacao_display
+    status_verificacao_display.short_description = 'Status'
+
+
+@admin.register(Publicacao)
+class PublicacaoAdmin(admin.ModelAdmin):
+    list_display = [
+        'numero', 'titulo', 'tipo', 'status', 'data_criacao', 
+        'data_publicacao', 'criado_por', 'ativo'
+    ]
+    list_filter = [
+        'tipo', 'status', 'data_criacao', 'data_publicacao', 
+        'origem_publicacao', 'tipo_publicacao', 'ativo'
+    ]
+    search_fields = [
+        'numero', 'titulo', 'origem_publicacao', 'tipo_publicacao', 
+        'topicos', 'criado_por__username', 'criado_por__first_name', 
+        'criado_por__last_name'
+    ]
+    readonly_fields = [
+        'data_criacao', 'numero', 'criado_por', 'data_atualizacao'
+    ]
+    fieldsets = (
+        ('Informações Básicas', {
+            'fields': ('numero', 'titulo', 'tipo', 'status', 'ativo')
+        }),
+        ('Conteúdo', {
+            'fields': ('origem_publicacao', 'tipo_publicacao', 'topicos', 'conteudo')
+        }),
+        ('Organograma', {
+            'fields': ('orgao', 'grande_comando', 'unidade', 'sub_unidade'),
+            'classes': ('collapse',)
+        }),
+        ('Datas', {
+            'fields': ('data_criacao', 'data_publicacao', 'data_boletim', 'data_disponibilizacao', 'data_atualizacao'),
+            'classes': ('collapse',)
+        }),
+        ('Controle', {
+            'fields': ('criado_por', 'publicado_por', 'numero_boletim', 'editada_apos_devolucao'),
+            'classes': ('collapse',)
+        }),
+        ('Militares Indexados', {
+            'fields': ('militares_indexados',),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_readonly_fields(self, request, obj=None):
+        """Tornar campos readonly baseado no status e usuário"""
+        readonly_fields = list(self.readonly_fields)
+        
+        # Se a publicação está publicada, tornar mais campos readonly
+        if obj and obj.status == 'PUBLICADA':
+            readonly_fields.extend([
+                'titulo', 'origem_publicacao', 'tipo_publicacao', 'topicos', 
+                'conteudo', 'tipo', 'status'
+            ])
+        
+        return readonly_fields
+    
+    def has_change_permission(self, request, obj=None):
+        """Controlar permissões de edição baseado no status"""
+        if obj and obj.status == 'PUBLICADA':
+            # Apenas superusuários podem editar publicações publicadas
+            return request.user.is_superuser
+        return super().has_change_permission(request, obj)
+    
+    def save_model(self, request, obj, form, change):
+        """Personalizar salvamento"""
+        if not change:  # Nova publicação
+            obj.criado_por = request.user
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(PlanoFerias)
+class PlanoFeriasAdmin(admin.ModelAdmin):
+    list_display = ('titulo', 'ano_referencia', 'ano_plano', 'status', 'total_ferias', 'data_criacao')
+    list_filter = ('status', 'ano_referencia', 'ano_plano', 'data_criacao')
+    search_fields = ('titulo', 'descricao', 'ano_referencia', 'ano_plano')
+    readonly_fields = ('data_criacao', 'data_atualizacao', 'criado_por')
+    
+    fieldsets = (
+        ('Informações do Plano', {
+            'fields': ('titulo', 'ano_referencia', 'ano_plano', 'descricao', 'status')
+        }),
+        ('Informações Adicionais', {
+            'fields': ('documento_referencia', 'numero_documento')
+        }),
+        ('Controle', {
+            'fields': ('criado_por', 'data_criacao', 'data_atualizacao'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.criado_por = request.user
+        super().save_model(request, obj, form, change)
+    
+    def total_ferias(self, obj):
+        return obj.total_ferias
+    total_ferias.short_description = "Total de Férias"
+
+
+@admin.register(Ferias)
+class FeriasAdmin(admin.ModelAdmin):
+    list_display = ('militar', 'tipo', 'ano_referencia', 'data_inicio', 'data_fim', 'quantidade_dias', 'status')
+    list_filter = ('tipo', 'status', 'ano_referencia', 'data_inicio')
+    search_fields = ('militar__nome_completo', 'militar__nome_guerra', 'militar__matricula', 'ano_referencia')
+    date_hierarchy = 'data_inicio'
+    readonly_fields = ('data_cadastro', 'data_atualizacao', 'cadastrado_por')
+    
+    fieldsets = (
+        ('Informações do Militar', {
+            'fields': ('militar',)
+        }),
+        ('Dados das Férias', {
+            'fields': ('tipo', 'ano_referencia', 'data_inicio', 'data_fim', 'quantidade_dias', 'status')
+        }),
+        ('Informações Adicionais', {
+            'fields': ('observacoes', 'documento_referencia', 'numero_documento')
+        }),
+        ('Controle', {
+            'fields': ('cadastrado_por', 'data_cadastro', 'data_atualizacao'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.cadastrado_por = request.user
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(LicencaEspecial)
+class LicencaEspecialAdmin(admin.ModelAdmin):
+    list_display = ('militar', 'decenio', 'quantidade_meses', 'data_inicio', 'data_fim', 'status')
+    list_filter = ('status', 'decenio', 'data_inicio')
+    search_fields = ('militar__nome_completo', 'militar__nome_guerra', 'militar__matricula')
+    date_hierarchy = 'data_inicio'
+    readonly_fields = ('data_cadastro', 'data_atualizacao', 'cadastrado_por')
+    
+    fieldsets = (
+        ('Informações do Militar', {
+            'fields': ('plano', 'militar',)
+        }),
+        ('Dados da Licença Especial', {
+            'fields': ('decenio', 'quantidade_meses', 'data_inicio', 'data_fim', 'status')
+        }),
+        ('Informações Adicionais', {
+            'fields': ('observacoes', 'documento_referencia', 'numero_documento')
+        }),
+        ('Controle', {
+            'fields': ('cadastrado_por', 'data_cadastro', 'data_atualizacao'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.cadastrado_por = request.user
+        super().save_model(request, obj, form, change)
+
+
+class PlanoLicencaEspecialAdmin(admin.ModelAdmin):
+    list_display = ('titulo', 'ano_plano', 'status', 'total_licencas', 'data_criacao')
+    list_filter = ('status', 'ano_plano', 'data_criacao')
+    search_fields = ('titulo', 'descricao', 'ano_plano')
+    readonly_fields = ('data_criacao', 'data_atualizacao', 'criado_por')
+    
+    fieldsets = (
+        ('Informações do Plano', {
+            'fields': ('titulo', 'ano_plano', 'descricao', 'status')
+        }),
+        ('Informações Adicionais', {
+            'fields': ('documento_referencia', 'numero_documento')
+        }),
+        ('Controle', {
+            'fields': ('criado_por', 'data_criacao', 'data_atualizacao'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.criado_por = request.user
+        super().save_model(request, obj, form, change)
+    
+    def total_licencas(self, obj):
+        return obj.total_licencas
+    total_licencas.short_description = "Total de Licenças"
+
+
+@admin.register(PlanoLicencaEspecial)
+class PlanoLicencaEspecialAdminRegistered(PlanoLicencaEspecialAdmin):
+    pass
+
+
+@admin.register(DocumentoFerias)
+class DocumentoFeriasAdmin(admin.ModelAdmin):
+    list_display = ('ferias', 'tipo', 'titulo', 'upload_por', 'data_upload')
+    list_filter = ('tipo', 'data_upload')
+    search_fields = ('ferias__militar__nome_completo', 'titulo', 'descricao')
+    readonly_fields = ('data_upload',)
+    
+    fieldsets = (
+        ('Informações do Documento', {
+            'fields': ('ferias', 'tipo', 'titulo', 'descricao')
+        }),
+        ('Arquivo', {
+            'fields': ('arquivo',)
+        }),
+        ('Controle', {
+            'fields': ('upload_por', 'data_upload'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(Viatura)
+class ViaturaAdmin(admin.ModelAdmin):
+    list_display = ('prefixo', 'placa', 'tipo', 'marca', 'modelo', 'ano_fabricacao', 'status', 'ativo', 'get_organizacao_display')
+    list_filter = ('tipo', 'status', 'combustivel', 'ativo', 'orgao', 'grande_comando', 'unidade', 'sub_unidade')
+    search_fields = ('prefixo', 'placa', 'marca', 'modelo', 'chassi', 'renavam')
+    readonly_fields = ('data_criacao', 'data_atualizacao', 'criado_por')
+    
+    fieldsets = (
+        ('Identificação', {
+            'fields': ('prefixo', 'placa', 'tipo', 'marca', 'modelo', 'ano_fabricacao', 'ano_modelo')
+        }),
+        ('Documentação', {
+            'fields': ('chassi', 'renavam', 'cor')
+        }),
+        ('Status e Uso', {
+            'fields': ('status', 'km_atual', 'combustivel', 'capacidade_tanque')
+        }),
+        ('Organização', {
+            'fields': ('orgao', 'grande_comando', 'unidade', 'sub_unidade')
+        }),
+        ('Aquisição', {
+            'fields': ('data_aquisicao', 'valor_aquisicao', 'fornecedor'),
+            'classes': ('collapse',)
+        }),
+        ('Observações', {
+            'fields': ('observacoes',)
+        }),
+        ('Controle', {
+            'fields': ('ativo', 'criado_por', 'data_criacao', 'data_atualizacao'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_organizacao_display(self, obj):
+        return obj.get_organizacao_display()
+    get_organizacao_display.short_description = 'Organização'
+
+
+@admin.register(AbastecimentoViatura)
+class AbastecimentoViaturaAdmin(admin.ModelAdmin):
+    list_display = ('viatura', 'data_abastecimento', 'quantidade_litros', 'valor_litro', 'valor_total', 'km_abastecimento', 'tipo_combustivel', 'ativo')
+    list_filter = ('tipo_combustivel', 'ativo', 'data_abastecimento', 'viatura')
+    search_fields = ('viatura__placa', 'viatura__prefixo', 'posto_fornecedor', 'observacoes')
+    readonly_fields = ('data_criacao', 'data_atualizacao', 'criado_por')
+    date_hierarchy = 'data_abastecimento'
+    
+    fieldsets = (
+        ('Informações do Abastecimento', {
+            'fields': ('viatura', 'data_abastecimento', 'km_abastecimento', 'tipo_combustivel')
+        }),
+        ('Valores', {
+            'fields': ('quantidade_litros', 'valor_litro', 'valor_total')
+        }),
+        ('Detalhes', {
+            'fields': ('posto_fornecedor', 'responsavel', 'observacoes')
+        }),
+        ('Controle', {
+            'fields': ('ativo', 'criado_por', 'data_criacao', 'data_atualizacao'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(HistoricoAbastecimentoAssinado)
+class HistoricoAbastecimentoAssinadoAdmin(admin.ModelAdmin):
+    list_display = ('viatura', 'data_inicio', 'data_fim', 'total_valor', 'quantidade_abastecimentos', 'data_geracao', 'gerado_por')
+    list_filter = ('data_geracao', 'viatura')
+    search_fields = ('viatura__placa', 'viatura__prefixo')
+    readonly_fields = ('data_geracao', 'gerado_por')
+    date_hierarchy = 'data_geracao'
+
+
+@admin.register(AssinaturaHistoricoAbastecimento)
+class AssinaturaHistoricoAbastecimentoAdmin(admin.ModelAdmin):
+    list_display = ('historico', 'assinado_por', 'tipo_assinatura', 'data_assinatura', 'funcao_assinatura')
+    list_filter = ('tipo_assinatura', 'tipo_midia', 'data_assinatura')
+    search_fields = ('historico__viatura__placa', 'assinado_por__username', 'assinado_por__first_name', 'assinado_por__last_name')
+    readonly_fields = ('data_assinatura',)
+
+
+@admin.register(ManutencaoViatura)
+class ManutencaoViaturaAdmin(admin.ModelAdmin):
+    list_display = ('viatura', 'data_manutencao', 'tipo_manutencao', 'valor_manutencao', 'km_manutencao', 'fornecedor_oficina', 'ativo')
+    list_filter = ('tipo_manutencao', 'ativo', 'data_manutencao', 'viatura')
+    search_fields = ('viatura__placa', 'viatura__prefixo', 'fornecedor_oficina', 'descricao_servico', 'pecas_trocadas', 'observacoes')
+    readonly_fields = ('data_criacao', 'data_atualizacao', 'criado_por')
+    date_hierarchy = 'data_manutencao'
+    
+    fieldsets = (
+        ('Informações da Manutenção', {
+            'fields': ('viatura', 'data_manutencao', 'tipo_manutencao', 'km_manutencao')
+        }),
+        ('Valores e Detalhes', {
+            'fields': ('valor_manutencao', 'fornecedor_oficina', 'descricao_servico', 'pecas_trocadas', 'proximo_km_revisao')
+        }),
+        ('Outras Informações', {
+            'fields': ('responsavel', 'observacoes')
+        }),
+        ('Controle', {
+            'fields': ('ativo', 'criado_por', 'data_criacao', 'data_atualizacao'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(TrocaOleoViatura)
+class TrocaOleoViaturaAdmin(admin.ModelAdmin):
+    list_display = ('viatura', 'data_troca', 'tipo_oleo', 'quantidade_litros', 'valor_total', 'km_troca', 'trocou_filtro_oleo', 'trocou_filtro_combustivel', 'trocou_filtro_ar', 'ativo')
+    list_filter = ('tipo_oleo', 'trocou_filtro_oleo', 'trocou_filtro_combustivel', 'trocou_filtro_ar', 'ativo', 'data_troca', 'viatura')
+    search_fields = ('viatura__placa', 'viatura__prefixo', 'fornecedor_oficina', 'observacoes', 'outras_pecas')
+    readonly_fields = ('data_criacao', 'data_atualizacao', 'criado_por')
+    date_hierarchy = 'data_troca'
+    
+    fieldsets = (
+        ('Informações da Troca de Óleo', {
+            'fields': ('viatura', 'data_troca', 'km_troca', 'tipo_oleo', 'nome_oleo')
+        }),
+        ('Quantidade e Valores', {
+            'fields': ('quantidade_litros', 'valor_litro', 'valor_total')
+        }),
+        ('Filtros', {
+            'fields': ('trocou_filtro_oleo', 'valor_filtro_oleo', 'trocou_filtro_combustivel', 'valor_filtro_combustivel', 'trocou_filtro_ar', 'valor_filtro_ar')
+        }),
+        ('Aditivo de Arrefecimento', {
+            'fields': ('adicionou_aditivo_arrefecimento', 'quantidade_aditivo_arrefecimento', 'valor_aditivo_arrefecimento')
+        }),
+        ('Outras Peças', {
+            'fields': ('outras_pecas', 'valor_outras_pecas')
+        }),
+        ('Outras Informações', {
+            'fields': ('fornecedor_oficina', 'proximo_km_troca', 'responsavel', 'observacoes')
+        }),
+        ('Controle', {
+            'fields': ('ativo', 'criado_por', 'data_criacao', 'data_atualizacao'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(Arma)
+class ArmaAdmin(admin.ModelAdmin):
+    list_display = ('numero_serie', 'tipo', 'marca', 'modelo', 'calibre', 'situacao', 'militar_responsavel', 'get_organizacao_instancia', 'ativo')
+    list_filter = ('tipo', 'calibre', 'situacao', 'ativo', 'orgao', 'grande_comando', 'unidade')
+    search_fields = ('numero_serie', 'marca', 'modelo', 'numero_registro_policia', 'militar_responsavel__nome_completo', 'numero_inquerito_pm', 'numero_inquerito_pc', 'delegado_inquerito_pc')
+    readonly_fields = ('data_criacao', 'data_atualizacao', 'criado_por')
+    autocomplete_fields = ('militar_responsavel', 'encarregado_inquerito_pm')
+    
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.criado_por = request.user
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(ArmaParticular)
+class ArmaParticularAdmin(admin.ModelAdmin):
+    list_display = ('militar', 'numero_serie', 'tipo', 'marca', 'modelo', 'calibre', 'status', 'autorizado_uso_servico', 'ativo')
+    list_filter = ('tipo', 'calibre', 'status', 'autorizado_uso_servico', 'ativo')
+    search_fields = ('numero_serie', 'marca', 'modelo', 'numero_registro_policia', 'militar__nome_completo', 'militar__matricula')
+    readonly_fields = ('data_criacao', 'data_atualizacao', 'criado_por')
+    autocomplete_fields = ('militar', 'autorizado_por')
+    
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.criado_por = request.user
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(MovimentacaoArma)
+class MovimentacaoArmaAdmin(admin.ModelAdmin):
+    list_display = ('arma', 'tipo_movimentacao', 'data_movimentacao', 'militar_origem', 'militar_destino', 'responsavel_movimentacao')
+    list_filter = ('tipo_movimentacao', 'data_movimentacao')
+    search_fields = ('arma__numero_serie', 'militar_origem__nome_completo', 'militar_destino__nome_completo', 'observacoes')
+    readonly_fields = ('data_criacao',)
+    autocomplete_fields = ('arma', 'militar_origem', 'militar_destino', 'responsavel_movimentacao')
+
+
+@admin.register(ConfiguracaoArma)
+class ConfiguracaoArmaAdmin(admin.ModelAdmin):
+    list_display = ('marca', 'modelo', 'tipo', 'get_tipo_acessorio_display', 'calibre', 'ativo', 'data_criacao')
+    list_filter = ('tipo', 'tipo_acessorio', 'calibre', 'ativo')
+    search_fields = ('marca', 'modelo')
+    readonly_fields = ('data_criacao', 'data_atualizacao', 'criado_por')
+    
+    def get_tipo_acessorio_display(self, obj):
+        if obj.tipo == 'ACESSORIO' and obj.tipo_acessorio:
+            return obj.get_tipo_acessorio_display()
+        return '-'
+    get_tipo_acessorio_display.short_description = 'Tipo de Acessório'
+    
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.criado_por = request.user
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(HistoricoAlteracaoArma)
+class HistoricoAlteracaoArmaAdmin(admin.ModelAdmin):
+    list_display = ('arma', 'campo_alterado', 'valor_anterior', 'valor_novo', 'alterado_por', 'data_alteracao')
+    list_filter = ('data_alteracao', 'campo_alterado')
+    search_fields = ('arma__numero_serie', 'campo_alterado', 'alterado_por__username', 'alterado_por__first_name', 'alterado_por__last_name')
+    readonly_fields = ('arma', 'alterado_por', 'data_alteracao', 'campo_alterado', 'valor_anterior', 'valor_novo', 'observacao')
+    date_hierarchy = 'data_alteracao'
+    
+    def has_add_permission(self, request):
+        return False  # Histórico é criado automaticamente, não deve ser criado manualmente
+    
+    def has_change_permission(self, request, obj=None):
+        return False  # Histórico não deve ser editado
+    
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser  # Apenas superusuários podem deletar histórico
+
+
+@admin.register(AssinaturaMovimentacaoArma)
+class AssinaturaMovimentacaoArmaAdmin(admin.ModelAdmin):
+    list_display = ('movimentacao', 'assinado_por', 'militar', 'tipo_assinatura', 'data_assinatura', 'funcao_assinatura')
+    list_filter = ('tipo_assinatura', 'data_assinatura')
+    search_fields = ('movimentacao__arma__numero_serie', 'assinado_por__username', 'militar__nome_completo', 'funcao_assinatura')
+    readonly_fields = ('data_assinatura',)
+    autocomplete_fields = ('movimentacao', 'assinado_por', 'militar')
+
+
+@admin.register(TransferenciaArma)
+class TransferenciaArmaAdmin(admin.ModelAdmin):
+    list_display = ('arma', 'get_organizacao_origem', 'get_organizacao_destino', 'data_transferencia', 'transferido_por')
+    list_filter = ('data_transferencia',)
+    search_fields = ('arma__numero_serie', 'observacoes')
+    readonly_fields = ('data_transferencia',)
+    autocomplete_fields = ('arma', 'transferido_por')
+    date_hierarchy = 'data_transferencia'
+    
+    def get_organizacao_origem(self, obj):
+        return obj.get_organizacao_origem()
+    get_organizacao_origem.short_description = 'Origem'
+    
+    def get_organizacao_destino(self, obj):
+        return obj.get_organizacao_destino()
+    get_organizacao_destino.short_description = 'Destino'
+
+
+@admin.register(CautelaArma)
+class CautelaArmaAdmin(admin.ModelAdmin):
+    list_display = ('arma', 'militar', 'get_organizacao', 'data_entrega', 'data_devolucao', 'ativa', 'entregue_por')
+    list_filter = ('ativa', 'data_entrega', 'data_devolucao')
+    search_fields = ('arma__numero_serie', 'militar__nome_completo', 'observacoes')
+    readonly_fields = ('data_entrega',)
+    autocomplete_fields = ('arma', 'militar', 'entregue_por', 'devolvido_por')
+    date_hierarchy = 'data_entrega'
+    
+    def get_organizacao(self, obj):
+        return obj.get_organizacao()
+    get_organizacao.short_description = 'Organização'
+
+
+# ============================================================================
+# ADMIN PARA TOMBAMENTO DE BENS MÓVEIS
+# ============================================================================
+
+@admin.register(BemMovel)
+class BemMovelAdmin(admin.ModelAdmin):
+    list_display = ('numero_tombamento', 'descricao', 'categoria', 'situacao', 'get_organizacao', 'responsavel_atual', 'ativo', 'data_criacao')
+    list_filter = ('categoria', 'situacao', 'ativo', 'data_criacao')
+    search_fields = ('numero_tombamento', 'descricao', 'marca', 'modelo', 'numero_serie', 'patrimonio')
+    readonly_fields = ('data_criacao', 'data_atualizacao')
+    autocomplete_fields = ('responsavel_atual', 'criado_por')
+    date_hierarchy = 'data_criacao'
+    
+    fieldsets = (
+        ('Identificação', {
+            'fields': ('numero_tombamento', 'descricao', 'categoria', 'marca', 'modelo', 'numero_serie', 'patrimonio')
+        }),
+        ('Localização', {
+            'fields': ('orgao', 'grande_comando', 'unidade', 'sub_unidade', 'localizacao_detalhada')
+        }),
+        ('Informações de Aquisição', {
+            'fields': ('data_aquisicao', 'valor_aquisicao', 'fornecedor', 'nota_fiscal')
+        }),
+        ('Controle', {
+            'fields': ('situacao', 'responsavel_atual', 'observacoes', 'ativo')
+        }),
+        ('Sistema', {
+            'fields': ('criado_por', 'data_criacao', 'data_atualizacao'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_organizacao(self, obj):
+        return obj.get_organizacao()
+    get_organizacao.short_description = 'Organização'
+
+
+@admin.register(TombamentoBemMovel)
+class TombamentoBemMovelAdmin(admin.ModelAdmin):
+    list_display = ('bem_movel', 'tipo_tombamento', 'data_tombamento', 'get_origem', 'get_destino', 'ativo', 'criado_por')
+    list_filter = ('tipo_tombamento', 'data_tombamento', 'ativo')
+    search_fields = ('bem_movel__numero_tombamento', 'bem_movel__descricao', 'observacoes')
+    readonly_fields = ('data_criacao', 'data_atualizacao')
+    autocomplete_fields = (
+        'bem_movel', 'responsavel_origem', 'responsavel_destino', 'criado_por'
+    )
+    date_hierarchy = 'data_tombamento'
+    
+    fieldsets = (
+        ('Informações Básicas', {
+            'fields': ('bem_movel', 'tipo_tombamento', 'data_tombamento')
+        }),
+        ('Origem', {
+            'fields': ('orgao_origem', 'grande_comando_origem', 'unidade_origem', 'sub_unidade_origem', 'responsavel_origem')
+        }),
+        ('Destino', {
+            'fields': ('orgao_destino', 'grande_comando_destino', 'unidade_destino', 'sub_unidade_destino', 'responsavel_destino')
+        }),
+        ('Informações Adicionais', {
+            'fields': ('valor_atual', 'observacoes', 'ativo')
+        }),
+        ('Sistema', {
+            'fields': ('criado_por', 'data_criacao', 'data_atualizacao'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_origem(self, obj):
+        return obj.get_origem_formatada()
+    get_origem.short_description = 'Origem'
+    
+    def get_destino(self, obj):
+        return obj.get_destino_formatada()
+    get_destino.short_description = 'Destino'
+
+
+@admin.register(HistoricoTombamento)
+class HistoricoTombamentoAdmin(admin.ModelAdmin):
+    list_display = ('tombamento', 'campo_alterado', 'valor_anterior', 'valor_novo', 'data_alteracao', 'alterado_por')
+    list_filter = ('campo_alterado', 'data_alteracao')
+    search_fields = ('tombamento__bem_movel__numero_tombamento', 'campo_alterado', 'observacoes')
+    readonly_fields = ('data_alteracao',)
+    autocomplete_fields = ('tombamento', 'alterado_por')
+    date_hierarchy = 'data_alteracao'
+
+
+# ============================================================================
+# ADMIN PARA ALMOXARIFADO
+# ============================================================================
+
+@admin.register(ProdutoAlmoxarifado)
+class ProdutoAlmoxarifadoAdmin(admin.ModelAdmin):
+    list_display = ('codigo', 'descricao', 'categoria', 'quantidade_atual', 'get_status_estoque_display', 'valor_unitario', 'ativo', 'data_criacao')
+    list_filter = ('categoria', 'unidade_medida', 'ativo', 'data_criacao')
+    search_fields = ('codigo', 'descricao', 'marca', 'modelo')
+    readonly_fields = ('data_criacao', 'data_atualizacao')
+    autocomplete_fields = ('criado_por',)
+    date_hierarchy = 'data_criacao'
+    
+    fieldsets = (
+        ('Identificação', {
+            'fields': ('codigo', 'descricao', 'categoria', 'unidade_medida', 'marca', 'modelo')
+        }),
+        ('Estoque', {
+            'fields': ('estoque_minimo', 'estoque_maximo', 'quantidade_atual', 'localizacao')
+        }),
+        ('Informações de Compra', {
+            'fields': ('valor_unitario', 'fornecedor_principal')
+        }),
+        ('Controle', {
+            'fields': ('observacoes', 'ativo')
+        }),
+        ('Sistema', {
+            'fields': ('criado_por', 'data_criacao', 'data_atualizacao'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_status_estoque_display(self, obj):
+        return obj.get_status_estoque_display()
+    get_status_estoque_display.short_description = 'Status Estoque'
+
+
+@admin.register(EntradaAlmoxarifado)
+class EntradaAlmoxarifadoAdmin(admin.ModelAdmin):
+    list_display = ('produto', 'tipo_entrada', 'data_entrada', 'quantidade', 'fornecedor', 'ativo', 'criado_por')
+    list_filter = ('tipo_entrada', 'data_entrada', 'ativo')
+    search_fields = ('produto__codigo', 'produto__descricao', 'fornecedor', 'nota_fiscal', 'observacoes')
+    readonly_fields = ('data_criacao', 'data_atualizacao')
+    autocomplete_fields = ('produto', 'responsavel', 'criado_por')
+    date_hierarchy = 'data_entrada'
+    
+    fieldsets = (
+        ('Informações Básicas', {
+            'fields': ('produto', 'tipo_entrada', 'data_entrada', 'quantidade')
+        }),
+        ('Origem', {
+            'fields': ('fornecedor', 'nota_fiscal', 'orgao_origem', 'grande_comando_origem', 'unidade_origem', 'sub_unidade_origem', 'responsavel')
+        }),
+        ('Informações Adicionais', {
+            'fields': ('observacoes', 'ativo')
+        }),
+        ('Sistema', {
+            'fields': ('criado_por', 'data_criacao', 'data_atualizacao'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(SaidaAlmoxarifado)
+class SaidaAlmoxarifadoAdmin(admin.ModelAdmin):
+    list_display = ('produto', 'tipo_saida', 'data_saida', 'quantidade', 'requisitante', 'get_destino_formatada', 'ativo', 'criado_por')
+    list_filter = ('tipo_saida', 'data_saida', 'ativo')
+    search_fields = ('produto__codigo', 'produto__descricao', 'numero_requisicao', 'observacoes')
+    readonly_fields = ('data_criacao', 'data_atualizacao')
+    autocomplete_fields = ('produto', 'requisitante', 'responsavel_entrega', 'criado_por')
+    date_hierarchy = 'data_saida'
+    
+    fieldsets = (
+        ('Informações Básicas', {
+            'fields': ('produto', 'tipo_saida', 'data_saida', 'quantidade', 'numero_requisicao')
+        }),
+        ('Destino', {
+            'fields': ('orgao_destino', 'grande_comando_destino', 'unidade_destino', 'sub_unidade_destino', 'requisitante', 'responsavel_entrega')
+        }),
+        ('Informações Adicionais', {
+            'fields': ('observacoes', 'ativo')
+        }),
+        ('Sistema', {
+            'fields': ('criado_por', 'data_criacao', 'data_atualizacao'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_destino_formatada(self, obj):
+        return obj.get_destino_formatada()
+    get_destino_formatada.short_description = 'Destino'
+
+
+@admin.register(HistoricoAlmoxarifado)
+class HistoricoAlmoxarifadoAdmin(admin.ModelAdmin):
+    list_display = ('produto', 'tipo_movimentacao', 'campo_alterado', 'quantidade_anterior', 'quantidade_nova', 'data_alteracao', 'alterado_por')
+    list_filter = ('tipo_movimentacao', 'campo_alterado', 'data_alteracao')
+    search_fields = ('produto__codigo', 'produto__descricao', 'tipo_movimentacao', 'campo_alterado', 'observacoes')
+    readonly_fields = ('data_alteracao',)
+    autocomplete_fields = ('produto', 'alterado_por')
+    date_hierarchy = 'data_alteracao'
+
+
+@admin.register(ProcessoAdministrativo)
+class ProcessoAdministrativoAdmin(admin.ModelAdmin):
+    list_display = ('numero', 'assunto', 'tipo', 'status', 'prioridade', 'data_abertura', 'data_prazo', 'ativo', 'criado_por')
+    list_filter = ('tipo', 'status', 'prioridade', 'ativo', 'data_abertura', 'data_criacao')
+    search_fields = ('numero', 'assunto', 'descricao')
+    readonly_fields = ('data_criacao', 'data_atualizacao')
+    autocomplete_fields = ('criado_por',)
+    filter_horizontal = ('militares_envolvidos', 'militares_encarregados', 'escrivaos')
+    date_hierarchy = 'data_abertura'
+    
+    fieldsets = (
+        ('Identificação', {
+            'fields': ('numero', 'tipo', 'assunto', 'descricao')
+        }),
+        ('Status e Prioridade', {
+            'fields': ('status', 'prioridade', 'ativo')
+        }),
+        ('Datas', {
+            'fields': ('data_abertura', 'data_prazo', 'data_conclusao', 'data_arquivamento')
+        }),
+        ('Militares', {
+            'fields': ('militares_envolvidos', 'militares_encarregados', 'escrivaos')
+        }),
+        ('Organograma', {
+            'fields': ('orgao', 'grande_comando', 'unidade', 'sub_unidade'),
+            'classes': ('collapse',)
+        }),
+        ('Controle', {
+            'fields': ('observacoes', 'criado_por', 'data_criacao', 'data_atualizacao')
+        }),
+    )
 

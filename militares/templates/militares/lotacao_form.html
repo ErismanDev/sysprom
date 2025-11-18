@@ -1,0 +1,815 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - Lotação{% endblock %}
+
+{% block extra_css %}
+<style>
+.militar-autocomplete-input {
+    position: relative;
+    width: 100%;
+}
+
+.militar-autocomplete-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1050;
+    background: white;
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    max-height: 200px;
+    overflow-y: auto;
+    margin-top: 2px;
+}
+
+.autocomplete-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #f8f9fa;
+    transition: background-color 0.15s ease-in-out;
+}
+
+.autocomplete-item:hover {
+    background-color: #f8f9fa;
+}
+
+.autocomplete-item:last-child {
+    border-bottom: none;
+}
+
+.autocomplete-item .militar-nome {
+    font-weight: 600;
+    color: #212529;
+    margin-bottom: 2px;
+}
+
+.autocomplete-item .militar-info {
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+.militar-autocomplete-input:focus + .militar-autocomplete-dropdown {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-building me-2 text-primary"></i>{{ title }}
+                    </h2>
+                    <p class="text-muted mb-0">{% if object %}Editando lotação de {{ object.militar.nome_guerra }}{% else %}Criando nova lotação{% endif %}</p>
+                </div>
+                <div>
+                    <a href="{% url 'militares:lotacao_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Voltar para Lista
+                    </a>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-edit me-2"></i>Dados da Lotação
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <form method="post" novalidate>
+                                {% csrf_token %}
+                                
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.militar.id_for_label }}" class="form-label">
+                                            Militar <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.militar }}
+                                        {% if form.militar.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.militar.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.tipo_funcao.id_for_label }}" class="form-label">
+                                            Tipo de Função <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.tipo_funcao }}
+                                        {% if form.tipo_funcao.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.tipo_funcao.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <!-- Campo de Lotação (Organograma) -->
+                                <div class="row">
+                                    <div class="col-md-12 mb-3">
+                                        <label for="organograma-select" class="form-label">
+                                            <i class="fas fa-sitemap me-1"></i>Lotação <span class="text-danger">*</span>
+                                        </label>
+                                        <select id="organograma-select" class="form-select" name="organograma_hierarquia" required>
+                                            <option value="">Selecione uma opção do organograma...</option>
+                                        </select>
+                                        <div class="form-text">Selecione o nível hierárquico: Órgão → Grande Comando → Unidade → Sub-Unidade</div>
+                                        
+                                        <!-- Campos ocultos para armazenar os valores selecionados -->
+                                        <input type="hidden" name="lotacao" id="lotacao-hidden" value="{% if object %}{{ object.lotacao|default:'' }}{% endif %}">
+                                        <input type="hidden" name="orgao" id="orgao-hidden" value="{% if object and object.orgao %}{{ object.orgao.id }}{% endif %}">
+                                        <input type="hidden" name="grande_comando" id="grande_comando-hidden" value="{% if object and object.grande_comando %}{{ object.grande_comando.id }}{% endif %}">
+                                        <input type="hidden" name="unidade" id="unidade-hidden" value="{% if object and object.unidade %}{{ object.unidade.id }}{% endif %}">
+                                        <input type="hidden" name="sub_unidade" id="sub_unidade-hidden" value="{% if object and object.sub_unidade %}{{ object.sub_unidade.id }}{% endif %}">
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ form.status.id_for_label }}" class="form-label">
+                                            Status <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.status }}
+                                        {% if form.status.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.status.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ form.data_inicio.id_for_label }}" class="form-label">
+                                            Data de Início <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.data_inicio }}
+                                        {% if form.data_inicio.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.data_inicio.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ form.data_fim.id_for_label }}" class="form-label">
+                                            Data de Fim
+                                        </label>
+                                        {{ form.data_fim }}
+                                        {% if form.data_fim.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.data_fim.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                        <div class="form-text">Deixe em branco para lotação atual</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-12 mb-3">
+                                        <label for="{{ form.observacoes.id_for_label }}" class="form-label">
+                                            Observações
+                                        </label>
+                                        {{ form.observacoes }}
+                                        {% if form.observacoes.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.observacoes.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-12 mb-3">
+                                        <div class="form-check">
+                                            {{ form.ativo }}
+                                            <label class="form-check-label" for="{{ form.ativo.id_for_label }}">
+                                                Lotação Ativa
+                                            </label>
+                                        </div>
+                                        {% if form.ativo.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.ativo.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-12">
+                                        <hr>
+                                        <div class="d-flex justify-content-end gap-2">
+                                            <a href="{% url 'militares:lotacao_list' %}" class="btn btn-secondary">
+                                                <i class="fas fa-times me-2"></i>Cancelar
+                                            </a>
+                                            <button type="submit" class="btn btn-primary">
+                                                <i class="fas fa-save me-2"></i>{{ submit_text }}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <!-- Informações sobre lotações -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-info-circle me-2"></i>Informações
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <h6>Tipos de Função:</h6>
+                            <ul class="list-unstyled small">
+                                <li><span class="badge bg-danger me-2">Comando</span> Funções de comando</li>
+                                <li><span class="badge bg-info me-2">Administrativa</span> Funções administrativas</li>
+                                <li><span class="badge bg-success me-2">Operacional</span> Funções operacionais</li>
+                                <li><span class="badge bg-warning me-2">Técnica</span> Funções técnicas</li>
+                                <li><span class="badge bg-primary me-2">Instrução</span> Funções de instrução</li>
+                                <li><span class="badge bg-secondary me-2">Outras</span> Outras funções</li>
+                            </ul>
+                            
+                            <hr>
+                            
+                            <h6>Status de Lotação:</h6>
+                            <ul class="list-unstyled small">
+                                <li><span class="badge bg-success me-2">✅ Atual</span> Lotação atual do militar</li>
+                                <li><span class="badge bg-secondary me-2">📋 Anterior</span> Lotação anterior</li>
+                                <li><span class="badge bg-warning me-2">⏰ Temporária</span> Lotação temporária</li>
+                                <li><span class="badge bg-danger me-2">🎖️ Comando</span> Em comando</li>
+                                <li><span class="badge bg-dark me-2">🚫 Afastamento</span> Em afastamento</li>
+                            </ul>
+                            
+                            <hr>
+                            
+                            <div class="alert alert-info">
+                                <i class="fas fa-lightbulb me-2"></i>
+                                <strong>Dica:</strong> Ao criar uma lotação como "Atual", outras lotações atuais do mesmo militar serão automaticamente marcadas como "Anterior".
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Validações -->
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-check-circle me-2"></i>Validações
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-unstyled small">
+                                <li><i class="fas fa-check text-success me-2"></i>Data de fim deve ser posterior à data de início</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Lotações atuais não devem ter data de fim</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Militar é obrigatório</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Função e lotação são obrigatórios</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Debug: Verificar se os campos estão sendo carregados corretamente
+    console.log('=== DEBUG FORMULÁRIO DE LOTAÇÃO ===');
+    console.log('Modo de edição:', {% if object %}true{% else %}false{% endif %});
+    console.log('ID do objeto:', {% if object %}{{ object.id }}{% else %}null{% endif %});
+    
+    // Auto-hide data_fim quando status for ATUAL
+    const statusField = document.getElementById('{{ form.status.id_for_label }}');
+    const dataFimField = document.getElementById('{{ form.data_fim.id_for_label }}');
+    const dataFimGroup = dataFimField.closest('.col-md-4');
+    
+    // Debug: Verificar campos de data
+    const dataInicioField = document.getElementById('{{ form.data_inicio.id_for_label }}');
+    console.log('Campo data_inicio:', dataInicioField);
+    console.log('Valor inicial data_inicio:', dataInicioField ? dataInicioField.value : 'Campo não encontrado');
+    console.log('Valor inicial data_fim:', dataFimField ? dataFimField.value : 'Campo não encontrado');
+    
+    // Debug: Verificar HTML do campo data_inicio
+    if (dataInicioField) {
+        console.log('HTML do campo data_inicio:', dataInicioField.outerHTML);
+        console.log('Atributos do campo data_inicio:', {
+            type: dataInicioField.type,
+            value: dataInicioField.value,
+            name: dataInicioField.name,
+            id: dataInicioField.id
+        });
+    }
+    
+    // Debug: Verificar se há dados do objeto sendo editado
+    {% if object %}
+    console.log('Dados do objeto sendo editado:', {
+        id: {{ object.id }},
+        militar: '{{ object.militar.nome_guerra }}',
+        data_inicio: '{{ object.data_inicio|date:"Y-m-d" }}',
+        data_fim: '{% if object.data_fim %}{{ object.data_fim|date:"Y-m-d" }}{% else %}null{% endif %}',
+        status: '{{ object.status }}'
+    });
+    
+    // Forçar preenchimento do campo data_inicio se estiver vazio em edição
+    if (dataInicioField && !dataInicioField.value) {
+        const dataInicioObjeto = '{{ object.data_inicio|date:"Y-m-d" }}';
+        console.log('Campo data_inicio vazio em edição, preenchendo com:', dataInicioObjeto);
+        dataInicioField.value = dataInicioObjeto;
+    }
+    
+    // Forçar preenchimento do campo data_fim se estiver vazio em edição
+    {% if object.data_fim %}
+    if (dataFimField && !dataFimField.value) {
+        const dataFimObjeto = '{{ object.data_fim|date:"Y-m-d" }}';
+        console.log('Campo data_fim vazio em edição, preenchendo com:', dataFimObjeto);
+        dataFimField.value = dataFimObjeto;
+    }
+    {% endif %}
+    {% endif %}
+    
+    // Armazenar a data de fim original para restaurar se necessário
+    let dataFimOriginal = dataFimField.value;
+    
+    function toggleDataFim() {
+        if (statusField.value === 'ATUAL') {
+            dataFimField.value = '';
+            dataFimField.disabled = true;
+            dataFimGroup.style.opacity = '0.5';
+        } else {
+            dataFimField.disabled = false;
+            dataFimGroup.style.opacity = '1';
+            // Se não há data de fim e havia uma original, restaurar
+            if (!dataFimField.value && dataFimOriginal) {
+                dataFimField.value = dataFimOriginal;
+            }
+        }
+    }
+    
+     // Verificar se há data de fim preenchida automaticamente (apenas em criação)
+     {% if not object %}
+     if (dataFimField.value) {
+         // Adicionar uma mensagem informativa
+         const infoText = dataFimGroup.querySelector('.form-text');
+         if (infoText) {
+             infoText.innerHTML = 'Data de fim preenchida automaticamente com base na lotação anterior';
+             infoText.style.color = '#0d6efd';
+             infoText.style.fontWeight = '500';
+         }
+     }
+     {% endif %}
+    
+    statusField.addEventListener('change', toggleDataFim);
+    toggleDataFim(); // Executar na carga inicial
+
+    // Preenchimento automático do campo função quando função militar for selecionada
+    const funcaoMilitarField = document.getElementById('{{ form.funcao_militar.id_for_label }}');
+    const funcaoField = document.getElementById('{{ form.funcao.id_for_label }}');
+    
+    if (funcaoMilitarField && funcaoField) {
+        funcaoMilitarField.addEventListener('change', function() {
+            if (this.value) {
+                // Buscar o texto da opção selecionada
+                const selectedOption = this.options[this.selectedIndex];
+                if (selectedOption && selectedOption.text !== 'Selecione uma função militar...') {
+                    funcaoField.value = selectedOption.text;
+                    
+                    // Feedback visual
+                    funcaoField.style.backgroundColor = '#d4edda';
+                    funcaoField.style.borderColor = '#28a745';
+                    setTimeout(() => {
+                        funcaoField.style.backgroundColor = '';
+                        funcaoField.style.borderColor = '';
+                    }, 2000);
+                }
+            } else {
+                // Se desmarcou a função militar, limpar o campo função
+                funcaoField.value = '';
+            }
+        });
+    }
+
+    // Configurar autocomplete para o campo militar
+    const militarField = document.getElementById('{{ form.militar.id_for_label }}');
+    if (militarField) {
+        // Converter select em input com autocomplete
+        const militarInput = document.createElement('input');
+        militarInput.type = 'text';
+        militarInput.className = 'form-control militar-autocomplete-input';
+        militarInput.placeholder = 'Digite o nome do militar...';
+        militarInput.autocomplete = 'off';
+        
+        // Criar container para o autocomplete
+        const autocompleteContainer = document.createElement('div');
+        autocompleteContainer.className = 'militar-autocomplete-dropdown';
+        autocompleteContainer.style.display = 'none';
+        
+        // Esconder o select original
+        militarField.style.display = 'none';
+        
+        // Criar um container para o input e dropdown
+        const militarContainer = document.createElement('div');
+        militarContainer.className = 'militar-autocomplete-input';
+        militarContainer.style.position = 'relative';
+        
+        // Inserir o input e dropdown no container
+        militarContainer.appendChild(militarInput);
+        militarContainer.appendChild(autocompleteContainer);
+        
+        // Inserir o container no lugar do select
+        militarField.parentNode.insertBefore(militarContainer, militarField);
+        
+        // Variáveis para controle
+        let selectedMilitar = null;
+        let searchTimeout = null;
+        
+        // Função para buscar militares
+        async function buscarMilitares(termo) {
+            if (termo.length < 2) {
+                autocompleteContainer.style.display = 'none';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`{% url 'militares:militar_search_ajax' %}?q=${encodeURIComponent(termo)}`);
+                const data = await response.json();
+                mostrarResultados(data.results || []);
+            } catch (error) {
+                console.error('Erro ao buscar militares:', error);
+                autocompleteContainer.style.display = 'none';
+            }
+        }
+        
+        // Função para mostrar resultados
+        function mostrarResultados(resultados) {
+            autocompleteContainer.innerHTML = '';
+            
+            if (resultados.length === 0) {
+                const item = document.createElement('div');
+                item.className = 'autocomplete-item';
+                item.style.padding = '8px 12px';
+                item.style.color = '#666';
+                item.textContent = 'Nenhum militar encontrado';
+                autocompleteContainer.appendChild(item);
+            } else {
+                resultados.forEach(militar => {
+                    const item = document.createElement('div');
+                    item.className = 'autocomplete-item';
+                    item.innerHTML = `
+                        <div class="militar-nome">${militar.text}</div>
+                        <div class="militar-info">Matrícula: ${militar.matricula}</div>
+                    `;
+                    
+                    item.addEventListener('click', function() {
+                        selecionarMilitar(militar);
+                    });
+                    
+                    autocompleteContainer.appendChild(item);
+                });
+            }
+            
+            autocompleteContainer.style.display = 'block';
+        }
+        
+        // Função para selecionar militar
+        function selecionarMilitar(militar) {
+            selectedMilitar = militar;
+            militarInput.value = militar.text;
+            militarField.value = militar.id;
+            autocompleteContainer.style.display = 'none';
+            
+            // Feedback visual
+            militarInput.style.backgroundColor = '#d4edda';
+            militarInput.style.borderColor = '#28a745';
+            setTimeout(() => {
+                militarInput.style.backgroundColor = '';
+                militarInput.style.borderColor = '';
+            }, 2000);
+            
+            // Recarregar datas apenas na criação, não na edição
+            {% if not object %}
+            recarregarDatasLotacao(militar.id);
+            {% else %}
+            console.log('Modo de edição - não recarregando datas para preservar dados da lotação atual');
+            {% endif %}
+        }
+        
+        // Função para recarregar datas da lotação
+        async function recarregarDatasLotacao(militarId) {
+            console.log('Recarregando datas para militar ID:', militarId);
+            try {
+                const url = `{% url 'militares:lotacao_militar_ajax' 0 %}`.replace('0', militarId);
+                console.log('Fazendo requisição para:', url);
+                const response = await fetch(url);
+                const data = await response.json();
+                console.log('Resposta recebida:', data);
+                
+                if (data.success && data.lotacoes && data.lotacoes.length > 0) {
+                    // Buscar lotação atual
+                    const lotacaoAtual = data.lotacoes.find(l => l.status === 'ATUAL');
+                    
+                    // Preencher data de início apenas se estiver vazia (não sobrescrever em edição)
+                    const dataInicioField = document.getElementById('{{ form.data_inicio.id_for_label }}');
+                    console.log('Campo data_inicio encontrado:', dataInicioField);
+                    console.log('Valor atual da data de início:', dataInicioField.value);
+                    
+                    // Só preencher com data atual se estiver vazia E não estiver em modo de edição
+                    {% if not object %}
+                    if (!dataInicioField.value) {
+                        const hoje = new Date();
+                        const dataFormatada = hoje.toISOString().split('T')[0];
+                        console.log('Preenchendo data de início com data atual (criação):', dataFormatada);
+                        dataInicioField.value = dataFormatada;
+                    } else {
+                        console.log('Data de início já preenchida (criação):', dataInicioField.value);
+                    }
+                    {% else %}
+                    console.log('Modo de edição - preservando data de início do banco:', dataInicioField.value);
+                    {% endif %}
+                    
+                    if (lotacaoAtual) {
+                        // Preencher data de fim com a data de início da lotação atual
+                        console.log('Preenchendo data de fim com data de início da lotação atual:', lotacaoAtual.data_inicio);
+                        dataFimField.value = lotacaoAtual.data_inicio;
+                        dataFimOriginal = lotacaoAtual.data_inicio;
+                        
+                        // Atualizar mensagem informativa
+                        const infoText = dataFimGroup.querySelector('.form-text');
+                        if (infoText) {
+                            infoText.innerHTML = 'Data de fim preenchida automaticamente com base na lotação anterior';
+                            infoText.style.color = '#0d6efd';
+                            infoText.style.fontWeight = '500';
+                        }
+                    } else {
+                        // Se não há lotação atual, verificar se há lotações anteriores para sugerir data de fim
+                        const lotacoesAnteriores = data.lotacoes.filter(l => l.status === 'ANTERIOR');
+                        if (lotacoesAnteriores.length > 0) {
+                            // Usar a data de início da lotação anterior mais recente
+                            const lotacaoAnteriorRecente = lotacoesAnteriores[0];
+                            console.log('Usando data de início da lotação anterior mais recente:', lotacaoAnteriorRecente.data_inicio);
+                            dataFimField.value = lotacaoAnteriorRecente.data_inicio;
+                            dataFimOriginal = lotacaoAnteriorRecente.data_inicio;
+                            
+                            // Atualizar mensagem informativa
+                            const infoText = dataFimGroup.querySelector('.form-text');
+                            if (infoText) {
+                                infoText.innerHTML = 'Data de fim sugerida com base na lotação anterior mais recente';
+                                infoText.style.color = '#0d6efd';
+                                infoText.style.fontWeight = '500';
+                            }
+                        } else {
+                            // Se não há lotações anteriores, limpar a data de fim
+                            console.log('Não há lotações anteriores, limpando data de fim');
+                            dataFimField.value = '';
+                            dataFimOriginal = '';
+                            
+                            // Atualizar mensagem informativa
+                            const infoText = dataFimGroup.querySelector('.form-text');
+                            if (infoText) {
+                                infoText.innerHTML = 'Deixe em branco para lotação atual';
+                                infoText.style.color = '#6c757d';
+                                infoText.style.fontWeight = 'normal';
+                            }
+                        }
+                    }
+                } else {
+                    // Se não há lotações, preencher data de início e limpar data de fim
+                    console.log('Não há lotações para este militar');
+                    
+                    // Preencher data de início apenas se estiver vazia (não sobrescrever em edição)
+                    const dataInicioField = document.getElementById('{{ form.data_inicio.id_for_label }}');
+                    console.log('Campo data_inicio encontrado (sem lotações):', dataInicioField);
+                    console.log('Valor atual da data de início (sem lotações):', dataInicioField.value);
+                    
+                    // Só preencher com data atual se estiver vazia E não estiver em modo de edição
+                    {% if not object %}
+                    if (!dataInicioField.value) {
+                        const hoje = new Date();
+                        const dataFormatada = hoje.toISOString().split('T')[0];
+                        console.log('Preenchendo data de início com data atual (criação, sem lotações):', dataFormatada);
+                        dataInicioField.value = dataFormatada;
+                    } else {
+                        console.log('Data de início já preenchida (criação, sem lotações):', dataInicioField.value);
+                    }
+                    {% else %}
+                    console.log('Modo de edição (sem lotações) - preservando data de início do banco:', dataInicioField.value);
+                    {% endif %}
+                    
+                    // Limpar data de fim
+                    dataFimField.value = '';
+                    dataFimOriginal = '';
+                    
+                    // Atualizar mensagem informativa
+                    const infoText = dataFimGroup.querySelector('.form-text');
+                    if (infoText) {
+                        infoText.innerHTML = 'Deixe em branco para lotação atual';
+                        infoText.style.color = '#6c757d';
+                        infoText.style.fontWeight = 'normal';
+                    }
+                }
+            } catch (error) {
+                console.error('Erro ao recarregar datas:', error);
+                // Em caso de erro, preencher data de início apenas se vazia (não sobrescrever em edição)
+                console.log('Erro na requisição, preenchendo apenas data de início se vazia');
+                const dataInicioField = document.getElementById('{{ form.data_inicio.id_for_label }}');
+                console.log('Campo data_inicio encontrado (erro):', dataInicioField);
+                console.log('Valor atual da data de início (erro):', dataInicioField.value);
+                
+                // Só preencher com data atual se estiver vazia E não estiver em modo de edição
+                {% if not object %}
+                if (!dataInicioField.value) {
+                    const hoje = new Date();
+                    const dataFormatada = hoje.toISOString().split('T')[0];
+                    console.log('Preenchendo data de início com data atual (erro, criação):', dataFormatada);
+                    dataInicioField.value = dataFormatada;
+                } else {
+                    console.log('Data de início já preenchida (erro, criação):', dataInicioField.value);
+                }
+                {% else %}
+                console.log('Modo de edição (erro) - preservando data de início do banco:', dataInicioField.value);
+                {% endif %}
+            }
+        }
+        
+        // Event listeners
+        militarInput.addEventListener('input', function() {
+            const termo = this.value.trim();
+            
+            // Limpar seleção se o usuário editar o texto
+            if (selectedMilitar && this.value !== selectedMilitar.text) {
+                selectedMilitar = null;
+                militarField.value = '';
+            }
+            
+            // Debounce da busca
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                buscarMilitares(termo);
+            }, 300);
+        });
+        
+        // Esconder autocomplete ao clicar fora
+        document.addEventListener('click', function(e) {
+            if (!militarInput.contains(e.target) && !autocompleteContainer.contains(e.target)) {
+                autocompleteContainer.style.display = 'none';
+            }
+        });
+        
+        // Esconder autocomplete ao pressionar Escape
+        militarInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                autocompleteContainer.style.display = 'none';
+            }
+        });
+        
+        // Se já há um militar selecionado (edição), mostrar o valor
+        if (militarField.value) {
+            const option = militarField.querySelector(`option[value="${militarField.value}"]`);
+            if (option) {
+                militarInput.value = option.textContent;
+                selectedMilitar = {
+                    id: militarField.value,
+                    text: option.textContent
+                };
+                
+                // Carregar datas automaticamente apenas na criação
+                {% if not object %}
+                recarregarDatasLotacao(militarField.value);
+                {% else %}
+                console.log('Modo de edição - preservando dados originais da lotação');
+                {% endif %}
+            }
+        }
+    }
+    
+    // Funcionalidade de seleção hierárquica única do organograma
+    const organogramaSelect = document.getElementById('organograma-select');
+    const lotacaoHidden = document.getElementById('lotacao-hidden');
+    const orgaoHidden = document.getElementById('orgao-hidden');
+    const grandeComandoHidden = document.getElementById('grande_comando-hidden');
+    const unidadeHidden = document.getElementById('unidade-hidden');
+    const subUnidadeHidden = document.getElementById('sub_unidade-hidden');
+    
+    // Função para carregar toda a hierarquia do organograma
+    async function carregarOrganogramaCompleto() {
+        try {
+            const response = await fetch('{% url "militares:ajax_organograma_completo" %}');
+            const data = await response.json();
+            
+            // Limpar opções existentes (exceto a primeira)
+            organogramaSelect.innerHTML = '<option value="">Selecione uma opção do organograma...</option>';
+            
+            // Adicionar opções da hierarquia
+            data.hierarquia.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item.id;
+                option.textContent = item.texto;
+                option.dataset.tipo = item.tipo;
+                option.dataset.valor = JSON.stringify(item.valor);
+                
+                // Adicionar estilo baseado no nível
+                if (item.nivel === 1) {
+                    option.style.fontWeight = 'bold';
+                    option.style.color = '#0d6efd';
+                } else if (item.nivel === 2) {
+                    option.style.fontWeight = '600';
+                    option.style.color = '#198754';
+                } else if (item.nivel === 3) {
+                    option.style.color = '#fd7e14';
+                } else if (item.nivel === 4) {
+                    option.style.color = '#6f42c1';
+                }
+                
+                organogramaSelect.appendChild(option);
+            });
+            
+            // Selecionar opção atual se estiver editando
+            {% if object %}
+            selecionarOpcaoAtual();
+            {% endif %}
+            
+        } catch (error) {
+            console.error('Erro ao carregar organograma:', error);
+        }
+    }
+    
+    // Função para selecionar a opção atual baseada nos valores do objeto
+    function selecionarOpcaoAtual() {
+        {% if object %}
+        const orgaoId = {% if object.orgao %}{{ object.orgao.id }}{% else %}null{% endif %};
+        const grandeComandoId = {% if object.grande_comando %}{{ object.grande_comando.id }}{% else %}null{% endif %};
+        const unidadeId = {% if object.unidade %}{{ object.unidade.id }}{% else %}null{% endif %};
+        const subUnidadeId = {% if object.sub_unidade %}{{ object.sub_unidade.id }}{% else %}null{% endif %};
+        
+        // Encontrar a opção correspondente
+        for (let option of organogramaSelect.options) {
+            if (option.value && option.dataset.valor) {
+                const valor = JSON.parse(option.dataset.valor);
+                
+                // Verificar se corresponde aos valores atuais
+                if (valor.orgao_id === orgaoId && 
+                    valor.grande_comando_id === grandeComandoId && 
+                    valor.unidade_id === unidadeId && 
+                    valor.sub_unidade_id === subUnidadeId) {
+                    
+                    option.selected = true;
+                    
+                    // Atualizar campo lotação com o texto da opção selecionada
+                    lotacaoHidden.value = option.textContent.trim();
+                    
+                    break;
+                }
+            }
+        }
+        {% endif %}
+    }
+    
+    // Função para atualizar campos ocultos quando uma opção é selecionada
+    function atualizarCamposOcultos() {
+        const selectedOption = organogramaSelect.options[organogramaSelect.selectedIndex];
+        
+        if (selectedOption.value && selectedOption.dataset.valor) {
+            const valor = JSON.parse(selectedOption.dataset.valor);
+            
+            // Atualizar campos do organograma
+            orgaoHidden.value = valor.orgao_id || '';
+            grandeComandoHidden.value = valor.grande_comando_id || '';
+            unidadeHidden.value = valor.unidade_id || '';
+            subUnidadeHidden.value = valor.sub_unidade_id || '';
+            
+            // Atualizar campo lotação com o texto da opção selecionada
+            lotacaoHidden.value = selectedOption.textContent.trim();
+            
+            console.log('Valores atualizados:', valor);
+            console.log('Lotação atualizada para:', selectedOption.textContent.trim());
+        } else {
+            // Limpar todos os campos se nenhuma opção estiver selecionada
+            lotacaoHidden.value = '';
+            orgaoHidden.value = '';
+            grandeComandoHidden.value = '';
+            unidadeHidden.value = '';
+            subUnidadeHidden.value = '';
+        }
+    }
+    
+    // Event listener para o select do organograma
+    if (organogramaSelect) {
+        organogramaSelect.addEventListener('change', atualizarCamposOcultos);
+        
+        // Carregar organograma completo
+        carregarOrganogramaCompleto();
+    }
+});
+</script>
+{% endblock %}
+

@@ -1,0 +1,253 @@
+{% load static %}
+{% load almoxarifado_filters %}
+<div class="modal-header bg-warning text-dark">
+    <h5 class="modal-title">
+        <i class="fas fa-eye me-2"></i>Detalhes da Saída #{{ saida.pk }}
+    </h5>
+    <div>
+        <a href="{% url 'militares:saida_almoxarifado_pdf' saida.pk %}" 
+           class="btn btn-sm btn-light me-2" 
+           target="_blank"
+           title="Gerar PDF">
+            <i class="fas fa-file-pdf me-1"></i>PDF
+        </a>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    </div>
+</div>
+<div class="modal-body">
+    {% if saida.assinaturas.exists %}
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h6 class="card-title mb-0">
+                <i class="fas fa-signature me-2"></i>Assinaturas Eletrônicas
+            </h6>
+        </div>
+        <div class="card-body">
+            {% for assinatura in saida.assinaturas.all %}
+                <div class="mb-3 p-3 border rounded" style="background-color: #fafafa;">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            {% if assinatura.tipo_assinatura == 'RECEBIMENTO' %}
+                                <span class="badge bg-success">Recebimento de Material</span>
+                            {% elif assinatura.tipo_assinatura == 'ENTREGA' %}
+                                <span class="badge bg-primary">Entrega de Material</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ assinatura.get_tipo_assinatura_display }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-start">
+                        <div class="me-3">
+                            <img src="{% static 'assinasyspro.png' %}" alt="Logo AssinaSysPro" width="100" height="70" style="background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius: 4px; padding: 5px;">
+                        </div>
+                        <div class="flex-grow-1">
+                            <p class="mb-0 text-justify" style="font-size: 15px;">
+                                Documento assinado eletronicamente por <strong>{% if assinatura.militar %}{{ assinatura.militar.get_posto_graduacao_display }} {{ assinatura.militar.nome_completo }}{% else %}{{ assinatura.assinado_por.get_full_name|default:assinatura.assinado_por.username }}{% endif %}</strong>{% if assinatura.funcao_assinatura %} - <strong>{{ assinatura.funcao_assinatura }}</strong>{% endif %}, em {{ assinatura.data_assinatura|date:"d/m/Y" }}, às {{ assinatura.data_assinatura|date:"H:i" }}, conforme horário oficial de Brasília, com fundamento na Portaria XXX/2025 Gab. Cmdo. Geral/CBMEPI de XX de XXXXX de 2025.
+                            </p>
+                            {% if assinatura.tipo_assinatura == 'RECEBIMENTO' %}
+                                <p class="mt-2 mb-0 text-success fw-bold">
+                                    <i class="fas fa-check-circle me-1"></i>Material recebido conforme registro acima.
+                                </p>
+                            {% endif %}
+                            {% if assinatura.observacoes %}
+                                <p class="mt-2 mb-0 text-muted small">
+                                    <strong>Observações:</strong> {{ assinatura.observacoes }}
+                                </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <strong><i class="fas fa-calendar me-2"></i>Data da Saída:</strong>
+            <p class="mb-0">{{ saida.data_saida|date:"d/m/Y" }}</p>
+        </div>
+        <div class="col-md-6 mb-3">
+            <strong><i class="fas fa-tag me-2"></i>Tipo de Saída:</strong>
+            <p class="mb-0">
+                <span class="badge bg-warning text-dark">{{ saida.get_tipo_saida_display }}</span>
+            </p>
+        </div>
+    </div>
+    
+    <hr>
+    
+    <div class="row">
+        <div class="col-12 mb-3">
+            <strong><i class="fas fa-box me-2"></i>Produtos:</strong>
+            {% if saida.produtos_saida.exists %}
+                <div class="table-responsive mt-2">
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Código</th>
+                                <th>Descrição</th>
+                                <th>Tamanho</th>
+                                <th>Quantidade</th>
+                                <th>Unidade</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for produto_saida in saida.produtos_saida.all %}
+                            <tr>
+                                <td><strong>{{ produto_saida.produto.get_codigo_limpo }}</strong></td>
+                                <td>{{ produto_saida.produto.descricao }}</td>
+                                <td>
+                                    {% if produto_saida.produto.tamanho %}
+                                        <span class="badge bg-info">{{ produto_saida.produto.tamanho }}</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td><strong>{{ produto_saida.quantidade|formatar_quantidade_unidade:produto_saida.produto.unidade_medida }}</strong></td>
+                                <td>{{ produto_saida.produto.get_unidade_medida_display }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-info">
+                                <td colspan="3" class="text-end"><strong>Total:</strong></td>
+                                <td>
+                                    <strong>
+                                        {% if saida.produtos_saida.exists %}
+                                            {% with produto_saida=saida.produtos_saida.first %}
+                                                {{ saida.get_total_quantidade|formatar_quantidade_unidade:produto_saida.produto.unidade_medida }}
+                                            {% endwith %}
+                                        {% elif saida.produto %}
+                                            {{ saida.get_total_quantidade|formatar_quantidade_unidade:saida.produto.unidade_medida }}
+                                        {% else %}
+                                            {{ saida.get_total_quantidade }}
+                                        {% endif %}
+                                    </strong>
+                                </td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            {% elif saida.produto %}
+                <div class="mt-2">
+                    <p class="mb-1"><strong>{{ saida.produto.get_codigo_limpo }}</strong> - {{ saida.produto.descricao }}</p>
+                    <p class="mb-0">
+                        <strong>Quantidade:</strong> {{ saida.quantidade|formatar_quantidade_unidade:saida.produto.unidade_medida }}
+                        {% if saida.produto.tamanho %}
+                            | <strong>Tamanho:</strong> <span class="badge bg-info">{{ saida.produto.tamanho }}</span>
+                        {% endif %}
+                    </p>
+                </div>
+            {% else %}
+                <p class="text-muted mb-0">Nenhum item registrado</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <hr>
+    
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <strong><i class="fas fa-user me-2"></i>Requisitante:</strong>
+            <p class="mb-0">
+                {% if saida.requisitante %}
+                    {{ saida.requisitante.get_posto_graduacao_display }} {{ saida.requisitante.nome_completo }}
+                {% else %}
+                    <span class="text-muted">-</span>
+                {% endif %}
+            </p>
+        </div>
+        <div class="col-md-6 mb-3">
+            <strong><i class="fas fa-user-check me-2"></i>Responsável pela Entrega:</strong>
+            <p class="mb-0">
+                {% if saida.responsavel_entrega %}
+                    {{ saida.responsavel_entrega.get_posto_graduacao_display }} {{ saida.responsavel_entrega.nome_completo }}
+                {% else %}
+                    <span class="text-muted">-</span>
+                {% endif %}
+            </p>
+        </div>
+    </div>
+    
+    <hr>
+    
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <strong><i class="fas fa-arrow-left me-2"></i>Organização Militar de Origem:</strong>
+            <p class="mb-0">
+                {% if saida.sub_unidade_origem %}
+                    <span class="badge bg-warning text-dark">{{ saida.sub_unidade_origem }}</span>
+                {% elif saida.unidade_origem %}
+                    <span class="badge bg-warning text-dark">{{ saida.unidade_origem }}</span>
+                {% elif saida.grande_comando_origem %}
+                    <span class="badge bg-warning text-dark">{{ saida.grande_comando_origem }}</span>
+                {% elif saida.orgao_origem %}
+                    <span class="badge bg-warning text-dark">{{ saida.orgao_origem }}</span>
+                {% else %}
+                    <span class="text-muted">Não informado</span>
+                {% endif %}
+            </p>
+        </div>
+        <div class="col-md-6 mb-3">
+            <strong><i class="fas fa-arrow-right me-2"></i>Organização Militar de Destino:</strong>
+            <p class="mb-0">
+                {% if saida.sub_unidade_destino %}
+                    <span class="badge bg-success">{{ saida.sub_unidade_destino }}</span>
+                {% elif saida.unidade_destino %}
+                    <span class="badge bg-success">{{ saida.unidade_destino }}</span>
+                {% elif saida.grande_comando_destino %}
+                    <span class="badge bg-success">{{ saida.grande_comando_destino }}</span>
+                {% elif saida.orgao_destino %}
+                    <span class="badge bg-success">{{ saida.orgao_destino }}</span>
+                {% else %}
+                    <span class="text-muted">Não informado</span>
+                {% endif %}
+            </p>
+        </div>
+    </div>
+    
+    {% if saida.numero_requisicao %}
+    <hr>
+    <div class="row">
+        <div class="col-12 mb-3">
+            <strong><i class="fas fa-hashtag me-2"></i>Número da Requisição:</strong>
+            <p class="mb-0">{{ saida.numero_requisicao }}</p>
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if saida.observacoes %}
+    <hr>
+    <div class="row">
+        <div class="col-12 mb-3">
+            <strong><i class="fas fa-sticky-note me-2"></i>Observações:</strong>
+            <p class="mb-0">{{ saida.observacoes }}</p>
+        </div>
+    </div>
+    {% endif %}
+    
+    <hr>
+    
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <strong><i class="fas fa-user-cog me-2"></i>Criado por:</strong>
+            <p class="mb-0">
+                {% if saida.criado_por %}
+                    {{ saida.criado_por.get_full_name|default:saida.criado_por.username }}
+                {% else %}
+                    <span class="text-muted">-</span>
+                {% endif %}
+            </p>
+        </div>
+        <div class="col-md-6 mb-3">
+            <strong><i class="fas fa-clock me-2"></i>Data de Criação:</strong>
+            <p class="mb-0">{{ saida.data_criacao|date:"d/m/Y H:i" }}</p>
+        </div>
+    </div>
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+</div>
+

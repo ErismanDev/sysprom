@@ -25,7 +25,7 @@ class Command(BaseCommand):
         verbose = options['verbose']
         
         self.stdout.write(
-            self.style.SUCCESS('🔄 Iniciando atualização automática do efetivo nas vagas...')
+            self.style.SUCCESS('[INICIANDO] Atualização automática do efetivo nas vagas...')
         )
         
         if dry_run:
@@ -37,7 +37,7 @@ class Command(BaseCommand):
         efetivo_por_posto_quadro = defaultdict(int)
         
         # Buscar todos os militares ativos
-        militares_ativos = Militar.objects.filter(situacao='AT')
+        militares_ativos = Militar.objects.filter(classificacao='ATIVO')
         
         self.stdout.write(f'📊 Total de militares ativos: {militares_ativos.count()}')
         
@@ -112,7 +112,7 @@ class Command(BaseCommand):
                         vagas_atualizadas += 1
                         self.stdout.write(
                             self.style.SUCCESS(
-                                f'🔄 Atualizada vaga: {vaga.get_posto_display()} - {vaga.get_quadro_display()} '
+                                f'[ATUALIZADA] Vaga: {vaga.get_posto_display()} - {vaga.get_quadro_display()} '
                                 f'(Efetivo: {efetivo_anterior} → {efetivo_atual})'
                             )
                         )
@@ -171,7 +171,7 @@ class Command(BaseCommand):
         self.stdout.write('='*60)
         self.stdout.write(f'👥 Militares ativos processados: {militares_ativos.count()}')
         self.stdout.write(f'🆕 Vagas criadas: {vagas_criadas}')
-        self.stdout.write(f'🔄 Vagas atualizadas: {vagas_atualizadas}')
+        self.stdout.write(f'[RESULTADO] Vagas atualizadas: {vagas_atualizadas}')
         self.stdout.write(f'📈 Previsões atualizadas: {previsoes_atualizadas}')
         
         if dry_run:

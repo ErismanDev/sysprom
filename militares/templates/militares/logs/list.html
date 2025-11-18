@@ -1,0 +1,314 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Logs do Sistema - SysProm{% endblock %}
+
+{% block extra_css %}
+<style>
+    .log-card {
+        border-left: 4px solid #dee2e6;
+        transition: all 0.3s ease;
+    }
+    .log-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .log-card.info { border-left-color: #17a2b8; }
+    .log-card.warning { border-left-color: #ffc107; }
+    .log-card.error { border-left-color: #dc3545; }
+    .log-card.critical { border-left-color: #721c24; }
+    .log-card.debug { border-left-color: #6c757d; }
+    
+    .log-level-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+    }
+    
+    .filters-section {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+    
+    .log-description {
+        max-width: 300px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    
+    .table-responsive {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Botões de Ação -->
+    <div class="d-flex justify-content-end mb-3">
+        <div class="btn-group">
+            <a href="{% url 'militares:logs_sistema_estatisticas' %}" class="btn btn-info btn-sm">
+                <i class="fas fa-chart-bar"></i> Estatísticas
+            </a>
+            <a href="{% url 'militares:logs_sistema_exportar' %}" class="btn btn-success btn-sm">
+                <i class="fas fa-download"></i> Exportar CSV
+            </a>
+            <a href="{% url 'militares:logs_sistema_limpar_antigos' %}" class="btn btn-warning btn-sm">
+                <i class="fas fa-broom"></i> Limpar Antigos
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="filters-section">
+        <form method="get" class="row g-2">
+            <div class="col-md-1">
+                <label for="nivel" class="form-label small">Nível</label>
+                <select name="nivel" id="nivel" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    <option value="INFO" {% if request.GET.nivel == 'INFO' %}selected{% endif %}>Info</option>
+                    <option value="WARNING" {% if request.GET.nivel == 'WARNING' %}selected{% endif %}>Aviso</option>
+                    <option value="ERROR" {% if request.GET.nivel == 'ERROR' %}selected{% endif %}>Erro</option>
+                    <option value="CRITICAL" {% if request.GET.nivel == 'CRITICAL' %}selected{% endif %}>Crítico</option>
+                    <option value="DEBUG" {% if request.GET.nivel == 'DEBUG' %}selected{% endif %}>Debug</option>
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <label for="modulo" class="form-label small">Módulo</label>
+                <select name="modulo" id="modulo" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    <option value="MILITARES" {% if request.GET.modulo == 'MILITARES' %}selected{% endif %}>Militares</option>
+                    <option value="USUARIOS" {% if request.GET.modulo == 'USUARIOS' %}selected{% endif %}>Usuários</option>
+                    <option value="COMISSAO" {% if request.GET.modulo == 'COMISSAO' %}selected{% endif %}>Comissão</option>
+                    <option value="SISTEMA" {% if request.GET.modulo == 'SISTEMA' %}selected{% endif %}>Sistema</option>
+                    <option value="SEGURANCA" {% if request.GET.modulo == 'SEGURANCA' %}selected{% endif %}>Segurança</option>
+                </select>
+            </div>
+            
+            <div class="col-md-1">
+                <label for="processado" class="form-label small">Status</label>
+                <select name="processado" id="processado" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    <option value="1" {% if request.GET.processado == '1' %}selected{% endif %}>Proc.</option>
+                    <option value="0" {% if request.GET.processado == '0' %}selected{% endif %}>Pend.</option>
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <label for="usuario" class="form-label small">Usuário</label>
+                <input type="text" name="usuario" id="usuario" class="form-control form-control-sm" 
+                       value="{{ request.GET.usuario }}" placeholder="Nome do usuário">
+            </div>
+            
+            <div class="col-md-2">
+                <label for="data_inicio" class="form-label small">Data Início</label>
+                <input type="date" name="data_inicio" id="data_inicio" class="form-control form-control-sm" 
+                       value="{{ request.GET.data_inicio }}">
+            </div>
+            
+            <div class="col-md-2">
+                <label for="data_fim" class="form-label small">Data Fim</label>
+                <input type="date" name="data_fim" id="data_fim" class="form-control form-control-sm" 
+                       value="{{ request.GET.data_fim }}">
+            </div>
+            
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary btn-sm me-2">
+                    <i class="fas fa-search"></i> Filtrar
+                </button>
+                <a href="{% url 'militares:logs_sistema_list' %}" class="btn btn-secondary btn-sm">
+                    <i class="fas fa-times"></i> Limpar
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Lista de Logs -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">
+                Logs do Sistema ({{ page_obj|length }} de {{ total_logs }})
+            </h6>
+        </div>
+        <div class="card-body">
+            {% if page_obj %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Data/Hora</th>
+                                <th>Nível</th>
+                                <th>Módulo</th>
+                                <th>Ação</th>
+                                <th>Usuário</th>
+                                <th>Descrição</th>
+                                <th>IP</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in page_obj %}
+                            <tr class="log-card {{ log.nivel|lower }}">
+                                <td>
+                                    <small class="text-muted">
+                                        {{ log.timestamp|date:"d/m/Y H:i:s" }}
+                                    </small>
+                                </td>
+                                <td>
+                                    <span class="badge log-level-badge bg-{{ log.get_nivel_color }}">
+                                        <i class="{{ log.get_nivel_icon }}"></i>
+                                        {{ log.get_nivel_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ log.get_modulo_display }}</span>
+                                </td>
+                                <td>
+                                    <small>{{ log.get_acao_display }}</small>
+                                </td>
+                                <td>
+                                    {% if log.usuario %}
+                                        <span class="text-primary">{{ log.usuario.get_full_name|default:log.usuario.username }}</span>
+                                    {% else %}
+                                        <span class="text-muted">Sistema</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="log-description" title="{{ log.descricao }}">
+                                        {{ log.get_descricao_resumida }}
+                                    </div>
+                                </td>
+                                <td>
+                                    <small class="text-muted">{{ log.ip_address|default:"-" }}</small>
+                                </td>
+                                <td>
+                                    {% if log.processado %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check"></i> Processado
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-warning">
+                                            <i class="fas fa-clock"></i> Pendente
+                                        </span>
+                                    {% endif %}
+                                    
+                                    {% if log.notificado %}
+                                        <br><small class="text-success">
+                                            <i class="fas fa-bell"></i> Notificado
+                                        </small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{% url 'militares:logs_sistema_detail' log.pk %}" 
+                                           class="btn btn-outline-primary" title="Ver detalhes">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        {% if not log.processado %}
+                                            <a href="{% url 'militares:logs_sistema_marcar_processado' log.pk %}" 
+                                               class="btn btn-outline-success" title="Marcar como processado"
+                                               onclick="return confirm('Marcar este log como processado?')">
+                                                <i class="fas fa-check"></i>
+                                            </a>
+                                        {% endif %}
+                                        {% if not log.notificado %}
+                                            <a href="{% url 'militares:logs_sistema_marcar_notificado' log.pk %}" 
+                                               class="btn btn-outline-info" title="Marcar como notificado"
+                                               onclick="return confirm('Marcar este log como notificado?')">
+                                                <i class="fas fa-bell"></i>
+                                            </a>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Paginação -->
+                {% if is_paginated %}
+                <nav aria-label="Paginação dos logs">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                    <i class="fas fa-angle-double-left"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                    <i class="fas fa-angle-left"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ num }}</span>
+                                </li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                    <i class="fas fa-angle-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                    <i class="fas fa-angle-double-right"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">Nenhum log encontrado</h5>
+                    <p class="text-muted">Não há logs que correspondam aos filtros aplicados.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-submit form when select changes
+    document.querySelectorAll('select[name="nivel"], select[name="modulo"], select[name="processado"]').forEach(function(select) {
+        select.addEventListener('change', function() {
+            this.form.submit();
+        });
+    });
+    
+    // Confirm before marking as processed/notified
+    document.querySelectorAll('a[href*="marcar-processado"], a[href*="marcar-notificado"]').forEach(function(link) {
+        link.addEventListener('click', function(e) {
+            if (!confirm('Tem certeza que deseja marcar este log?')) {
+                e.preventDefault();
+            }
+        });
+    });
+</script>
+{% endblock %} 

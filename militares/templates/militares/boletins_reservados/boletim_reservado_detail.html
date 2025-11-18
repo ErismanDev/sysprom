@@ -1,0 +1,1362 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Boletim Reservado: {{ boletim.numero }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .nota-card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+    
+    .nota-card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .nota-header {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        padding: 15px;
+        border-radius: 8px 8px 0 0;
+    }
+    
+    .nota-body {
+        padding: 20px;
+        background: white;
+    }
+    
+    .nota-actions {
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 0 0 8px 8px;
+        border-top: 1px solid #dee2e6;
+    }
+    
+    .btn-action {
+        margin: 2px;
+        font-size: 0.85em;
+    }
+    
+    .boletim-header {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 10px;
+        margin-bottom: 30px;
+    }
+    
+    .stats-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    /* Estilos para centralizar títulos e tópicos no modal */
+    #conteudoNotaModal h1, #conteudoNotaModal h2, #conteudoNotaModal h3 {
+        text-align: center;
+        color: #333;
+        margin: 1.5rem 0 1rem 0;
+    }
+    
+    #conteudoNotaModal h3 {
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        border-bottom: 2px solid #28a745;
+        padding-bottom: 0.5rem;
+        margin: 2rem 0 1.5rem 0;
+    }
+    
+    #conteudoNotaModal h4 {
+        color: #495057;
+        font-weight: 600;
+        margin: 1.5rem 0 0.75rem 0;
+        padding-left: 1rem;
+        border-left: 4px solid #28a745;
+        background-color: #f8f9fa;
+        padding: 0.75rem 1rem;
+        border-radius: 0 8px 8px 0;
+    }
+    
+    #conteudoNotaModal p {
+        margin-bottom: 1rem;
+        text-align: justify;
+    }
+    
+    /* Centralizar títulos do modal */
+    .modal-title {
+        text-align: center;
+        width: 100%;
+    }
+    
+    .modal-header .d-flex {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .modal-header .d-flex > div:first-child {
+        margin-right: 1rem;
+    }
+    
+    .modal-header .d-flex > div:last-child {
+        text-align: center;
+        flex: 1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Cabeçalho do Boletim -->
+            <div class="boletim-header text-center">
+                <h1 class="mb-3">
+                    <i class="fas fa-bullhorn me-2"></i>
+                    Boletim Reservado {{ boletim.numero }}
+                </h1>
+                <h4 class="mb-2">{{ boletim.titulo }}</h4>
+                {% if boletim.topicos %}
+                <p class="mb-0">
+                    <i class="fas fa-tags me-1"></i>
+                    {{ boletim.topicos }}
+                </p>
+                {% endif %}
+            </div>
+            
+            <!-- Estatísticas -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="stats-card text-center">
+                        <h3 class="text-primary">{{ notas_incluidas.count }}</h3>
+                        <p class="mb-0">Notas Incluídas</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stats-card text-center">
+                        <h3 class="text-success">{{ notas_disponiveis.count }}</h3>
+                        <p class="mb-0">Notas Disponíveis</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stats-card text-center">
+                        <h3 class="text-info">{{ boletim.data_criacao|date:"d/m/Y" }}</h3>
+                        <p class="mb-0">Data de Criação</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Conteúdo do Boletim com Notas -->
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-file-alt text-primary me-2"></i>
+                        Conteúdo do Boletim
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Cabeçalho Oficial do Boletim -->
+                    <div class="text-center mb-4">
+                        <h1 class="mb-1" style="font-size: 12px; font-weight: bold;">ESTADO DO PIAUÍ</h1>
+                        <h2 class="mb-1" style="font-size: 12px; font-weight: bold;">CORPO DE BOMBEIROS MILITAR</h2>
+                        <h3 class="mb-1" style="font-size: 12px; font-weight: bold;">QUARTEL DO COMANDO GERAL</h3>
+                        <h4 class="mb-1" style="font-size: 12px; font-weight: bold;">AJUDÂNCIA GERAL</h4>
+                        <h5 class="mb-1" style="font-size: 12px; font-weight: bold;">-</h5>
+                        <h6 class="mb-0" style="font-size: 12px; font-weight: bold;">-</h6>
+                        <hr style="border-top: 2px solid #333; margin: 20px 0;">
+                    </div>
+                    
+                    <!-- Tópicos do Boletim -->
+                    {% if boletim.topicos %}
+                    <div class="text-center mb-4">
+                        <h4 style="font-size: 14px; font-weight: bold; margin-bottom: 10px;">{{ boletim.topicos }}</h4>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Número e Título -->
+                    <div class="text-center mb-4">
+                        <h4 style="font-size: 14px; font-weight: bold; margin-bottom: 5px;">{{ boletim.numero }}</h4>
+                        <h5 style="font-size: 13px; font-weight: bold; margin-bottom: 15px;">{{ boletim.titulo }}</h5>
+                    </div>
+                    
+                    <!-- Conteúdo do Boletim com Notas Formatadas -->
+                    <div class="conteudo-boletim" style="line-height: 1.2; font-size: 0.9em; word-wrap: break-word; margin: 0; font-family: 'Times New Roman', serif;">
+                        {{ boletim.conteudo|safe }}
+                    </div>
+                    
+                    <!-- Notas com Botões de Ação -->
+                    {% if notas_incluidas %}
+                        <div class="mt-4">
+                            <h5 class="mb-3">
+                                <i class="fas fa-check-circle text-success me-2"></i>
+                                Notas Incluídas no Boletim
+                            </h5>
+                            {% for nota in notas_incluidas %}
+                            <div class="nota-card">
+                                <div class="nota-header text-center">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-file-alt me-2"></i>
+                                        {{ nota.numero }} - {{ nota.titulo }}
+                                    </h5>
+                                </div>
+                                <div class="nota-body">
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <small class="text-muted">
+                                                <i class="fas fa-calendar me-1"></i>
+                                                <strong>Data:</strong> {{ nota.data_publicacao|date:"d/m/Y H:i"|default:"-" }}
+                                            </small>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <small class="text-muted">
+                                                <i class="fas fa-building me-1"></i>
+                                                <strong>Origem:</strong> {{ nota.origem_publicacao|default:"-" }}
+                                            </small>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="conteudo-nota">
+                                        {{ nota.conteudo|truncatewords:30|safe }}
+                                    </div>
+                                    
+                                    <!-- Linha de Transcrição -->
+                                    <div class="mt-3 pt-2 border-top text-center">
+                                        <small class="text-muted">
+                                            (Transcrição da nota {{ nota.titulo|default:"NOTA" }} de Nº {{ nota.numero|default:"xxx" }} com origem {{ nota.origem_publicacao|default:"Sistema" }}, datada de {{ nota.data_publicacao|date:"d/m/Y H:i"|default:"N/A" }}.)
+                                        </small>
+                                    </div>
+                                </div>
+                                <div class="nota-actions">
+                                    <div class="d-flex flex-wrap gap-2">
+                                        {% if not boletim.data_disponibilizacao %}
+                                        <button onclick="devolverNotaOrigem('{{ nota.numero }}', {{ nota.id }})" 
+                                                class="btn btn-warning btn-sm btn-action" 
+                                                title="Devolver para origem">
+                                            <i class="fas fa-undo me-1"></i> Devolver
+                                        </button>
+                                        
+                                        <button onclick="editarNotaBoletim({{ nota.id }})" 
+                                                class="btn btn-primary btn-sm btn-action" 
+                                                title="Editar nota">
+                                            <i class="fas fa-edit me-1"></i> Editar
+                                        </button>
+                                        
+                                        <button onclick="transferirNotaBoletim('{{ nota.numero }}', {{ nota.id }})" 
+                                                class="btn btn-secondary btn-sm btn-action" 
+                                                title="Transferir para outro boletim">
+                                            <i class="fas fa-exchange-alt me-1"></i> Transferir
+                                        </button>
+                                        {% endif %}
+                                        
+                                        <button onclick="visualizarNotaModal({{ nota.id }})" 
+                                                class="btn btn-info btn-sm btn-action" 
+                                                title="Visualizar nota completa">
+                                            <i class="fas fa-eye me-1"></i> Visualizar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Nenhuma nota incluída no boletim</h5>
+                            <p class="text-muted">Use o botão "Gerenciar Notas" para adicionar notas ao boletim.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Botões de Ação -->
+            <div class="text-center mt-4">
+                <a href="{% url 'militares:boletins_reservados_list' %}" class="btn btn-secondary me-2">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Voltar à Lista
+                </a>
+                
+                <button onclick="abrirModalGerenciarNotas({{ boletim.pk }}, '{{ boletim.titulo }}', '{{ boletim.topicos }}')" 
+                        class="btn btn-primary me-2">
+                    <i class="fas fa-cogs me-2"></i>
+                    Gerenciar Notas
+                </button>
+                
+                <a href="{% url 'militares:publicacao_edit' boletim.pk %}" class="btn btn-warning">
+                    <i class="fas fa-edit me-2"></i>
+                    Editar Boletim
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Visualizar Nota -->
+<div class="modal fade" id="visualizarNotaModal" tabindex="-1" aria-labelledby="visualizarNotaModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-scrollable" style="max-width: 95vw; width: 95vw;">
+        <div class="modal-content shadow-lg" style="border: none; border-radius: 8px;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; border-radius: 8px 8px 0 0; padding: 1rem 1.5rem;">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-file-alt me-3" style="font-size: 1.5rem;"></i>
+                    <h5 class="modal-title mb-0" id="visualizarNotaModalLabel">
+                        Visualizar Publicação
+                    </h5>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    {% if not boletim.data_disponibilizacao %}
+                    <button type="button" class="btn btn-light btn-sm" title="Editar Nota" onclick="editarNotaModal()" id="btnEditarNota" style="display: none;">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button type="button" class="btn btn-light btn-sm" title="Salvar Alterações" onclick="salvarNotaModal();" id="btnSalvarNota" style="display: none;">
+                        <i class="fas fa-save"></i>
+                    </button>
+                    <button type="button" class="btn btn-light btn-sm" title="Cancelar Edição" onclick="cancelarEdicaoModal()" id="btnCancelarEdicao" style="display: none;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <button type="button" class="btn btn-light btn-sm" title="Devolver Publicação" onclick="devolverNota()">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                    {% endif %}
+                    <button type="button" class="btn btn-light btn-sm" title="Imprimir Publicação" onclick="imprimirNota()">
+                        <i class="fas fa-print"></i>
+                    </button>
+                    <button type="button" class="btn btn-light btn-sm" title="Arquivar Publicação" onclick="arquivarNota()">
+                        <i class="fas fa-archive"></i>
+                    </button>
+                    <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+            </div>
+            <div class="modal-body" style="max-height: 80vh; overflow-y: auto; padding: 0; background: #ffffff;">
+                <div id="conteudoNotaModal">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                        <p class="mt-3 text-muted">Carregando conteúdo da nota...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Gerenciar Notas do Boletim -->
+<div class="modal fade" id="gerenciarNotasModal" tabindex="-1" aria-labelledby="gerenciarNotasModalLabel" aria-hidden="true">
+    <div class="modal-dialog" style="max-width: 95vw; width: 95vw;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="gerenciarNotasModalLabel">
+                    <i class="fas fa-cogs text-primary"></i>
+                    Gerenciar Notas do Boletim Reservado
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Tópicos do Boletim -->
+                <div class="text-center mb-4" id="topicosBoletimSection" style="display: none;">
+                    <div class="bg-light p-3 rounded">
+                        <h6 style="font-size: 12px; font-weight: bold; margin: 0;" id="topicosBoletim">-</h6>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-primary">
+                            <i class="fas fa-plus-circle"></i>
+                            Notas Disponíveis
+                        </h6>
+                        <div id="notasDisponiveis" class="border rounded p-3" style="max-height: 400px; overflow-y: auto;">
+                            <div class="text-center text-muted">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                Carregando notas...
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6 class="text-success">
+                            <i class="fas fa-check-circle"></i>
+                            Notas Incluídas
+                        </h6>
+                        <div id="notasIncluidas" class="border rounded p-3" style="max-height: 400px; overflow-y: auto;">
+                            <div class="text-center text-muted">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                Carregando notas...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i>
+                    Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+console.log('🔧 Script do boletim reservado carregado!');
+
+let boletimAtualId = null;
+
+function abrirModalGerenciarNotas(boletimId, titulo, topicos) {
+    boletimAtualId = boletimId;
+    document.getElementById('gerenciarNotasModalLabel').innerHTML = 
+        `<i class="fas fa-cogs text-primary"></i> Gerenciar Notas - ${titulo}`;
+    
+    // Exibir tópicos do boletim
+    const topicosElement = document.getElementById('topicosBoletim');
+    const topicosSection = document.getElementById('topicosBoletimSection');
+    
+    if (topicosElement && topicosSection) {
+        if (topicos && topicos.trim() !== '') {
+            topicosElement.textContent = topicos;
+            topicosSection.style.display = 'block';
+        } else {
+            topicosSection.style.display = 'none';
+        }
+    }
+    
+    // Carregar notas disponíveis e incluídas
+    carregarNotasDisponiveis(boletimId, topicos);
+    carregarNotasIncluidas(boletimId);
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('gerenciarNotasModal'));
+    
+    // Adicionar evento para recarregar a página quando o modal for fechado
+    document.getElementById('gerenciarNotasModal').addEventListener('hidden.bs.modal', function () {
+        location.reload();
+    });
+    
+    modal.show();
+}
+
+function carregarNotasDisponiveis(boletimId, topicos) {
+    console.log('🔄 Carregando notas disponíveis para boletim:', boletimId, 'tópicos:', topicos);
+    fetch(`/militares/ajax/notas-disponiveis-boletim-reservado/${boletimId}/?topicos=${encodeURIComponent(topicos)}`)
+        .then(response => response.json())
+        .then(data => {
+            console.log('📋 Dados das notas disponíveis recebidos:', data);
+            const container = document.getElementById('notasDisponiveis');
+            if (data.notas && data.notas.length > 0) {
+                container.innerHTML = data.notas.map(nota => {
+                    if (nota.pode_incluir) {
+                        return `
+                            <div class="card mb-2">
+                                <div class="card-body p-2">
+                                    <h6 class="card-title mb-1">${nota.numero} - ${nota.titulo}</h6>
+                                    <p class="card-text small text-muted mb-2">
+                                        ${nota.data_publicacao ? new Date(nota.data_publicacao).toLocaleDateString('pt-BR') : 'N/A'}
+                                    </p>
+                                    <button class="btn btn-sm btn-success" onclick="adicionarNotaBoletim(${boletimId}, ${nota.id})">
+                                        <i class="fas fa-plus"></i> Adicionar
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        return `
+                            <div class="card mb-2 border-warning">
+                                <div class="card-body p-2">
+                                    <h6 class="card-title mb-1 text-muted">${nota.numero} - ${nota.titulo}</h6>
+                                    <p class="card-text small text-muted mb-2">
+                                        ${nota.data_publicacao ? new Date(nota.data_publicacao).toLocaleDateString('pt-BR') : 'N/A'}
+                                    </p>
+                                    <div class="alert alert-warning py-2 mb-2">
+                                        <small><i class="fas fa-exclamation-triangle"></i> ${nota.motivo_rejeicao}</small>
+                                    </div>
+                                    <button class="btn btn-sm btn-secondary" disabled>
+                                        <i class="fas fa-ban"></i> Não Disponível
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }
+                }).join('');
+            } else {
+                container.innerHTML = '<div class="text-center text-muted">Nenhuma nota disponível</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao carregar notas disponíveis:', error);
+            document.getElementById('notasDisponiveis').innerHTML = 
+                '<div class="text-center text-danger">Erro ao carregar notas</div>';
+        });
+}
+
+function carregarNotasIncluidas(boletimId) {
+    console.log('🔄 Carregando notas incluídas para boletim:', boletimId);
+    fetch(`/militares/ajax/notas-incluidas-boletim-reservado/${boletimId}/`)
+        .then(response => response.json())
+        .then(data => {
+            console.log('📋 Dados das notas incluídas recebidos:', data);
+            const container = document.getElementById('notasIncluidas');
+            if (data.notas && data.notas.length > 0) {
+                container.innerHTML = data.notas.map(nota => `
+                    <div class="card mb-2">
+                        <div class="card-body p-2">
+                            <h6 class="card-title mb-1">${nota.numero} - ${nota.titulo}</h6>
+                            <p class="card-text small text-muted mb-2">
+                                ${nota.data_publicacao ? new Date(nota.data_publicacao).toLocaleDateString('pt-BR') : 'N/A'}
+                            </p>
+                            <button class="btn btn-sm btn-danger" onclick="removerNotaBoletim(${boletimId}, ${nota.id})">
+                                <i class="fas fa-minus"></i> Remover
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = '<div class="text-center text-muted">Nenhuma nota incluída</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao carregar notas incluídas:', error);
+            document.getElementById('notasIncluidas').innerHTML = 
+                '<div class="text-center text-danger">Erro ao carregar notas</div>';
+        });
+}
+
+function adicionarNotaBoletim(boletimId, notaId) {
+    fetch(`/militares/boletins-reservados/${boletimId}/adicionar-nota/${notaId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Recarregar as listas
+            carregarNotasDisponiveis(boletimId, document.getElementById('gerenciarNotasModalLabel').textContent.split(' - ')[1]);
+            carregarNotasIncluidas(boletimId);
+            
+            // Mostrar mensagem de sucesso
+            showToast('success', data.message);
+        } else {
+            showToast('error', data.message || 'Erro ao adicionar nota');
+        }
+    })
+    .catch(error => {
+        console.error('Erro ao adicionar nota:', error);
+        showToast('error', 'Erro ao adicionar nota');
+    });
+}
+
+function removerNotaBoletim(boletimId, notaId) {
+    if (confirm('Deseja remover esta nota do boletim?')) {
+        fetch(`/militares/boletins-reservados/${boletimId}/remover-nota/${notaId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Recarregar as listas
+                carregarNotasDisponiveis(boletimId, document.getElementById('gerenciarNotasModalLabel').textContent.split(' - ')[1]);
+                carregarNotasIncluidas(boletimId);
+                
+                // Mostrar mensagem de sucesso
+                showToast('success', data.message);
+            } else {
+                showToast('error', data.message || 'Erro ao remover nota');
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao remover nota:', error);
+            showToast('error', 'Erro ao remover nota');
+        });
+    }
+}
+
+// Variável global para armazenar o ID da nota atual
+let notaIdAtual = null;
+
+// Funções para os botões de ação do modal
+function imprimirNota() {
+    if (notaIdAtual) {
+        window.open(`/militares/notas/${notaIdAtual}/pdf/`, '_blank');
+    }
+}
+
+function devolverNota() {
+    if (notaIdAtual) {
+        if (confirm('Tem certeza que deseja devolver esta publicação?')) {
+            // Implementar lógica de devolução
+            console.log('Devolvendo nota:', notaIdAtual);
+            showToast('info', 'Funcionalidade de devolução em desenvolvimento');
+        }
+    }
+}
+
+function arquivarNota() {
+    if (notaIdAtual) {
+        if (confirm('Tem certeza que deseja arquivar esta publicação?')) {
+            // Implementar lógica de arquivamento
+            console.log('Arquivando nota:', notaIdAtual);
+            showToast('info', 'Funcionalidade de arquivamento em desenvolvimento');
+        }
+    }
+}
+
+// Função para editar nota no modal (chamada do botão Editar no boletim)
+window.editarNotaBoletim = function(notaId) {
+    console.log('🔧 EDITAR NOTA BOLETIM chamada com ID:', notaId);
+    notaIdAtual = notaId;
+    modoEdicao = true;
+    console.log('🔧 notaIdAtual definido como:', notaIdAtual);
+    
+    // Mostrar modal de visualização
+    const modal = new bootstrap.Modal(document.getElementById('visualizarNotaModal'));
+    modal.show();
+    
+    // Mostrar/ocultar botões para modo de edição
+    document.getElementById('btnEditarNota').style.display = 'none';
+    document.getElementById('btnSalvarNota').style.display = 'inline-block';
+    document.getElementById('btnCancelarEdicao').style.display = 'inline-block';
+    
+    // Converter conteúdo para formulário editável
+    converterParaFormularioEdicao();
+};
+
+// Função para visualizar nota no modal
+function visualizarNotaModal(notaId) {
+    console.log('🔍 visualizarNotaModal chamada com ID:', notaId);
+    notaIdAtual = notaId;
+    modoEdicao = false;
+    console.log('🔍 notaIdAtual definido como:', notaIdAtual);
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('visualizarNotaModal'));
+    modal.show();
+    
+    // Resetar botões para modo de visualização
+    document.getElementById('btnEditarNota').style.display = 'inline-block';
+    document.getElementById('btnSalvarNota').style.display = 'none';
+    document.getElementById('btnCancelarEdicao').style.display = 'none';
+    
+    // Carregar conteúdo da nota
+    console.log('🔍 Carregando nota ID:', notaId);
+    fetch(`/militares/notas/${notaId}/dados-assinatura/`)
+        .then(response => {
+            console.log('📡 Resposta recebida:', response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log('📊 Dados da nota recebidos:', data);
+            console.log('📄 Conteúdo da nota:', data.nota?.conteudo);
+            console.log('📋 Tópicos da nota:', data.nota?.topicos);
+            console.log('🎨 Aplicando estilos do editor...');
+            if (data.success) {
+                const conteudo = document.getElementById('conteudoNotaModal');
+                conteudo.innerHTML = `
+                    <div class="boletim-content">
+                        <!-- Cabeçalho Oficial -->
+                        <div class="cabecalho-oficial">
+                            <h1>ESTADO DO PIAUÍ</h1>
+                            <h2>CORPO DE BOMBEIROS MILITAR</h2>
+                            <h3>QUARTEL DO COMANDO GERAL</h3>
+                            <h4>AJUDÂNCIA GERAL</h4>
+                            <h5>-</h5>
+                            <h6>-</h6>
+                            <hr>
+                        </div>
+                        
+                        <!-- Informações da Nota -->
+                        <div class="boletim-info">
+                            <div class="boletim-titulo">${data.nota.titulo || 'Título não definido'}</div>
+                            
+                            <div class="boletim-meta">
+                                <div class="meta-item">
+                                    <div class="meta-label">Número</div>
+                                    <div class="meta-value">${data.nota.numero || 'N/A'}</div>
+                                </div>
+                                <div class="meta-item">
+                                    <div class="meta-label">Status</div>
+                                    <div class="meta-value">
+                                        <span class="status-badge status-${data.nota.status ? data.nota.status.toLowerCase() : 'rascunho'}">
+                                            ${data.nota.status_display || 'Rascunho'}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="meta-item">
+                                    <div class="meta-label">Criado por</div>
+                                    <div class="meta-value">${data.nota.criado_por || 'N/A'}</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Tópicos da Nota -->
+                        ${data.nota.topicos ? `
+                            <div class="topicos-section">
+                                <div class="topicos-title">
+                                    <i class="fas fa-list me-2"></i>
+                                    Tópicos
+                                </div>
+                                <div class="topicos-content">${data.nota.topicos}</div>
+                            </div>
+                        ` : ''}
+                        
+                        <!-- Conteúdo da Nota -->
+                        <div class="notas-section">
+                            <div class="notas-title">
+                                <i class="fas fa-file-alt me-2"></i>
+                                Conteúdo da Nota
+                            </div>
+                            <div class="nota-item">
+                                <div class="nota-conteudo">${data.nota.conteudo ? data.nota.conteudo : '<p class="text-center text-muted"><em>Conteúdo não disponível</em></p>'}</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Assinaturas -->
+                        ${data.assinaturas && data.assinaturas.length > 0 ? `
+                            <div class="notas-section">
+                                <div class="notas-title">
+                                    <i class="fas fa-signature me-2"></i>
+                                    Assinaturas Eletrônicas
+                                </div>
+                                ${data.assinaturas.map(assinatura => `
+                                    <div class="nota-item">
+                                        <div class="nota-header">
+                                            <div class="nota-titulo">${assinatura.assinado_por}</div>
+                                            <div class="nota-data">${new Date(assinatura.data_assinatura).toLocaleDateString('pt-BR')} às ${new Date(assinatura.data_assinatura).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}</div>
+                                        </div>
+                                        <div class="nota-conteudo">
+                                            <strong>Função:</strong> ${assinatura.funcao_assinatura || 'Função não registrada'}<br>
+                                            <strong>Tipo:</strong> ${assinatura.tipo_assinatura_display || 'N/A'}<br>
+                                            ${assinatura.observacoes ? `<strong>Observações:</strong> ${assinatura.observacoes}` : ''}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+                
+                // Atualizar título do modal
+                document.getElementById('visualizarNotaModalLabel').innerHTML = 
+                    `<i class="fas fa-file-alt me-2"></i> ${data.nota.numero} - ${data.nota.titulo}`;
+                
+                // Adicionar estilos da página de visualização do boletim reservado
+                const style = document.createElement('style');
+                style.textContent = `
+                    /* Estilos da página de visualização do boletim reservado */
+                    #conteudoNotaModal .boletim-content {
+                        padding: 30px;
+                    }
+                    
+                    #conteudoNotaModal .cabecalho-oficial {
+                        text-align: center;
+                        margin-bottom: 30px;
+                        background: white;
+                        padding: 20px;
+                        border-radius: 10px;
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    }
+                    
+                    #conteudoNotaModal .cabecalho-oficial h1 {
+                        font-size: 14px;
+                        font-weight: bold;
+                        margin-bottom: 5px;
+                        color: #333;
+                    }
+                    
+                    #conteudoNotaModal .cabecalho-oficial h2 {
+                        font-size: 14px;
+                        font-weight: bold;
+                        margin-bottom: 5px;
+                        color: #333;
+                    }
+                    
+                    #conteudoNotaModal .cabecalho-oficial h3 {
+                        font-size: 14px;
+                        font-weight: bold;
+                        margin-bottom: 5px;
+                        color: #333;
+                    }
+                    
+                    #conteudoNotaModal .cabecalho-oficial h4 {
+                        font-size: 14px;
+                        font-weight: bold;
+                        margin-bottom: 5px;
+                        color: #333;
+                    }
+                    
+                    #conteudoNotaModal .cabecalho-oficial h5 {
+                        font-size: 14px;
+                        font-weight: bold;
+                        margin-bottom: 5px;
+                        color: #333;
+                    }
+                    
+                    #conteudoNotaModal .cabecalho-oficial h6 {
+                        font-size: 14px;
+                        font-weight: bold;
+                        margin-bottom: 5px;
+                        color: #333;
+                    }
+                    
+                    #conteudoNotaModal .cabecalho-oficial hr {
+                        border-top: 2px solid #333;
+                        margin: 20px 0;
+                    }
+                    
+                    #conteudoNotaModal .boletim-info {
+                        background: white;
+                        padding: 20px;
+                        border-radius: 10px;
+                        margin-bottom: 20px;
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    }
+                    
+                    #conteudoNotaModal .boletim-titulo {
+                        font-size: 1.8rem;
+                        font-weight: bold;
+                        color: #2c3e50;
+                        margin-bottom: 15px;
+                        text-align: center;
+                        border-bottom: 3px solid #ffc107;
+                        padding-bottom: 10px;
+                    }
+                    
+                    #conteudoNotaModal .boletim-meta {
+                        display: flex;
+                        justify-content: space-between;
+                        flex-wrap: wrap;
+                        gap: 15px;
+                        margin-bottom: 20px;
+                    }
+                    
+                    #conteudoNotaModal .meta-item {
+                        background: #f8f9fa;
+                        padding: 10px 15px;
+                        border-radius: 8px;
+                        border-left: 4px solid #ffc107;
+                    }
+                    
+                    #conteudoNotaModal .meta-label {
+                        font-weight: bold;
+                        color: #666;
+                        font-size: 0.9rem;
+                        margin-bottom: 5px;
+                    }
+                    
+                    #conteudoNotaModal .meta-value {
+                        color: #333;
+                        font-size: 1rem;
+                    }
+                    
+                    #conteudoNotaModal .topicos-section {
+                        background: white;
+                        padding: 20px;
+                        border-radius: 10px;
+                        margin-bottom: 20px;
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    }
+                    
+                    #conteudoNotaModal .topicos-title {
+                        font-size: 1.2rem;
+                        font-weight: bold;
+                        color: #2c3e50;
+                        margin-bottom: 15px;
+                        border-bottom: 2px solid #e74c3c;
+                        padding-bottom: 8px;
+                    }
+                    
+                    #conteudoNotaModal .topicos-content {
+                        font-size: 1rem;
+                        line-height: 1.6;
+                        color: #444;
+                        white-space: pre-line;
+                    }
+                    
+                    #conteudoNotaModal .notas-section {
+                        background: white;
+                        padding: 20px;
+                        border-radius: 10px;
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                        margin-bottom: 20px;
+                    }
+                    
+                    #conteudoNotaModal .notas-title {
+                        font-size: 1.2rem;
+                        font-weight: bold;
+                        color: #2c3e50;
+                        margin-bottom: 15px;
+                        border-bottom: 2px solid #27ae60;
+                        padding-bottom: 8px;
+                    }
+                    
+                    #conteudoNotaModal .nota-item {
+                        background: #f8f9fa;
+                        border: 1px solid #e9ecef;
+                        border-radius: 8px;
+                        padding: 15px;
+                        margin-bottom: 15px;
+                        transition: all 0.3s ease;
+                    }
+                    
+                    #conteudoNotaModal .nota-item:hover {
+                        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+                        transform: translateY(-2px);
+                    }
+                    
+                    #conteudoNotaModal .nota-header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 10px;
+                    }
+                    
+                    #conteudoNotaModal .nota-titulo {
+                        font-weight: bold;
+                        color: #2c3e50;
+                        font-size: 1.1rem;
+                    }
+                    
+                    #conteudoNotaModal .nota-data {
+                        color: #666;
+                        font-size: 0.9rem;
+                    }
+                    
+                    #conteudoNotaModal .nota-conteudo {
+                        color: #444;
+                        line-height: 1.6;
+                        white-space: pre-line;
+                    }
+                    
+                    #conteudoNotaModal .status-badge {
+                        display: inline-block;
+                        padding: 4px 12px;
+                        border-radius: 20px;
+                        font-size: 0.8rem;
+                        font-weight: bold;
+                        text-transform: uppercase;
+                    }
+                    
+                    #conteudoNotaModal .status-publicada {
+                        background: #d4edda;
+                        color: #155724;
+                    }
+                    
+                    #conteudoNotaModal .status-rascunho {
+                        background: #fff3cd;
+                        color: #856404;
+                    }
+                    
+                    #conteudoNotaModal .status-revisada {
+                        background: #cce5ff;
+                        color: #004085;
+                    }
+                    
+                    #conteudoNotaModal .status-aprovada {
+                        background: #d1ecf1;
+                        color: #0c5460;
+                    }
+                    
+                    /* Estilo para botões do cabeçalho */
+                    .modal-header .btn-light {
+                        background-color: rgba(255, 255, 255, 0.2);
+                        border: 1px solid rgba(255, 255, 255, 0.3);
+                        color: white;
+                        transition: all 0.2s ease;
+                    }
+                    
+                    .modal-header .btn-light:hover {
+                        background-color: rgba(255, 255, 255, 0.3);
+                        border-color: rgba(255, 255, 255, 0.5);
+                        color: white;
+                    }
+                `;
+                document.head.appendChild(style);
+                console.log('✅ Estilos da página de visualização do boletim reservado aplicados com sucesso!');
+            } else {
+                document.getElementById('conteudoNotaModal').innerHTML = `
+                    <div class="text-center py-5">
+                        <div class="alert alert-danger border-0 shadow-sm" style="border-radius: 15px;">
+                            <i class="fas fa-exclamation-triangle fa-2x mb-3 text-danger"></i>
+                            <h5 class="alert-heading">Erro ao carregar a nota</h5>
+                            <p class="mb-0">Não foi possível carregar o conteúdo da nota. Tente novamente.</p>
+                        </div>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('❌ Erro ao carregar nota:', error);
+            document.getElementById('conteudoNotaModal').innerHTML = `
+                <div class="text-center py-5">
+                    <div class="alert alert-danger border-0 shadow-sm" style="border-radius: 15px;">
+                        <i class="fas fa-exclamation-triangle fa-2x mb-3 text-danger"></i>
+                        <h5 class="alert-heading">Erro de conexão</h5>
+                        <p class="mb-0">Erro ao carregar a nota: ${error.message}</p>
+                        <hr>
+                        <small class="text-muted">Verifique sua conexão e tente novamente.</small>
+                    </div>
+                </div>
+            `;
+        });
+}
+
+// Funções para os botões de ação das notas
+function devolverNotaOrigem(numeroNota, notaId) {
+    if (confirm(`Tem certeza que deseja devolver a nota ${numeroNota} para sua origem?`)) {
+        fetch(`/militares/ajax/devolver-nota-origem/${notaId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert('Nota devolvida para origem com sucesso!');
+                location.reload();
+            } else {
+                alert('Erro ao devolver nota: ' + (result.error || 'Erro desconhecido'));
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao devolver nota para origem');
+        });
+    }
+}
+
+function transferirNotaBoletim(numeroNota, notaId) {
+    const boletimDestino = prompt(`Digite o número do boletim de destino para transferir a nota ${numeroNota}:`);
+    if (boletimDestino) {
+        fetch(`/militares/ajax/transferir-nota-boletim/${notaId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ boletim_destino: boletimDestino })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert('Nota transferida com sucesso!');
+                location.reload();
+            } else {
+                alert('Erro ao transferir nota: ' + (result.error || 'Erro desconhecido'));
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao transferir nota');
+        });
+    }
+}
+
+function showToast(type, message) {
+    // Implementar sistema de toast se necessário
+    alert(message);
+}
+
+// Função auxiliar para obter CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    console.log(`🍪 CSRF Token obtido: ${cookieValue ? cookieValue.substring(0, 10) + '...' : 'NÃO ENCONTRADO'}`);
+    
+    // Fallback: tentar obter do meta tag
+    if (!cookieValue) {
+        const metaToken = document.querySelector('meta[name="csrf-token"]');
+        if (metaToken) {
+            cookieValue = metaToken.getAttribute('content');
+            console.log(`🍪 CSRF Token do meta: ${cookieValue ? cookieValue.substring(0, 10) + '...' : 'NÃO ENCONTRADO'}`);
+        }
+    }
+    
+    // Fallback: tentar obter do input hidden
+    if (!cookieValue) {
+        const inputToken = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (inputToken) {
+            cookieValue = inputToken.value;
+            console.log(`🍪 CSRF Token do input: ${cookieValue ? cookieValue.substring(0, 10) + '...' : 'NÃO ENCONTRADO'}`);
+        }
+    }
+    
+    return cookieValue;
+}
+
+// Variáveis globais para controle da edição
+let notaIdAtual = null;
+let modoEdicao = false;
+let conteudoOriginal = null;
+
+// Verificar se as funções estão sendo definidas
+console.log('🔧 Definindo funções de edição...');
+
+// Definir funções no escopo global
+window.editarNotaModal = function() {
+    console.log('🔧 FUNÇÃO editarNotaModal CHAMADA!');
+    console.log('🔧 notaIdAtual:', notaIdAtual);
+    
+    if (!notaIdAtual) {
+        console.error('❌ ID da nota não encontrado');
+        alert('Erro: ID da nota não encontrado');
+        return;
+    }
+    
+    modoEdicao = true;
+    
+    // Mostrar/ocultar botões
+    document.getElementById('btnEditarNota').style.display = 'none';
+    document.getElementById('btnSalvarNota').style.display = 'inline-block';
+    document.getElementById('btnCancelarEdicao').style.display = 'inline-block';
+    
+    // Converter conteúdo para formulário editável
+    converterParaFormularioEdicao();
+};
+
+// Função para converter o conteúdo visualizado em formulário editável
+function converterParaFormularioEdicao() {
+    const conteudoModal = document.getElementById('conteudoNotaModal');
+    
+    // Salvar conteúdo original para possível cancelamento
+    conteudoOriginal = conteudoModal.innerHTML;
+    
+    // Buscar dados da nota para edição
+    console.log('🔍 Buscando dados da nota para edição...');
+    fetch(`/militares/notas/${notaIdAtual}/editar-modal/`)
+        .then(response => {
+            console.log('📡 Resposta do editar-modal:', response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log('📊 Dados recebidos do editar-modal:', data);
+            if (data.success) {
+                const nota = data.nota;
+                console.log('📄 Dados da nota:', nota);
+                
+                // Criar formulário de edição
+                conteudoModal.innerHTML = `
+                    <div class="container-fluid p-4">
+                        <form id="formEdicaoNota">
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <label for="tituloEdicao" class="form-label">Título da Nota</label>
+                                    <input type="text" class="form-control" id="tituloEdicao" value="${nota.titulo || ''}" required>
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="origemEdicao" class="form-label">Origem da Publicação</label>
+                                    <input type="text" class="form-control" id="origemEdicao" value="${nota.origem_publicacao || ''}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="tipoEdicao" class="form-label">Tipo de Publicação</label>
+                                    <input type="text" class="form-control" id="tipoEdicao" value="${nota.tipo_publicacao || ''}">
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <label for="topicosEdicao" class="form-label">Tópicos</label>
+                                    <textarea class="form-control" id="topicosEdicao" rows="3">${nota.topicos || ''}</textarea>
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <label for="conteudoEdicao" class="form-label">Conteúdo da Nota</label>
+                                    <div id="editorEdicao" style="min-height: 300px; border: 1px solid #ced4da; border-radius: 0.375rem; padding: 10px;"></div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                `;
+                
+                // Inicializar editor de texto rico
+                inicializarEditorEdicao(nota.conteudo || '');
+            } else {
+                console.error('❌ Erro ao carregar dados da nota:', data.error);
+                alert('Erro ao carregar dados da nota: ' + (data.error || 'Erro desconhecido'));
+            }
+        })
+        .catch(error => {
+            console.error('❌ Erro ao carregar dados da nota:', error);
+            alert('Erro ao carregar dados da nota: ' + error.message);
+        });
+}
+
+// Função para inicializar o editor de texto rico
+function inicializarEditorEdicao(conteudoInicial) {
+    const editorElement = document.getElementById('editorEdicao');
+    if (editorElement) {
+        editorElement.innerHTML = conteudoInicial;
+        editorElement.contentEditable = true;
+        editorElement.style.outline = 'none';
+        
+        // Adicionar estilos básicos de formatação
+        editorElement.addEventListener('keydown', function(e) {
+            if (e.ctrlKey) {
+                switch(e.key) {
+                    case 'b':
+                        e.preventDefault();
+                        document.execCommand('bold');
+                        break;
+                    case 'i':
+                        e.preventDefault();
+                        document.execCommand('italic');
+                        break;
+                    case 'u':
+                        e.preventDefault();
+                        document.execCommand('underline');
+                        break;
+                }
+            }
+        });
+    }
+}
+
+// Função para salvar as alterações
+window.salvarNotaModal = function() {
+    console.log('🔧 FUNÇÃO salvarNotaModal CHAMADA!');
+    console.log('🔧 Iniciando salvamento da nota...');
+    
+    if (!notaIdAtual) {
+        console.error('❌ ID da nota não encontrado');
+        alert('Erro: ID da nota não encontrado');
+        return;
+    }
+    
+    console.log('📝 Coletando dados do formulário...');
+    
+    // Coletar dados do formulário
+    const titulo = document.getElementById('tituloEdicao').value;
+    const origem = document.getElementById('origemEdicao').value;
+    const tipo = document.getElementById('tipoEdicao').value;
+    const topicos = document.getElementById('topicosEdicao').value;
+    const conteudo = document.getElementById('editorEdicao').innerHTML;
+    
+    console.log('📊 Dados coletados:');
+    console.log('  - Título:', titulo);
+    console.log('  - Origem:', origem);
+    console.log('  - Tipo:', tipo);
+    console.log('  - Tópicos:', topicos);
+    console.log('  - Conteúdo (primeiros 100 chars):', conteudo.substring(0, 100) + '...');
+    
+    if (!titulo.trim()) {
+        console.error('❌ Título não preenchido');
+        alert('Por favor, preencha o título da nota');
+        return;
+    }
+    
+    // Preparar dados para envio
+    const formData = new FormData();
+    formData.append('titulo', titulo);
+    formData.append('origem_publicacao', origem);
+    formData.append('tipo_publicacao', tipo);
+    formData.append('topicos', topicos);
+    formData.append('conteudo', conteudo);
+    
+    console.log('📤 Enviando dados para o servidor...');
+    console.log('🔗 URL:', `/militares/notas/${notaIdAtual}/editar-ajax/`);
+    
+    // Obter CSRF token
+    const csrfToken = getCookie('csrftoken') || 
+                     document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
+                     document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    
+    console.log('🔐 CSRF Token final:', csrfToken ? csrfToken.substring(0, 10) + '...' : 'NÃO ENCONTRADO');
+    
+    if (!csrfToken) {
+        console.error('❌ CSRF Token não encontrado');
+        alert('Erro: Token de segurança não encontrado. Recarregue a página e tente novamente.');
+        return;
+    }
+    
+    // Enviar dados para o servidor
+    fetch(`/militares/notas/${notaIdAtual}/editar-ajax/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+    })
+    .then(response => {
+        console.log('📡 Resposta recebida:', response.status, response.statusText);
+        console.log('📡 Headers da resposta:', response.headers);
+        
+        if (!response.ok) {
+            console.error('❌ Resposta não OK:', response.status, response.statusText);
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        return response.text().then(text => {
+            console.log('📄 Resposta bruta:', text);
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                console.error('❌ Erro ao fazer parse do JSON:', e);
+                console.error('❌ Texto recebido:', text);
+                throw new Error('Resposta não é um JSON válido');
+            }
+        });
+    })
+    .then(data => {
+        console.log('📊 Dados da resposta:', data);
+        if (data.success) {
+            console.log('✅ Nota atualizada com sucesso!');
+            alert('Nota atualizada com sucesso!');
+            // Voltar ao modo de visualização
+            cancelarEdicaoModal();
+            // Recarregar o conteúdo da nota
+            visualizarNotaModal(notaIdAtual);
+        } else {
+            console.error('❌ Erro ao salvar nota:', data.error);
+            alert('Erro ao salvar nota: ' + (data.error || 'Erro desconhecido'));
+        }
+    })
+    .catch(error => {
+        console.error('❌ Erro ao salvar nota:', error);
+        alert('Erro ao salvar nota: ' + error.message);
+    });
+};
+
+// Função para cancelar a edição
+window.cancelarEdicaoModal = function() {
+    modoEdicao = false;
+    
+    // Mostrar/ocultar botões
+    document.getElementById('btnEditarNota').style.display = 'inline-block';
+    document.getElementById('btnSalvarNota').style.display = 'none';
+    document.getElementById('btnCancelarEdicao').style.display = 'none';
+    
+    // Restaurar conteúdo original
+    if (conteudoOriginal) {
+        document.getElementById('conteudoNotaModal').innerHTML = conteudoOriginal;
+    }
+};
+
+</script>
+
+{% endblock %}

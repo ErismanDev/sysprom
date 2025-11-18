@@ -17,17 +17,17 @@ def is_admin_user(user):
     if user.is_superuser:
         return True
     
-    # Verificar se tem função de administrador
-    from .models import UsuarioFuncao
-    return UsuarioFuncao.objects.filter(
+    # Verificar se tem função de administrador ou operador do sistema
+    from .models import UsuarioFuncaoMilitar
+    return UsuarioFuncaoMilitar.objects.filter(
         usuario=user,
-        cargo_funcao__nome__icontains='administrador',
-        status='ATIVO'
+        funcao_militar__nome__in=['Administrador', 'Administrador do Sistema', 'Admnistrador do Sistema', 'Operador do Sistema'],
+        ativo=True
     ).exists()
 
 def admin_bypass(view_func):
     """
-    Decorator que permite admin bypass - admin tem acesso total
+    Decorator que permite admin bypass - admin OU usuários com permissões granulares
     """
     @wraps(view_func)
     def _wrapped_view(request, *args, **kwargs):
@@ -35,9 +35,14 @@ def admin_bypass(view_func):
         if is_admin_user(request.user):
             return view_func(request, *args, **kwargs)
         
-        # Se não é admin, aplicar verificações normais
-        # (aqui você pode adicionar outras verificações se necessário)
-        return view_func(request, *args, **kwargs)
+        # Verificar se tem permissões granulares para editar militares
+        from .permissoes_simples import pode_editar_militares
+        if pode_editar_militares(request.user):
+            return view_func(request, *args, **kwargs)
+        
+        # Se não tem nem permissão de admin nem granular, negar acesso
+        messages.error(request, 'Acesso negado. Você não tem permissão para editar militares.')
+        return redirect('militares:militar_list')
     
     return _wrapped_view
 
@@ -57,7 +62,7 @@ def admin_or_permission_required(permission):
                 return view_func(request, *args, **kwargs)
             
             messages.error(request, 'Acesso negado. Permissão necessária ou ser administrador.')
-            return redirect('militares:militar_dashboard')
+            return redirect('militares:home')
         
         return _wrapped_view
     return decorator

@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from militares.models import CargoFuncao, UsuarioFuncao
+from militares.models import UsuarioFuncaoMilitar
 from django.contrib.auth.models import User
 
 class Command(BaseCommand):
@@ -7,7 +7,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         # Criar função padrão
-        cargo_padrao, created = CargoFuncao.objects.get_or_create(
+        cargo_padrao, created = FuncaoMilitar.objects.get_or_create(
             nome='Administrador',
             defaults={
                 'descricao': 'Função padrão para administradores do sistema',

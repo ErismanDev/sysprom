@@ -1,0 +1,364 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load militares_extras %}
+
+{% block title %}Controle de Movimentações de Armas{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="mb-4">
+                <h2 class="mb-0">
+                    <i class="fas fa-exchange-alt me-2 text-primary"></i>Controle de Movimentações de Armas
+                </h2>
+                <p class="text-muted mb-0">Gerenciar movimentações de armas da instituição</p>
+            </div>
+            
+            <!-- Cards de Estatísticas -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-list fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_movimentacoes }}</h4>
+                            <p class="mb-0">Total de Movimentações</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card success">
+                        <div class="card-body text-center">
+                            <i class="fas fa-arrow-up fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_entregas }}</h4>
+                            <p class="mb-0">Entregas</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card info">
+                        <div class="card-body text-center">
+                            <i class="fas fa-arrow-down fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_devolucoes }}</h4>
+                            <p class="mb-0">Devoluções</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card warning">
+                        <div class="card-body text-center">
+                            <i class="fas fa-wrench fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_manutencoes }}</h4>
+                            <p class="mb-0">Manutenções</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Pesquisa</label>
+                            <input type="text" name="search" class="form-control" 
+                                   value="{{ search }}" placeholder="Nº série, marca, modelo, militar...">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Arma</label>
+                            <select name="arma" class="form-select">
+                                <option value="">Todas</option>
+                                {% for arma in armas %}
+                                    <option value="{{ arma.pk }}" {% if arma_id == arma.pk|stringformat:"s" %}selected{% endif %}>
+                                        {{ arma.numero_serie }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Tipo</label>
+                            <select name="tipo_movimentacao" class="form-select">
+                                <option value="">Todos</option>
+                                {% for tipo_val, tipo_nome in tipos_movimentacao %}
+                                    <option value="{{ tipo_val }}" {% if tipo_movimentacao == tipo_val %}selected{% endif %}>
+                                        {{ tipo_nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Militar</label>
+                            <select name="militar" class="form-select">
+                                <option value="">Todos</option>
+                                {% for militar in militares %}
+                                    <option value="{{ militar.pk }}" {% if militar_id == militar.pk|stringformat:"s" %}selected{% endif %}>
+                                        {{ militar.nome_completo }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label">Data Início</label>
+                            <input type="date" name="data_inicio" class="form-control" value="{{ data_inicio }}">
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label">Data Fim</label>
+                            <input type="date" name="data_fim" class="form-control" value="{{ data_fim }}">
+                        </div>
+                        <div class="col-md-1 d-flex align-items-end gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                            <a href="{% url 'militares:movimentacao_arma_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Limpar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Lista de Movimentações -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Lista de Movimentações
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if movimentacoes %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Data/Hora</th>
+                                        <th>Arma</th>
+                                        <th>Tipo</th>
+                                        <th>Tipo Manutenção</th>
+                                        <th>Origem</th>
+                                        <th>Destino</th>
+                                        <th>Organização</th>
+                                        <th>Militar Recebeu</th>
+                                        <th>Empresa/CNPJ</th>
+                                        <th>Observações</th>
+                                        <th>Responsável</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for mov in movimentacoes %}
+                                        <tr>
+                                            <td>{{ mov.data_movimentacao|date:"d/m/Y H:i" }}</td>
+                                            <td>
+                                                <a href="{% url 'militares:arma_detail' mov.arma.pk %}">
+                                                    <strong>{{ mov.arma.numero_serie }}</strong>
+                                                </a>
+                                                <br>
+                                                <small class="text-muted">{{ mov.arma.marca }} {{ mov.arma.modelo }}</small>
+                                            </td>
+                                            <td>
+                                                {% if mov.tipo_movimentacao == 'ENTREGA' %}
+                                                    <span class="badge bg-success">{{ mov.get_tipo_movimentacao_display }}</span>
+                                                {% elif mov.tipo_movimentacao == 'DEVOLUCAO' %}
+                                                    <span class="badge bg-info">{{ mov.get_tipo_movimentacao_display }}</span>
+                                                {% elif mov.tipo_movimentacao == 'MANUTENCAO' %}
+                                                    <span class="badge bg-warning text-dark">{{ mov.get_tipo_movimentacao_display }}</span>
+                                                {% elif mov.tipo_movimentacao == 'RETORNO_MANUTENCAO' %}
+                                                    <span class="badge bg-primary">{{ mov.get_tipo_movimentacao_display }}</span>
+                                                {% elif mov.tipo_movimentacao == 'TRANSFERENCIA' %}
+                                                    <span class="badge bg-secondary">{{ mov.get_tipo_movimentacao_display }}</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">{{ mov.get_tipo_movimentacao_display }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if mov.tipo_movimentacao == 'MANUTENCAO' %}
+                                                    {% if mov.tipo_manutencao == 'INTERNA' %}
+                                                        <span class="badge bg-info">Interna</span>
+                                                    {% elif mov.tipo_manutencao == 'EXTERNA' %}
+                                                        <span class="badge bg-danger">Externa</span>
+                                                    {% else %}
+                                                        <span class="text-muted">-</span>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if mov.militar_origem %}
+                                                    <strong>{{ mov.militar_origem.get_posto_graduacao_display }} {{ mov.militar_origem.nome_completo }}</strong>
+                                                    {% if mov.militar_origem.matricula %}
+                                                        <br><small class="text-muted">Mat: {{ mov.militar_origem.matricula }}</small>
+                                                    {% endif %}
+                                                {% elif mov.organizacao_origem %}
+                                                    <small>{{ mov.organizacao_origem }}</small>
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if mov.militar_destino %}
+                                                    <strong>{{ mov.militar_destino.get_posto_graduacao_display }} {{ mov.militar_destino.nome_completo }}</strong>
+                                                    {% if mov.militar_destino.matricula %}
+                                                        <br><small class="text-muted">Mat: {{ mov.militar_destino.matricula }}</small>
+                                                    {% endif %}
+                                                {% elif mov.organizacao_destino %}
+                                                    <small>{{ mov.organizacao_destino }}</small>
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if mov.tipo_movimentacao == 'MANUTENCAO' and mov.tipo_manutencao == 'INTERNA' %}
+                                                    {% if mov.sub_unidade_manutencao %}
+                                                        {{ mov.sub_unidade_manutencao.nome }}
+                                                    {% elif mov.unidade_manutencao %}
+                                                        {{ mov.unidade_manutencao.nome }}
+                                                    {% elif mov.grande_comando_manutencao %}
+                                                        {{ mov.grande_comando_manutencao.nome }}
+                                                    {% elif mov.orgao_manutencao %}
+                                                        {{ mov.orgao_manutencao.nome }}
+                                                    {% else %}
+                                                        <span class="text-muted">-</span>
+                                                    {% endif %}
+                                                {% elif mov.organizacao_destino %}
+                                                    <small>{{ mov.organizacao_destino }}</small>
+                                                {% elif mov.organizacao_origem %}
+                                                    <small>{{ mov.organizacao_origem }}</small>
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if mov.tipo_movimentacao == 'MANUTENCAO' and mov.militar_recebeu_manutencao %}
+                                                    <strong>{{ mov.militar_recebeu_manutencao.get_posto_graduacao_display }} {{ mov.militar_recebeu_manutencao.nome_completo }}</strong>
+                                                    {% if mov.militar_recebeu_manutencao.matricula %}
+                                                        <br><small class="text-muted">Mat: {{ mov.militar_recebeu_manutencao.matricula }}</small>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if mov.tipo_movimentacao == 'MANUTENCAO' and mov.tipo_manutencao == 'EXTERNA' %}
+                                                    {% if mov.empresa_manutencao %}
+                                                        <strong>{{ mov.empresa_manutencao }}</strong>
+                                                        {% if mov.cnpj_empresa_manutencao %}
+                                                            <br><small class="text-muted">CNPJ: {{ mov.cnpj_empresa_manutencao }}</small>
+                                                        {% endif %}
+                                                        {% if mov.endereco_empresa_manutencao %}
+                                                            <br><small class="text-muted" title="{{ mov.endereco_empresa_manutencao }}">{{ mov.endereco_empresa_manutencao|truncatewords:5 }}</small>
+                                                        {% endif %}
+                                                        {% if mov.responsavel_empresa_manutencao %}
+                                                            <br><small class="text-muted">Resp: {{ mov.responsavel_empresa_manutencao }}</small>
+                                                        {% endif %}
+                                                    {% else %}
+                                                        <span class="text-muted">-</span>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if mov.observacoes %}
+                                                    <small title="{{ mov.observacoes|escape }}">{{ mov.observacoes|truncatewords:15 }}</small>
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if mov.responsavel_movimentacao %}
+                                                    {{ mov.responsavel_movimentacao.get_full_name|default:mov.responsavel_movimentacao.username }}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    <a href="{% url 'militares:arma_detail' mov.arma.pk %}" 
+                                                       class="btn btn-sm btn-outline-info" title="Ver arma">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if is_paginated %}
+                            <nav aria-label="Paginação">
+                                <div class="d-flex justify-content-center align-items-center gap-3 mt-4">
+                                    <ul class="pagination mb-0">
+                                        {% if page_obj.has_previous %}
+                                            <li class="page-item">
+                                                <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}{% if arma_id %}&arma={{ arma_id }}{% endif %}{% if tipo_movimentacao %}&tipo_movimentacao={{ tipo_movimentacao }}{% endif %}{% if militar_id %}&militar={{ militar_id }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}">
+                                                    <i class="fas fa-angle-double-left"></i>
+                                                </a>
+                                            </li>
+                                            <li class="page-item">
+                                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if arma_id %}&arma={{ arma_id }}{% endif %}{% if tipo_movimentacao %}&tipo_movimentacao={{ tipo_movimentacao }}{% endif %}{% if militar_id %}&militar={{ militar_id }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}">
+                                                    <i class="fas fa-angle-left"></i>
+                                                </a>
+                                            </li>
+                                        {% endif %}
+                                    </ul>
+                                    
+                                    <div class="d-flex align-items-center gap-2">
+                                        <label for="pageSelector" class="mb-0 text-muted">Página:</label>
+                                        <select id="pageSelector" class="form-select form-select-sm" style="width: auto; min-width: 80px;" onchange="goToPage(this.value)">
+                                            {% for page_num in page_obj.paginator.page_range %}
+                                                <option value="{{ page_num }}" {% if page_num == page_obj.number %}selected{% endif %}>
+                                                    {{ page_num }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                        <span class="text-muted">de {{ page_obj.paginator.num_pages }}</span>
+                                    </div>
+                                    
+                                    <ul class="pagination mb-0">
+                                        {% if page_obj.has_next %}
+                                            <li class="page-item">
+                                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if arma_id %}&arma={{ arma_id }}{% endif %}{% if tipo_movimentacao %}&tipo_movimentacao={{ tipo_movimentacao }}{% endif %}{% if militar_id %}&militar={{ militar_id }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}">
+                                                    <i class="fas fa-angle-right"></i>
+                                                </a>
+                                            </li>
+                                            <li class="page-item">
+                                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if arma_id %}&arma={{ arma_id }}{% endif %}{% if tipo_movimentacao %}&tipo_movimentacao={{ tipo_movimentacao }}{% endif %}{% if militar_id %}&militar={{ militar_id }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}">
+                                                    <i class="fas fa-angle-double-right"></i>
+                                                </a>
+                                            </li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                            </nav>
+                            
+                            <script>
+                            function goToPage(pageNum) {
+                                const urlParams = new URLSearchParams(window.location.search);
+                                urlParams.set('page', pageNum);
+                                window.location.href = '?' + urlParams.toString();
+                            }
+                            </script>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Nenhuma movimentação encontrada.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+

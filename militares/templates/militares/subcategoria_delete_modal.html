@@ -1,0 +1,59 @@
+<div class="modal-header bg-danger text-white">
+    <h5 class="modal-title" id="excluirSubcategoriaModalLabel">
+        <i class="fas fa-exclamation-triangle me-2"></i>Confirmar Exclusão
+    </h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<form id="formExcluirSubcategoria" method="post" action="{% url 'militares:subcategoria_delete' subcategoria.pk %}">
+    {% csrf_token %}
+    <div class="modal-body">
+        <p>Tem certeza que deseja excluir a subcategoria <strong>{{ subcategoria.nome }}</strong> da categoria <strong>{{ subcategoria.categoria.nome }}</strong>?</p>
+        {% if subcategoria.itens_almoxarifado.exists %}
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Esta subcategoria possui <strong>{{ subcategoria.itens_almoxarifado.count }}</strong> item(ns) vinculado(s). 
+                Não é possível excluir. Considere desativar a subcategoria.
+            </div>
+        {% else %}
+            <p class="text-muted">Esta ação não pode ser desfeita.</p>
+        {% endif %}
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        {% if not subcategoria.itens_almoxarifado.exists %}
+        <button type="submit" class="btn btn-danger">
+            <i class="fas fa-trash me-2"></i>Excluir
+        </button>
+        {% endif %}
+    </div>
+</form>
+
+<script>
+document.getElementById('formExcluirSubcategoria').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const url = this.action;
+    
+    fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            location.reload();
+        } else {
+            alert('Erro: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro ao excluir subcategoria');
+    });
+});
+</script>
+

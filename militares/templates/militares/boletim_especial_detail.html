@@ -1,0 +1,513 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Boletim Especial: {{ boletim.numero }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .nota-card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+    
+    .nota-card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .nota-header {
+        background: linear-gradient(135deg, #6f42c1 0%, #5a2d91 100%); /* Purple gradient for special */
+        color: white;
+        padding: 15px;
+        border-radius: 8px 8px 0 0;
+    }
+    
+    .nota-body {
+        padding: 20px;
+        background: white;
+    }
+    
+    .nota-actions {
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 0 0 8px 8px;
+        border-top: 1px solid #dee2e6;
+    }
+    
+    .btn-action {
+        margin: 2px;
+        font-size: 0.85em;
+    }
+    
+    .boletim-header {
+        background: linear-gradient(135deg, #6f42c1 0%, #5a2d91 100%); /* Purple gradient for special */
+        color: white;
+        padding: 30px;
+        border-radius: 10px;
+        margin-bottom: 30px;
+    }
+    
+    .boletim-info {
+        background: rgba(255,255,255,0.1);
+        padding: 20px;
+        border-radius: 8px;
+        margin-top: 20px;
+    }
+    
+    .status-badge {
+        font-size: 0.9em;
+        padding: 8px 16px;
+        border-radius: 20px;
+    }
+    
+    .assinatura-status {
+        display: inline-block;
+        margin: 5px;
+        padding: 5px 10px;
+        border-radius: 15px;
+        font-size: 0.8em;
+    }
+    
+    .assinatura-pendente {
+        background-color: #ffc107;
+        color: #212529;
+    }
+    
+    .assinatura-completa {
+        background-color: #28a745;
+        color: white;
+    }
+    
+    /* Cores específicas para boletim especial */
+    .btn-especial {
+        background: linear-gradient(135deg, #6f42c1 0%, #5a2d91 100%);
+        border: none;
+        color: white;
+    }
+    
+    .btn-especial:hover {
+        background: linear-gradient(135deg, #5a2d91 0%, #4a1d7a 100%);
+        color: white;
+    }
+    
+    .badge-especial {
+        background-color: #6f42c1;
+        color: white;
+    }
+    
+    .text-especial {
+        color: #6f42c1;
+    }
+    
+    .conteudo-boletim {
+        background: white;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 30px;
+        line-height: 1.6;
+        font-family: 'Times New Roman', serif;
+    }
+    
+    .secao-notas {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    
+    .secao-titulo {
+        color: #6f42c1; /* Purple color for special */
+        font-weight: 600;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #6f42c1;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: #6c757d;
+    }
+    
+    .empty-state i {
+        font-size: 3rem;
+        margin-bottom: 15px;
+        opacity: 0.5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Cabeçalho do Boletim -->
+            <div class="boletim-header">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h1 class="mb-2">
+                            <i class="fas fa-gem me-2"></i>
+                            Boletim Especial Nº {{ boletim.numero }}
+                        </h1>
+                        <h4 class="mb-3">{{ boletim.titulo }}</h4>
+                        <p class="mb-0">
+                            <i class="fas fa-calendar me-2"></i>
+                            {{ boletim.data_criacao|date:"d/m/Y H:i" }}
+                            {% if boletim.data_publicacao %}
+                                | <i class="fas fa-bullhorn me-2"></i>
+                                Publicado em: {{ boletim.data_publicacao|date:"d/m/Y H:i" }}
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <span class="status-badge badge {% if boletim.status == 'PUBLICADO' %}badge-especial{% elif boletim.status == 'RASCUNHO' %}bg-warning{% else %}bg-secondary{% endif %}">
+                            {{ boletim.get_status_display }}
+                        </span>
+                    </div>
+                </div>
+                
+                <!-- Informações do Boletim -->
+                <div class="boletim-info">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p class="mb-2">
+                                <strong>Origem:</strong> {{ boletim.origem_publicacao|default:"-" }}
+                            </p>
+                            <p class="mb-2">
+                                <strong>Criado por:</strong> {{ boletim.criado_por.get_full_name|default:boletim.criado_por.username }}
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-2">
+                                <strong>Status das Assinaturas:</strong>
+                            </p>
+                            <div class="assinatura-status {% if boletim.tem_assinatura_editor_geral %}assinatura-completa{% else %}assinatura-pendente{% endif %}">
+                                Editor Geral
+                            </div>
+                            <div class="assinatura-status {% if boletim.tem_assinatura_editor_adjunto %}assinatura-completa{% else %}assinatura-pendente{% endif %}">
+                                Editor Adjunto
+                            </div>
+                            <div class="assinatura-status {% if boletim.tem_assinatura_editor_chefe %}assinatura-completa{% else %}assinatura-pendente{% endif %}">
+                                Editor Chefe
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Conteúdo do Boletim -->
+            <div class="conteudo-boletim">
+                <h5 class="mb-3 text-especial">
+                    <i class="fas fa-file-alt me-2"></i>
+                    Conteúdo do Boletim
+                </h5>
+                {% if boletim.conteudo %}
+                    <div class="conteudo-boletim" style="line-height: 1.2; font-size: 0.9em; word-wrap: break-word; margin: 0; font-family: 'Times New Roman', serif;">
+                        {{ boletim.conteudo|safe }}
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Nenhum conteúdo disponível para este boletim.
+                    </div>
+                {% endif %}
+            </div>
+            
+            <!-- Notas Incluídas -->
+            {% if notas_incluidas %}
+                <div class="secao-notas">
+                    <h5 class="secao-titulo">
+                        <i class="fas fa-check-circle text-especial me-2"></i>
+                        Notas Incluídas no Boletim ({{ notas_incluidas|length }})
+                    </h5>
+                    {% for nota in notas_incluidas %}
+                    <div class="nota-card">
+                        <div class="nota-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-file-alt me-2"></i>
+                                {{ nota.numero }} - {{ nota.titulo }}
+                            </h5>
+                        </div>
+                        <div class="nota-body">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <p class="mb-2">
+                                        <strong>Origem:</strong> {{ nota.origem_publicacao|default:"-" }}
+                                    </p>
+                                    <p class="mb-2">
+                                        <strong>Data de Publicação:</strong> {{ nota.data_publicacao|date:"d/m/Y H:i" }}
+                                    </p>
+                                    <p class="mb-0">
+                                        <strong>Status:</strong> 
+                                        <span class="badge bg-success">{{ nota.get_status_display }}</span>
+                                    </p>
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <div class="btn-group-vertical">
+                                        <button type="button" 
+                                                class="btn btn-sm btn-outline-info btn-action" 
+                                                title="Visualizar Nota"
+                                                onclick="abrirModalVisualizar({{ nota.pk }}, '{{ nota.titulo|escapejs }}', '{{ nota.numero }}', '{{ nota.data_publicacao|date:"d/m/Y" }}', '{{ nota.get_status_display|escapejs }}', '{{ nota.topicos|default:""|escapejs }}')">
+                                            <i class="fas fa-eye"></i> Visualizar
+                                        </button>
+                                        <a href="{% url 'militares:remover_nota_boletim_especial' boletim.pk nota.pk %}" 
+                                           class="btn btn-sm btn-outline-danger btn-action" 
+                                           title="Remover do Boletim"
+                                           onclick="return confirm('Tem certeza que deseja remover esta nota do boletim?')">
+                                            <i class="fas fa-times"></i> Remover
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+            
+            <!-- Notas Disponíveis -->
+            {% if notas_disponiveis %}
+                <div class="secao-notas">
+                    <h5 class="secao-titulo">
+                        <i class="fas fa-plus-circle text-especial me-2"></i>
+                        Notas Disponíveis para Inclusão ({{ notas_disponiveis|length }})
+                    </h5>
+                    {% for nota in notas_disponiveis %}
+                    <div class="nota-card">
+                        <div class="nota-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-file-alt me-2"></i>
+                                {{ nota.numero }} - {{ nota.titulo }}
+                            </h5>
+                        </div>
+                        <div class="nota-body">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <p class="mb-2">
+                                        <strong>Origem:</strong> {{ nota.origem_publicacao|default:"-" }}
+                                    </p>
+                                    <p class="mb-2">
+                                        <strong>Data de Publicação:</strong> {{ nota.data_publicacao|date:"d/m/Y H:i" }}
+                                    </p>
+                                    <p class="mb-0">
+                                        <strong>Status:</strong> 
+                                        <span class="badge bg-success">{{ nota.get_status_display }}</span>
+                                    </p>
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <div class="btn-group-vertical">
+                                        <button type="button" 
+                                                class="btn btn-sm btn-outline-info btn-action" 
+                                                title="Visualizar Nota"
+                                                onclick="abrirModalVisualizar({{ nota.pk }}, '{{ nota.titulo|escapejs }}', '{{ nota.numero }}', '{{ nota.data_publicacao|date:"d/m/Y" }}', '{{ nota.get_status_display|escapejs }}', '{{ nota.topicos|default:""|escapejs }}')">
+                                            <i class="fas fa-eye"></i> Visualizar
+                                        </button>
+                                        <a href="{% url 'militares:adicionar_nota_boletim_especial' boletim.pk nota.pk %}" 
+                                           class="btn btn-sm btn-especial btn-action" 
+                                           title="Adicionar ao Boletim"
+                                           onclick="return confirm('Tem certeza que deseja adicionar esta nota ao boletim?')">
+                                            <i class="fas fa-plus"></i> Adicionar
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+            
+            <!-- Estado Vazio -->
+            {% if not notas_incluidas and not notas_disponiveis %}
+                <div class="secao-notas">
+                    <div class="empty-state">
+                        <i class="fas fa-file-alt"></i>
+                        <h5>Nenhuma nota disponível</h5>
+                        <p>Não há notas publicadas que possam ser incluídas neste boletim especial.</p>
+                    </div>
+                </div>
+            {% endif %}
+            
+            <!-- Ações do Boletim -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0 text-especial">
+                                <i class="fas fa-cogs me-2"></i>
+                                Ações do Boletim
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="btn-group" role="group">
+                                <a href="{% url 'militares:boletins_especiais_list' %}" 
+                                   class="btn btn-outline-secondary">
+                                    <i class="fas fa-arrow-left me-2"></i>
+                                    Voltar à Lista
+                                </a>
+                                {% if boletim.can_edit %}
+                                <a href="{% url 'militares:publicacao_edit' boletim.pk %}" 
+                                   class="btn btn-outline-warning">
+                                    <i class="fas fa-edit me-2"></i>
+                                    Editar Boletim
+                                </a>
+                                {% endif %}
+                                {% if boletim.can_publish %}
+                                <a href="{% url 'militares:publicacao_publish' boletim.pk %}" 
+                                   class="btn btn-outline-success">
+                                    <i class="fas fa-bullhorn me-2"></i>
+                                    Publicar Boletim
+                                </a>
+                                {% endif %}
+                                <a href="{% url 'militares:boletim_especial_gerar_pdf' boletim.pk %}" 
+                                   class="btn btn-especial">
+                                    <i class="fas fa-file-pdf me-2"></i>
+                                    Gerar PDF
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Adicionar animação aos cards
+    $('.nota-card').hover(
+        function() {
+            $(this).addClass('shadow-lg');
+        },
+        function() {
+            $(this).removeClass('shadow-lg');
+        }
+    );
+    
+    // Confirmar ações de adicionar/remover notas
+    $('a[href*="adicionar_nota_boletim_especial"], a[href*="remover_nota_boletim_especial"]').click(function(e) {
+        if (!confirm('Tem certeza que deseja realizar esta ação?')) {
+            e.preventDefault();
+        }
+    });
+});
+
+// Função para abrir modal de visualização
+function abrirModalVisualizar(notaId, titulo, numero, data, status, topicos) {
+    console.log('🔧 Abrindo modal para nota:', notaId);
+    
+    // Atualizar título do modal
+    document.getElementById('visualizarNotaModalLabel').innerHTML = 
+        `<i class="fas fa-gem me-3" style="font-size: 1.5rem;"></i> Visualizar Publicação - ${titulo}`;
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('visualizarNotaModal'));
+    modal.show();
+    
+    // Carregar conteúdo da nota
+    carregarConteudoNota(notaId);
+}
+
+// Função para carregar conteúdo da nota no modal
+function carregarConteudoNota(notaId) {
+    const conteudoDiv = document.getElementById('conteudoNotaModal');
+    
+    // Mostrar loading
+    conteudoDiv.innerHTML = `
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Carregando...</span>
+            </div>
+            <p class="mt-3 text-muted">Carregando conteúdo da nota...</p>
+        </div>
+    `;
+    
+    // Fazer requisição AJAX para carregar a nota
+    fetch(`/militares/nota-modal-content/${notaId}/`)
+        .then(response => response.text())
+        .then(html => {
+            conteudoDiv.innerHTML = html;
+        })
+        .catch(error => {
+            console.error('Erro ao carregar nota:', error);
+            conteudoDiv.innerHTML = `
+                <div class="text-center p-5">
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Erro ao carregar a nota. Tente novamente.
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="fecharModalNota()">
+                        Fechar
+                    </button>
+                </div>
+            `;
+        });
+}
+
+// Função para fechar modal da nota
+function fecharModalNota() {
+    const modal = document.getElementById('visualizarNotaModal');
+    if (modal) {
+        const bsModal = bootstrap.Modal.getInstance(modal);
+        if (bsModal) {
+            bsModal.hide();
+        }
+    }
+}
+</script>
+
+<!-- Modal para Visualizar Nota -->
+<div class="modal fade" id="visualizarNotaModal" tabindex="-1" aria-labelledby="visualizarNotaModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content shadow-lg" style="border: none; border-radius: 8px;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #6f42c1 0%, #5a2d91 100%); color: white; border-radius: 8px 8px 0 0; padding: 1rem 1.5rem;">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-gem me-3" style="font-size: 1.5rem;"></i>
+                    <h5 class="modal-title mb-0" id="visualizarNotaModalLabel">
+                        Visualizar Publicação
+                    </h5>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    {% if not boletim.data_disponibilizacao %}
+                    <button type="button" class="btn btn-light btn-sm" title="Editar Nota" onclick="editarNotaModal()" id="btnEditarNota" style="display: none;">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button type="button" class="btn btn-light btn-sm" title="Salvar Alterações" onclick="console.log('🔧 BOTÃO SALVAR CLICADO!'); testarSalvamento();" id="btnSalvarNota" style="display: none;">
+                        <i class="fas fa-save"></i>
+                    </button>
+                    <button type="button" class="btn btn-light btn-sm" title="Cancelar Edição" onclick="cancelarEdicaoModal()" id="btnCancelarEdicao" style="display: none;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <button type="button" class="btn btn-light btn-sm" title="Devolver Publicação" onclick="devolverNota()">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                    {% endif %}
+                    <button type="button" class="btn btn-light btn-sm" title="Imprimir Publicação" onclick="imprimirNota()">
+                        <i class="fas fa-print"></i>
+                    </button>
+                    <button type="button" class="btn btn-light btn-sm" title="Arquivar Publicação" onclick="arquivarNota()">
+                        <i class="fas fa-archive"></i>
+                    </button>
+                    <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+            </div>
+            <div class="modal-body" style="max-height: 80vh; overflow-y: auto; padding: 0; background: #ffffff;">
+                <div id="conteudoNotaModal">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                        <p class="mt-3 text-muted">Carregando conteúdo da nota...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

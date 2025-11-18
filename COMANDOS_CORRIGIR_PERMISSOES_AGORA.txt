@@ -1,0 +1,65 @@
+==========================================
+COMANDOS PARA CORRIGIR PERMISSÕES AGORA
+==========================================
+
+Execute estes comandos no servidor Digital Ocean (64.23.185.235):
+
+1. Conectar ao servidor:
+ssh root@64.23.185.235
+
+2. Corrigir permissões (COPIE E COLE TUDO DE UMA VEZ):
+
+su - postgres << 'EOF'
+psql sepromcbmepi << SQL
+-- Alterar owner do banco
+ALTER DATABASE sepromcbmepi OWNER TO seprom;
+
+-- Alterar owner de todas as tabelas
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') LOOP
+        EXECUTE 'ALTER TABLE public.' || quote_ident(r.tablename) || ' OWNER TO seprom';
+    END LOOP;
+END
+$$;
+
+-- Alterar owner de todas as sequences
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (SELECT sequence_name FROM information_schema.sequences WHERE sequence_schema = 'public') LOOP
+        EXECUTE 'ALTER SEQUENCE public.' || quote_ident(r.sequence_name) || ' OWNER TO seprom';
+    END LOOP;
+END
+$$;
+
+-- Conceder permissões
+GRANT ALL PRIVILEGES ON SCHEMA public TO seprom;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO seprom;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO seprom;
+GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO seprom;
+
+-- Permissões padrão para objetos futuros
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO seprom;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO seprom;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO seprom;
+\q
+SQL
+EOF
+
+3. Reiniciar aplicação:
+systemctl restart seprom
+
+4. Verificar status:
+systemctl status seprom
+
+5. Testar:
+Acesse: http://64.23.185.235/login/
+
+==========================================
+O erro "Permissão negada para a tabela django_session" deve estar resolvido!
+==========================================
+

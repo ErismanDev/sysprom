@@ -14,16 +14,16 @@ def visualizar_quadro_html(request, pk):
     quadro = get_object_or_404(QuadroAcesso, pk=pk)
     
     # Buscar funções ativas do usuário
-    from militares.models import UsuarioFuncao
-    funcoes_usuario = UsuarioFuncao.objects.filter(
+    from militares.models import UsuarioFuncaoMilitar
+    funcoes_usuario = UsuarioFuncaoMilitar.objects.filter(
         usuario=request.user,
-        status='ATIVO'
-    ).select_related('cargo_funcao').order_by('cargo_funcao__nome')
+        ativo=True
+    ).select_related('funcao_militar').order_by('funcao_militar__nome')
     
     # Função atual selecionada (da sessão ou primeira disponível)
     funcao_atual = request.session.get('funcao_atual_nome', )
     if not funcao_atual and funcoes_usuario.exists():
-        funcao_atual = funcoes_usuario.first().cargo_funcao.nome
+        funcao_atual = funcoes_usuario.first().funcao_militar.nome
 
     militares = quadro.itemquadroacesso_set.select_related('militar').all().order_by('posicao')
 
@@ -136,19 +136,41 @@ def visualizar_quadro_html(request, pk):
                     }
                 ],
                 'COMP': [
+                    # OCULTO TEMPORARIAMENTE - MAJOR para TENENTE-CORONEL
+                    # {
+                    #     'numero': 'I',
+                    #     'titulo': 'MAJOR para o posto de TENENTE-CORONEL',
+                    #     'origem': 'MJ',
+                    #     'destino': 'TC',
+                    #     'texto': 'Deixa de ser elaborado o Quadro de Acesso por Antiguidade para o posto de Tenente-Coronel em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do art. 12 da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
+                    # },
                     {
                         'numero': 'I',
-                        'titulo': 'MAJOR para o posto de TENENTE-CORONEL',
-                        'origem': 'MJ',
-                        'destino': 'TC',
-                        'texto': 'Deixa de ser elaborado o Quadro de Acesso por Merecimento para o posto de Tenente-Coronel em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do art. 12 da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
-                    },
-                    {
-                        'numero': 'II',
                         'titulo': 'CAPITÃO para o posto de MAJOR',
                         'origem': 'CP',
                         'destino': 'MJ',
-                        'texto': 'Deixa de ser elaborado o Quadro de Acesso por Merecimento para o posto de Major em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do art. 12 da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
+                        'texto': 'Deixa de ser elaborado o Quadro de Acesso por Antiguidade para o posto de Major em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do art. 12 da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
+                    },
+                    {
+                        'numero': 'II',
+                        'titulo': '1º TENENTE para o posto de CAPITÃO',
+                        'origem': '1T',
+                        'destino': 'CP',
+                        'texto': 'Deixa de ser elaborado o Quadro de Acesso por Antiguidade para o posto de Capitão em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do art. 12 da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
+                    },
+                    {
+                        'numero': 'III',
+                        'titulo': '2º TENENTE para o posto de 1º TENENTE',
+                        'origem': '2T',
+                        'destino': '1T',
+                        'texto': 'Deixa de ser elaborado o Quadro de Acesso por Antiguidade para o posto de 1º Tenente em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do art. 12 da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
+                    },
+                    {
+                        'numero': 'IV',
+                        'titulo': 'SUBTENENTE para o posto de 2º TENENTE',
+                        'origem': 'ST',
+                        'destino': '2T',
+                        'texto': 'Deixa de ser elaborado o Quadro de Acesso por Antiguidade para o posto de 2º Tenente em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do art. 12 da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
                     }
                 ]
             }
@@ -266,36 +288,37 @@ def visualizar_quadro_html(request, pk):
                     }
                 ],
                 'COMP': [
+                    # OCULTO TEMPORARIAMENTE - MAJOR para TENENTE-CORONEL
+                    # {
+                    #     'numero': 'I',
+                    #     'titulo': 'MAJOR para o posto de TENENTE-CORONEL',
+                    #     'origem': 'MJ',
+                    #     'destino': 'TC',
+                    #     'texto': 'Deixa de ser elaborado o Quadro de Acesso por Antiguidade para o posto de Tenente-Coronel em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do art. 12 da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
+                    # },
                     {
-                        'numero': 'I',
-                        'titulo': 'MAJOR para o posto de TENENTE-CORONEL',
-                        'origem': 'MJ',
-                        'destino': 'TC',
-                        'texto': 'Deixa de ser elaborado o Quadro de Acesso por Antiguidade para o posto de Tenente-Coronel em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do art. 12 da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
-                    },
-                    {
-                        'numero': 'II',
+                        'numero': 'I',  # Ajustado de 'II' para 'I'
                         'titulo': 'CAPITÃO para o posto de MAJOR',
                         'origem': 'CP',
                         'destino': 'MJ',
                         'texto': 'Deixa de ser elaborado o Quadro de Acesso por Antiguidade para o posto de Major em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do art. 12 da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
                     },
                     {
-                        'numero': 'III',
+                        'numero': 'II',  # Ajustado de 'III' para 'II'
                         'titulo': '1º TENENTE para o posto de CAPITÃO',
                         'origem': '1T',
                         'destino': 'CP',
                         'texto': 'Deixa de ser elaborado o Quadro de Acesso por Antiguidade para o posto de Capitão em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do art. 12 da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
                     },
                     {
-                        'numero': 'IV',
+                        'numero': 'III',  # Ajustado de 'IV' para 'III'
                         'titulo': '2º TENENTE para o posto de 1º TENENTE',
                         'origem': '2T',
                         'destino': '1T',
                         'texto': 'Deixa de ser elaborado o Quadro de Acesso por Antiguidade para o posto de 1º Tenente em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do art. 12 da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
                     },
                     {
-                        'numero': 'V',
+                        'numero': 'IV',  # Ajustado de 'V' para 'IV'
                         'titulo': 'SUBTENENTE para o posto de 2º TENENTE',
                         'origem': 'ST',
                         'destino': '2T',
@@ -350,6 +373,7 @@ def visualizar_quadro_html(request, pk):
                                 'graduacao': item.militar.get_posto_graduacao_display(),
                                 'nome': item.militar.nome_completo,
                                 'pontuacao': item.pontuacao,
+                                'nota_cho': getattr(item.militar, 'nota_cho', None),
                             }
                             for idx, item in enumerate(militares_transicao, 0)
                         ]
@@ -438,20 +462,31 @@ def visualizar_quadro_html(request, pk):
                 }
             ]
 
-        # Para praças, agrupar por transição
+        # Marcar transições de praças que exibem nota (SD→CAB e CAB→3S)
+        for t in transicoes:
+            t['exibir_nota'] = (quadro.tipo == 'ANTIGUIDADE' and ((t['origem'] == 'SD' and t['destino'] == 'CAB') or (t['origem'] == 'CAB' and t['destino'] == '3S')))
+
+        # Para praças, agrupar por transição e incluir nota quando aplicável
         for transicao in transicoes:
-            transicao['militares'] = [
-                {
+            inclui_nota = transicao.get('exibir_nota', False)
+            militares_transicao = militares.filter(militar__posto_graduacao=transicao['origem'])
+            militares_lista = []
+            for idx, item in enumerate(militares_transicao, 0):
+                nota = None
+                if inclui_nota:
+                    if transicao['origem'] == 'SD' and transicao['destino'] == 'CAB':
+                        nota = getattr(item.militar, 'nota_chc', None)
+                    elif transicao['origem'] == 'CAB' and transicao['destino'] == '3S':
+                        nota = getattr(item.militar, 'nota_chsgt', None)
+                militares_lista.append({
                     'ordem': idx + 1,
                     'cpf': criptografar_cpf_lgpd(item.militar.cpf),
                     'graduacao': item.militar.get_posto_graduacao_display(),
                     'nome': item.militar.nome_completo,
                     'pontuacao': item.pontuacao,
-                }
-                for idx, item in enumerate(
-                    militares.filter(militar__posto_graduacao=transicao['origem']), 0
-                )
-            ]
+                    'nota': nota,
+                })
+            transicao['militares'] = militares_lista
 
     context = {
         'quadro': quadro,

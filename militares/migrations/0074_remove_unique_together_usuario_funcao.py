@@ -10,6 +10,27 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        # Remover índice único antigo via SQL primeiro (campo nome_funcao não existe mais)
+        migrations.RunSQL(
+            sql="""
+                DO $$
+                DECLARE
+                    idx_name text;
+                BEGIN
+                    FOR idx_name IN 
+                        SELECT indexname 
+                        FROM pg_indexes 
+                        WHERE tablename = 'militares_usuariofuncao' 
+                        AND indexdef LIKE '%unique%'
+                        AND (indexdef LIKE '%nome_funcao%' OR indexdef LIKE '%usuario%nome%')
+                    LOOP
+                        EXECUTE 'DROP INDEX IF EXISTS ' || idx_name;
+                    END LOOP;
+                END $$;
+            """,
+            reverse_sql=migrations.RunSQL.noop,
+        ),
+        # Remover unique_together do estado do modelo (campo nome_funcao foi removido na migração 0070)
         migrations.AlterUniqueTogether(
             name="usuariofuncao",
             unique_together=set(),

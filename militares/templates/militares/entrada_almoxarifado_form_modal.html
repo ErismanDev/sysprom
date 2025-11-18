@@ -1,0 +1,1916 @@
+{% load almoxarifado_filters %}
+<div class="modal-header bg-success text-white">
+    <h5 class="modal-title" id="criarEntradaModalLabel">
+        <i class="fas fa-arrow-down me-2"></i>{% if is_create %}Registrar Entrada{% else %}Editar Entrada{% endif %}
+        {% if not is_create and entrada.tipo_entrada == 'TRANSFERENCIA' %}
+            <span class="badge bg-warning text-dark ms-2">Transferência - Não pode ser editada</span>
+        {% endif %}
+    </h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<form id="formEntradaAlmoxarifado" method="post" action="{% if is_create %}{% url 'militares:entrada_almoxarifado_create' %}{% else %}{% url 'militares:entrada_almoxarifado_update' entrada.pk %}{% endif %}" enctype="multipart/form-data" {% if not is_create and not pode_editar %}onsubmit="return false;"{% endif %}>
+    {% csrf_token %}
+    <div class="modal-body">
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+        {% if not is_create and not pode_editar %}
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Atenção!</strong> Esta entrada não pode ser editada. Transferências não podem ser editadas.
+            </div>
+        {% endif %}
+        
+        <!-- Campo de Leitura de Código de Barras -->
+        <div class="mb-3">
+            <label class="form-label">
+                <i class="fas fa-barcode me-2"></i>Leitura de Código de Barras
+            </label>
+            <div class="input-group">
+                <input type="text" 
+                       class="form-control" 
+                       id="codigo_barras_input_entrada" 
+                       placeholder="Leia ou digite o código de barras"
+                       autocomplete="off">
+                <button type="button" 
+                        class="btn btn-outline-primary" 
+                        id="btn_buscar_codigo_barras_entrada"
+                        title="Buscar item pelo código de barras">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+            <small class="text-muted">Use um leitor de código de barras ou digite o código manualmente</small>
+            <div id="item_info_entrada" class="mt-2" style="display: none;">
+                <div class="alert alert-info mb-0">
+                    <strong>Item encontrado:</strong> <span id="item_descricao_entrada"></span><br>
+                    <small>Estoque atual: <span id="item_estoque_entrada"></span></small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.tipo_entrada.id_for_label }}" class="form-label">
+                    {{ form.tipo_entrada.label }} <span class="text-danger">*</span>
+                </label>
+                {{ form.tipo_entrada }}
+                {% if form.tipo_entrada.errors %}
+                    <div class="text-danger small">{{ form.tipo_entrada.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.data_entrada.id_for_label }}" class="form-label">
+                    {{ form.data_entrada.label }} <span class="text-danger">*</span>
+                </label>
+                {{ form.data_entrada }}
+                {% if form.data_entrada.errors %}
+                    <div class="text-danger small">{{ form.data_entrada.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <hr>
+        <h6 class="mb-3"><i class="fas fa-boxes me-2"></i>Itens da Entrada</h6>
+        
+        <!-- Tabela de Itens -->
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered" id="tabela-itens-entrada">
+                        <thead>
+                            <tr>
+                                <th style="width: 25%;">Item <span class="text-danger">*</span></th>
+                                <th style="width: 15%;">Quantidade <span class="text-danger">*</span></th>
+                                <th style="width: 15%;">Tamanhos</th>
+                                <th style="width: 12%;">Estoque Disponível</th>
+                                <th id="th-valor-unitario" style="width: 12%; {% if not is_create and entrada.tipo_entrada == 'COMPRA' %}{% else %}display: none;{% endif %}">Valor Unitário (R$)</th>
+                                <th id="th-valor-total" style="width: 12%; {% if not is_create and entrada.tipo_entrada == 'COMPRA' %}{% else %}display: none;{% endif %}">Valor Total (R$)</th>
+                                <th style="width: 9%;">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="itens-entrada-tbody">
+                            {% if not is_create and entrada %}
+                                {% for produto_entrada in entrada.produtos_entrada.all %}
+                                <tr data-item-entrada-id="{{ produto_entrada.id }}" data-item-id="{{ produto_entrada.produto.id }}">
+                                    <td>
+                                        <select class="form-select form-select-sm item-select" required>
+                                            <option value="">Selecione um produto...</option>
+                                            {% for produto in form.produto.field.queryset %}
+                                                <option value="{{ produto.id }}" {% if produto.id == produto_entrada.produto.id %}selected{% endif %}>
+                                                    {{ produto.codigo }} - {{ produto.descricao }}{% if produto.tamanho %} - Tamanho {{ produto.tamanho }}{% endif %}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="number" 
+                                               class="form-control form-control-sm quantidade-item" 
+                                               value="{{ produto_entrada.quantidade }}" 
+                                               step="0.01" 
+                                               min="0.01" 
+                                               required
+                                               data-quantidade-original="{{ produto_entrada.quantidade }}">
+                                    </td>
+                                    <td>
+                                        <input type="text" 
+                                               class="form-control form-control-sm tamanho-item" 
+                                               value="{% if produto_entrada.produto.tamanho %}{{ produto_entrada.produto.tamanho }}{% endif %}" 
+                                               placeholder="Tamanho do produto"
+                                               readonly>
+                                    </td>
+                                    <td>
+                                        <span class="estoque-disponivel-item text-muted">
+                                            {% if produto_entrada.produto.quantidade_atual is not None %}
+                                                {{ produto_entrada.produto.quantidade_atual|formatar_quantidade_unidade:produto_entrada.produto.unidade_medida }}
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </span>
+                                    </td>
+                                    <td class="td-valor-unitario" style="{% if not is_create and entrada.tipo_entrada == 'COMPRA' %}{% else %}display: none;{% endif %}">
+                                        <input type="number" 
+                                               class="form-control form-control-sm valor-unitario-item" 
+                                               value="{% if produto_entrada.valor_unitario %}{{ produto_entrada.valor_unitario }}{% endif %}" 
+                                               step="0.01" 
+                                               min="0" 
+                                               placeholder="0.00"
+                                               data-valor-unitario-original="{% if produto_entrada.valor_unitario %}{{ produto_entrada.valor_unitario }}{% endif %}">
+                                    </td>
+                                    <td class="td-valor-total" style="{% if not is_create and entrada.tipo_entrada == 'COMPRA' %}{% else %}display: none;{% endif %}">
+                                        <input type="number" 
+                                               class="form-control form-control-sm valor-total-item" 
+                                               value="{% if produto_entrada.valor_total %}{{ produto_entrada.valor_total }}{% endif %}" 
+                                               step="0.01" 
+                                               min="0" 
+                                               readonly
+                                               placeholder="0.00"
+                                               data-valor-total-original="{% if produto_entrada.valor_total %}{{ produto_entrada.valor_total }}{% endif %}">
+                                    </td>
+                                    <td>
+                                        <button type="button" 
+                                                class="btn btn-sm btn-danger btn-remover-item" 
+                                                title="Remover produto">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% endif %}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="5" id="td-colspan-footer">
+                                    <button type="button" 
+                                            class="btn btn-sm btn-primary" 
+                                            id="btn-adicionar-item-entrada">
+                                        <i class="fas fa-plus me-1"></i>Adicionar Item
+                                    </button>
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <hr>
+        <h6 class="mb-3"><i class="fas fa-info-circle me-2"></i>Informações Adicionais</h6>
+        
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.fornecedor.id_for_label }}" class="form-label">
+                    {{ form.fornecedor.label }}
+                </label>
+                {{ form.fornecedor }}
+                {% if form.fornecedor.errors %}
+                    <div class="text-danger small">{{ form.fornecedor.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.cnpj_fornecedor.id_for_label }}" class="form-label">
+                    {{ form.cnpj_fornecedor.label }}
+                </label>
+                {{ form.cnpj_fornecedor }}
+                {% if form.cnpj_fornecedor.errors %}
+                    <div class="text-danger small">{{ form.cnpj_fornecedor.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-12 mb-3">
+                <label for="{{ form.endereco_fornecedor.id_for_label }}" class="form-label">
+                    <i class="fas fa-map-marker-alt me-1"></i>{{ form.endereco_fornecedor.label }}
+                </label>
+                {{ form.endereco_fornecedor }}
+                {% if form.endereco_fornecedor.errors %}
+                    <div class="text-danger small">{{ form.endereco_fornecedor.errors }}</div>
+                {% endif %}
+                {% if form.endereco_fornecedor.help_text %}
+                    <small class="form-text text-muted">{{ form.endereco_fornecedor.help_text }}</small>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.nota_fiscal.id_for_label }}" class="form-label">
+                    {{ form.nota_fiscal.label }}
+                </label>
+                {{ form.nota_fiscal }}
+                {% if form.nota_fiscal.errors %}
+                    <div class="text-danger small">{{ form.nota_fiscal.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Campos específicos para doação -->
+        <div class="row" id="campos-doacao" style="display: none;">
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.numero_processo.id_for_label }}" class="form-label">
+                    {{ form.numero_processo.label }} <span class="text-danger">*</span>
+                </label>
+                {{ form.numero_processo }}
+                {% if form.numero_processo.errors %}
+                    <div class="text-danger small">{{ form.numero_processo.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.numero_convenio.id_for_label }}" class="form-label">
+                    {{ form.numero_convenio.label }} <span class="text-danger">*</span>
+                </label>
+                {{ form.numero_convenio }}
+                {% if form.numero_convenio.errors %}
+                    <div class="text-danger small">{{ form.numero_convenio.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Campos ocultos de origem (não usados em entradas diretas) -->
+        {{ form.orgao_origem.as_hidden }}
+        {{ form.grande_comando_origem.as_hidden }}
+        {{ form.unidade_origem.as_hidden }}
+        {{ form.sub_unidade_origem.as_hidden }}
+        
+        <hr>
+        <h6 class="mb-3"><i class="fas fa-arrow-right me-2"></i>Entrada (OM onde a mercadoria vai entrar) <span class="text-danger">*</span></h6>
+        
+        <!-- Organograma Destino (OM) - Campo único -->
+        <div class="mb-3">
+            <label for="organograma-destino-select" class="form-label">
+                Organização Militar (OM) de Entrada <span class="text-danger">*</span>
+            </label>
+            <select id="organograma-destino-select" class="form-select" style="width: 100%;" required>
+                <option value="">Selecione uma opção do organograma...</option>
+            </select>
+            <!-- Campos ocultos para armazenar os valores do organograma -->
+            {{ form.orgao_destino.as_hidden }}
+            {{ form.grande_comando_destino.as_hidden }}
+            {{ form.unidade_destino.as_hidden }}
+            {{ form.sub_unidade_destino.as_hidden }}
+            <small class="form-text text-muted">Selecione a organização militar onde a mercadoria vai entrar (obrigatório)</small>
+            {% if form.orgao_destino.errors or form.grande_comando_destino.errors or form.unidade_destino.errors or form.sub_unidade_destino.errors %}
+                <div class="text-danger small">
+                    {% if form.orgao_destino.errors %}{{ form.orgao_destino.errors }}{% endif %}
+                    {% if form.grande_comando_destino.errors %}{{ form.grande_comando_destino.errors }}{% endif %}
+                    {% if form.unidade_destino.errors %}{{ form.unidade_destino.errors }}{% endif %}
+                    {% if form.sub_unidade_destino.errors %}{{ form.sub_unidade_destino.errors }}{% endif %}
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="mb-3">
+            <label for="{{ form.observacoes.id_for_label }}" class="form-label">
+                {{ form.observacoes.label }}
+            </label>
+            {{ form.observacoes }}
+            {% if form.observacoes.errors %}
+                <div class="text-danger small">{{ form.observacoes.errors }}</div>
+            {% endif %}
+        </div>
+        
+        <div class="form-check mb-3">
+            {{ form.ativo }}
+            <label class="form-check-label" for="{{ form.ativo.id_for_label }}">
+                {{ form.ativo.label }}
+            </label>
+            {% if form.ativo.errors %}
+                <div class="text-danger small">{{ form.ativo.errors }}</div>
+            {% endif %}
+        </div>
+        
+        <hr>
+        <h6 class="mb-3"><i class="fas fa-paperclip me-2"></i>Documentos Anexados</h6>
+        
+        <!-- Upload de Múltiplos Arquivos -->
+        <div class="mb-3">
+            <label class="form-label">
+                <i class="fas fa-upload me-2"></i>Adicionar Documentos
+            </label>
+            <div class="card border-dashed">
+                <div class="card-body">
+                    <input type="file" 
+                           class="form-control" 
+                           id="documentos_upload" 
+                           name="documentos_upload" 
+                           multiple
+                           accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.zip,.rar">
+                    <small class="text-muted d-block mt-2">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Você pode selecionar múltiplos arquivos. Formatos aceitos: PDF, Word, Excel, Imagens, ZIP, RAR
+                    </small>
+                </div>
+            </div>
+            
+            <!-- Lista de arquivos selecionados -->
+            <div id="arquivos_selecionados" class="mt-3" style="display: none;">
+                <h6 class="mb-2">
+                    Arquivos selecionados: 
+                    <span id="contador_arquivos" class="badge bg-primary">0</span>
+                </h6>
+                <ul id="lista_arquivos" class="list-group list-group-flush"></ul>
+            </div>
+            
+            <!-- Lista de documentos já anexados (para edição) -->
+            {% if not is_create and entrada.documentos.exists %}
+                <div class="mt-3">
+                    <h6 class="mb-2">Documentos anexados:</h6>
+                    <div class="list-group">
+                        {% for documento in entrada.documentos.all %}
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="{{ documento.get_icone_tipo }} me-2"></i>
+                                    <strong>{{ documento.titulo }}</strong>
+                                    <span class="badge bg-secondary ms-2">{{ documento.get_tipo_display }}</span>
+                                    <br>
+                                    <small class="text-muted">{{ documento.filename }} ({{ documento.file_size }})</small>
+                                </div>
+                                <div>
+                                    <a href="{{ documento.arquivo.url }}" 
+                                       target="_blank" 
+                                       class="btn btn-sm btn-outline-primary me-1"
+                                       title="Visualizar">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <button type="button" 
+                                            class="btn btn-sm btn-outline-danger remover-documento"
+                                            data-documento-id="{{ documento.id }}"
+                                            title="Remover">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <i class="fas fa-times me-2"></i>Cancelar
+        </button>
+        {% if not is_create and not pode_editar %}
+            <button type="button" class="btn btn-success" disabled title="Esta entrada não pode ser editada">
+                <i class="fas fa-lock me-2"></i>Não pode editar
+            </button>
+        {% else %}
+            <button type="submit" class="btn btn-success">
+                <i class="fas fa-save me-2"></i>Salvar
+            </button>
+        {% endif %}
+    </div>
+</form>
+
+<!-- Modal para gerenciar tamanhos de um item específico - Fora do form para garantir z-index correto -->
+<div class="modal fade" id="modalTamanhosItem" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-ruler me-2"></i>Gerenciar Tamanhos
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="tamanhos-item-container">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Tamanho</th>
+                                    <th>Quantidade</th>
+                                    <th style="width: 80px;">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tamanhos-item-tbody">
+                                <!-- Linhas serão adicionadas dinamicamente -->
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="3">
+                                        <button type="button" 
+                                                class="btn btn-sm btn-primary" 
+                                                id="btn-adicionar-tamanho-item">
+                                            <i class="fas fa-plus me-1"></i>Adicionar Tamanho
+                                        </button>
+                                        <span class="ms-3">
+                                            <strong>Total:</strong> 
+                                            <span id="total-tamanhos-item">0.00</span>
+                                        </span>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    'use strict';
+    
+    const form = document.getElementById('formEntradaAlmoxarifado');
+    
+    // Função para mostrar/ocultar campos de doação
+    function toggleCamposDoacao() {
+        const tipoEntradaSelect = document.getElementById('id_tipo_entrada');
+        const camposDoacao = document.getElementById('campos-doacao');
+        const numeroProcesso = document.getElementById('id_numero_processo');
+        const numeroConvenio = document.getElementById('id_numero_convenio');
+        
+        if (tipoEntradaSelect && camposDoacao) {
+            if (tipoEntradaSelect.value === 'DOACAO') {
+                camposDoacao.style.display = 'block';
+                if (numeroProcesso) numeroProcesso.required = true;
+                if (numeroConvenio) numeroConvenio.required = true;
+            } else {
+                camposDoacao.style.display = 'none';
+                if (numeroProcesso) {
+                    numeroProcesso.required = false;
+                    numeroProcesso.value = '';
+                }
+                if (numeroConvenio) {
+                    numeroConvenio.required = false;
+                    numeroConvenio.value = '';
+                }
+            }
+        }
+    }
+    
+    // Função para mostrar/ocultar campos de valor (quando for COMPRA)
+    function toggleCamposValor() {
+        const tipoEntradaSelect = document.getElementById('id_tipo_entrada');
+        const isCompra = tipoEntradaSelect && tipoEntradaSelect.value === 'COMPRA';
+        
+        // Mostrar/ocultar cabeçalhos
+        const thValorUnitario = document.getElementById('th-valor-unitario');
+        const thValorTotal = document.getElementById('th-valor-total');
+        if (thValorUnitario) thValorUnitario.style.display = isCompra ? '' : 'none';
+        if (thValorTotal) thValorTotal.style.display = isCompra ? '' : 'none';
+        
+        // Mostrar/ocultar células de valor em todas as linhas
+        document.querySelectorAll('.td-valor-unitario, .td-valor-total').forEach(td => {
+            td.style.display = isCompra ? '' : 'none';
+        });
+        
+        // Atualizar colspan do footer
+        const tdColspanFooter = document.getElementById('td-colspan-footer');
+        if (tdColspanFooter) {
+            tdColspanFooter.setAttribute('colspan', isCompra ? '7' : '5');
+        }
+    }
+    
+    // Função para calcular valor total automaticamente
+    function calcularValorTotal(tr) {
+        const quantidadeInput = tr.querySelector('.quantidade-item');
+        const valorUnitarioInput = tr.querySelector('.valor-unitario-item');
+        const valorTotalInput = tr.querySelector('.valor-total-item');
+        
+        if (quantidadeInput && valorUnitarioInput && valorTotalInput) {
+            const quantidade = parseFloat(quantidadeInput.value) || 0;
+            const valorUnitario = parseFloat(valorUnitarioInput.value) || 0;
+            const valorTotal = quantidade * valorUnitario;
+            
+            valorTotalInput.value = valorTotal.toFixed(2);
+        }
+    }
+    
+    // Adicionar listener para mudança no tipo de entrada
+    const tipoEntradaSelect = document.getElementById('id_tipo_entrada');
+    if (tipoEntradaSelect) {
+        tipoEntradaSelect.addEventListener('change', function() {
+            toggleCamposDoacao();
+            toggleCamposValor();
+        });
+        // Verificar estado inicial (importante para edição)
+        toggleCamposDoacao();
+        toggleCamposValor();
+    }
+    
+    // Máscara para CNPJ
+    const cnpjInput = document.getElementById('id_cnpj_fornecedor');
+    if (cnpjInput) {
+        cnpjInput.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            if (value.length <= 14) {
+                if (value.length > 12) {
+                    value = value.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+                } else if (value.length > 8) {
+                    value = value.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})$/, '$1.$2.$3/$4');
+                } else if (value.length > 5) {
+                    value = value.replace(/^(\d{2})(\d{3})(\d{3})$/, '$1.$2.$3');
+                } else if (value.length > 2) {
+                    value = value.replace(/^(\d{2})(\d{3})$/, '$1.$2');
+                }
+                e.target.value = value;
+            }
+        });
+    }
+    
+    // Desabilitar todos os campos se não puder editar
+    {% if not is_create and not pode_editar %}
+    if (form) {
+        const allInputs = form.querySelectorAll('input, select, textarea, button[type="submit"]');
+        allInputs.forEach(input => {
+            if (input.type !== 'hidden' && input.type !== 'button') {
+                input.disabled = true;
+            }
+        });
+        // Desabilitar botões de ação
+        const actionButtons = form.querySelectorAll('button[type="button"]:not([data-bs-dismiss])');
+        actionButtons.forEach(btn => {
+            btn.disabled = true;
+        });
+    }
+    {% endif %}
+    
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(form);
+            
+            // Remover arquivos do input file do FormData (vamos adicionar manualmente)
+            // Remover todas as ocorrências de documentos_upload
+            while (formData.has('documentos_upload')) {
+                formData.delete('documentos_upload');
+            }
+            
+            // Adicionar todos os arquivos selecionados ao FormData manualmente
+            console.log(`Enviando ${arquivosSelecionadosList.length} arquivo(s)`);
+            arquivosSelecionadosList.forEach((file, index) => {
+                formData.append('documentos_upload', file);
+                console.log(`Arquivo ${index + 1}: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`);
+                
+                // Adicionar tipo e título do documento
+                const tipoSelect = document.querySelector(`select.tipo-documento[data-file-index="${index}"]`);
+                const tituloInput = document.querySelector(`input.titulo-documento[data-file-index="${index}"]`);
+                
+                if (tipoSelect) {
+                    formData.append('tipos_documentos[]', tipoSelect.value);
+                } else {
+                    formData.append('tipos_documentos[]', 'OUTROS');
+                }
+                
+                if (tituloInput && tituloInput.value) {
+                    formData.append('titulos_documentos[]', tituloInput.value);
+                } else {
+                    formData.append('titulos_documentos[]', file.name);
+                }
+            });
+            
+            // Adicionar IDs dos documentos a remover
+            documentosRemover.forEach(docId => {
+                formData.append('documentos_remover[]', docId);
+            });
+            
+            // Coletar dados dos múltiplos itens
+            const itensData = [];
+            const itensTbody = document.getElementById('itens-entrada-tbody');
+            
+            if (itensTbody) {
+                document.querySelectorAll('#itens-entrada-tbody tr').forEach(tr => {
+                    const itemSelect = tr.querySelector('.item-select');
+                    const quantidadeInput = tr.querySelector('.quantidade-item');
+                    const valorUnitarioInput = tr.querySelector('.valor-unitario-item');
+                    const itemEntradaId = tr.getAttribute('data-item-entrada-id');
+                    
+                    if (itemSelect && itemSelect.value && quantidadeInput && quantidadeInput.value) {
+                        const quantidade = parseFloat(quantidadeInput.value) || 0;
+                        const valorUnitarioInput = tr.querySelector('.valor-unitario-item');
+                        const valorTotalInput = tr.querySelector('.valor-total-item');
+                        const valorUnitario = valorUnitarioInput && valorUnitarioInput.value ? parseFloat(valorUnitarioInput.value) || null : null;
+                        const valorTotal = valorTotalInput && valorTotalInput.value ? parseFloat(valorTotalInput.value) || null : null;
+                        
+                        // Calcular valor total se não estiver definido mas houver valor unitário e quantidade
+                        let valorTotalFinal = valorTotal;
+                        if (!valorTotalFinal && valorUnitario && quantidade) {
+                            valorTotalFinal = valorUnitario * quantidade;
+                        }
+                        
+                        const itemData = {
+                            id: itemEntradaId || null,
+                            item_id: itemSelect.value,
+                            produto_id: itemSelect.value,
+                            quantidade: quantidade,
+                            valor_unitario: valorUnitario,
+                            valor_total: valorTotalFinal,
+                            tamanhos: []
+                        };
+                        
+                        // Coletar tamanhos deste item (se houver)
+                        const tamanhosData = tr.dataset.tamanhos ? JSON.parse(tr.dataset.tamanhos) : [];
+                        itemData.tamanhos = tamanhosData;
+                        
+                        itensData.push(itemData);
+                    }
+                });
+            }
+            
+            if (itensData.length > 0) {
+                formData.append('itens_data', JSON.stringify(itensData));
+            } else {
+                alert('Adicione pelo menos um item à entrada.');
+                return;
+            }
+            
+            // Validar que a OM de destino foi informada
+            const orgaoDestinoHidden = document.getElementById('id_orgao_destino');
+            const unidadeDestinoHidden = document.getElementById('id_unidade_destino');
+            const grandeComandoDestinoHidden = document.getElementById('id_grande_comando_destino');
+            
+            if (!orgaoDestinoHidden.value && !unidadeDestinoHidden.value && !grandeComandoDestinoHidden.value) {
+                alert('É necessário informar a Organização Militar de entrada (onde a mercadoria vai entrar).');
+                document.getElementById('organograma-destino-select').focus();
+                return;
+            }
+            
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Salvando...';
+            
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(async response => {
+                // Verificar o content-type antes de tentar parsear
+                const contentType = response.headers.get('content-type');
+                
+                if (contentType && contentType.includes('application/json')) {
+                    try {
+                        return await response.json();
+                    } catch (e) {
+                        console.error('Erro ao parsear JSON:', e);
+                        throw new Error('Erro ao processar resposta do servidor');
+                    }
+                } else {
+                    // Se não for JSON, tentar ler como texto
+                    const text = await response.text();
+                    console.error('Resposta não-JSON recebida:', text);
+                    throw new Error('Resposta inválida do servidor');
+                }
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'alert alert-success alert-dismissible fade show';
+                    alertDiv.innerHTML = `
+                        <i class="fas fa-check-circle me-2"></i>${data.message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    `;
+                    document.body.insertBefore(alertDiv, document.body.firstChild);
+                    
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('criarEntradaModal') || document.getElementById('editarEntradaModal'));
+                    if (modal) {
+                        modal.hide();
+                    }
+                    
+                    setTimeout(() => {
+                        if (data.redirect) {
+                            window.location.href = data.redirect;
+                        } else {
+                            window.location.reload();
+                        }
+                    }, 1000);
+                } else {
+                    // Erro de validação ou outro erro
+                    console.error('Erro do servidor:', data);
+                    
+                    // Mostrar mensagem de erro
+                    let errorMessage = data.message || 'Erro ao salvar. Verifique os campos e tente novamente.';
+                    
+                    // Se houver erros específicos de campos, adicionar à mensagem
+                    if (data.errors) {
+                        const errorsList = Object.entries(data.errors).map(([field, errors]) => {
+                            return `${field}: ${Array.isArray(errors) ? errors.join(', ') : errors}`;
+                        }).join('\n');
+                        errorMessage += '\n\nErros:\n' + errorsList;
+                        console.error('Erros de validação:', data.errors);
+                    }
+                    
+                    // Atualizar HTML do modal se fornecido
+                    if (data.html) {
+                        const modalContent = document.getElementById('criarEntradaModalContent') || document.getElementById('editarEntradaModalContent');
+                        if (modalContent) {
+                            modalContent.innerHTML = data.html;
+                            // Re-executar scripts no novo HTML
+                            setTimeout(() => {
+                                const scripts = modalContent.querySelectorAll('script');
+                                scripts.forEach(function(oldScript) {
+                                    const newScript = document.createElement('script');
+                                    Array.from(oldScript.attributes).forEach(attr => {
+                                        newScript.setAttribute(attr.name, attr.value);
+                                    });
+                                    newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                                    oldScript.parentNode.replaceChild(newScript, oldScript);
+                                });
+                            }, 100);
+                        }
+                    } else {
+                        // Se não houver HTML, mostrar alerta
+                        alert(errorMessage);
+                    }
+                    
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+                alert('Erro ao salvar. Verifique o console para mais detalhes.');
+            });
+        });
+    }
+    
+    // Máscara para valor monetário
+    const valorInput = document.getElementById('id_valor_unitario_entrada');
+    if (valorInput) {
+        valorInput.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            value = (value / 100).toFixed(2) + '';
+            value = value.replace('.', ',');
+            value = value.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            e.target.value = value;
+        });
+    }
+    
+    // Campos de origem são ocultos (não usados em entradas diretas)
+    
+    // ========== FUNÇÕES DE CARREGAMENTO DE ITENS (definidas antes para serem usadas no organograma) ==========
+    
+    // Função para carregar lista de TODOS os itens cadastrados (entradas não filtram por OM)
+    async function carregarListaItensEntrada() {
+        try {
+            console.log('Carregando todos os itens cadastrados...');
+            
+            // Buscar todos os itens sem filtro de OM
+            const url = '{% url "militares:produto_almoxarifado_list_json" %}';
+            console.log('URL de busca de itens:', url);
+            
+            const response = await fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            const data = await response.json();
+            console.log('Resposta da API de itens:', data);
+            if (data.status === 'success') {
+                console.log('Itens carregados:', data.itens.length);
+                return data.itens;
+            }
+        } catch (error) {
+            console.error('Erro ao carregar lista de itens:', error);
+        }
+        return [];
+    }
+    
+    // Função para atualizar todos os selects de itens com a lista filtrada
+    async function atualizarListaItensEntrada() {
+        const itens = await carregarListaItensEntrada();
+        
+        // Atualizar todos os selects de itens existentes
+        document.querySelectorAll('#itens-entrada-tbody .item-select').forEach(select => {
+            const valorAtual = select.value;
+            const tr = select.closest('tr');
+            const quantidadeInput = tr ? tr.querySelector('.quantidade-item') : null;
+            const valorUnitarioInput = tr ? tr.querySelector('.valor-unitario-item') : null;
+            const valorTotalInput = tr ? tr.querySelector('.valor-total-item') : null;
+            
+            // Preservar quantidade e valores antes de atualizar
+            let quantidadeAtual = null;
+            let quantidadeOriginal = null;
+            let valorUnitarioAtual = null;
+            let valorTotalAtual = null;
+            
+            if (quantidadeInput) {
+                quantidadeAtual = quantidadeInput.value;
+                quantidadeOriginal = quantidadeInput.getAttribute('data-quantidade-original');
+                
+                // Se não houver quantidade atual mas houver original, usar original
+                if (!quantidadeAtual && quantidadeOriginal) {
+                    quantidadeAtual = quantidadeOriginal;
+                }
+                // Se houver quantidade atual mas não houver original, salvar como original
+                else if (quantidadeAtual && !quantidadeOriginal) {
+                    quantidadeInput.setAttribute('data-quantidade-original', quantidadeAtual);
+                }
+            }
+            
+            // Preservar valores unitário e total
+            if (valorUnitarioInput) {
+                // Tentar obter valor atual, se vazio tentar data attribute, se vazio tentar value original
+                valorUnitarioAtual = valorUnitarioInput.value || 
+                                    valorUnitarioInput.getAttribute('data-valor-unitario-original') ||
+                                    valorUnitarioInput.getAttribute('value') ||
+                                    null;
+            }
+            if (valorTotalInput) {
+                // Tentar obter valor atual, se vazio tentar data attribute, se vazio tentar value original
+                valorTotalAtual = valorTotalInput.value || 
+                                valorTotalInput.getAttribute('data-valor-total-original') ||
+                                valorTotalInput.getAttribute('value') ||
+                                null;
+            }
+            
+            // Limpar opções (exceto a primeira)
+            while (select.options.length > 1) {
+                select.remove(1);
+            }
+            
+            // Adicionar novos itens
+            itens.forEach(item => {
+                const tamanhoText = item.tamanho ? ` - Tamanho ${item.tamanho}` : '';
+                const option = document.createElement('option');
+                option.value = item.id;
+                option.textContent = `${item.codigo} - ${item.descricao}${tamanhoText}`;
+                if (item.id == valorAtual) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+            
+            // Restaurar quantidade após atualizar selects
+            if (quantidadeInput) {
+                const quantidadeParaRestaurar = quantidadeAtual || quantidadeOriginal;
+                if (quantidadeParaRestaurar) {
+                    quantidadeInput.value = quantidadeParaRestaurar;
+                    // Garantir que o atributo data-quantidade-original esteja definido
+                    if (!quantidadeInput.getAttribute('data-quantidade-original')) {
+                        quantidadeInput.setAttribute('data-quantidade-original', quantidadeParaRestaurar);
+                    }
+                }
+            }
+            
+            // Restaurar valores unitário e total após atualizar selects
+            if (valorUnitarioInput) {
+                if (valorUnitarioAtual) {
+                    // Converter vírgula para ponto antes de atribuir
+                    const valorConvertido = converterParaFormatoNumerico(valorUnitarioAtual);
+                    valorUnitarioInput.value = valorConvertido !== null ? valorConvertido : valorUnitarioAtual;
+                    // Salvar em data attribute para preservar (manter formato original)
+                    valorUnitarioInput.setAttribute('data-valor-unitario-original', valorUnitarioAtual);
+                } else {
+                    // Tentar restaurar de data attribute se existir
+                    const valorOriginal = valorUnitarioInput.getAttribute('data-valor-unitario-original');
+                    if (valorOriginal) {
+                        // Converter vírgula para ponto antes de atribuir
+                        const valorConvertido = converterParaFormatoNumerico(valorOriginal);
+                        valorUnitarioInput.value = valorConvertido !== null ? valorConvertido : valorOriginal;
+                    }
+                }
+            }
+            
+            if (valorTotalInput) {
+                if (valorTotalAtual) {
+                    // Converter vírgula para ponto antes de atribuir
+                    const valorConvertido = converterParaFormatoNumerico(valorTotalAtual);
+                    valorTotalInput.value = valorConvertido !== null ? valorConvertido : valorTotalAtual;
+                    // Salvar em data attribute para preservar (manter formato original)
+                    valorTotalInput.setAttribute('data-valor-total-original', valorTotalAtual);
+                } else {
+                    // Tentar restaurar de data attribute se existir
+                    const valorOriginal = valorTotalInput.getAttribute('data-valor-total-original');
+                    if (valorOriginal) {
+                        // Converter vírgula para ponto antes de atribuir
+                        const valorConvertido = converterParaFormatoNumerico(valorOriginal);
+                        valorTotalInput.value = valorConvertido !== null ? valorConvertido : valorOriginal;
+                    }
+                }
+            }
+            
+            // Recalcular valor total se necessário (apenas se não houver valor total preservado)
+            if (quantidadeInput && valorUnitarioInput && valorTotalInput) {
+                const quantidade = parseFloat(quantidadeInput.value) || 0;
+                const valorUnitario = parseFloat(valorUnitarioInput.value) || 0;
+                // Só recalcular se não houver valor total preservado
+                if (quantidade > 0 && valorUnitario > 0 && !valorTotalAtual && !valorTotalInput.getAttribute('data-valor-total-original')) {
+                    valorTotalInput.value = (quantidade * valorUnitario).toFixed(2);
+                }
+            }
+        });
+        
+        // Preservar quantidades após atualizar lista
+        if (typeof preservarQuantidades === 'function') {
+            setTimeout(preservarQuantidades, 50);
+        }
+    }
+    
+    // ========== FUNÇÕES DE ORGANOGRAMA ==========
+    
+    // Função para carregar hierarquia do organograma filtrada por acesso do usuário
+    async function carregarOrganogramaCompleto(selectElement, isDestino = false) {
+        if (!selectElement) {
+            console.error('selectElement não encontrado para carregar organograma');
+            return;
+        }
+        
+        console.log('Carregando organograma para:', selectElement.id);
+        
+        try {
+            // Usar URL que retorna organograma filtrado hierarquicamente
+            const url = '{% url "militares:ajax_organograma_completo" %}';
+            console.log('URL do organograma:', url);
+            const response = await fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            const data = await response.json();
+            console.log('Resposta do organograma:', data);
+            
+            selectElement.innerHTML = '<option value="">Selecione uma opção do organograma...</option>';
+            
+            if (data.hierarquia && Array.isArray(data.hierarquia)) {
+                console.log('Hierarquia recebida:', data.hierarquia.length, 'itens');
+                data.hierarquia.forEach(item => {
+                    const option = document.createElement('option');
+                    option.value = item.id;
+                    option.textContent = item.texto;
+                    option.dataset.tipo = item.tipo;
+                    option.dataset.valor = JSON.stringify(item.valor);
+                    
+                    if (item.nivel === 1) {
+                        option.style.fontWeight = 'bold';
+                        option.style.color = '#0d6efd';
+                    } else if (item.nivel === 2) {
+                        option.style.fontWeight = '600';
+                        option.style.color = '#198754';
+                    } else if (item.nivel === 3) {
+                        option.style.color = '#fd7e14';
+                    } else if (item.nivel === 4) {
+                        option.style.color = '#6f42c1';
+                    }
+                    
+                    selectElement.appendChild(option);
+                });
+                
+                // Se for destino e houver valores nos campos hidden, selecionar automaticamente
+                if (isDestino) {
+                    // Aguardar um pouco para garantir que os campos hidden foram preenchidos pelo Django
+                    setTimeout(() => {
+                        // Buscar elementos novamente para garantir que estão atualizados
+                        const orgaoDestino = document.getElementById('id_orgao_destino');
+                        const grandeComandoDestino = document.getElementById('id_grande_comando_destino');
+                        const unidadeDestino = document.getElementById('id_unidade_destino');
+                        const subUnidadeDestino = document.getElementById('id_sub_unidade_destino');
+                        
+                        const orgaoId = orgaoDestino ? orgaoDestino.value : '';
+                        const grandeComandoId = grandeComandoDestino ? grandeComandoDestino.value : '';
+                        const unidadeId = unidadeDestino ? unidadeDestino.value : '';
+                        const subUnidadeId = subUnidadeDestino ? subUnidadeDestino.value : '';
+                        
+                        console.log('Tentando selecionar OM de destino:', { orgaoId, grandeComandoId, unidadeId, subUnidadeId });
+                        
+                        // Selecionar a opção correspondente
+                        let optionId = '';
+                        if (subUnidadeId) {
+                            optionId = `sub_${subUnidadeId}`;
+                        } else if (unidadeId) {
+                            optionId = `unidade_${unidadeId}`;
+                        } else if (grandeComandoId) {
+                            optionId = `gc_${grandeComandoId}`;
+                        } else if (orgaoId) {
+                            optionId = `orgao_${orgaoId}`;
+                        }
+                        
+                        if (optionId) {
+                            // Tentar múltiplas vezes para garantir que o organograma foi carregado
+                            let tentativas = 0;
+                            const maxTentativas = 10;
+                            
+                            const tentarSelecionar = () => {
+                                tentativas++;
+                                const optionToSelect = selectElement.querySelector(`option[value="${optionId}"]`);
+                                if (optionToSelect) {
+                                    selectElement.value = optionId;
+                                    atualizarCamposOcultos(selectElement, orgaoDestinoHidden, grandeComandoDestinoHidden, unidadeDestinoHidden, subUnidadeDestinoHidden);
+                                    console.log('OM de destino selecionada com sucesso:', optionId);
+                                    // Carregar todos os itens (não filtrados por OM)
+                                    setTimeout(() => {
+                                        atualizarListaItensEntrada();
+                                    }, 300);
+                                } else {
+                                    // Tentar encontrar por dataset.valor se não encontrar por value
+                                    let encontrado = false;
+                                    Array.from(selectElement.options).forEach(opt => {
+                                        if (opt.dataset.valor) {
+                                            try {
+                                                const valor = JSON.parse(opt.dataset.valor);
+                                                if ((subUnidadeId && valor.sub_unidade_id == subUnidadeId) ||
+                                                    (!subUnidadeId && unidadeId && valor.unidade_id == unidadeId) ||
+                                                    (!subUnidadeId && !unidadeId && grandeComandoId && valor.grande_comando_id == grandeComandoId) ||
+                                                    (!subUnidadeId && !unidadeId && !grandeComandoId && orgaoId && valor.orgao_id == orgaoId)) {
+                                                    selectElement.value = opt.value;
+                                                    atualizarCamposOcultos(selectElement, orgaoDestinoHidden, grandeComandoDestinoHidden, unidadeDestinoHidden, subUnidadeDestinoHidden);
+                                                    console.log('OM de destino selecionada por dataset.valor:', opt.value);
+                                                    encontrado = true;
+                                                    // Carregar todos os itens (não filtrados por OM)
+                                                    setTimeout(() => {
+                                                        atualizarListaItensEntrada();
+                                                    }, 300);
+                                                }
+                                            } catch (e) {
+                                                console.error('Erro ao parsear valor:', e);
+                                            }
+                                        }
+                                    });
+                                    
+                                    if (!encontrado && tentativas < maxTentativas) {
+                                        setTimeout(tentarSelecionar, 200);
+                                    } else if (!encontrado) {
+                                        console.warn('Não foi possível selecionar a OM de destino após', maxTentativas, 'tentativas');
+                                    }
+                                }
+                            };
+                            
+                            tentarSelecionar();
+                        }
+                    }, 500);
+                }
+            }
+        } catch (error) {
+            console.error('Erro ao carregar organograma:', error);
+        }
+    }
+    
+    // Função para atualizar campos ocultos
+    function atualizarCamposOcultos(selectElement, orgaoHidden, grandeComandoHidden, unidadeHidden, subUnidadeHidden) {
+        if (!selectElement) return;
+        
+        const selectedOption = selectElement.options[selectElement.selectedIndex];
+        
+        if (selectedOption.value && selectedOption.dataset.valor) {
+            const valor = JSON.parse(selectedOption.dataset.valor);
+            if (orgaoHidden) orgaoHidden.value = valor.orgao_id || '';
+            if (grandeComandoHidden) grandeComandoHidden.value = valor.grande_comando_id || '';
+            if (unidadeHidden) unidadeHidden.value = valor.unidade_id || '';
+            if (subUnidadeHidden) subUnidadeHidden.value = valor.sub_unidade_id || '';
+            
+            // Em entradas, não precisamos atualizar a lista de itens quando a OM muda
+            // porque listamos todos os itens cadastrados
+        } else {
+            if (orgaoHidden) orgaoHidden.value = '';
+            if (grandeComandoHidden) grandeComandoHidden.value = '';
+            if (unidadeHidden) unidadeHidden.value = '';
+            if (subUnidadeHidden) subUnidadeHidden.value = '';
+        }
+    }
+    
+    // Funcionalidade de seleção hierárquica única do organograma - DESTINO (OM de Entrada)
+    let organogramaDestinoSelect = null;
+    let orgaoDestinoHidden = null;
+    let grandeComandoDestinoHidden = null;
+    let unidadeDestinoHidden = null;
+    let subUnidadeDestinoHidden = null;
+    
+    // Função para inicializar organograma de destino
+    function inicializarOrganogramaDestino() {
+        organogramaDestinoSelect = document.getElementById('organograma-destino-select');
+        orgaoDestinoHidden = document.getElementById('id_orgao_destino');
+        grandeComandoDestinoHidden = document.getElementById('id_grande_comando_destino');
+        unidadeDestinoHidden = document.getElementById('id_unidade_destino');
+        subUnidadeDestinoHidden = document.getElementById('id_sub_unidade_destino');
+        
+        if (organogramaDestinoSelect && orgaoDestinoHidden) {
+            // Adicionar listener de mudança
+            organogramaDestinoSelect.addEventListener('change', function() {
+                atualizarCamposOcultos(organogramaDestinoSelect, orgaoDestinoHidden, grandeComandoDestinoHidden, unidadeDestinoHidden, subUnidadeDestinoHidden);
+            });
+            
+            // Carregar organograma
+            carregarOrganogramaCompleto(organogramaDestinoSelect, true);
+            
+            // Se estiver editando, selecionar a opção atual após carregar
+            {% if not is_create and entrada %}
+            // Aguardar o carregamento completo do organograma antes de selecionar
+            setTimeout(() => {
+                selecionarOrganogramaDestinoAtual();
+            }, 1200);
+            // Tentar novamente após mais tempo caso não tenha funcionado
+            setTimeout(() => {
+                if (organogramaDestinoSelect && organogramaDestinoSelect.value === '') {
+                    console.log('Tentando selecionar OM de destino novamente...');
+                    selecionarOrganogramaDestinoAtual();
+                }
+            }, 2000);
+            {% endif %}
+            
+            return true;
+        }
+        return false;
+    }
+    
+    // Função para selecionar a opção atual do organograma de destino na edição
+    function selecionarOrganogramaDestinoAtual() {
+        if (!organogramaDestinoSelect || !orgaoDestinoHidden) {
+            console.log('Elementos do organograma não encontrados');
+            return;
+        }
+        
+        const orgaoId = String(orgaoDestinoHidden.value || '').trim();
+        const grandeComandoId = String(grandeComandoDestinoHidden ? grandeComandoDestinoHidden.value : '').trim();
+        const unidadeId = String(unidadeDestinoHidden ? unidadeDestinoHidden.value : '').trim();
+        const subUnidadeId = String(subUnidadeDestinoHidden ? subUnidadeDestinoHidden.value : '').trim();
+        
+        console.log('Tentando selecionar OM de destino:', { orgaoId, grandeComandoId, unidadeId, subUnidadeId });
+        
+        if (!orgaoId && !grandeComandoId && !unidadeId && !subUnidadeId) {
+            console.log('Nenhum ID de OM encontrado nos campos hidden');
+            return;
+        }
+        
+        // Procurar a opção correspondente - priorizar hierarquia mais específica
+        let optionFound = null;
+        for (let i = 0; i < organogramaDestinoSelect.options.length; i++) {
+            const option = organogramaDestinoSelect.options[i];
+            if (option.value && option.dataset.valor) {
+                try {
+                    const valor = JSON.parse(option.dataset.valor);
+                    const valorOrgaoId = String(valor.orgao_id || '').trim();
+                    const valorGrandeComandoId = String(valor.grande_comando_id || '').trim();
+                    const valorUnidadeId = String(valor.unidade_id || '').trim();
+                    const valorSubUnidadeId = String(valor.sub_unidade_id || '').trim();
+                    
+                    // Verificar correspondência exata, priorizando hierarquia mais específica
+                    if (subUnidadeId && valorSubUnidadeId && subUnidadeId === valorSubUnidadeId) {
+                        optionFound = option;
+                        break; // Sub-unidade é a mais específica, parar aqui
+                    } else if (unidadeId && valorUnidadeId && unidadeId === valorUnidadeId && !subUnidadeId) {
+                        optionFound = option;
+                        // Continuar procurando por sub-unidade mais específica
+                    } else if (grandeComandoId && valorGrandeComandoId && grandeComandoId === valorGrandeComandoId && !unidadeId && !subUnidadeId) {
+                        optionFound = option;
+                        // Continuar procurando por unidade ou sub-unidade mais específica
+                    } else if (orgaoId && valorOrgaoId && orgaoId === valorOrgaoId && !grandeComandoId && !unidadeId && !subUnidadeId) {
+                        optionFound = option;
+                        // Continuar procurando por níveis mais específicos
+                    }
+                } catch (e) {
+                    console.error('Erro ao processar valor da opção:', e);
+                }
+            }
+        }
+        
+        if (optionFound) {
+            organogramaDestinoSelect.value = optionFound.value;
+            organogramaDestinoSelect.dispatchEvent(new Event('change'));
+            console.log('OM de destino selecionada com sucesso:', optionFound.value);
+        } else {
+            console.warn('Nenhuma opção correspondente encontrada para a OM de destino');
+        }
+    }
+    
+    // Tentar inicializar imediatamente
+    if (!inicializarOrganogramaDestino()) {
+        setTimeout(() => {
+            if (!inicializarOrganogramaDestino()) {
+                setTimeout(() => {
+                    if (!inicializarOrganogramaDestino()) {
+                        console.error('Não foi possível inicializar organograma de destino após 3 tentativas');
+                    }
+                }, 500);
+            }
+        }, 200);
+    }
+    
+    // Leitura de código de barras para entrada
+    const codigoBarrasInput = document.getElementById('codigo_barras_input_entrada');
+    const btnBuscarCodigo = document.getElementById('btn_buscar_codigo_barras_entrada');
+    const itemInfoDiv = document.getElementById('item_info_entrada');
+    
+    function buscarItemPorCodigoBarras(codigo) {
+        if (!codigo || codigo.trim() === '') {
+            return Promise.resolve();
+        }
+        
+        // Validar tamanho mínimo do código
+        if (codigo.trim().length < 3) {
+            return Promise.resolve();
+        }
+        
+        // Usar URL absoluta para evitar problemas quando carregado via AJAX
+        const buscarUrl = '/militares/almoxarifado/buscar-item/';
+        return fetch(`${buscarUrl}?codigo_barras=${encodeURIComponent(codigo.trim())}`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                // Se for 404, não mostrar erro (item simplesmente não encontrado)
+                if (response.status === 404) {
+                    return response.json().then(data => {
+                        // Não fazer nada se não encontrar
+                        return null;
+                    });
+                }
+                throw new Error(`Erro ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (!data) {
+                return; // Item não encontrado, não fazer nada
+            }
+            if (data.status === 'success' && data.item) {
+                // Adicionar item à tabela de múltiplos itens
+                const itensTbody = document.getElementById('itens-entrada-tbody');
+                if (itensTbody) {
+                    // Verificar se o item já existe na tabela
+                    const itemJaExiste = Array.from(itensTbody.querySelectorAll('.item-select')).some(select => {
+                        return select.value === String(data.item.id);
+                    });
+                    
+                    if (!itemJaExiste) {
+                        // Adicionar novo item
+                        adicionarItemEntrada();
+                        
+                        // Preencher o último item adicionado
+                        const ultimaLinha = itensTbody.querySelector('tr:last-child');
+                        if (ultimaLinha) {
+                            const selectItem = ultimaLinha.querySelector('.item-select');
+                            if (selectItem) {
+                                selectItem.value = data.item.id;
+                                // Disparar evento change para atualizar dependências
+                                const event = new Event('change', { bubbles: true });
+                                selectItem.dispatchEvent(event);
+                            }
+                        }
+                    } else {
+                        // Item já existe, apenas mostrar mensagem
+                        alert('Este item já foi adicionado à entrada.');
+                    }
+                }
+                
+                // Mostrar informações do item
+                document.getElementById('item_descricao_entrada').textContent = 
+                    `${data.item.codigo} - ${data.item.descricao}`;
+                document.getElementById('item_estoque_entrada').textContent = 
+                    `${data.item.quantidade_atual} ${data.item.unidade_medida}`;
+                itemInfoDiv.style.display = 'block';
+                
+                // Limpar o campo de código de barras após um delay
+                setTimeout(() => {
+                    codigoBarrasInput.value = '';
+                    codigoBarrasInput.focus();
+                }, 500);
+            } else {
+                // Não mostrar alerta se não encontrar (pode estar digitando ainda)
+                // Apenas limpar se for uma busca explícita (botão ou Enter)
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao buscar item:', error);
+            // Não mostrar alerta para erros 404 (item não encontrado)
+            // Apenas logar o erro
+        });
+    }
+    
+    if (codigoBarrasInput) {
+        // Buscar quando o botão for clicado
+        if (btnBuscarCodigo) {
+            btnBuscarCodigo.addEventListener('click', function() {
+                buscarItemPorCodigoBarras(codigoBarrasInput.value);
+            });
+        }
+        
+        // Buscar quando Enter for pressionado
+        codigoBarrasInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                buscarItemPorCodigoBarras(codigoBarrasInput.value);
+            }
+        });
+        
+        // Focar no campo quando o modal abrir
+        codigoBarrasInput.focus();
+        
+        // Detectar quando um leitor de código de barras lê (geralmente termina com Enter)
+        let barcodeTimeout;
+        let isSearching = false; // Flag para evitar múltiplas buscas simultâneas
+        
+        codigoBarrasInput.addEventListener('input', function() {
+            clearTimeout(barcodeTimeout);
+            
+            // Se o campo estiver vazio, não fazer nada
+            if (codigoBarrasInput.value.trim().length === 0) {
+                itemInfoDiv.style.display = 'none';
+                return;
+            }
+            
+            barcodeTimeout = setTimeout(() => {
+                // Só buscar se não estiver já buscando e tiver pelo menos 3 caracteres
+                if (!isSearching && codigoBarrasInput.value.trim().length >= 3) {
+                    isSearching = true;
+                    buscarItemPorCodigoBarras(codigoBarrasInput.value.trim());
+                }
+            }, 500); // Aguardar 500ms após a última digitura
+        });
+        
+        // Wrapper para resetar flag de busca após a busca ser concluída
+        const originalBuscarItem = buscarItemPorCodigoBarras;
+        buscarItemPorCodigoBarras = function(codigo) {
+            const promise = originalBuscarItem(codigo);
+            promise.finally(() => {
+                setTimeout(() => {
+                    isSearching = false;
+                }, 500);
+            });
+            return promise;
+        };
+    }
+    
+    // ========== GERENCIAMENTO DE MÚLTIPLOS ITENS ==========
+    const itensTbodyEntrada = document.getElementById('itens-entrada-tbody');
+    const btnAdicionarItemEntrada = document.getElementById('btn-adicionar-item-entrada');
+    
+    // Função para adicionar novo item
+    async function adicionarItemEntrada() {
+        if (!itensTbodyEntrada) return;
+        
+        // Sempre buscar lista atualizada filtrada pela OM de destino
+        const itens = await carregarListaItensEntrada();
+        let itemOptions = '<option value="">Selecione um item...</option>';
+        
+        itens.forEach(item => {
+            const tamanhoText = item.tamanho ? ` - Tamanho ${item.tamanho}` : '';
+            itemOptions += `<option value="${item.id}">${item.codigo} - ${item.descricao}${tamanhoText}</option>`;
+        });
+        
+        const tr = document.createElement('tr');
+        const tipoEntrada = document.getElementById('id_tipo_entrada') ? document.getElementById('id_tipo_entrada').value : '';
+        const isCompra = tipoEntrada === 'COMPRA';
+        const displayValor = isCompra ? '' : 'display: none;';
+        
+        tr.innerHTML = `
+            <td>
+                <select class="form-select form-select-sm item-select" required>
+                    <option value="">Selecione um item...</option>
+                    ${itemOptions}
+                </select>
+            </td>
+            <td>
+                <input type="number" 
+                       class="form-control form-control-sm quantidade-item" 
+                       value="" 
+                       step="0.01" 
+                       min="0.01" 
+                       required>
+            </td>
+            <td>
+                <input type="text" 
+                       class="form-control form-control-sm tamanho-item" 
+                       value="" 
+                       placeholder="Tamanho do item"
+                       readonly>
+            </td>
+            <td>
+                <span class="estoque-disponivel-item text-muted">-</span>
+            </td>
+            <td class="td-valor-unitario" style="${displayValor}">
+                <input type="number" 
+                       class="form-control form-control-sm valor-unitario-item" 
+                       value="" 
+                       step="0.01" 
+                       min="0" 
+                       placeholder="0.00">
+            </td>
+            <td class="td-valor-total" style="${displayValor}">
+                <input type="number" 
+                       class="form-control form-control-sm valor-total-item" 
+                       value="" 
+                       step="0.01" 
+                       min="0" 
+                       readonly
+                       placeholder="0.00">
+            </td>
+            <td>
+                <button type="button" 
+                        class="btn btn-sm btn-danger btn-remover-item" 
+                        title="Remover item">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        itensTbodyEntrada.appendChild(tr);
+        
+        // Adicionar event listeners usando a função reutilizável
+        adicionarEventListenersItem(tr);
+    }
+    
+    // Event listener para o botão adicionar item
+    if (btnAdicionarItemEntrada) {
+        btnAdicionarItemEntrada.addEventListener('click', adicionarItemEntrada);
+    }
+    
+    // A atualização da lista de itens já é feita dentro de atualizarCamposOcultos quando a OM muda
+    
+    // Função para adicionar event listeners a uma linha de item
+    function adicionarEventListenersItem(tr) {
+        const itemSelect = tr.querySelector('.item-select');
+        const tamanhoInput = tr.querySelector('.tamanho-item');
+        const btnRemover = tr.querySelector('.btn-remover-item');
+        const estoqueSpan = tr.querySelector('.estoque-disponivel-item');
+        const quantidadeInput = tr.querySelector('.quantidade-item');
+        const valorUnitarioInput = tr.querySelector('.valor-unitario-item');
+        const valorTotalInput = tr.querySelector('.valor-total-item');
+        
+        // Preservar quantidade original se existir
+        let quantidadeOriginal = null;
+        if (quantidadeInput) {
+            let quantidadeOriginalRaw = quantidadeInput.getAttribute('data-quantidade-original');
+            const quantidadeAtual = quantidadeInput.value;
+            
+            // Converter quantidade original para formato numérico se necessário
+            if (quantidadeOriginalRaw) {
+                const quantidadeOriginalNum = converterParaFormatoNumerico(quantidadeOriginalRaw);
+                if (quantidadeOriginalNum !== null) {
+                    quantidadeOriginal = quantidadeOriginalNum;
+                } else {
+                    quantidadeOriginal = quantidadeOriginalRaw;
+                }
+            }
+            
+            // Se houver quantidade original mas o campo estiver vazio, restaurar
+            if (quantidadeOriginal && !quantidadeAtual) {
+                const valorNumerico = converterParaFormatoNumerico(quantidadeOriginal);
+                if (valorNumerico !== null) {
+                    quantidadeInput.value = valorNumerico;
+                    quantidadeInput.setAttribute('data-quantidade-original', valorNumerico);
+                }
+            }
+            // Se não houver quantidade original mas houver valor atual, salvar como original
+            else if (!quantidadeOriginal && quantidadeAtual) {
+                quantidadeInput.setAttribute('data-quantidade-original', quantidadeAtual);
+                quantidadeOriginal = parseFloat(quantidadeAtual) || quantidadeAtual;
+            }
+            // Se ambos existirem, usar o original como backup
+            else if (!quantidadeOriginal && !quantidadeAtual) {
+                // Não fazer nada, campo está vazio
+            } else {
+                quantidadeOriginal = quantidadeOriginal || (parseFloat(quantidadeAtual) || quantidadeAtual);
+            }
+        }
+        
+        // Adicionar listeners para cálculo automático de valor total
+        if (quantidadeInput && valorUnitarioInput && valorTotalInput) {
+            quantidadeInput.addEventListener('input', function() {
+                calcularValorTotal(tr);
+            });
+            
+            valorUnitarioInput.addEventListener('input', function() {
+                calcularValorTotal(tr);
+            });
+        }
+        
+        if (itemSelect) {
+            itemSelect.addEventListener('change', function() {
+                // Atualizar tamanho e estoque quando item for selecionado
+                if (this.value) {
+                    // Preservar quantidade antes de fazer fetch
+                    const quantidadeAtual = quantidadeInput ? quantidadeInput.value : null;
+                    
+                    fetch(`{% url 'militares:produto_almoxarifado_info' 0 %}`.replace('0', this.value))
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === 'success' && data.item) {
+                                // Atualizar tamanho
+                                if (tamanhoInput) {
+                                    tamanhoInput.value = data.item.tamanho || '';
+                                }
+                                
+                                // Atualizar estoque disponível
+                                if (estoqueSpan && data.item.quantidade_atual !== undefined) {
+                                    const unidade = data.item.get_unidade_medida_display || data.item.unidade_medida || '';
+                                    const quantidade = parseFloat(data.item.quantidade_atual) || 0;
+                                    estoqueSpan.textContent = `${quantidade} ${unidade}`.trim();
+                                    estoqueSpan.classList.remove('text-muted');
+                                    estoqueSpan.classList.add('text-primary', 'fw-bold');
+                                } else if (estoqueSpan) {
+                                    estoqueSpan.textContent = '-';
+                                    estoqueSpan.classList.add('text-muted');
+                                    estoqueSpan.classList.remove('text-primary', 'fw-bold');
+                                }
+                                
+                                // Restaurar quantidade se foi perdida
+                                if (quantidadeInput && !quantidadeInput.value && (quantidadeAtual || quantidadeOriginal)) {
+                                    quantidadeInput.value = quantidadeAtual || quantidadeOriginal;
+                                }
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Erro ao buscar informações do item:', error);
+                            if (tamanhoInput) tamanhoInput.value = '';
+                            if (estoqueSpan) {
+                                estoqueSpan.textContent = '-';
+                                estoqueSpan.classList.add('text-muted');
+                                estoqueSpan.classList.remove('text-primary', 'fw-bold');
+                            }
+                            // Restaurar quantidade em caso de erro
+                            if (quantidadeInput && !quantidadeInput.value && quantidadeOriginal) {
+                                const valorNumerico = converterParaFormatoNumerico(quantidadeOriginal);
+                                if (valorNumerico !== null) {
+                                    quantidadeInput.value = valorNumerico;
+                                } else {
+                                    quantidadeInput.value = quantidadeOriginal;
+                                }
+                            }
+                        });
+                } else {
+                    if (tamanhoInput) tamanhoInput.value = '';
+                    if (estoqueSpan) {
+                        estoqueSpan.textContent = '-';
+                        estoqueSpan.classList.add('text-muted');
+                        estoqueSpan.classList.remove('text-primary', 'fw-bold');
+                    }
+                }
+            });
+            
+            // Se já houver um item selecionado, atualizar estoque imediatamente
+            // Mas não disparar se estiver editando e já tiver quantidade
+            {% if not is_create and entrada %}
+            // Na edição, não disparar change automaticamente para preservar valores
+            if (itemSelect.value && (!quantidadeInput || !quantidadeInput.value)) {
+                itemSelect.dispatchEvent(new Event('change'));
+            }
+            {% else %}
+            if (itemSelect.value) {
+                itemSelect.dispatchEvent(new Event('change'));
+            }
+            {% endif %}
+        }
+        
+        if (btnRemover) {
+            btnRemover.addEventListener('click', function() {
+                const tr = this.closest('tr');
+                if (tr) {
+                    tr.remove();
+                }
+            });
+        }
+    }
+    
+    // Função para converter vírgula para ponto (formato brasileiro para internacional)
+    function converterParaFormatoNumerico(valor) {
+        if (!valor) return null;
+        // Converter string para número, substituindo vírgula por ponto
+        const valorString = String(valor).trim();
+        const valorConvertido = valorString.replace(',', '.');
+        // Verificar se é um número válido
+        const numero = parseFloat(valorConvertido);
+        if (isNaN(numero)) return null;
+        return numero;
+    }
+    
+    // Função para preservar quantidades imediatamente
+    function preservarQuantidades() {
+        document.querySelectorAll('#itens-entrada-tbody tr').forEach(tr => {
+            const quantidadeInput = tr.querySelector('.quantidade-item');
+            if (quantidadeInput) {
+                let quantidadeOriginal = quantidadeInput.getAttribute('data-quantidade-original');
+                const quantidadeAtual = quantidadeInput.value;
+                
+                // Converter quantidade original para formato numérico se necessário
+                if (quantidadeOriginal) {
+                    const quantidadeOriginalNum = converterParaFormatoNumerico(quantidadeOriginal);
+                    if (quantidadeOriginalNum !== null) {
+                        quantidadeOriginal = quantidadeOriginalNum;
+                    }
+                }
+                
+                // Se houver valor atual mas não houver data-quantidade-original, salvar
+                if (quantidadeAtual && !quantidadeInput.getAttribute('data-quantidade-original')) {
+                    quantidadeInput.setAttribute('data-quantidade-original', quantidadeAtual);
+                }
+                // Se não houver valor atual mas houver data-quantidade-original, restaurar
+                else if (!quantidadeAtual && quantidadeOriginal) {
+                    const valorNumerico = converterParaFormatoNumerico(quantidadeOriginal);
+                    if (valorNumerico !== null) {
+                        quantidadeInput.value = valorNumerico;
+                    }
+                }
+            }
+        });
+    }
+    
+    // Preservar quantidades imediatamente ao carregar
+    preservarQuantidades();
+    
+    // Debug: verificar valores iniciais
+    console.log('Valores iniciais dos inputs de quantidade:');
+    document.querySelectorAll('#itens-entrada-tbody .quantidade-item').forEach(input => {
+        console.log({
+            value: input.value,
+            dataOriginal: input.getAttribute('data-quantidade-original'),
+            elemento: input
+        });
+    });
+    
+    // Adicionar event listeners aos itens existentes
+    document.querySelectorAll('#itens-entrada-tbody tr').forEach(tr => {
+        // Preservar quantidade antes de adicionar listeners
+        const quantidadeInput = tr.querySelector('.quantidade-item');
+        if (quantidadeInput) {
+            const quantidadeOriginal = quantidadeInput.getAttribute('data-quantidade-original');
+            const quantidadeAtual = quantidadeInput.value;
+            
+            // Se houver quantidade original mas o campo estiver vazio, restaurar
+            if (quantidadeOriginal && !quantidadeAtual) {
+                quantidadeInput.value = quantidadeOriginal;
+            }
+            // Se não houver quantidade original mas houver valor atual, salvar como original
+            else if (!quantidadeOriginal && quantidadeAtual) {
+                quantidadeInput.setAttribute('data-quantidade-original', quantidadeAtual);
+            }
+        }
+        
+        // Preservar valores unitário e total
+        const valorUnitarioInput = tr.querySelector('.valor-unitario-item');
+        const valorTotalInput = tr.querySelector('.valor-total-item');
+        
+        if (valorUnitarioInput && valorUnitarioInput.value) {
+            // Salvar valor unitário em data attribute se não existir
+            if (!valorUnitarioInput.getAttribute('data-valor-unitario-original')) {
+                valorUnitarioInput.setAttribute('data-valor-unitario-original', valorUnitarioInput.value);
+            }
+        }
+        
+        if (valorTotalInput && valorTotalInput.value) {
+            // Salvar valor total em data attribute se não existir
+            if (!valorTotalInput.getAttribute('data-valor-total-original')) {
+                valorTotalInput.setAttribute('data-valor-total-original', valorTotalInput.value);
+            }
+        }
+        
+        adicionarEventListenersItem(tr);
+    });
+    
+    // Preservar quantidades novamente após um pequeno delay
+    setTimeout(preservarQuantidades, 100);
+    setTimeout(preservarQuantidades, 500);
+    
+    // Função para restaurar valores unitário e total dos inputs
+    function restaurarValores() {
+        document.querySelectorAll('#itens-entrada-tbody tr').forEach(tr => {
+            const valorUnitarioInput = tr.querySelector('.valor-unitario-item');
+            const valorTotalInput = tr.querySelector('.valor-total-item');
+            
+            if (valorUnitarioInput) {
+                const valorOriginal = valorUnitarioInput.getAttribute('data-valor-unitario-original');
+                // Se houver valor original e o campo estiver vazio ou zerado, restaurar
+                if (valorOriginal && (!valorUnitarioInput.value || valorUnitarioInput.value === '0' || valorUnitarioInput.value === '0.00')) {
+                    // Converter vírgula para ponto antes de atribuir
+                    const valorConvertido = converterParaFormatoNumerico(valorOriginal);
+                    if (valorConvertido !== null) {
+                        valorUnitarioInput.value = valorConvertido;
+                    } else {
+                        valorUnitarioInput.value = valorOriginal;
+                    }
+                }
+                // Se não houver valor no campo mas houver no data attribute, restaurar
+                else if (valorOriginal && !valorUnitarioInput.value) {
+                    // Converter vírgula para ponto antes de atribuir
+                    const valorConvertido = converterParaFormatoNumerico(valorOriginal);
+                    if (valorConvertido !== null) {
+                        valorUnitarioInput.value = valorConvertido;
+                    } else {
+                        valorUnitarioInput.value = valorOriginal;
+                    }
+                }
+            }
+            
+            if (valorTotalInput) {
+                const valorOriginal = valorTotalInput.getAttribute('data-valor-total-original');
+                // Se houver valor original e o campo estiver vazio ou zerado, restaurar
+                if (valorOriginal && (!valorTotalInput.value || valorTotalInput.value === '0' || valorTotalInput.value === '0.00')) {
+                    // Converter vírgula para ponto antes de atribuir
+                    const valorConvertido = converterParaFormatoNumerico(valorOriginal);
+                    if (valorConvertido !== null) {
+                        valorTotalInput.value = valorConvertido;
+                    } else {
+                        valorTotalInput.value = valorOriginal;
+                    }
+                }
+                // Se não houver valor no campo mas houver no data attribute, restaurar
+                else if (valorOriginal && !valorTotalInput.value) {
+                    // Converter vírgula para ponto antes de atribuir
+                    const valorConvertido = converterParaFormatoNumerico(valorOriginal);
+                    if (valorConvertido !== null) {
+                        valorTotalInput.value = valorConvertido;
+                    } else {
+                        valorTotalInput.value = valorOriginal;
+                    }
+                }
+            }
+        });
+    }
+    
+    // Garantir que os campos de valor sejam mostrados se for COMPRA
+    {% if not is_create and entrada and entrada.tipo_entrada == 'COMPRA' %}
+    // Se estiver editando uma entrada de COMPRA, mostrar campos de valor
+    setTimeout(() => {
+        toggleCamposValor();
+        restaurarValores();
+    }, 100);
+    setTimeout(() => {
+        restaurarValores();
+    }, 500);
+    {% endif %}
+    
+    // Carregar todos os itens quando o modal abrir (entradas listam todos os itens cadastrados)
+    // Se estiver editando, aguardar mais tempo para garantir que os valores já foram carregados
+    {% if not is_create and entrada %}
+    // Na edição, não atualizar imediatamente para preservar valores carregados
+    // Apenas atualizar se necessário após um tempo maior
+    setTimeout(() => {
+        // Verificar se há selects sem opções (exceto a primeira)
+        const selectsVazios = document.querySelectorAll('#itens-entrada-tbody .item-select');
+        let precisaAtualizar = false;
+        selectsVazios.forEach(select => {
+            if (select.options.length <= 1) {
+                precisaAtualizar = true;
+            }
+        });
+        if (precisaAtualizar) {
+            atualizarListaItensEntrada();
+        }
+    }, 1500);
+    {% else %}
+    // Na criação, atualizar normalmente
+    setTimeout(() => {
+        atualizarListaItensEntrada();
+    }, 1000);
+    {% endif %}
+    
+    // Gerenciar upload de múltiplos arquivos
+    const documentosUpload = document.getElementById('documentos_upload');
+    const arquivosSelecionados = document.getElementById('arquivos_selecionados');
+    const listaArquivos = document.getElementById('lista_arquivos');
+    const documentosRemover = new Set();
+    const arquivosSelecionadosList = []; // Lista para manter todos os arquivos selecionados
+    
+    if (documentosUpload) {
+        documentosUpload.addEventListener('change', function(e) {
+            const files = Array.from(e.target.files);
+            
+            if (files.length > 0) {
+                arquivosSelecionados.style.display = 'block';
+                
+                // Adicionar novos arquivos à lista (sem duplicar)
+                let arquivosAdicionados = 0;
+                files.forEach((file) => {
+                    // Verificar se o arquivo já não está na lista
+                    const jaExiste = arquivosSelecionadosList.some(f => 
+                        f.name === file.name && 
+                        f.size === file.size && 
+                        f.lastModified === file.lastModified
+                    );
+                    if (!jaExiste) {
+                        arquivosSelecionadosList.push(file);
+                        arquivosAdicionados++;
+                    }
+                });
+                
+                // Atualizar a lista visual
+                atualizarListaArquivosVisual();
+                
+                // Limpar o input file para permitir selecionar os mesmos arquivos novamente se necessário
+                // Mas manter os arquivos na lista
+                this.value = '';
+                
+                console.log(`Adicionados ${arquivosAdicionados} arquivo(s). Total: ${arquivosSelecionadosList.length}`);
+            }
+        });
+    }
+    
+    // Função para atualizar a lista visual de arquivos
+    function atualizarListaArquivosVisual() {
+        listaArquivos.innerHTML = '';
+        
+        // Atualizar contador
+        const contadorArquivos = document.getElementById('contador_arquivos');
+        if (contadorArquivos) {
+            contadorArquivos.textContent = arquivosSelecionadosList.length;
+        }
+        
+        arquivosSelecionadosList.forEach((file, index) => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item d-flex justify-content-between align-items-center';
+            li.dataset.fileIndex = index;
+            
+            const divInfo = document.createElement('div');
+            divInfo.style.flex = '1';
+            divInfo.innerHTML = `
+                <strong>${file.name}</strong>
+                <br>
+                <small class="text-muted">${(file.size / 1024).toFixed(2)} KB</small>
+                <div class="row mt-2">
+                    <div class="col-md-6">
+                        <select class="form-select form-select-sm tipo-documento" name="tipos_documentos[]" data-file-index="${index}">
+                            <option value="NOTA_FISCAL">Nota Fiscal</option>
+                            <option value="CONTRATO">Contrato</option>
+                            <option value="CONVENIO">Convênio</option>
+                            <option value="PROCESSO">Processo</option>
+                            <option value="OUTROS">Outros</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <input type="text" class="form-control form-control-sm titulo-documento" 
+                               name="titulos_documentos[]" 
+                               placeholder="Título do documento" 
+                               data-file-index="${index}"
+                               value="${file.name.replace(/\.[^/.]+$/, '')}">
+                    </div>
+                </div>
+            `;
+            
+            const btnRemover = document.createElement('button');
+            btnRemover.type = 'button';
+            btnRemover.className = 'btn btn-sm btn-outline-danger ms-2';
+            btnRemover.innerHTML = '<i class="fas fa-times"></i>';
+            btnRemover.onclick = function() {
+                // Remover da lista
+                arquivosSelecionadosList.splice(index, 1);
+                atualizarListaArquivosVisual();
+                
+                if (arquivosSelecionadosList.length === 0) {
+                    arquivosSelecionados.style.display = 'none';
+                    // Limpar o input file
+                    if (documentosUpload) {
+                        documentosUpload.value = '';
+                    }
+                }
+                
+                console.log(`Arquivo removido. Total restante: ${arquivosSelecionadosList.length}`);
+            };
+            
+            li.appendChild(divInfo);
+            li.appendChild(btnRemover);
+            listaArquivos.appendChild(li);
+        });
+        
+        if (arquivosSelecionadosList.length === 0) {
+            arquivosSelecionados.style.display = 'none';
+        }
+    }
+    
+    // Gerenciar remoção de documentos existentes
+    document.querySelectorAll('.remover-documento').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const documentoId = this.getAttribute('data-documento-id');
+            if (documentoId) {
+                documentosRemover.add(documentoId);
+                // Adicionar campo hidden para remoção
+                const inputHidden = document.createElement('input');
+                inputHidden.type = 'hidden';
+                inputHidden.name = 'documentos_remover[]';
+                inputHidden.value = documentoId;
+                document.getElementById('formEntradaAlmoxarifado').appendChild(inputHidden);
+                // Remover visualmente
+                this.closest('.list-group-item').remove();
+            }
+        });
+    });
+})();
+</script>
+

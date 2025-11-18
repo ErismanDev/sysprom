@@ -4,7 +4,7 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import date
-from .models import Militar, FichaConceitoOficiais, FichaConceitoPracas, Documento, ComissaoPromocao, MembroComissao, SessaoComissao, DeliberacaoComissao, DocumentoSessao, AtaSessao, ModeloAta, CargoComissao, QuadroAcesso, QuadroFixacaoVagas, FuncaoMilitar, Promocao, Qualificacao, Lotacao, MilitarFuncao, Orgao, GrandeComando, Unidade, SubUnidade, Elogio, Punicao, TIPO_FUNCAO_CHOICES, STATUS_LOTACAO_CHOICES, UsuarioFuncaoMilitar, TituloPublicacaoConfig, Publicacao, Afastamento, DocumentoAfastamento, PlanoFerias, Ferias, DocumentoFerias, Viatura, Averbacao, Arma, ArmaParticular, MovimentacaoArma, ConfiguracaoArma, CautelaArma, CautelaArmaColetiva, Municao, EntradaMunicao, SaidaMunicao, DevolucaoMunicao, CautelaMunicao, ProcessoAdministrativo, LicencaEspecial
+from .models import Militar, FichaConceitoOficiais, FichaConceitoPracas, Documento, ComissaoPromocao, MembroComissao, SessaoComissao, DeliberacaoComissao, DocumentoSessao, AtaSessao, ModeloAta, CargoComissao, QuadroAcesso, QuadroFixacaoVagas, FuncaoMilitar, Promocao, Qualificacao, Lotacao, MilitarFuncao, Orgao, GrandeComando, Unidade, SubUnidade, Elogio, Punicao, TIPO_FUNCAO_CHOICES, STATUS_LOTACAO_CHOICES, UsuarioFuncaoMilitar, TituloPublicacaoConfig, Publicacao, Afastamento, DocumentoAfastamento, PlanoFerias, Ferias, DocumentoFerias, Viatura, Averbacao, Arma, ArmaParticular, MovimentacaoArma, ConfiguracaoArma, ConfiguracaoMunicao, CautelaArma, CautelaArmaColetiva, Municao, EntradaMunicao, SaidaMunicao, DevolucaoMunicao, CautelaMunicao, ProcessoAdministrativo, LicencaEspecial
 # from django_ckeditor_5.widgets import CKEditor5Widget  # Temporariamente comentado
 
 
@@ -5081,6 +5081,17 @@ class ArmaParticularForm(forms.ModelForm):
         # Permitir qualquer militar (o Select2 vai fazer a busca e validação via AJAX)
         # Não limitar o queryset aqui para permitir que o Select2 funcione corretamente
         self.fields['militar'].queryset = Militar.objects.all().order_by('nome_completo')
+        
+        # Garantir que as datas sejam formatadas corretamente para inputs do tipo date
+        if self.instance and self.instance.pk:
+            if self.instance.data_validade_registro:
+                self.initial['data_validade_registro'] = self.instance.data_validade_registro.strftime('%Y-%m-%d')
+            if self.instance.data_validade_guia:
+                self.initial['data_validade_guia'] = self.instance.data_validade_guia.strftime('%Y-%m-%d')
+            if self.instance.data_autorizacao:
+                self.initial['data_autorizacao'] = self.instance.data_autorizacao.strftime('%Y-%m-%d')
+            if self.instance.data_vencimento_autorizacao:
+                self.initial['data_vencimento_autorizacao'] = self.instance.data_vencimento_autorizacao.strftime('%Y-%m-%d')
 
 
 class TransferenciaArmaForm(forms.Form):
@@ -5836,12 +5847,6 @@ class ConfiguracaoArmaForm(forms.ModelForm):
         self.fields['tipo_acessorio'].required = False
         self.fields['calibre'].required = False
         
-        # Permitir valores customizados para tipo e calibre
-        # Adicionar opção vazia se não existir
-        if 'tipo' in self.fields:
-            self.fields['tipo'].widget.attrs['data-allow-custom'] = 'true'
-        if 'calibre' in self.fields:
-            self.fields['calibre'].widget.attrs['data-allow-custom'] = 'true'
         
         # Se for edição e já for acessório, tornar obrigatório
         if self.instance and self.instance.pk and self.instance.tipo == 'ACESSORIO':
@@ -5850,21 +5855,6 @@ class ConfiguracaoArmaForm(forms.ModelForm):
             # Se não for acessório, limpar o campo
             self.initial['tipo_acessorio'] = None
     
-    def clean_tipo(self):
-        """Permitir valores customizados para tipo"""
-        tipo = self.cleaned_data.get('tipo')
-        if tipo:
-            # Permitir qualquer valor, mesmo que não esteja nos choices padrão
-            return tipo
-        return tipo
-    
-    def clean_calibre(self):
-        """Permitir valores customizados para calibre"""
-        calibre = self.cleaned_data.get('calibre')
-        if calibre:
-            # Permitir qualquer valor, mesmo que não esteja nos choices padrão
-            return calibre
-        return calibre
     
     def clean(self):
         cleaned_data = super().clean()
@@ -5888,6 +5878,50 @@ class ConfiguracaoArmaForm(forms.ModelForm):
                 raise forms.ValidationError('Para armas, é necessário selecionar o calibre.')
         
         return cleaned_data
+
+
+class ConfiguracaoMunicaoForm(forms.ModelForm):
+    """Formulário para cadastro e edição de configurações de munições"""
+    
+    class Meta:
+        model = ConfiguracaoMunicao
+        fields = ['imagem', 'calibre', 'tipo_municao', 'marca', 'modelo', 'descricao', 'ativo']
+        widgets = {
+            'imagem': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/*'
+            }),
+            'calibre': forms.Select(attrs={
+                'class': 'form-select',
+                'data-allow-custom': 'true'
+            }),
+            'tipo_municao': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+            'marca': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ex: CBC, Magtech, Federal'
+            }),
+            'modelo': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ex: FMJ 115gr, HP 124gr'
+            }),
+            'descricao': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Descrição adicional da munição (opcional)'
+            }),
+            'ativo': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+        }
+    
+    def clean_calibre(self):
+        """Permitir valores customizados para calibre"""
+        calibre = self.cleaned_data.get('calibre')
+        if calibre:
+            return calibre
+        return calibre
 
 
 class MunicaoForm(forms.ModelForm):
@@ -5925,6 +5959,9 @@ class MunicaoForm(forms.ModelForm):
         }
     
     def __init__(self, *args, **kwargs):
+        # Extrair request do kwargs se presente
+        self.request = kwargs.pop('request', None)
+        
         super().__init__(*args, **kwargs)
         self.fields['orgao'].required = False
         self.fields['grande_comando'].required = False
@@ -5932,6 +5969,17 @@ class MunicaoForm(forms.ModelForm):
         self.fields['sub_unidade'].required = False
         self.fields['quantidade_estoque'].required = False
         self.fields['quantidade_estoque'].initial = 0
+        
+        # Configurar campos de OM como ocultos apenas se for requisição AJAX (modal)
+        try:
+            if self.request and hasattr(self.request, 'headers') and self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                self.fields['orgao'].widget = forms.HiddenInput()
+                self.fields['grande_comando'].widget = forms.HiddenInput()
+                self.fields['unidade'].widget = forms.HiddenInput()
+                self.fields['sub_unidade'].widget = forms.HiddenInput()
+        except Exception:
+            # Se houver erro ao verificar headers, manter campos visíveis (formulário tradicional)
+            pass
 
 
 class EntradaMunicaoForm(forms.ModelForm):

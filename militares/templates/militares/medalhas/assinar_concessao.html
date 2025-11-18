@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Assinar Concessão de Medalha - SysProm - CBMEPI{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-signature me-2"></i>
+                        Assinar Concessão de Medalha Eletronicamente
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% if assinatura_existente %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Atenção:</strong> Você já assinou esta concessão em {{ assinatura_existente.data_assinatura|date:'d/m/Y H:i' }}.
+                        </div>
+                    {% endif %}
+
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h5>Detalhes da Concessão</h5>
+                            <table class="table table-bordered">
+                                <tr>
+                                    <th width="30%">Medalha:</th>
+                                    <td>{{ concessao.medalha.nome }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Beneficiário:</th>
+                                    <td>
+                                        {% if concessao.militar %}
+                                            {{ concessao.militar.get_posto_graduacao_display }} {{ concessao.militar.nome_completo }}
+                                        {% else %}
+                                            {{ concessao.nome_externo }}
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Data da Concessão:</th>
+                                    <td>{{ concessao.data_concessao|date:'d/m/Y' }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Status:</th>
+                                    <td>
+                                        <span class="badge bg-{% if concessao.status == 'PROPOSTA' %}warning{% else %}success{% endif %}">
+                                            {{ concessao.get_status_display }}
+                                        </span>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-header">
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        Informações da Assinatura
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <p><strong>Assinado por:</strong><br>{{ request.user.get_full_name }}</p>
+                                    <p><strong>Data/Hora:</strong><br>{{ request.user.date_joined|date:'d/m/Y H:i' }}</p>
+                                    <p><strong>Tipo:</strong><br>Assinatura Eletrônica</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if not assinatura_existente %}
+                        <form method="post" class="mt-4">
+                            {% csrf_token %}
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="tipo_assinatura" class="form-label">Tipo de Assinatura</label>
+                                        <select name="tipo_assinatura" id="tipo_assinatura" class="form-select" required>
+                                            <option value="APROVACAO">Aprovação</option>
+                                            <option value="HOMOLOGACAO">Homologação</option>
+                                            <option value="REVISAO">Revisão</option>
+                                            <option value="CONFERENCIA">Conferência</option>
+                                            <option value="ELETRONICA" selected>Eletrônica</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="funcao_assinatura" class="form-label">Função para Assinatura</label>
+                                        <select name="funcao_assinatura" id="funcao_assinatura" class="form-select" required>
+                                            <option value="">Selecione uma função...</option>
+                                            {% for funcao in funcoes_usuario %}
+                                                <option value="{{ funcao.cargo_funcao.nome }}" {% if funcao.cargo_funcao.nome == funcao_atual %}selected{% endif %}>
+                                                    {{ funcao.cargo_funcao.nome }} ({{ funcao.get_tipo_funcao_display }})
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="form-text">Selecione a função que será exibida na assinatura do documento.</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="observacoes" class="form-label">Observações (opcional):</label>
+                                <textarea class="form-control" id="observacoes" name="observacoes" rows="3" 
+                                          placeholder="Adicione observações sobre a assinatura, se necessário..."></textarea>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="senha" class="form-label"><strong>Senha *</strong></label>
+                                <input type="password" class="form-control" id="senha" name="senha" placeholder="Digite sua senha para confirmar a assinatura" required>
+                                <div class="form-text">Digite sua senha para confirmar a assinatura eletrônica.</div>
+                            </div>
+                            
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Importante:</strong> Esta assinatura eletrônica será registrada no sistema e aparecerá no PDF da concessão.
+                            </div>
+                            
+                            <div class="d-flex justify-content-between">
+                                <a href="{% url 'militares:concessoes_list' %}" class="btn btn-secondary">
+                                    <i class="fas fa-arrow-left me-2"></i>
+                                    Voltar à Lista
+                                </a>
+                                <button type="submit" class="btn btn-success">
+                                    <i class="fas fa-signature me-2"></i>
+                                    Assinar Eletronicamente
+                                </button>
+                            </div>
+                        </form>
+                    {% else %}
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'militares:concessoes_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>
+                                Voltar à Lista
+                            </a>
+                            <a href="{% url 'militares:retirar_assinatura_concessao_medalha' concessao.pk assinatura_existente.pk %}" 
+                               class="btn btn-warning">
+                                <i class="fas fa-eraser me-2"></i>
+                                Retirar Assinatura
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,479 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Rodagens da Viatura {{ viatura.placa }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-route me-2 text-primary"></i>Rodagens - {{ viatura.placa }}
+                    </h2>
+                    <p class="text-muted mb-0">{{ viatura.marca }} {{ viatura.modelo }}</p>
+                </div>
+                <div>
+                    {% if funcoes_usuario or user.is_superuser %}
+                    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#modalGerarPDFHistoricoRodagem">
+                        <i class="fas fa-file-pdf me-2"></i>Gerar PDF do Histórico
+                    </button>
+                    {% endif %}
+                    <a href="{% url 'militares:viatura_detail' viatura.pk %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Voltar para Viatura
+                    </a>
+                    <a href="{% url 'militares:rodagem_create' %}?viatura={{ viatura.pk }}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Nova Rodagem
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Cards de Estatísticas -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-list fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_rodagens }}</h4>
+                            <p class="mb-0">Total de Rodagens</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card info">
+                        <div class="card-body text-center">
+                            <i class="fas fa-tachometer-alt fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_km_rodados|floatformat:0 }}</h4>
+                            <p class="mb-0">Total KM Rodados</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card warning">
+                        <div class="card-body text-center">
+                            <i class="fas fa-clock fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ rodagens_em_andamento }}</h4>
+                            <p class="mb-0">Em Andamento</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card success">
+                        <div class="card-body text-center">
+                            <i class="fas fa-check-circle fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ rodagens_finalizadas }}</h4>
+                            <p class="mb-0">Finalizadas</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tabela de Rodagens -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-table me-2"></i>Histórico de Rodagens
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if rodagens %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Data de Saída</th>
+                                        <th>Hora de Saída</th>
+                                        <th>Data de Retorno</th>
+                                        <th>Hora de Retorno</th>
+                                        <th>KM Inicial</th>
+                                        <th>KM Final</th>
+                                        <th>KM Rodado</th>
+                                        <th>Responsável</th>
+                                        <th>Objetivo</th>
+                                        <th>Destino</th>
+                                        <th>Status</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for rodagem in rodagens %}
+                                        <tr>
+                                            <td>
+                                                {{ rodagem.data_saida|date:"d/m/Y" }}
+                                            </td>
+                                            <td>
+                                                {{ rodagem.hora_saida|time:"H:i" }}
+                                            </td>
+                                            <td>
+                                                {% if rodagem.data_retorno %}
+                                                    {{ rodagem.data_retorno|date:"d/m/Y" }}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if rodagem.hora_retorno %}
+                                                    {{ rodagem.hora_retorno|time:"H:i" }}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ rodagem.km_inicial }}</td>
+                                            <td>
+                                                {% if rodagem.km_final %}
+                                                    {{ rodagem.km_final }}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <strong>{{ rodagem.km_rodado }}</strong>
+                                            </td>
+                                            <td>
+                                                {% if rodagem.condutor %}
+                                                    {{ rodagem.condutor.get_posto_graduacao_display }} {{ rodagem.condutor.nome_completo }}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ rodagem.get_objetivo_display }}</td>
+                                            <td>
+                                                {% if rodagem.destino %}
+                                                    {{ rodagem.destino|truncatewords:5 }}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if rodagem.status == 'EM_ANDAMENTO' %}
+                                                    <span class="badge bg-warning">Em Andamento</span>
+                                                {% elif rodagem.status == 'FINALIZADA' %}
+                                                    <span class="badge bg-success">Finalizada</span>
+                                                {% elif rodagem.status == 'CANCELADA' %}
+                                                    <span class="badge bg-danger">Cancelada</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    {% if rodagem.status == 'EM_ANDAMENTO' %}
+                                                        <button type="button" class="btn btn-sm btn-success" title="Encerrar Rodagem" onclick="abrirModalEncerrarRodagem({{ rodagem.pk }})">
+                                                            <i class="fas fa-check-circle"></i>
+                                                        </button>
+                                                    {% endif %}
+                                                    <a href="{% url 'militares:rodagem_detail' rodagem.pk %}" class="btn btn-sm btn-info" title="Visualizar">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                    <a href="{% url 'militares:rodagem_update' rodagem.pk %}" class="btn btn-sm btn-primary" title="Editar">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if rodagens.has_other_pages %}
+                            <nav aria-label="Paginação">
+                                <ul class="pagination justify-content-center">
+                                    {% if rodagens.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ rodagens.previous_page_number }}">Anterior</a>
+                                        </li>
+                                    {% endif %}
+                                    
+                                    <li class="page-item disabled">
+                                        <span class="page-link">Página {{ rodagens.number }} de {{ rodagens.paginator.num_pages }}</span>
+                                    </li>
+                                    
+                                    {% if rodagens.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ rodagens.next_page_number }}">Próxima</a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>Nenhuma rodagem registrada para esta viatura.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.stats-card {
+    border-left: 4px solid #007bff;
+    transition: transform 0.2s;
+}
+.stats-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+.stats-card.info {
+    border-left-color: #17a2b8;
+}
+.stats-card.warning {
+    border-left-color: #ffc107;
+}
+.stats-card.success {
+    border-left-color: #28a745;
+}
+</style>
+
+<!-- Modais para Encerrar Rodagem -->
+{% for rodagem in rodagens %}
+    {% if rodagem.status == 'EM_ANDAMENTO' %}
+    <div class="modal fade" id="modalEncerrarRodagem{{ rodagem.pk }}" tabindex="-1" aria-labelledby="modalEncerrarRodagemLabel{{ rodagem.pk }}" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="modalEncerrarRodagemLabel{{ rodagem.pk }}">
+                        <i class="fas fa-check-circle me-2"></i>Encerrar Rodagem
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <form method="post" action="{% url 'militares:rodagem_encerrar' rodagem.pk %}">
+                    {% csrf_token %}
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <p><strong>Viatura:</strong> {{ rodagem.viatura.placa }}</p>
+                            <p><strong>KM Inicial:</strong> {{ rodagem.km_inicial }}</p>
+                            <p><strong>Saída:</strong> {{ rodagem.data_saida|date:"d/m/Y" }} às {{ rodagem.hora_saida|time:"H:i" }}</p>
+                        </div>
+                        <hr>
+                        <div class="mb-3">
+                            <label for="data_retorno_{{ rodagem.pk }}" class="form-label">
+                                <i class="fas fa-calendar-check me-2"></i>Data de Retorno <span class="text-danger">*</span>
+                            </label>
+                            <input type="date" class="form-control" id="data_retorno_{{ rodagem.pk }}" name="data_retorno" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="hora_retorno_{{ rodagem.pk }}" class="form-label">
+                                <i class="fas fa-clock me-2"></i>Hora de Retorno <span class="text-danger">*</span>
+                            </label>
+                            <input type="time" class="form-control" id="hora_retorno_{{ rodagem.pk }}" name="hora_retorno" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="km_final_{{ rodagem.pk }}" class="form-label">
+                                <i class="fas fa-tachometer-alt me-2"></i>KM Final <span class="text-danger">*</span>
+                            </label>
+                            <input type="number" class="form-control" id="km_final_{{ rodagem.pk }}" name="km_final" min="{{ rodagem.km_inicial }}" placeholder="KM no momento do retorno" required>
+                            <small class="form-text text-muted">KM no momento do retorno da viatura</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-check-circle me-2"></i>Encerrar Rodagem
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+{% endfor %}
+
+<script>
+function abrirModalEncerrarRodagem(rodagemId) {
+    // Abrir o modal
+    const modal = new bootstrap.Modal(document.getElementById('modalEncerrarRodagem' + rodagemId));
+    modal.show();
+    
+    // Preencher data e hora de retorno com valores atuais de Brasília
+    const dataRetorno = document.getElementById('data_retorno_' + rodagemId);
+    const horaRetorno = document.getElementById('hora_retorno_' + rodagemId);
+    
+    if (dataRetorno && !dataRetorno.value) {
+        const now = new Date();
+        const brasiliaDate = new Intl.DateTimeFormat('pt-BR', {
+            timeZone: 'America/Sao_Paulo',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        }).formatToParts(now);
+        
+        const year = brasiliaDate.find(part => part.type === 'year').value;
+        const month = brasiliaDate.find(part => part.type === 'month').value;
+        const day = brasiliaDate.find(part => part.type === 'day').value;
+        dataRetorno.value = `${year}-${month}-${day}`;
+    }
+    
+    if (horaRetorno && !horaRetorno.value) {
+        const now = new Date();
+        const brasiliaTime = new Intl.DateTimeFormat('pt-BR', {
+            timeZone: 'America/Sao_Paulo',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        }).formatToParts(now);
+        
+        const hours = brasiliaTime.find(part => part.type === 'hour').value;
+        const minutes = brasiliaTime.find(part => part.type === 'minute').value;
+        horaRetorno.value = `${hours}:${minutes}`;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Preencher data e hora de retorno quando o modal for aberto
+    {% for rodagem in rodagens %}
+        {% if rodagem.status == 'EM_ANDAMENTO' %}
+        const modal{{ rodagem.pk }} = document.getElementById('modalEncerrarRodagem{{ rodagem.pk }}');
+        if (modal{{ rodagem.pk }}) {
+            modal{{ rodagem.pk }}.addEventListener('show.bs.modal', function() {
+                const dataRetorno = document.getElementById('data_retorno_{{ rodagem.pk }}');
+                const horaRetorno = document.getElementById('hora_retorno_{{ rodagem.pk }}');
+                
+                if (dataRetorno && !dataRetorno.value) {
+                    const now = new Date();
+                    const brasiliaDate = new Intl.DateTimeFormat('pt-BR', {
+                        timeZone: 'America/Sao_Paulo',
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit'
+                    }).formatToParts(now);
+                    
+                    const year = brasiliaDate.find(part => part.type === 'year').value;
+                    const month = brasiliaDate.find(part => part.type === 'month').value;
+                    const day = brasiliaDate.find(part => part.type === 'day').value;
+                    dataRetorno.value = `${year}-${month}-${day}`;
+                }
+                
+                if (horaRetorno && !horaRetorno.value) {
+                    const now = new Date();
+                    const brasiliaTime = new Intl.DateTimeFormat('pt-BR', {
+                        timeZone: 'America/Sao_Paulo',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                    }).formatToParts(now);
+                    
+                    const hours = brasiliaTime.find(part => part.type === 'hour').value;
+                    const minutes = brasiliaTime.find(part => part.type === 'minute').value;
+                    horaRetorno.value = `${hours}:${minutes}`;
+                }
+            });
+        }
+        {% endif %}
+    {% endfor %}
+        });
+    </script>
+
+<!-- Modal para Gerar PDF do Histórico com Assinatura -->
+{% if funcoes_usuario or user.is_superuser %}
+<div class="modal fade" id="modalGerarPDFHistoricoRodagem" tabindex="-1" aria-labelledby="modalGerarPDFHistoricoRodagemLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="modalGerarPDFHistoricoRodagemLabel">
+                    <i class="fas fa-file-pdf me-2"></i>Gerar PDF do Histórico de Rodagens
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">Configure o período e a função para assinatura do histórico de rodagens da viatura <strong>{{ viatura.placa }}</strong>:</p>
+                
+                <div class="mb-3">
+                    <label for="data_inicio_pdf_rodagem" class="form-label"><strong>Data Início do Período *</strong></label>
+                    <input type="date" class="form-control" id="data_inicio_pdf_rodagem" name="data_inicio_pdf_rodagem" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="data_fim_pdf_rodagem" class="form-label"><strong>Data Fim do Período *</strong></label>
+                    <input type="date" class="form-control" id="data_fim_pdf_rodagem" name="data_fim_pdf_rodagem" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="funcao_assinatura_historico_rodagem" class="form-label">
+                        <strong>Função para Assinatura {% if not user.is_superuser %}*{% endif %}</strong>
+                    </label>
+                    <select class="form-select" id="funcao_assinatura_historico_rodagem" name="funcao_assinatura_historico_rodagem" {% if not user.is_superuser %}required{% endif %}>
+                        <option value="">Selecione uma função...</option>
+                        {% if user.is_superuser %}
+                            <option value="Administrador do Sistema">Administrador do Sistema</option>
+                        {% endif %}
+                        {% for ufm in funcoes_usuario %}
+                            <option value="{{ ufm.funcao_militar.nome }}">
+                                {{ ufm.funcao_militar.nome }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Atenção:</strong> O PDF será gerado com assinatura eletrônica. Certifique-se de que o período está correto.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-danger" id="btnGerarPDFHistoricoRodagemAssinado">
+                    <i class="fas fa-file-pdf me-1"></i>Gerar PDF Assinado
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const btnGerarPDFHistorico = document.getElementById('btnGerarPDFHistoricoRodagemAssinado');
+    if (btnGerarPDFHistorico) {
+        btnGerarPDFHistorico.addEventListener('click', function() {
+            const dataInicio = document.getElementById('data_inicio_pdf_rodagem').value;
+            const dataFim = document.getElementById('data_fim_pdf_rodagem').value;
+            const funcaoAssinatura = document.getElementById('funcao_assinatura_historico_rodagem').value;
+            const isSuperuser = {% if user.is_superuser %}true{% else %}false{% endif %};
+            
+            if (!dataInicio || !dataFim) {
+                alert('Por favor, preencha as datas de início e fim.');
+                return;
+            }
+            
+            if (!funcaoAssinatura && !isSuperuser) {
+                alert('Por favor, selecione uma função para assinatura.');
+                return;
+            }
+            
+            // Se for superusuário e não tiver função selecionada, usar "Administrador do Sistema"
+            const funcaoFinal = funcaoAssinatura || (isSuperuser ? 'Administrador do Sistema' : '');
+            
+            if (new Date(dataInicio) > new Date(dataFim)) {
+                alert('A data de início deve ser anterior ou igual à data de fim.');
+                return;
+            }
+            
+            // Gerar URL com parâmetros
+            const url = '{% url "militares:historico_rodagem_pdf" viatura.pk %}';
+            const params = new URLSearchParams({
+                'data_inicio': dataInicio,
+                'data_fim': dataFim,
+                'funcao_assinatura': funcaoFinal
+            });
+            
+            // Abrir PDF em nova aba
+            window.open(url + '?' + params.toString(), '_blank');
+            
+            // Fechar modal
+            const modalElement = document.getElementById('modalGerarPDFHistoricoRodagem');
+            const modal = bootstrap.Modal.getInstance(modalElement);
+            if (modal) {
+                modal.hide();
+            }
+        });
+    }
+});
+</script>
+{% endif %}
+{% endblock %}
+

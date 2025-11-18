@@ -1,0 +1,309 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load money_filters %}
+
+{% block title %}Manutenções - {{ viatura.placa }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-wrench me-2 text-primary"></i>Manutenções - {{ viatura.placa }}
+                    </h2>
+                    <p class="text-muted mb-0">
+                        Histórico de manutenções da viatura {{ viatura.placa }}
+                        {% if viatura.prefixo %}({{ viatura.prefixo }}){% endif %}
+                    </p>
+                </div>
+                <div>
+                    <a href="{% url 'militares:manutencao_create' %}?viatura={{ viatura.pk }}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Nova Manutenção
+                    </a>
+                    {% if funcoes_usuario %}
+                    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#modalGerarPDFHistorico">
+                        <i class="fas fa-file-pdf me-2"></i>Gerar PDF do Histórico
+                    </button>
+                    {% endif %}
+                    <a href="{% url 'militares:viatura_detail' viatura.pk %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Voltar para Viatura
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Filtros de Período -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros de Período
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Data Início</label>
+                            <input type="date" name="data_inicio" class="form-control" value="{{ data_inicio }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Data Fim</label>
+                            <input type="date" name="data_fim" class="form-control" value="{{ data_fim }}">
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                            <a href="{% url 'militares:manutencao_por_viatura' viatura.pk %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Limpar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Estatísticas -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-list fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_manutencoes }}</h4>
+                            <p class="mb-0">Total de Manutenções</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card stats-card success">
+                        <div class="card-body text-center">
+                            <i class="fas fa-dollar-sign fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_valor|currency_br }}</h4>
+                            <p class="mb-0">Total Gasto</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card stats-card info">
+                        <div class="card-body text-center">
+                            <i class="fas fa-chart-line fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ media_valor|currency_br }}</h4>
+                            <p class="mb-0">Média por Manutenção</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Lista de Manutenções -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Histórico de Manutenções
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if manutencoes %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Data/Hora</th>
+                                        <th>Tipo</th>
+                                        <th>Valor</th>
+                                        <th>KM</th>
+                                        <th>Oficina</th>
+                                        <th>Responsável</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for manutencao in manutencoes %}
+                                        <tr>
+                                            <td>{{ manutencao.data_manutencao|date:"d/m/Y H:i" }}</td>
+                                            <td>
+                                                <span class="badge bg-info">{{ manutencao.get_tipo_manutencao_display }}</span>
+                                            </td>
+                                            <td class="fw-bold text-success">{{ manutencao.valor_manutencao|currency_br }}</td>
+                                            <td>{{ manutencao.km_manutencao|floatformat:0 }}</td>
+                                            <td>{{ manutencao.fornecedor_oficina|default:"-" }}</td>
+                                            <td>
+                                                {% if manutencao.responsavel %}
+                                                    {{ manutencao.responsavel.get_posto_graduacao_display }} {{ manutencao.responsavel.nome_completo }}
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    <a href="{% url 'militares:manutencao_detail' manutencao.pk %}" 
+                                                       class="btn btn-sm btn-outline-info" title="Ver detalhes">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                    <a href="{% url 'militares:manutencao_update' manutencao.pk %}" 
+                                                       class="btn btn-sm btn-outline-primary" title="Editar">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if manutencoes.has_other_pages %}
+                            <nav aria-label="Paginação">
+                                <ul class="pagination justify-content-center">
+                                    {% if manutencoes.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1">Primeira</a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ manutencoes.previous_page_number }}">Anterior</a>
+                                        </li>
+                                    {% endif %}
+                                    
+                                    <li class="page-item active">
+                                        <span class="page-link">
+                                            Página {{ manutencoes.number }} de {{ manutencoes.paginator.num_pages }}
+                                        </span>
+                                    </li>
+                                    
+                                    {% if manutencoes.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ manutencoes.next_page_number }}">Próxima</a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ manutencoes.paginator.num_pages }}">Última</a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>⚠️ Nenhuma Manutenção Encontrada</strong>
+                            {% if data_inicio or data_fim %}
+                                <br>
+                                <span class="text-muted">
+                                    Período selecionado: 
+                                    {% if data_inicio and data_fim %}
+                                        {{ data_inicio }} a {{ data_fim }}
+                                    {% elif data_inicio %}
+                                        a partir de {{ data_inicio }}
+                                    {% elif data_fim %}
+                                        até {{ data_fim }}
+                                    {% endif %}
+                                </span>
+                                <br><br>
+                                <a href="{% url 'militares:manutencao_por_viatura' viatura.pk %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-times me-1"></i>Limpar Filtros
+                                </a>
+                            {% endif %}
+                            <br>
+                            <small class="text-muted">Viatura: {{ viatura.placa }}{% if viatura.prefixo %} ({{ viatura.prefixo }}){% endif %}</small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Gerar PDF do Histórico com Assinatura -->
+{% if funcoes_usuario %}
+<div class="modal fade" id="modalGerarPDFHistorico" tabindex="-1" aria-labelledby="modalGerarPDFHistoricoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="modalGerarPDFHistoricoLabel">
+                    <i class="fas fa-file-pdf me-2"></i>Gerar PDF do Histórico de Manutenções
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">Configure o período e a função para assinatura do histórico de manutenções da viatura <strong>{{ viatura.placa }}</strong>:</p>
+                
+                <div class="mb-3">
+                    <label for="data_inicio_pdf" class="form-label"><strong>Data Início do Período *</strong></label>
+                    <input type="date" class="form-control" id="data_inicio_pdf" name="data_inicio_pdf" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="data_fim_pdf" class="form-label"><strong>Data Fim do Período *</strong></label>
+                    <input type="date" class="form-control" id="data_fim_pdf" name="data_fim_pdf" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="funcao_assinatura_historico" class="form-label"><strong>Função para Assinatura *</strong></label>
+                    <select class="form-select" id="funcao_assinatura_historico" name="funcao_assinatura_historico" required>
+                        <option value="">Selecione uma função...</option>
+                        {% for ufm in funcoes_usuario %}
+                            <option value="{{ ufm.funcao_militar.nome }}">
+                                {{ ufm.funcao_militar.nome }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Atenção:</strong> O PDF será gerado com assinatura eletrônica. Certifique-se de que o período está correto.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-danger" id="btnGerarPDFHistoricoAssinado">
+                    <i class="fas fa-file-pdf me-1"></i>Gerar PDF Assinado
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const btnGerarPDFHistorico = document.getElementById('btnGerarPDFHistoricoAssinado');
+    if (btnGerarPDFHistorico) {
+        btnGerarPDFHistorico.addEventListener('click', function() {
+            const dataInicio = document.getElementById('data_inicio_pdf').value;
+            const dataFim = document.getElementById('data_fim_pdf').value;
+            const funcaoAssinatura = document.getElementById('funcao_assinatura_historico').value;
+            
+            if (!dataInicio || !dataFim || !funcaoAssinatura) {
+                alert('Por favor, preencha todos os campos.');
+                return;
+            }
+            
+            if (new Date(dataInicio) > new Date(dataFim)) {
+                alert('A data de início deve ser anterior ou igual à data de fim.');
+                return;
+            }
+            
+            // Gerar URL com parâmetros
+            const url = '{% url "militares:historico_manutencao_pdf" viatura.pk %}';
+            const params = new URLSearchParams({
+                'data_inicio': dataInicio,
+                'data_fim': dataFim,
+                'funcao_assinatura': funcaoAssinatura
+            });
+            
+            // Abrir PDF em nova aba
+            window.open(url + '?' + params.toString(), '_blank');
+            
+            // Fechar modal
+            const modalElement = document.getElementById('modalGerarPDFHistorico');
+            const modal = bootstrap.Modal.getInstance(modalElement);
+            if (modal) {
+                modal.hide();
+            }
+        });
+    }
+});
+</script>
+{% endif %}
+{% endblock %}
+

@@ -1,0 +1,2023 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Cautelas de Armas - Lista{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-shield-alt me-2 text-primary"></i>Cautelas de Armas
+                    </h2>
+                    <p class="text-muted mb-0">Registro de cautelas (entregas temporárias) de armas institucionais</p>
+                </div>
+                <div>
+                    {% if 'ARMAS_CRIAR' in menu_permissions or user.is_superuser %}
+                    <button type="button" 
+                            class="btn btn-primary btn-escolher-tipo-cautela" 
+                            data-bs-toggle="modal"
+                            data-bs-target="#escolherTipoCautelaModal">
+                        <i class="fas fa-plus me-2"></i>Nova Cautela
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Buscar Militar</label>
+                            <div class="position-relative">
+                                <input type="text" 
+                                       id="buscarMilitar" 
+                                       class="form-control" 
+                                       placeholder="Digite nome ou CPF do militar..."
+                                       autocomplete="off">
+                                <input type="hidden" id="militar_id_hidden" name="militar" value="{{ request.GET.militar }}">
+                                <div id="autocompleteMilitar" class="autocomplete-dropdown" style="display: none;"></div>
+                            </div>
+                            <small class="form-text text-muted">Digite o nome ou CPF para buscar e filtrar</small>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Tipo</label>
+                            <select name="tipo_cautela" class="form-select">
+                                <option value="">Todas</option>
+                                <option value="individual" {% if request.GET.tipo_cautela == 'individual' %}selected{% endif %}>Individuais</option>
+                                <option value="coletiva" {% if request.GET.tipo_cautela == 'coletiva' %}selected{% endif %}>Coletivas</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-select">
+                                <option value="">Todas</option>
+                                <option value="ativa" {% if request.GET.status == 'ativa' %}selected{% endif %}>Ativas</option>
+                                <option value="devolvida" {% if request.GET.status == 'devolvida' %}selected{% endif %}>Devolvidas</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Arma</label>
+                            <select name="arma" class="form-select">
+                                <option value="">Todas</option>
+                                {% for arma in armas %}
+                                    <option value="{{ arma.pk }}" {% if request.GET.arma == arma.pk|stringformat:"s" %}selected{% endif %}>
+                                        {{ arma.numero_serie }} - {{ arma.marca }} {{ arma.modelo }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <div>
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-search me-2"></i>Filtrar
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <div>
+                                <a href="{% url 'militares:cautela_arma_list' %}" class="btn btn-outline-secondary w-100">
+                                    <i class="fas fa-times me-2"></i>Limpar
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Lista de Cautelas -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Lista de Cautelas
+                    </h6>
+                    <div>
+                        {% if 'ARMAS_CRIAR' in menu_permissions or user.is_superuser %}
+                        <button type="button" 
+                                class="btn btn-success btn-sm btn-escolher-tipo-cautela" 
+                                data-bs-toggle="modal"
+                                data-bs-target="#escolherTipoCautelaModal">
+                            <i class="fas fa-plus me-2"></i>Nova Cautela
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if cautelas %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Tipo</th>
+                                        <th>Arma</th>
+                                        <th>Responsável/Militar</th>
+                                        <th>Descrição/Finalidade</th>
+                                        <th>Data Entrega</th>
+                                        <th>Data Devolução</th>
+                                        <th>Organização</th>
+                                        <th>Status</th>
+                                        <th>Entregue por</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in cautelas %}
+                                        <tr>
+                                            <td>
+                                                {% if item.tipo_cautela == 'coletiva' %}
+                                                    <span class="badge bg-warning text-dark">
+                                                        <i class="fas fa-users me-1"></i>Coletiva
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge bg-success">
+                                                        <i class="fas fa-user me-1"></i>Individual
+                                                    </span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if item.tipo_cautela == 'coletiva' %}
+                                                    <strong>{{ item.get_total_armas }} arma(s)</strong><br>
+                                                    <small class="text-muted">
+                                                        {% for arma_item in item.armas.all|slice:":3" %}
+                                                            {{ arma_item.arma.numero_serie }}{% if not forloop.last %}, {% endif %}
+                                                        {% endfor %}
+                                                        {% if item.get_total_armas > 3 %}...{% endif %}
+                                                    </small>
+                                                {% else %}
+                                                    <strong>{{ item.arma.numero_serie }}</strong><br>
+                                                    <small class="text-muted">{{ item.arma.marca }} {{ item.arma.modelo }}</small>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if item.tipo_cautela == 'coletiva' %}
+                                                    {% if item.responsavel %}
+                                                        <strong>{{ item.responsavel.get_posto_graduacao_display }} {{ item.responsavel.nome_completo }}</strong>
+                                                    {% else %}
+                                                        <span class="text-muted">-</span>
+                                                    {% endif %}
+                                                {% else %}
+                                                    {% if item.militar %}
+                                                        {{ item.militar.get_posto_graduacao_display }} {{ item.militar.nome_completo }}
+                                                    {% else %}
+                                                        <span class="text-muted">-</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if item.tipo_cautela == 'coletiva' %}
+                                                    <strong>{{ item.descricao }}</strong><br>
+                                                    <small class="text-muted">
+                                                        <span class="badge bg-info">{{ item.get_tipo_finalidade_display }}</span>
+                                                    </small>
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if item.tipo_cautela == 'coletiva' %}
+                                                    {{ item.data_inicio|date:"d/m/Y H:i" }}
+                                                {% else %}
+                                                    {{ item.data_entrega|date:"d/m/Y H:i" }}
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if item.tipo_cautela == 'coletiva' %}
+                                                    {% if item.data_fim %}
+                                                        {{ item.data_fim|date:"d/m/Y H:i" }}
+                                                    {% else %}
+                                                        <span class="text-muted">-</span>
+                                                    {% endif %}
+                                                {% else %}
+                                                    {% if item.data_devolucao %}
+                                                        {{ item.data_devolucao|date:"d/m/Y H:i" }}
+                                                    {% else %}
+                                                        <span class="text-muted">-</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if item.tipo_cautela == 'coletiva' %}
+                                                    <small>{{ item.get_organizacao }}</small>
+                                                {% else %}
+                                                    <small>{{ item.get_organizacao }}</small>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if item.tipo_cautela == 'coletiva' %}
+                                                    {% if item.ativa %}
+                                                        <span class="badge bg-warning text-dark">Ativa</span>
+                                                    {% else %}
+                                                        <span class="badge bg-secondary">Finalizada</span>
+                                                    {% endif %}
+                                                {% else %}
+                                                    {% if item.ativa %}
+                                                        <span class="badge bg-success">Ativa</span>
+                                                    {% else %}
+                                                        <span class="badge bg-secondary">Devolvida</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if item.tipo_cautela == 'coletiva' %}
+                                                    {% if item.criado_por %}
+                                                        {{ item.criado_por.get_full_name|default:item.criado_por.username }}
+                                                    {% else %}
+                                                        <span class="text-muted">-</span>
+                                                    {% endif %}
+                                                {% else %}
+                                                    {% if item.entregue_por %}
+                                                        {{ item.entregue_por.get_full_name|default:item.entregue_por.username }}
+                                                    {% else %}
+                                                        <span class="text-muted">-</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="d-flex flex-wrap gap-1 align-items-center" style="min-width: 120px;">
+                                                    {% if item.tipo_cautela == 'coletiva' %}
+                                                        {% if 'ARMAS_VISUALIZAR' in menu_permissions or user.is_superuser %}
+                                                        <a href="{% url 'militares:cautela_arma_coletiva_detail' item.pk %}" 
+                                                           class="btn btn-sm btn-info" title="Visualizar">
+                                                            <i class="fas fa-eye"></i>
+                                                        </a>
+                                                        <a href="{% url 'militares:cautela_arma_coletiva_pdf' item.pk %}" 
+                                                           class="btn btn-sm btn-danger" 
+                                                           title="Gerar PDF"
+                                                           target="_blank">
+                                                            <i class="fas fa-file-pdf"></i>
+                                                        </a>
+                                                        {% endif %}
+                                                        {% if item.ativa %}
+                                                            {% if 'ARMAS_EDITAR' in menu_permissions or user.is_superuser %}
+                                                            {% if item.pk not in cautelas_coletivas_com_assinatura %}
+                                                                <button type="button"
+                                                                   class="btn btn-sm btn-success btn-assinar-cautela-coletiva" 
+                                                                   title="Assinar Cautela Coletiva"
+                                                                   data-cautela-id="{{ item.pk }}">
+                                                                    <i class="fas fa-signature"></i>
+                                                                </button>
+                                                            {% else %}
+                                                                <span class="badge bg-success" title="Cautela já assinada">
+                                                                    <i class="fas fa-check"></i>
+                                                                </span>
+                                                            {% endif %}
+                                                            <button type="button"
+                                                               class="btn btn-sm btn-danger btn-finalizar-cautela-coletiva" 
+                                                               title="Finalizar Cautela (Devolver todas as armas)"
+                                                               data-cautela-id="{{ item.pk }}">
+                                                                <i class="fas fa-undo"></i>
+                                                            </button>
+                                                            {% endif %}
+                                                        {% endif %}
+                                                        {% if 'ARMAS_EXCLUIR' in menu_permissions or user.is_superuser %}
+                                                            <button type="button"
+                                                               class="btn btn-sm btn-outline-danger btn-deletar-cautela-coletiva" 
+                                                               title="Excluir Cautela Coletiva"
+                                                               data-cautela-id="{{ item.pk }}"
+                                                               data-cautela-descricao="{{ item.descricao }}">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        {% endif %}
+                                                    {% else %}
+                                                        {% if 'ARMAS_VISUALIZAR' in menu_permissions or user.is_superuser %}
+                                                        <a href="{% url 'militares:cautela_arma_detail' item.pk %}" 
+                                                           class="btn btn-sm btn-info" title="Visualizar">
+                                                            <i class="fas fa-eye"></i>
+                                                        </a>
+                                                        <a href="{% url 'militares:cautela_arma_pdf' item.pk %}" 
+                                                           class="btn btn-sm btn-danger" 
+                                                           title="Gerar PDF"
+                                                           target="_blank">
+                                                            <i class="fas fa-file-pdf"></i>
+                                                        </a>
+                                                        {% endif %}
+                                                        {% if item.ativa %}
+                                                            {% if 'ARMAS_EDITAR' in menu_permissions or user.is_superuser %}
+                                                            {% if item.pk not in cautelas_com_assinatura %}
+                                                                <button type="button"
+                                                                   class="btn btn-sm btn-success btn-assinar-cautela" 
+                                                                   title="Assinar Cautela"
+                                                                   data-cautela-id="{{ item.pk }}">
+                                                                    <i class="fas fa-signature"></i>
+                                                                </button>
+                                                            {% else %}
+                                                                <span class="badge bg-success" title="Cautela já assinada">
+                                                                    <i class="fas fa-check"></i>
+                                                                </span>
+                                                            {% endif %}
+                                                            <button type="button"
+                                                               class="btn btn-sm btn-warning btn-devolver-cautela" 
+                                                               title="Devolver"
+                                                               data-cautela-id="{{ item.pk }}">
+                                                                <i class="fas fa-undo"></i>
+                                                            </button>
+                                                            {% endif %}
+                                                        {% endif %}
+                                                        {% if 'ARMAS_EXCLUIR' in menu_permissions or user.is_superuser %}
+                                                            <button type="button"
+                                                               class="btn btn-sm btn-outline-danger btn-deletar-cautela" 
+                                                               title="Excluir Cautela"
+                                                               data-cautela-id="{{ item.pk }}"
+                                                               data-arma-serie="{{ item.arma.numero_serie }}">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        {% endif %}
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Modais de Assinatura (um para cada cautela individual ativa sem assinatura) -->
+                        {% for item in cautelas %}
+                            {% if item.tipo_cautela == 'individual' and item.ativa and item.pk not in cautelas_com_assinatura %}
+                            <!-- Modal Assinatura Cautela {{ item.pk }} -->
+                            <div class="modal fade" id="modalAssinaturaCautela{{ item.pk }}" tabindex="-1" aria-labelledby="modalAssinaturaCautelaLabel{{ item.pk }}" aria-hidden="true">
+                                <div class="modal-dialog modal-lg">
+                                    <div class="modal-content">
+                                        <form method="post" action="{% url 'militares:cautela_arma_assinar' item.pk %}">
+                                            {% csrf_token %}
+                                            <div class="modal-header bg-success text-white">
+                                                <h5 class="modal-title" id="modalAssinaturaCautelaLabel{{ item.pk }}">
+                                                    <i class="fas fa-signature me-2"></i>Assinar Cautela de Arma
+                                                </h5>
+                                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                                            </div>
+                                            
+                                            <!-- Declaração Fixa - Sempre Visível -->
+                                            <div class="p-3" style="background-color: #fff3cd; border-bottom: 2px solid #ffc107;">
+                                                <h6 class="fw-bold mb-3">
+                                                    <i class="fas fa-file-signature me-2"></i>Declaração de Responsabilidade
+                                                </h6>
+                                                <p class="mb-2 text-justify" style="font-size: 14px; line-height: 1.6;">
+                                                    <strong>Declaro, sob minha inteira responsabilidade,</strong> que recebi a arma descrita neste documento, em perfeitas condições de conservação e funcionamento, e que a utilizarei conforme legislação vigente, normas internas e ordens superiores. <strong>Comprometo-me a:</strong>
+                                                </p>
+                                                <ul class="mb-0 ps-4" style="font-size: 14px; line-height: 1.8;">
+                                                    <li>Zelar pela guarda, integridade e segurança da arma;</li>
+                                                    <li>Comunicar imediatamente qualquer pane, avaria, extravio, furto ou uso indevido;</li>
+                                                    <li>Devolver a arma no prazo e condições estabelecidos;</li>
+                                                    <li>Responder disciplinar, civil e criminalmente por qualquer irregularidade decorrente do uso ou guarda.</li>
+                                                </ul>
+                                            </div>
+                                            
+                                            <div class="modal-body">
+                                                <div class="alert alert-info">
+                                                    <i class="fas fa-info-circle me-2"></i>
+                                                    <strong>Militar:</strong> {{ item.militar.get_posto_graduacao_display }} {{ item.militar.nome_completo }}<br>
+                                                    <strong>Arma:</strong> {{ item.arma.numero_serie }} - {{ item.arma.marca }} {{ item.arma.modelo }}
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <label for="nome_militar_cautela{{ item.pk }}" class="form-label">Nome do Militar:</label>
+                                                    <input type="text" class="form-control" id="nome_militar_cautela{{ item.pk }}" name="nome_militar" value="{{ item.militar.nome_completo }}" readonly>
+                                                    <div class="form-text">Nome do militar que recebeu a arma.</div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="senha_cautela{{ item.pk }}" class="form-label">Senha:</label>
+                                                    <input type="password" class="form-control" id="senha_cautela{{ item.pk }}" name="senha" placeholder="Digite sua senha para confirmar a assinatura" required autocomplete="current-password">
+                                                    <div class="form-text">Digite sua senha para confirmar a assinatura eletrônica e aceitar os termos acima.</div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                <button type="submit" class="btn btn-success">
+                                                    <i class="fas fa-signature me-1"></i>Confirmar Assinatura
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        <!-- Modais de Assinatura Coletiva (um para cada cautela coletiva ativa sem assinatura) -->
+                        {% for item in cautelas %}
+                            {% if item.tipo_cautela == 'coletiva' and item.ativa and item.pk not in cautelas_coletivas_com_assinatura %}
+                            <!-- Modal Assinatura Cautela Coletiva {{ item.pk }} -->
+                            <div class="modal fade" id="modalAssinaturaCautelaColetiva{{ item.pk }}" tabindex="-1" aria-labelledby="modalAssinaturaCautelaColetivaLabel{{ item.pk }}" aria-hidden="true">
+                                <div class="modal-dialog modal-lg">
+                                    <div class="modal-content">
+                                        <form method="post" action="{% url 'militares:cautela_arma_coletiva_assinar' item.pk %}">
+                                            {% csrf_token %}
+                                            <div class="modal-header bg-success text-white">
+                                                <h5 class="modal-title" id="modalAssinaturaCautelaColetivaLabel{{ item.pk }}">
+                                                    <i class="fas fa-signature me-2"></i>Assinar Cautela Coletiva de Arma
+                                                </h5>
+                                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                                            </div>
+                                            
+                                            <!-- Declaração Fixa - Sempre Visível -->
+                                            <div class="p-3" style="background-color: #fff3cd; border-bottom: 2px solid #ffc107;">
+                                                <h6 class="fw-bold mb-3">
+                                                    <i class="fas fa-file-signature me-2"></i>Declaração de Responsabilidade
+                                                </h6>
+                                                <p class="mb-2 text-justify" style="font-size: 14px; line-height: 1.6;">
+                                                    <strong>Declaro, sob minha inteira responsabilidade,</strong> que recebi as armas descritas neste documento, em perfeitas condições de conservação e funcionamento, e que as utilizarei conforme legislação vigente, normas internas e ordens superiores. <strong>Comprometo-me a:</strong>
+                                                </p>
+                                                <ul class="mb-0 ps-4" style="font-size: 14px; line-height: 1.8;">
+                                                    <li>Zelar pela guarda, integridade e segurança das armas;</li>
+                                                    <li>Comunicar imediatamente qualquer pane, avaria, extravio, furto ou uso indevido;</li>
+                                                    <li>Devolver as armas no prazo e condições estabelecidos;</li>
+                                                    <li>Responder disciplinar, civil e criminalmente por qualquer irregularidade decorrente do uso ou guarda.</li>
+                                                </ul>
+                                            </div>
+                                            
+                                            <div class="modal-body">
+                                                <div class="alert alert-info">
+                                                    <i class="fas fa-info-circle me-2"></i>
+                                                    <strong>Responsável:</strong> {{ item.responsavel.get_posto_graduacao_display }} {{ item.responsavel.nome_completo }}<br>
+                                                    <strong>Descrição:</strong> {{ item.descricao }}<br>
+                                                    <strong>Total de Armas:</strong> {{ item.get_total_armas }} arma(s)
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <label for="nome_responsavel_cautela_coletiva{{ item.pk }}" class="form-label">Nome do Responsável:</label>
+                                                    <input type="text" class="form-control" id="nome_responsavel_cautela_coletiva{{ item.pk }}" name="nome_responsavel" value="{{ item.responsavel.nome_completo }}" readonly>
+                                                    <div class="form-text">Nome do responsável pela cautela coletiva.</div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="senha_cautela_coletiva{{ item.pk }}" class="form-label">Senha:</label>
+                                                    <input type="password" class="form-control" id="senha_cautela_coletiva{{ item.pk }}" name="senha" placeholder="Digite sua senha para confirmar a assinatura" required autocomplete="current-password">
+                                                    <div class="form-text">Digite sua senha para confirmar a assinatura eletrônica e aceitar os termos acima.</div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                <button type="submit" class="btn btn-success">
+                                                    <i class="fas fa-signature me-1"></i>Confirmar Assinatura
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        <!-- Paginação -->
+                        {% if is_paginated %}
+                            <nav aria-label="Paginação">
+                                <ul class="pagination justify-content-center mt-4">
+                                    {% if page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.militar %}&militar={{ request.GET.militar }}{% endif %}{% if request.GET.arma %}&arma={{ request.GET.arma }}{% endif %}{% if request.GET.tipo_cautela %}&tipo_cautela={{ request.GET.tipo_cautela }}{% endif %}">Primeira</a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.militar %}&militar={{ request.GET.militar }}{% endif %}{% if request.GET.arma %}&arma={{ request.GET.arma }}{% endif %}{% if request.GET.tipo_cautela %}&tipo_cautela={{ request.GET.tipo_cautela }}{% endif %}">Anterior</a>
+                                        </li>
+                                    {% endif %}
+                                    
+                                    <li class="page-item active">
+                                        <span class="page-link">
+                                            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                                        </span>
+                                    </li>
+                                    
+                                    {% if page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.militar %}&militar={{ request.GET.militar }}{% endif %}{% if request.GET.arma %}&arma={{ request.GET.arma }}{% endif %}{% if request.GET.tipo_cautela %}&tipo_cautela={{ request.GET.tipo_cautela }}{% endif %}">Próxima</a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.militar %}&militar={{ request.GET.militar }}{% endif %}{% if request.GET.arma %}&arma={{ request.GET.arma }}{% endif %}{% if request.GET.tipo_cautela %}&tipo_cautela={{ request.GET.tipo_cautela }}{% endif %}">Última</a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Nenhuma cautela encontrada.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Devolver Cautela -->
+<div class="modal fade" id="devolverCautelaModal" tabindex="-1" aria-labelledby="devolverCautelaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" id="devolverCautelaModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-warning" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Finalizar Cautela Coletiva -->
+<div class="modal fade" id="finalizarCautelaColetivaModal" tabindex="-1" aria-labelledby="finalizarCautelaColetivaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" id="finalizarCautelaColetivaModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-warning" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const devolverCautelaModal = document.getElementById('devolverCautelaModal');
+    const modalContent = document.getElementById('devolverCautelaModalContent');
+    
+    // Adicionar event listeners aos botões de devolução
+    document.querySelectorAll('.btn-devolver-cautela').forEach(function(button) {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const cautelaId = this.getAttribute('data-cautela-id');
+            
+            if (cautelaId && devolverCautelaModal) {
+                devolverCautelaModal.setAttribute('data-cautela-id', cautelaId);
+                const modal = new bootstrap.Modal(devolverCautelaModal);
+                modal.show();
+            }
+        });
+    });
+    
+    // Modal para finalizar cautela coletiva
+    const finalizarCautelaColetivaModal = document.getElementById('finalizarCautelaColetivaModal');
+    const finalizarCautelaColetivaModalContent = document.getElementById('finalizarCautelaColetivaModalContent');
+    
+    // Adicionar event listeners aos botões de finalizar cautela coletiva
+    document.querySelectorAll('.btn-finalizar-cautela-coletiva').forEach(function(button) {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const cautelaId = this.getAttribute('data-cautela-id');
+            
+            if (cautelaId && finalizarCautelaColetivaModal) {
+                finalizarCautelaColetivaModal.setAttribute('data-cautela-id', cautelaId);
+                const modal = new bootstrap.Modal(finalizarCautelaColetivaModal);
+                modal.show();
+            }
+        });
+    });
+    
+    if (finalizarCautelaColetivaModal && finalizarCautelaColetivaModalContent) {
+        finalizarCautelaColetivaModal.addEventListener('show.bs.modal', function(event) {
+            let cautelaId = null;
+            
+            if (event.relatedTarget) {
+                cautelaId = event.relatedTarget.getAttribute('data-cautela-id');
+            }
+            
+            if (!cautelaId) {
+                cautelaId = finalizarCautelaColetivaModal.getAttribute('data-cautela-id');
+            }
+            
+            if (!cautelaId) {
+                console.error('ID da cautela coletiva não encontrado');
+                return;
+            }
+            
+            finalizarCautelaColetivaModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-warning" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            fetch(`{% url 'militares:cautela_arma_coletiva_finalizar' 0 %}`.replace('0', cautelaId), {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.clone().json().then(err => {
+                        throw new Error(err.message || `Erro HTTP ${response.status}`);
+                    }).catch(() => {
+                        throw new Error(`Erro HTTP ${response.status}: ${response.statusText}`);
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.html) {
+                    finalizarCautelaColetivaModalContent.innerHTML = data.html;
+                    
+                    const form = document.getElementById('formFinalizarCautelaColetiva');
+                    if (form) {
+                        form.addEventListener('submit', function(e) {
+                            e.preventDefault();
+                            
+                            const formData = new FormData(form);
+                            const submitButton = form.querySelector('button[type="submit"]');
+                            const originalText = submitButton.innerHTML;
+                            
+                            submitButton.disabled = true;
+                            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processando...';
+                            
+                            const errorDiv = document.getElementById('finalizarCautelaColetivaErrors');
+                            if (errorDiv) {
+                                errorDiv.classList.add('d-none');
+                            }
+                            
+                            fetch(form.action, {
+                                method: 'POST',
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                },
+                                body: formData
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    // Marcar que houve sucesso para atualizar página ao fechar
+                                    finalizarCautelaColetivaModal.setAttribute('data-success', 'true');
+                                    
+                                    finalizarCautelaColetivaModalContent.innerHTML = `
+                                        <div class="modal-header bg-success text-white">
+                                            <h5 class="modal-title">
+                                                <i class="fas fa-check-circle me-2"></i>Sucesso!
+                                            </h5>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body text-center py-4">
+                                            <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                                            <h5>Cautela Coletiva Finalizada</h5>
+                                            <p class="text-muted">${data.message}</p>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-success" data-bs-dismiss="modal">
+                                                <i class="fas fa-check me-2"></i>Fechar
+                                            </button>
+                                        </div>
+                                    `;
+                                    
+                                    // Fechar modal automaticamente após um breve delay
+                                    // A atualização da página será feita no evento hidden.bs.modal
+                                    setTimeout(() => {
+                                        const modal = bootstrap.Modal.getInstance(finalizarCautelaColetivaModal);
+                                        if (modal) {
+                                            modal.hide();
+                                        }
+                                    }, 1500);
+                                } else {
+                                    const errorDiv = document.getElementById('finalizarCautelaColetivaErrors');
+                                    const errorMessage = document.getElementById('finalizarCautelaColetivaErrorMessage');
+                                    if (errorDiv && errorMessage) {
+                                        errorMessage.textContent = data.message || 'Erro ao processar finalização.';
+                                        errorDiv.classList.remove('d-none');
+                                    }
+                                    
+                                    submitButton.disabled = false;
+                                    submitButton.innerHTML = originalText;
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Erro:', error);
+                                const errorDiv = document.getElementById('finalizarCautelaColetivaErrors');
+                                const errorMessage = document.getElementById('finalizarCautelaColetivaErrorMessage');
+                                if (errorDiv && errorMessage) {
+                                    errorMessage.textContent = 'Erro ao processar finalização. Tente novamente.';
+                                    errorDiv.classList.remove('d-none');
+                                }
+                                
+                                submitButton.disabled = false;
+                                submitButton.innerHTML = originalText;
+                            });
+                        });
+                    } else {
+                        console.error('Formulário não encontrado no HTML retornado');
+                        throw new Error('Formulário não encontrado no HTML retornado');
+                    }
+                } else {
+                    console.error('HTML não encontrado na resposta:', data);
+                    throw new Error(data.message || 'HTML não encontrado na resposta do servidor');
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar formulário:', error);
+                finalizarCautelaColetivaModalContent.innerHTML = `
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body text-center py-4">
+                        <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                        <h5>Erro ao Carregar</h5>
+                        <p class="text-muted">${error.message || 'Não foi possível carregar o formulário. Tente novamente.'}</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                `;
+            });
+        });
+        
+        finalizarCautelaColetivaModal.addEventListener('hidden.bs.modal', function() {
+            // Marcar que houve sucesso para atualizar página ao fechar
+            const success = finalizarCautelaColetivaModal.getAttribute('data-success');
+            if (success === 'true') {
+                // Limpar flag e atualizar página
+                finalizarCautelaColetivaModal.removeAttribute('data-success');
+                
+                // Limpar backdrop
+                document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+                document.body.classList.remove('modal-open');
+                document.body.style.overflow = '';
+                document.body.style.paddingRight = '';
+                
+                // Atualizar página
+                window.location.reload();
+                return;
+            }
+            
+            // Se não houve sucesso, apenas limpar conteúdo
+            finalizarCautelaColetivaModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-warning" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            // Limpar backdrop
+            document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+        });
+    }
+    
+    if (devolverCautelaModal && modalContent) {
+        devolverCautelaModal.addEventListener('show.bs.modal', function(event) {
+            let cautelaId = null;
+            
+            if (event.relatedTarget) {
+                cautelaId = event.relatedTarget.getAttribute('data-cautela-id');
+            }
+            
+            if (!cautelaId) {
+                cautelaId = devolverCautelaModal.getAttribute('data-cautela-id');
+            }
+            
+            if (!cautelaId) {
+                console.error('ID da cautela não encontrado');
+                return;
+            }
+            
+            modalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-warning" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            fetch(`{% url 'militares:cautela_arma_devolver' 0 %}`.replace('0', cautelaId), {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.html) {
+                    modalContent.innerHTML = data.html;
+                    
+                    const form = document.getElementById('formDevolverCautela');
+                    if (form) {
+                        form.addEventListener('submit', function(e) {
+                            e.preventDefault();
+                            
+                            const formData = new FormData(form);
+                            const submitButton = form.querySelector('button[type="submit"]');
+                            const originalText = submitButton.innerHTML;
+                            
+                            submitButton.disabled = true;
+                            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processando...';
+                            
+                            const errorDiv = document.getElementById('devolverCautelaErrors');
+                            if (errorDiv) {
+                                errorDiv.classList.add('d-none');
+                            }
+                            
+                            fetch(form.action, {
+                                method: 'POST',
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                },
+                                body: formData
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    modalContent.innerHTML = `
+                                        <div class="modal-header bg-success text-white">
+                                            <h5 class="modal-title">
+                                                <i class="fas fa-check-circle me-2"></i>Sucesso!
+                                            </h5>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body text-center py-4">
+                                            <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                                            <h5>Devolução Registrada</h5>
+                                            <p class="text-muted">${data.message}</p>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-success" data-bs-dismiss="modal" onclick="location.reload();">
+                                                <i class="fas fa-check me-2"></i>Fechar
+                                            </button>
+                                        </div>
+                                    `;
+                                    
+                                    setTimeout(() => {
+                                        const modal = bootstrap.Modal.getInstance(devolverCautelaModal);
+                                        modal.hide();
+                                        location.reload();
+                                    }, 2000);
+                                } else {
+                                    const errorDiv = document.getElementById('devolverCautelaErrors');
+                                    const errorMessage = document.getElementById('devolverCautelaErrorMessage');
+                                    if (errorDiv && errorMessage) {
+                                        errorMessage.textContent = data.message || 'Erro ao processar devolução.';
+                                        errorDiv.classList.remove('d-none');
+                                    }
+                                    
+                                    submitButton.disabled = false;
+                                    submitButton.innerHTML = originalText;
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Erro:', error);
+                                const errorDiv = document.getElementById('devolverCautelaErrors');
+                                const errorMessage = document.getElementById('devolverCautelaErrorMessage');
+                                if (errorDiv && errorMessage) {
+                                    errorMessage.textContent = 'Erro ao processar devolução. Tente novamente.';
+                                    errorDiv.classList.remove('d-none');
+                                }
+                                
+                                submitButton.disabled = false;
+                                submitButton.innerHTML = originalText;
+                            });
+                        });
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar formulário:', error);
+                modalContent.innerHTML = `
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body text-center py-4">
+                        <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                        <h5>Erro ao Carregar</h5>
+                        <p class="text-muted">Não foi possível carregar o formulário. Tente novamente.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                `;
+            });
+        });
+        
+        devolverCautelaModal.addEventListener('hidden.bs.modal', function() {
+            modalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-warning" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+        });
+    }
+    
+    // Modal de escolher tipo de cautela
+    const escolherTipoCautelaModal = document.getElementById('escolherTipoCautelaModal');
+    
+    // O Bootstrap já está abrindo o modal via data-bs-toggle, então não precisamos de listener adicional
+    // Apenas garantir que o modal existe e está configurado corretamente
+    if (!escolherTipoCautelaModal) {
+        console.error('Modal escolherTipoCautelaModal não encontrado!');
+    } else {
+        // Garantir que o modal está configurado corretamente
+        escolherTipoCautelaModal.addEventListener('show.bs.modal', function() {
+            console.log('Modal de escolha está sendo mostrado');
+        });
+        
+        escolherTipoCautelaModal.addEventListener('shown.bs.modal', function() {
+            console.log('Modal de escolha foi mostrado completamente');
+            // Garantir que o modal está visível
+            escolherTipoCautelaModal.style.display = 'block';
+        });
+    }
+    
+    // Modal de criar cautela individual
+    const criarCautelaModal = document.getElementById('criarCautelaModal');
+    const criarCautelaModalContent = document.getElementById('criarCautelaModalContent');
+    const criarCautelaColetivaModal = document.getElementById('criarCautelaColetivaModal');
+    const criarCautelaColetivaModalContent = document.getElementById('criarCautelaColetivaModalContent');
+    
+    // Event listeners para escolher tipo de cautela
+    // Usar delegação de eventos no modal para evitar problemas com listeners duplicados
+    if (escolherTipoCautelaModal) {
+        escolherTipoCautelaModal.addEventListener('click', function(e) {
+            const button = e.target.closest('.btn-escolher-tipo-cautela[data-tipo]');
+            if (button) {
+                e.preventDefault();
+                e.stopPropagation();
+                const tipo = button.getAttribute('data-tipo');
+                
+                // O Bootstrap já está fechando o modal via data-bs-dismiss
+                // Aguardar o modal de escolha fechar completamente antes de abrir o próximo
+                escolherTipoCautelaModal.addEventListener('hidden.bs.modal', function abrirProximoModal() {
+                    escolherTipoCautelaModal.removeEventListener('hidden.bs.modal', abrirProximoModal);
+                    
+                    // Limpar backdrop do modal anterior
+                    document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+                    document.body.classList.remove('modal-open');
+                    document.body.style.overflow = '';
+                    document.body.style.paddingRight = '';
+                    
+                    // Abrir modal correto baseado no tipo
+                    setTimeout(() => {
+                        if (tipo === 'individual') {
+                            if (criarCautelaModal) {
+                                const modal = new bootstrap.Modal(criarCautelaModal, {
+                                    backdrop: true,
+                                    keyboard: true
+                                });
+                                modal.show();
+                            }
+                        } else if (tipo === 'coletiva') {
+                            if (criarCautelaColetivaModal) {
+                                const modal = new bootstrap.Modal(criarCautelaColetivaModal, {
+                                    backdrop: true,
+                                    keyboard: true
+                                });
+                                modal.show();
+                            }
+                        }
+                    }, 100);
+                }, { once: true });
+            }
+        });
+    }
+    
+    if (criarCautelaModal && criarCautelaModalContent) {
+        criarCautelaModal.addEventListener('show.bs.modal', function(event) {
+            // Verificar se há parâmetro de arma na URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const armaId = urlParams.get('arma');
+            
+            criarCautelaModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            let url = '{% url "militares:cautela_arma_create" %}';
+            if (armaId) {
+                url += `?arma=${armaId}`;
+            }
+            
+            fetch(url, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.html) {
+                    criarCautelaModalContent.innerHTML = data.html;
+                    
+                    // Aguardar um pouco para garantir que o DOM foi atualizado
+                    setTimeout(function() {
+                        // Re-executar scripts que podem estar no conteúdo carregado
+                        const scripts = criarCautelaModalContent.querySelectorAll('script');
+                        scripts.forEach(function(oldScript) {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(attr => {
+                                newScript.setAttribute(attr.name, attr.value);
+                            });
+                            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                            oldScript.parentNode.replaceChild(newScript, oldScript);
+                        });
+                        
+                        // Garantir que o Select2 seja inicializado após os scripts serem executados
+                        setTimeout(function() {
+                            function tentarInicializarSelect2() {
+                                if (typeof $ === 'undefined' || typeof $.fn.select2 === 'undefined') {
+                                    setTimeout(tentarInicializarSelect2, 100);
+                                    return;
+                                }
+                                
+                                const militarSelect = $('#id_militar_cautela');
+                                
+                                if (militarSelect.length === 0) {
+                                    setTimeout(tentarInicializarSelect2, 100);
+                                    return;
+                                }
+                                
+                                if (militarSelect.hasClass('select2-hidden-accessible')) {
+                                    return; // Já está inicializado
+                                }
+                                
+                                try {
+                                    militarSelect.select2({
+                                        placeholder: 'Digite o nome, matrícula ou posto do militar...',
+                                        allowClear: true,
+                                        minimumInputLength: 2,
+                                        width: '100%',
+                                        language: {
+                                            inputTooShort: function () {
+                                                return 'Digite pelo menos 2 caracteres...';
+                                            },
+                                            noResults: function () {
+                                                return 'Nenhum militar encontrado';
+                                            },
+                                            searching: function () {
+                                                return 'Buscando...';
+                                            }
+                                        },
+                                        ajax: {
+                                            url: '{% url "militares:militar-autocomplete" %}',
+                                            dataType: 'json',
+                                            delay: 250,
+                                            data: function (params) {
+                                                return {
+                                                    q: params.term || ''
+                                                };
+                                            },
+                                            processResults: function (data) {
+                                                return {
+                                                    results: data.results || []
+                                                };
+                                            },
+                                            cache: true
+                                        }
+                                    });
+                                    console.log('Select2 inicializado no modal (cautela_arma_list.html)');
+                                } catch (e) {
+                                    console.error('Erro ao inicializar Select2 no modal:', e);
+                                }
+                            }
+                            
+                            tentarInicializarSelect2();
+                        }, 200);
+                    }, 50);
+                    
+                    const form = document.getElementById('formCriarCautela');
+                    if (form) {
+                        form.addEventListener('submit', function(e) {
+                            e.preventDefault();
+                            
+                            const formData = new FormData(form);
+                            const submitButton = form.querySelector('button[type="submit"]');
+                            const originalText = submitButton.innerHTML;
+                            
+                            submitButton.disabled = true;
+                            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Salvando...';
+                            
+                            const errorDiv = document.getElementById('criarCautelaErrors');
+                            if (errorDiv) {
+                                errorDiv.classList.add('d-none');
+                            }
+                            
+                            fetch(form.action, {
+                                method: 'POST',
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                },
+                                body: formData
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    // Marcar que houve sucesso para atualizar página ao fechar
+                                    criarCautelaModal.setAttribute('data-success', 'true');
+                                    
+                                    criarCautelaModalContent.innerHTML = `
+                                        <div class="modal-header bg-success text-white">
+                                            <h5 class="modal-title">
+                                                <i class="fas fa-check-circle me-2"></i>Sucesso!
+                                            </h5>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body text-center py-4">
+                                            <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                                            <h5>Cautela Registrada</h5>
+                                            <p class="text-muted">${data.message}</p>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-success" data-bs-dismiss="modal">
+                                                <i class="fas fa-check me-2"></i>Fechar
+                                            </button>
+                                        </div>
+                                    `;
+                                    
+                                    // Fechar modal automaticamente após um breve delay
+                                    // A atualização da página será feita no evento hidden.bs.modal
+                                    setTimeout(() => {
+                                        const modal = bootstrap.Modal.getInstance(criarCautelaModal);
+                                        if (modal) {
+                                            modal.hide();
+                                        }
+                                    }, 1500);
+                                } else {
+                                    const errorDiv = document.getElementById('criarCautelaErrors');
+                                    const errorMessage = document.getElementById('criarCautelaErrorMessage');
+                                    if (errorDiv && errorMessage) {
+                                        errorMessage.textContent = data.message || 'Erro ao processar formulário.';
+                                        errorDiv.classList.remove('d-none');
+                                    }
+                                    
+                                    submitButton.disabled = false;
+                                    submitButton.innerHTML = originalText;
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Erro:', error);
+                                const errorDiv = document.getElementById('criarCautelaErrors');
+                                const errorMessage = document.getElementById('criarCautelaErrorMessage');
+                                if (errorDiv && errorMessage) {
+                                    errorMessage.textContent = 'Erro ao processar formulário. Tente novamente.';
+                                    errorDiv.classList.remove('d-none');
+                                }
+                                
+                                submitButton.disabled = false;
+                                submitButton.innerHTML = originalText;
+                            });
+                        });
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar formulário:', error);
+                criarCautelaModalContent.innerHTML = `
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body text-center py-4">
+                        <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                        <h5>Erro ao Carregar</h5>
+                        <p class="text-muted">Não foi possível carregar o formulário. Tente novamente.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                `;
+            });
+        });
+        
+        criarCautelaModal.addEventListener('hidden.bs.modal', function() {
+            // Verificar se houve sucesso antes de limpar
+            const success = criarCautelaModal.getAttribute('data-success');
+            if (success === 'true') {
+                // Limpar flag e atualizar página
+                criarCautelaModal.removeAttribute('data-success');
+                
+                // Limpar backdrop
+                document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+                document.body.classList.remove('modal-open');
+                document.body.style.overflow = '';
+                document.body.style.paddingRight = '';
+                
+                // Atualizar página
+                window.location.reload();
+                return;
+            }
+            
+            // Se não houve sucesso, apenas limpar conteúdo
+            criarCautelaModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            // Limpar backdrop
+            document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+        });
+    }
+    
+    // Autocomplete de militar na busca
+    const buscarMilitarInput = document.getElementById('buscarMilitar');
+    const militarIdHidden = document.getElementById('militar_id_hidden');
+    const autocompleteMilitar = document.getElementById('autocompleteMilitar');
+    let searchTimeout;
+    let selectedIndex = -1;
+    
+    // Preencher campo de busca se houver militar selecionado
+    {% if request.GET.militar %}
+        {% for militar in militares %}
+            {% if militar.pk|stringformat:"s" == request.GET.militar %}
+                if (buscarMilitarInput) {
+                    buscarMilitarInput.value = '{{ militar.get_posto_graduacao_display }} {{ militar.nome_completo }}';
+                }
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+    
+    function mostrarAutocompleteMilitar(results) {
+        if (!results || results.length === 0) {
+            autocompleteMilitar.style.display = 'none';
+            return;
+        }
+        
+        autocompleteMilitar.innerHTML = '';
+        results.forEach((result, index) => {
+            const item = document.createElement('div');
+            item.className = 'autocomplete-item' + (index === selectedIndex ? ' active' : '');
+            item.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-user me-2 text-primary"></i>
+                    <div>
+                        <strong>${result.text}</strong>
+                    </div>
+                </div>
+            `;
+            item.addEventListener('click', function() {
+                militarIdHidden.value = result.id;
+                buscarMilitarInput.value = result.text;
+                autocompleteMilitar.style.display = 'none';
+                // Aplicar filtro automaticamente
+                document.querySelector('form[method="get"]').submit();
+            });
+            autocompleteMilitar.appendChild(item);
+        });
+        autocompleteMilitar.style.display = 'block';
+    }
+    
+    function esconderAutocompleteMilitar() {
+        autocompleteMilitar.style.display = 'none';
+        selectedIndex = -1;
+    }
+    
+    // Função para carregar todos os militares ou buscar
+    async function carregarMilitares(termo = '') {
+        try {
+            let url = `{% url 'militares:militar-autocomplete' %}?q=${encodeURIComponent(termo)}`;
+            const response = await fetch(url);
+            const data = await response.json();
+            mostrarAutocompleteMilitar(data.results || []);
+        } catch (error) {
+            console.error('Erro ao buscar militares:', error);
+            esconderAutocompleteMilitar();
+        }
+    }
+    
+    // Carregar lista inicial ao focar no campo
+    if (buscarMilitarInput) {
+        buscarMilitarInput.addEventListener('focus', function() {
+            if (this.value.trim().length === 0) {
+                carregarMilitares('');
+            }
+        });
+        
+        buscarMilitarInput.addEventListener('input', function() {
+            const termo = this.value.trim();
+            
+            if (termo.length === 0) {
+                // Mostrar lista completa quando campo está vazio
+                carregarMilitares('');
+                militarIdHidden.value = '';
+                return;
+            }
+            
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                carregarMilitares(termo);
+            }, 300);
+        });
+        
+        buscarMilitarInput.addEventListener('keydown', function(e) {
+            const items = autocompleteMilitar.querySelectorAll('.autocomplete-item');
+            
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+                items.forEach((item, idx) => {
+                    item.classList.toggle('active', idx === selectedIndex);
+                });
+                if (items[selectedIndex]) {
+                    items[selectedIndex].scrollIntoView({ block: 'nearest' });
+                }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                selectedIndex = Math.max(selectedIndex - 1, -1);
+                items.forEach((item, idx) => {
+                    item.classList.toggle('active', idx === selectedIndex);
+                });
+            } else if (e.key === 'Enter' && selectedIndex >= 0 && items[selectedIndex]) {
+                e.preventDefault();
+                items[selectedIndex].click();
+            } else if (e.key === 'Escape') {
+                esconderAutocompleteMilitar();
+            }
+        });
+        
+        // Esconder autocomplete ao clicar fora
+        document.addEventListener('click', function(e) {
+            if (!buscarMilitarInput.contains(e.target) && !autocompleteMilitar.contains(e.target)) {
+                esconderAutocompleteMilitar();
+            }
+        });
+    }
+});
+</script>
+
+<style>
+.autocomplete-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1000;
+    margin-top: 2px;
+}
+
+.autocomplete-item {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.2s;
+}
+
+.autocomplete-item:hover,
+.autocomplete-item.active {
+    background-color: #f8f9fa;
+}
+
+.autocomplete-item:last-child {
+    border-bottom: none;
+}
+
+/* Ajustar z-index dos modais para garantir ordem correta */
+#escolherTipoCautelaModal {
+    z-index: 1055 !important;
+}
+
+#escolherTipoCautelaModal.show {
+    display: block !important;
+}
+
+#criarCautelaModal,
+#criarCautelaColetivaModal {
+    z-index: 1056 !important;
+}
+
+.modal-backdrop {
+    z-index: 1054 !important;
+}
+
+.modal-backdrop.show {
+    z-index: 1054 !important;
+}
+</style>
+
+<!-- Modal para Escolher Tipo de Cautela -->
+<div class="modal fade" id="escolherTipoCautelaModal" tabindex="-1" aria-labelledby="escolherTipoCautelaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="escolherTipoCautelaModalLabel">
+                    <i class="fas fa-plus me-2"></i>Nova Cautela
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <p class="mb-4">Selecione o tipo de cautela que deseja criar:</p>
+                <div class="d-grid gap-3">
+                    <button type="button" 
+                            class="btn btn-lg btn-success btn-escolher-tipo-cautela" 
+                            data-tipo="individual"
+                            data-bs-dismiss="modal">
+                        <i class="fas fa-user me-2"></i>
+                        <strong>Cautela Individual</strong>
+                        <br>
+                        <small class="text-muted">Cautela para um único militar</small>
+                    </button>
+                    <button type="button" 
+                            class="btn btn-lg btn-warning btn-escolher-tipo-cautela" 
+                            data-tipo="coletiva"
+                            data-bs-dismiss="modal">
+                        <i class="fas fa-users me-2"></i>
+                        <strong>Cautela Coletiva</strong>
+                        <br>
+                        <small class="text-muted">Cautela para múltiplas armas (ensino, instrução, operações, etc)</small>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Criar Cautela Individual -->
+<div class="modal fade" id="criarCautelaModal" tabindex="-1" aria-labelledby="criarCautelaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="criarCautelaModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Criar Cautela Coletiva -->
+<div class="modal fade" id="criarCautelaColetivaModal" tabindex="-1" aria-labelledby="criarCautelaColetivaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="criarCautelaColetivaModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-warning" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Modal de criar cautela coletiva (fora do DOMContentLoaded para estar acessível)
+let criarCautelaColetivaModal, criarCautelaColetivaModalContent;
+
+document.addEventListener('DOMContentLoaded', function() {
+    criarCautelaColetivaModal = document.getElementById('criarCautelaColetivaModal');
+    criarCautelaColetivaModalContent = document.getElementById('criarCautelaColetivaModalContent');
+    
+    // O código para escolher tipo de cautela coletiva já está no bloco acima
+    
+    if (criarCautelaColetivaModal && criarCautelaColetivaModalContent) {
+        criarCautelaColetivaModal.addEventListener('show.bs.modal', function(event) {
+            criarCautelaColetivaModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-warning" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            const url = '{% url "militares:cautela_arma_coletiva_create" %}';
+            
+            fetch(url, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.html) {
+                    criarCautelaColetivaModalContent.innerHTML = data.html;
+                    
+                    // Executar scripts que podem estar no conteúdo carregado
+                    setTimeout(function() {
+                        const scripts = criarCautelaColetivaModalContent.querySelectorAll('script');
+                        scripts.forEach(function(oldScript) {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(attr => {
+                                newScript.setAttribute(attr.name, attr.value);
+                            });
+                            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                            oldScript.parentNode.replaceChild(newScript, oldScript);
+                        });
+                        
+                        // Aguardar um pouco mais para garantir que jQuery e Select2 estão disponíveis
+                        setTimeout(function() {
+                            // Disparar evento manualmente se o modal já estiver visível
+                            if (criarCautelaColetivaModal.classList.contains('show')) {
+                                const event = new Event('shown.bs.modal');
+                                criarCautelaColetivaModal.dispatchEvent(event);
+                            }
+                        }, 300);
+                    }, 100);
+                    
+                    const form = document.getElementById('formCriarCautelaColetiva');
+                    if (form) {
+                        form.addEventListener('submit', function(e) {
+                            e.preventDefault();
+                            
+                            // Validar se pelo menos uma arma foi selecionada
+                            const armasSelecionadas = form.querySelectorAll('input[name="armas_selecionadas"]:checked:not([disabled])');
+                            if (armasSelecionadas.length === 0) {
+                                // Remover alertas anteriores
+                                const alertAnterior = form.querySelector('.alert-danger');
+                                if (alertAnterior) {
+                                    alertAnterior.remove();
+                                }
+                                
+                                // Criar alerta de erro
+                                const alertDiv = document.createElement('div');
+                                alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+                                alertDiv.innerHTML = `
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    <strong>Erro:</strong> É obrigatório selecionar pelo menos uma arma para a cautela coletiva.
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+                                `;
+                                
+                                // Inserir o alerta no início do modal-body
+                                const modalBody = form.querySelector('.modal-body');
+                                if (modalBody) {
+                                    modalBody.insertBefore(alertDiv, modalBody.firstChild);
+                                    // Scroll para o topo do modal
+                                    alertDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                                } else {
+                                    form.insertBefore(alertDiv, form.firstChild);
+                                }
+                                
+                                return false;
+                            }
+                            
+                            const formData = new FormData(form);
+                            const submitButton = form.querySelector('button[type="submit"]');
+                            const originalText = submitButton.innerHTML;
+                            
+                            // Remover alertas anteriores
+                            const alertAnterior = form.querySelector('.alert-danger');
+                            if (alertAnterior) {
+                                alertAnterior.remove();
+                            }
+                            
+                            submitButton.disabled = true;
+                            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Salvando...';
+                            
+                            fetch(form.action, {
+                                method: 'POST',
+                                body: formData,
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                }
+                            })
+                            .then(response => {
+                                if (!response.ok) {
+                                    return response.clone().json().then(err => {
+                                        throw new Error(err.message || 'Erro ao salvar');
+                                    });
+                                }
+                                return response.json();
+                            })
+                            .then(data => {
+                                if (data.success) {
+                                    const modalInstance = bootstrap.Modal.getInstance(criarCautelaColetivaModal);
+                                    if (modalInstance) {
+                                        modalInstance.hide();
+                                    }
+                                    
+                                    setTimeout(() => {
+                                        document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+                                        document.body.classList.remove('modal-open');
+                                        document.body.style.overflow = '';
+                                        document.body.style.paddingRight = '';
+                                    }, 300);
+                                    
+                                    if (data.redirect_url) {
+                                        window.location.href = data.redirect_url;
+                                    } else {
+                                        window.location.reload();
+                                    }
+                                } else {
+                                    if (data.errors) {
+                                        Object.keys(data.errors).forEach(field => {
+                                            const fieldElement = form.querySelector(`[name="${field}"]`);
+                                            if (fieldElement) {
+                                                fieldElement.classList.add('is-invalid');
+                                                const errorDiv = document.createElement('div');
+                                                errorDiv.className = 'text-danger small';
+                                                errorDiv.textContent = data.errors[field][0];
+                                                fieldElement.parentNode.appendChild(errorDiv);
+                                            }
+                                        });
+                                    }
+                                    
+                                    if (data.message) {
+                                        alert(data.message);
+                                    }
+                                    
+                                    submitButton.disabled = false;
+                                    submitButton.innerHTML = originalText;
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Erro:', error);
+                                alert('Erro ao salvar cautela coletiva: ' + error.message);
+                                submitButton.disabled = false;
+                                submitButton.innerHTML = originalText;
+                            });
+                        });
+                    }
+                } else {
+                    criarCautelaColetivaModalContent.innerHTML = `
+                        <div class="modal-body">
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Erro ao carregar formulário.
+                            </div>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar formulário:', error);
+                criarCautelaColetivaModalContent.innerHTML = `
+                    <div class="modal-body">
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Erro ao carregar formulário: ${error.message}
+                        </div>
+                    </div>
+                `;
+            });
+        });
+        
+        criarCautelaColetivaModal.addEventListener('hidden.bs.modal', function() {
+            document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+            
+            criarCautelaColetivaModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-warning" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+        });
+    }
+});
+
+// Inicializar modais de assinatura de cautela
+document.addEventListener('DOMContentLoaded', function() {
+    // Adicionar event listeners para os botões de assinatura individual
+    document.querySelectorAll('.btn-assinar-cautela').forEach(function(button) {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            const cautelaId = this.getAttribute('data-cautela-id');
+            const modalId = '#modalAssinaturaCautela' + cautelaId;
+            const modalElement = document.querySelector(modalId);
+            
+            if (modalElement) {
+                const modal = new bootstrap.Modal(modalElement);
+                modal.show();
+            } else {
+                console.error('Modal não encontrado:', modalId);
+                alert('Erro ao abrir modal de assinatura. Modal não encontrado.');
+            }
+        });
+    });
+    
+    // Adicionar event listeners para os botões de assinatura coletiva
+    document.querySelectorAll('.btn-assinar-cautela-coletiva').forEach(function(button) {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            const cautelaId = this.getAttribute('data-cautela-id');
+            const modalId = '#modalAssinaturaCautelaColetiva' + cautelaId;
+            const modalElement = document.querySelector(modalId);
+            
+            if (modalElement) {
+                const modal = new bootstrap.Modal(modalElement);
+                modal.show();
+            } else {
+                console.error('Modal não encontrado:', modalId);
+                alert('Erro ao abrir modal de assinatura coletiva. Modal não encontrado.');
+            }
+        });
+    });
+    
+    // Interceptar submit dos formulários de assinatura individual
+    document.querySelectorAll('form[action*="/assinar/"]').forEach(function(form) {
+        if (form.action.includes('cautelas-armas/') && !form.action.includes('coletivas')) {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(form);
+                const submitButton = form.querySelector('button[type="submit"]');
+                const originalText = submitButton.innerHTML;
+                const modalElement = form.closest('.modal');
+                
+                // Remover mensagens de erro anteriores
+                const errorAlert = form.querySelector('.alert-danger');
+                if (errorAlert) {
+                    errorAlert.remove();
+                }
+                
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Assinando...';
+                
+                fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: formData
+                })
+                .then(response => {
+                    return response.json().then(data => {
+                        return { ok: response.ok, data: data };
+                    }).catch(() => {
+                        return { ok: response.ok, data: { success: false, message: 'Erro ao processar resposta do servidor.' } };
+                    });
+                })
+                .then(({ ok, data }) => {
+                    if (ok && data.success) {
+                        // Sucesso - fechar modal e recarregar página
+                        const modal = bootstrap.Modal.getInstance(modalElement);
+                        if (modal) {
+                            modal.hide();
+                        }
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 500);
+                    } else {
+                        // Erro - exibir mensagem no modal
+                        const errorMsg = data.message || 'Erro ao assinar cautela. Tente novamente.';
+                        const errorDiv = document.createElement('div');
+                        errorDiv.className = 'alert alert-danger alert-dismissible fade show';
+                        errorDiv.innerHTML = `
+                            <i class="fas fa-exclamation-triangle me-2"></i>${errorMsg}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+                        `;
+                        form.querySelector('.modal-body').insertBefore(errorDiv, form.querySelector('.modal-body').firstChild);
+                        
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = originalText;
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro:', error);
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'alert alert-danger alert-dismissible fade show';
+                    errorDiv.innerHTML = `
+                        <i class="fas fa-exclamation-triangle me-2"></i>Erro ao processar assinatura. Tente novamente.
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+                    `;
+                    form.querySelector('.modal-body').insertBefore(errorDiv, form.querySelector('.modal-body').firstChild);
+                    
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalText;
+                });
+            });
+        }
+    });
+    
+    // Interceptar submit dos formulários de assinatura coletiva
+    document.querySelectorAll('form[action*="cautelas-armas-coletivas"][action*="/assinar/"]').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(form);
+            const submitButton = form.querySelector('button[type="submit"]');
+            const originalText = submitButton.innerHTML;
+            const modalElement = form.closest('.modal');
+            
+            // Remover mensagens de erro anteriores
+            const errorAlert = form.querySelector('.alert-danger');
+            if (errorAlert) {
+                errorAlert.remove();
+            }
+            
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Assinando...';
+            
+            fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: formData
+            })
+            .then(response => {
+                return response.json().then(data => {
+                    return { ok: response.ok, data: data };
+                }).catch(() => {
+                    return { ok: response.ok, data: { success: false, message: 'Erro ao processar resposta do servidor.' } };
+                });
+            })
+            .then(({ ok, data }) => {
+                if (ok && data.success) {
+                    // Sucesso - fechar modal e recarregar página
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    if (modal) {
+                        modal.hide();
+                    }
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 500);
+                } else {
+                    // Erro - exibir mensagem no modal
+                    const errorMsg = data.message || 'Erro ao assinar cautela coletiva. Tente novamente.';
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'alert alert-danger alert-dismissible fade show';
+                    errorDiv.innerHTML = `
+                        <i class="fas fa-exclamation-triangle me-2"></i>${errorMsg}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+                    `;
+                    form.querySelector('.modal-body').insertBefore(errorDiv, form.querySelector('.modal-body').firstChild);
+                    
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'alert alert-danger alert-dismissible fade show';
+                errorDiv.innerHTML = `
+                    <i class="fas fa-exclamation-triangle me-2"></i>Erro ao processar assinatura. Tente novamente.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+                `;
+                form.querySelector('.modal-body').insertBefore(errorDiv, form.querySelector('.modal-body').firstChild);
+                
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalText;
+            });
+        });
+    });
+    
+    // Função helper para obter CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    function getCSRFToken() {
+        // Tentar obter do cookie primeiro
+        let token = getCookie('csrftoken');
+        if (!token) {
+            // Tentar obter de um input hidden
+            const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+            if (csrfInput) {
+                token = csrfInput.value;
+            }
+        }
+        return token;
+    }
+    
+    // Botões de deletar cautela individual
+    document.querySelectorAll('.btn-deletar-cautela').forEach(function(button) {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            const cautelaId = this.getAttribute('data-cautela-id');
+            const armaSerie = this.getAttribute('data-arma-serie');
+            
+            if (confirm(`Tem certeza que deseja EXCLUIR permanentemente a cautela da arma ${armaSerie}?\n\nEsta ação não pode ser desfeita!`)) {
+                const formData = new FormData();
+                const csrfToken = getCSRFToken();
+                if (csrfToken) {
+                    formData.append('csrfmiddlewaretoken', csrfToken);
+                }
+                
+                fetch(`{% url 'militares:cautela_arma_deletar' 0 %}`.replace('0', cautelaId), {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': csrfToken || '',
+                    },
+                    credentials: 'same-origin',
+                    body: formData
+                })
+                .then(response => {
+                    return response.json().then(data => {
+                        return { ok: response.ok, data: data };
+                    }).catch(() => {
+                        return { ok: response.ok, data: { success: false, message: 'Erro ao processar resposta do servidor.' } };
+                    });
+                })
+                .then(({ ok, data }) => {
+                    if (ok && data.success) {
+                        alert(data.message || 'Cautela excluída com sucesso!');
+                        window.location.reload();
+                    } else {
+                        alert(data.message || 'Erro ao excluir cautela. Tente novamente.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro:', error);
+                    alert('Erro ao processar exclusão. Tente novamente.');
+                });
+            }
+        });
+    });
+    
+    // Botões de deletar cautela coletiva
+    document.querySelectorAll('.btn-deletar-cautela-coletiva').forEach(function(button) {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            const cautelaId = this.getAttribute('data-cautela-id');
+            const descricao = this.getAttribute('data-cautela-descricao');
+            
+            if (confirm(`Tem certeza que deseja EXCLUIR permanentemente a cautela coletiva "${descricao}"?\n\nEsta ação não pode ser desfeita e todas as armas serão removidas da cautela!`)) {
+                const formData = new FormData();
+                const csrfToken = getCSRFToken();
+                if (csrfToken) {
+                    formData.append('csrfmiddlewaretoken', csrfToken);
+                }
+                
+                fetch(`{% url 'militares:cautela_arma_coletiva_deletar' 0 %}`.replace('0', cautelaId), {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': csrfToken || '',
+                    },
+                    credentials: 'same-origin',
+                    body: formData
+                })
+                .then(response => {
+                    return response.json().then(data => {
+                        return { ok: response.ok, data: data };
+                    }).catch(() => {
+                        return { ok: response.ok, data: { success: false, message: 'Erro ao processar resposta do servidor.' } };
+                    });
+                })
+                .then(({ ok, data }) => {
+                    if (ok && data.success) {
+                        alert(data.message || 'Cautela coletiva excluída com sucesso!');
+                        window.location.reload();
+                    } else {
+                        alert(data.message || 'Erro ao excluir cautela coletiva. Tente novamente.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro:', error);
+                    alert('Erro ao processar exclusão. Tente novamente.');
+                });
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
+

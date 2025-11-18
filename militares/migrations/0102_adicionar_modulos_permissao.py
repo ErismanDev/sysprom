@@ -10,44 +10,14 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name="permissaofuncao",
-            name="modulo",
-            field=models.CharField(
-                choices=[
-                    ("MILITARES", "Militares"),
-                    ("FICHAS_CONCEITO", "Fichas Conceito"),
-                    ("QUADROS_ACESSO", "Quadros Acesso"),
-                    ("PROMOCOES", "Promocoes"),
-                    ("VAGAS", "Vagas"),
-                    ("COMISSAO", "Comissao"),
-                    ("DOCUMENTOS", "Documentos"),
-                    ("USUARIOS", "Usuarios"),
-                    ("RELATORIOS", "Relatorios"),
-                    ("CONFIGURACOES", "Configuracoes"),
-                    ("ALMANAQUES", "Almanaques"),
-                    ("CALENDARIOS", "Calendarios"),
-                    ("NOTIFICACOES", "Notificacoes"),
-                    ("MODELOS_ATA", "Modelos Ata"),
-                    ("CARGOS_COMISSAO", "Cargos Comissao"),
-                    ("QUADROS_FIXACAO", "Quadros Fixacao"),
-                    ("ASSINATURAS", "Assinaturas"),
-                    ("ESTATISTICAS", "Estatisticas"),
-                    ("EXPORTACAO", "Exportacao"),
-                    ("IMPORTACAO", "Importacao"),
-                    ("BACKUP", "Backup"),
-                    ("AUDITORIA", "Auditoria"),
-                    ("DASHBOARD", "Dashboard"),
-                    ("BUSCA", "Busca"),
-                    ("AJAX", "Ajax"),
-                    ("API", "Api"),
-                    ("SESSAO", "Sessao"),
-                    ("FUNCAO", "Funcao"),
-                    ("PERFIL", "Perfil"),
-                    ("SISTEMA", "Sistema"),
-                ],
-                max_length=20,
-                verbose_name="Módulo",
-            ),
-        ),
+        # NOTA: AlterField de permissaofuncao removido - modelo só é criado na migração 0140
+        # migrations.AlterField(
+        #     model_name="permissaofuncao",
+        #     name="modulo",
+        #     field=models.CharField(
+        #         choices=[...],
+        #         max_length=20,
+        #         verbose_name="Módulo",
+        #     ),
+        # ),
     ]

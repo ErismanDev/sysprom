@@ -51,7 +51,7 @@ def assinaturas_existentes_ajax(request, pk):
                 'posto_graduacao': assinatura.membro.militar.get_posto_graduacao_display(),
                 'tipo': assinatura.membro.get_tipo_display(),
                 'assinado_por': assinatura.assinado_por.get_full_name() or assinatura.assinado_por.username,
-                'data_assinatura': assinatura.data_assinatura.strftime('%d/%m/%Y %H:%M'),
+                'data_assinatura': assinatura.data_assinatura.isoformat(),
                 'observacoes': assinatura.observacoes or ''
             })
         

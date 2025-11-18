@@ -35,12 +35,12 @@ class Command(BaseCommand):
         quadro = options['quadro']
         
         self.stdout.write(
-            self.style.SUCCESS('🔄 Iniciando reordenação de antiguidade após inativações...')
+            self.style.SUCCESS('[INICIANDO] Reordenação de antiguidade após inativações...')
         )
         
         if dry_run:
             self.stdout.write(
-                self.style.WARNING('⚠️  MODO DE TESTE - Nenhuma alteração será salva')
+                self.style.WARNING('[AVISO] MODO DE TESTE - Nenhuma alteração será salva')
             )
         
         try:

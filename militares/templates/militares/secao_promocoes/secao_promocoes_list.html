@@ -1,0 +1,337 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Seções de Promoções{% endblock %}
+
+{% block extra_css %}
+<style>
+    .status-badge {
+        font-size: 0.8em;
+        padding: 0.25rem 0.5rem;
+    }
+    .status-ativa {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    .status-inativa {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    .status-suspensa {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    .search-form {
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-radius: 0.375rem;
+        margin-bottom: 1.5rem;
+    }
+    .stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Cabeçalho -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-building me-2"></i>
+                        Seções de Promoções
+                    </h1>
+                    <p class="text-muted mb-0">Gerenciar seções de promoções do sistema</p>
+                </div>
+                {% if can_edit %}
+                <div>
+                    <a href="{% url 'militares:secao_promocoes_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>
+                        Nova Seção
+                    </a>
+                    <a href="{% url 'militares:secao_promocoes_dashboard' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-chart-bar me-1"></i>
+                        Dashboard
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Estatísticas -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stats-card">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 class="mb-0">{{ total_secoes }}</h4>
+                        <small>Total de Seções</small>
+                    </div>
+                    <i class="fas fa-building fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0">{{ page_obj.object_list|length }}</h4>
+                            <small>Seções Listadas</small>
+                        </div>
+                        <i class="fas fa-list fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0">{{ page_obj.paginator.num_pages }}</h4>
+                            <small>Páginas</small>
+                        </div>
+                        <i class="fas fa-file-alt fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0">{{ page_obj.paginator.per_page }}</h4>
+                            <small>Por Página</small>
+                        </div>
+                        <i class="fas fa-cog fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulário de Busca -->
+    <div class="search-form">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                {{ form.query.label_tag }}
+                {{ form.query }}
+            </div>
+            <div class="col-md-3">
+                {{ form.status.label_tag }}
+                {{ form.status }}
+            </div>
+            <div class="col-md-3">
+                {{ form.chefe.label_tag }}
+                {{ form.chefe }}
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search me-1"></i>
+                        Buscar
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Lista de Seções -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-list me-2"></i>
+                Lista de Seções de Promoções
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            {% if page_obj.object_list %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nome</th>
+                                <th>Sigla</th>
+                                <th>Status</th>
+                                <th>Chefe</th>
+                                <th>Auxiliar</th>
+                                <th>Criada em</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for secao in page_obj.object_list %}
+                            <tr>
+                                <td>
+                                    <div>
+                                        <strong>{{ secao.nome }}</strong>
+                                        {% if secao.descricao %}
+                                        <br>
+                                        <small class="text-muted">{{ secao.descricao|truncatechars:50 }}</small>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ secao.sigla }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge status-badge status-{{ secao.status|lower }}">
+                                        {{ secao.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if secao.chefe %}
+                                        <div>
+                                            <strong>{{ secao.chefe.nome_completo }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ secao.chefe.posto_grad_atual }}</small>
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted">Não definido</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if secao.auxiliar %}
+                                        <div>
+                                            <strong>{{ secao.auxiliar.nome_completo }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ secao.auxiliar.posto_grad_atual }}</small>
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted">Não definido</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div>
+                                        {{ secao.data_criacao|date:"d/m/Y" }}
+                                        <br>
+                                        <small class="text-muted">{{ secao.data_criacao|time:"H:i" }}</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a href="{% url 'militares:secao_promocoes_detail' secao.pk %}" 
+                                           class="btn btn-sm btn-outline-primary" title="Visualizar">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        {% if can_edit %}
+                                        <a href="{% url 'militares:secao_promocoes_edit' secao.pk %}" 
+                                           class="btn btn-sm btn-outline-warning" title="Editar">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                title="Excluir" onclick="confirmDelete({{ secao.pk }}, '{{ secao.nome }}')">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-building fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">Nenhuma seção encontrada</h5>
+                    <p class="text-muted">Tente ajustar os filtros de busca ou crie uma nova seção.</p>
+                    {% if can_edit %}
+                    <a href="{% url 'militares:secao_promocoes_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>
+                        Nova Seção
+                    </a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Paginação -->
+    {% if page_obj.has_other_pages %}
+    <nav aria-label="Paginação" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.chefe %}&chefe={{ request.GET.chefe }}{% endif %}">
+                        <i class="fas fa-angle-double-left"></i>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.chefe %}&chefe={{ request.GET.chefe }}{% endif %}">
+                        <i class="fas fa-angle-left"></i>
+                    </a>
+                </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                    </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.chefe %}&chefe={{ request.GET.chefe }}{% endif %}">{{ num }}</a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.chefe %}&chefe={{ request.GET.chefe }}{% endif %}">
+                        <i class="fas fa-angle-right"></i>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.chefe %}&chefe={{ request.GET.chefe }}{% endif %}">
+                        <i class="fas fa-angle-double-right"></i>
+                    </a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<!-- Modal de Confirmação de Exclusão -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja excluir a seção <strong id="secaoNome"></strong>?</p>
+                <p class="text-danger"><small>Esta ação não pode ser desfeita.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form id="deleteForm" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Excluir</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmDelete(secaoId, secaoNome) {
+    document.getElementById('secaoNome').textContent = secaoNome;
+    document.getElementById('deleteForm').action = '{% url "militares:secao_promocoes_delete" 0 %}'.replace('0', secaoId);
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+</script>
+{% endblock %}

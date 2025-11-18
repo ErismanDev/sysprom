@@ -1,0 +1,336 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load money_filters %}
+
+{% block title %}Controle de Troca de Óleo - Equipamentos{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-oil-can me-2 text-primary"></i>Controle de Troca de Óleo - Equipamentos
+                    </h2>
+                    <p class="text-muted mb-0">Gerenciar trocas de óleo de equipamentos operacionais</p>
+                </div>
+                <div>
+                    {% if 'EQUIPAMENTOS_OPERACIONAIS_CRIAR' in menu_permissions or user.is_superuser %}
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#trocaOleoModal" onclick="abrirModalTrocaOleo()">
+                        <i class="fas fa-plus me-2"></i>Nova Troca de Óleo
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Cards de Estatísticas -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-list fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_trocas }}</h4>
+                            <p class="mb-0">Total de Trocas</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card info">
+                        <div class="card-body text-center">
+                            <i class="fas fa-flask fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_litros|floatformat:0 }}</h4>
+                            <p class="mb-0">Total de Litros</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card success">
+                        <div class="card-body text-center">
+                            <i class="fas fa-dollar-sign fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_valor|currency_br }}</h4>
+                            <p class="mb-0">Total Gasto</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card warning">
+                        <div class="card-body text-center">
+                            <i class="fas fa-chart-line fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ media_valor|currency_br }}</h4>
+                            <p class="mb-0">Média por Troca</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Pesquisa</label>
+                            <input type="text" name="search" class="form-control" 
+                                   value="{{ search }}" placeholder="Código, oficina, observações...">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Equipamento</label>
+                            <select name="equipamento" class="form-select">
+                                <option value="">Todos</option>
+                                {% for equipamento in equipamentos %}
+                                    <option value="{{ equipamento.id }}" {% if equipamento_id == equipamento.id|stringformat:"s" %}selected{% endif %}>
+                                        {{ equipamento.codigo }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Tipo de Óleo</label>
+                            <select name="tipo_oleo" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="MINERAL" {% if tipo_oleo == 'MINERAL' %}selected{% endif %}>Mineral</option>
+                                <option value="SEMI_SINTETICO" {% if tipo_oleo == 'SEMI_SINTETICO' %}selected{% endif %}>Semi-Sintético</option>
+                                <option value="SINTETICO" {% if tipo_oleo == 'SINTETICO' %}selected{% endif %}>Sintético</option>
+                                <option value="SINTETICO_PLUS" {% if tipo_oleo == 'SINTETICO_PLUS' %}selected{% endif %}>Sintético Plus</option>
+                                <option value="OUTRO" {% if tipo_oleo == 'OUTRO' %}selected{% endif %}>Outro</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Data Início</label>
+                            <input type="date" name="data_inicio" class="form-control" value="{{ data_inicio }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Data Fim</label>
+                            <input type="date" name="data_fim" class="form-control" value="{{ data_fim }}">
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label">Ativo</label>
+                            <select name="ativo" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="1" {% if ativo == '1' %}selected{% endif %}>Sim</option>
+                                <option value="0" {% if ativo == '0' %}selected{% endif %}>Não</option>
+                            </select>
+                        </div>
+                        <div class="col-md-12 d-flex align-items-end gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                            <a href="{% url 'militares:equipamento_troca_oleo_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Limpar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Lista de Trocas de Óleo -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Lista de Trocas de Óleo
+                    </h6>
+                    <div>
+                        {% if 'EQUIPAMENTOS_OPERACIONAIS_CRIAR' in menu_permissions or user.is_superuser %}
+                        <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#trocaOleoModal" onclick="abrirModalTrocaOleo()">
+                            <i class="fas fa-plus me-2"></i>Nova Troca de Óleo
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if trocas %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Data/Hora</th>
+                                        <th>Equipamento</th>
+                                        <th>Tipo de Óleo</th>
+                                        <th>Quantidade (L)</th>
+                                        <th>Valor Total</th>
+                                        <th>Horas de Uso</th>
+                                        <th>Oficina</th>
+                                        <th>Responsável</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for troca in trocas %}
+                                        <tr>
+                                            <td>{{ troca.data_troca|date:"d/m/Y H:i" }}</td>
+                                            <td>
+                                                <a href="{% url 'militares:equipamento_operacional_detail' troca.equipamento.pk %}">
+                                                    {{ troca.equipamento.codigo }}
+                                                </a>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-info">{{ troca.get_tipo_oleo_display }}</span>
+                                                {% if troca.nome_oleo %}
+                                                    <br><small class="text-muted">{{ troca.nome_oleo }}</small>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ troca.quantidade_litros|floatformat:2 }}L</td>
+                                            <td class="fw-bold text-success">R$ {{ troca.valor_total|floatformat:2 }}</td>
+                                            <td>{{ troca.horas_uso_troca|floatformat:2 }}h</td>
+                                            <td>{{ troca.fornecedor_oficina|default:"-" }}</td>
+                                            <td>
+                                                {% if troca.responsavel %}
+                                                    {{ troca.responsavel.get_posto_graduacao_display }} {{ troca.responsavel.nome_completo }}
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    {% if 'EQUIPAMENTOS_OPERACIONAIS_VISUALIZAR' in menu_permissions or user.is_superuser %}
+                                                    <button type="button" class="btn btn-sm btn-outline-info" 
+                                                            onclick="abrirModalDetalhesTrocaOleo({{ troca.pk }})" title="Ver detalhes">
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                                    {% endif %}
+                                                    {% if 'EQUIPAMENTOS_OPERACIONAIS_EDITAR' in menu_permissions or user.is_superuser %}
+                                                    <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                            onclick="abrirModalEditarTrocaOleo({{ troca.pk }})" title="Editar">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    {% endif %}
+                                                    {% if 'EQUIPAMENTOS_OPERACIONAIS_EXCLUIR' in menu_permissions or user.is_superuser %}
+                                                    <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                            onclick="abrirModalExcluirTrocaOleo({{ troca.pk }})" title="Excluir">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if trocas.has_other_pages %}
+                            <nav aria-label="Paginação">
+                                <ul class="pagination justify-content-center">
+                                    {% if trocas.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}{% if equipamento_id %}&equipamento={{ equipamento_id }}{% endif %}{% if tipo_oleo %}&tipo_oleo={{ tipo_oleo }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">Primeira</a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ trocas.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if equipamento_id %}&equipamento={{ equipamento_id }}{% endif %}{% if tipo_oleo %}&tipo_oleo={{ tipo_oleo }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">Anterior</a>
+                                        </li>
+                                    {% endif %}
+                                    
+                                    <li class="page-item active">
+                                        <span class="page-link">
+                                            Página {{ trocas.number }} de {{ trocas.paginator.num_pages }}
+                                        </span>
+                                    </li>
+                                    
+                                    {% if trocas.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ trocas.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if equipamento_id %}&equipamento={{ equipamento_id }}{% endif %}{% if tipo_oleo %}&tipo_oleo={{ tipo_oleo }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">Próxima</a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ trocas.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if equipamento_id %}&equipamento={{ equipamento_id }}{% endif %}{% if tipo_oleo %}&tipo_oleo={{ tipo_oleo }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">Última</a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>Nenhuma troca de óleo encontrada.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Troca de Óleo -->
+<div class="modal fade" id="trocaOleoModal" tabindex="-1" aria-labelledby="trocaOleoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="trocaOleoModalLabel">Nova Troca de Óleo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="trocaOleoModalBody">
+                <!-- Conteúdo carregado via AJAX -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Detalhes -->
+<div class="modal fade" id="detalhesTrocaOleoModal" tabindex="-1" aria-labelledby="detalhesTrocaOleoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="detalhesTrocaOleoModalLabel">Detalhes da Troca de Óleo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="detalhesTrocaOleoModalBody">
+                <!-- Conteúdo carregado via AJAX -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Excluir -->
+<div class="modal fade" id="excluirTrocaOleoModal" tabindex="-1" aria-labelledby="excluirTrocaOleoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="excluirTrocaOleoModalLabel">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="excluirTrocaOleoModalBody">
+                <!-- Conteúdo carregado via AJAX -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function abrirModalTrocaOleo() {
+    $('#trocaOleoModalBody').load('{% url "militares:equipamento_troca_oleo_create" %}');
+}
+
+function abrirModalEditarTrocaOleo(pk) {
+    $('#trocaOleoModalLabel').text('Editar Troca de Óleo');
+    $('#trocaOleoModalBody').load('{% url "militares:equipamento_troca_oleo_update" 0 %}'.replace('0', pk));
+    $('#trocaOleoModal').modal('show');
+}
+
+function abrirModalDetalhesTrocaOleo(pk) {
+    $('#detalhesTrocaOleoModalBody').load('{% url "militares:equipamento_troca_oleo_detail" 0 %}'.replace('0', pk));
+    $('#detalhesTrocaOleoModal').modal('show');
+}
+
+function abrirModalExcluirTrocaOleo(pk) {
+    $('#excluirTrocaOleoModalBody').load('{% url "militares:equipamento_troca_oleo_delete" 0 %}'.replace('0', pk));
+    $('#excluirTrocaOleoModal').modal('show');
+}
+
+$('#trocaOleoModal').on('hidden.bs.modal', function () {
+    $('#trocaOleoModalLabel').text('Nova Troca de Óleo');
+});
+
+$('#detalhesTrocaOleoModal').on('hidden.bs.modal', function () {
+    $('#detalhesTrocaOleoModalBody').empty();
+});
+
+$('#excluirTrocaOleoModal').on('hidden.bs.modal', function () {
+    $('#excluirTrocaOleoModalBody').empty();
+});
+</script>
+{% endblock %}
+

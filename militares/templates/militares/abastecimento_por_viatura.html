@@ -1,0 +1,317 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load money_filters %}
+
+{% block title %}Abastecimentos - {{ viatura.placa }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-gas-pump me-2 text-primary"></i>Abastecimentos - {{ viatura.placa }}
+                    </h2>
+                    <p class="text-muted mb-0">
+                        Histórico de abastecimentos da viatura {{ viatura.placa }}
+                        {% if viatura.prefixo %}({{ viatura.prefixo }}){% endif %}
+                    </p>
+                </div>
+                <div>
+                    <a href="{% url 'militares:abastecimento_create' %}?viatura={{ viatura.pk }}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Novo Abastecimento
+                    </a>
+                    {% if funcoes_usuario %}
+                    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#modalGerarPDFHistorico">
+                        <i class="fas fa-file-pdf me-2"></i>Gerar PDF do Histórico
+                    </button>
+                    {% endif %}
+                    <a href="{% url 'militares:viatura_detail' viatura.pk %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Voltar para Viatura
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Filtros de Período -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros de Período
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Data Início</label>
+                            <input type="date" name="data_inicio" class="form-control" value="{{ data_inicio }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Data Fim</label>
+                            <input type="date" name="data_fim" class="form-control" value="{{ data_fim }}">
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                            <a href="{% url 'militares:abastecimento_por_viatura' viatura.pk %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Limpar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Estatísticas -->
+            <div class="row mb-4">
+                <div class="col-md-2">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-gas-pump fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_litros|floatformat:0 }}</h4>
+                            <p class="mb-0"><small>Total de Litros</small></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card stats-card success">
+                        <div class="card-body text-center">
+                            <i class="fas fa-dollar-sign fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_valor_combustivel|currency_br }}</h4>
+                            <p class="mb-0"><small>Total Combustível</small></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card stats-card" style="background-color: #17a2b8; color: white;">
+                        <div class="card-body text-center">
+                            <i class="fas fa-flask fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_valor_aditivo|currency_br }}</h4>
+                            <p class="mb-0"><small>Total Aditivos</small></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card stats-card info">
+                        <div class="card-body text-center">
+                            <i class="fas fa-chart-line fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ media_valor_litro|currency_br }}</h4>
+                            <p class="mb-0"><small>Média por Litro</small></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                        <div class="card-body text-center">
+                            <i class="fas fa-road fa-2x mb-2"></i>
+                            <h4 class="mb-1">
+                                {% if consumo_medio_km_litro %}
+                                    {{ consumo_medio_km_litro|floatformat:2 }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </h4>
+                            <p class="mb-0">KM por Litro</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Lista de Abastecimentos -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Histórico de Abastecimentos
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if abastecimentos %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Data/Hora</th>
+                                        <th>Quantidade (L)</th>
+                                        <th>Valor/Litro</th>
+                                        <th>Valor Total</th>
+                                        <th>KM</th>
+                                        <th>Tipo</th>
+                                        <th>Posto/Fornecedor</th>
+                                        <th>Responsável</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for abastecimento in abastecimentos %}
+                                        <tr>
+                                            <td>{{ abastecimento.data_abastecimento|date:"d/m/Y H:i" }}</td>
+                                            <td>{{ abastecimento.quantidade_litros|floatformat:2 }}</td>
+                                            <td>{{ abastecimento.valor_litro|currency_br }}</td>
+                                            <td class="fw-bold text-success">{{ abastecimento.valor_total|currency_br }}</td>
+                                            <td>{{ abastecimento.km_abastecimento|floatformat:0 }}</td>
+                                            <td>
+                                                <span class="badge bg-info">{{ abastecimento.get_tipo_combustivel_display }}</span>
+                                            </td>
+                                            <td>{{ abastecimento.posto_fornecedor|default:"-" }}</td>
+                                            <td>
+                                                {% if abastecimento.responsavel %}
+                                                    {{ abastecimento.responsavel.get_posto_graduacao_display }} {{ abastecimento.responsavel.nome_completo }}
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    <a href="{% url 'militares:abastecimento_detail' abastecimento.pk %}" 
+                                                       class="btn btn-sm btn-outline-info" title="Ver detalhes">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                    <a href="{% url 'militares:abastecimento_update' abastecimento.pk %}" 
+                                                       class="btn btn-sm btn-outline-primary" title="Editar">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if abastecimentos.has_other_pages %}
+                            <nav aria-label="Paginação">
+                                <ul class="pagination justify-content-center">
+                                    {% if abastecimentos.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1">Primeira</a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ abastecimentos.previous_page_number }}">Anterior</a>
+                                        </li>
+                                    {% endif %}
+                                    
+                                    <li class="page-item active">
+                                        <span class="page-link">
+                                            Página {{ abastecimentos.number }} de {{ abastecimentos.paginator.num_pages }}
+                                        </span>
+                                    </li>
+                                    
+                                    {% if abastecimentos.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ abastecimentos.next_page_number }}">Próxima</a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ abastecimentos.paginator.num_pages }}">Última</a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>Nenhum abastecimento registrado para esta viatura.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Gerar PDF do Histórico com Assinatura -->
+{% if funcoes_usuario %}
+<div class="modal fade" id="modalGerarPDFHistorico" tabindex="-1" aria-labelledby="modalGerarPDFHistoricoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="modalGerarPDFHistoricoLabel">
+                    <i class="fas fa-file-pdf me-2"></i>Gerar PDF do Histórico de Abastecimentos
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">Configure o período e a função para assinatura do histórico de abastecimentos da viatura <strong>{{ viatura.placa }}</strong>:</p>
+                
+                <div class="mb-3">
+                    <label for="data_inicio_pdf" class="form-label"><strong>Data Início do Período *</strong></label>
+                    <input type="date" class="form-control" id="data_inicio_pdf" name="data_inicio_pdf" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="data_fim_pdf" class="form-label"><strong>Data Fim do Período *</strong></label>
+                    <input type="date" class="form-control" id="data_fim_pdf" name="data_fim_pdf" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="funcao_assinatura_historico" class="form-label"><strong>Função para Assinatura *</strong></label>
+                    <select class="form-select" id="funcao_assinatura_historico" name="funcao_assinatura_historico" required>
+                        <option value="">Selecione uma função...</option>
+                        {% for ufm in funcoes_usuario %}
+                            <option value="{{ ufm.funcao_militar.nome }}">
+                                {{ ufm.funcao_militar.nome }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Atenção:</strong> O PDF será gerado com assinatura eletrônica. Certifique-se de que o período está correto.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-danger" id="btnGerarPDFHistoricoAssinado">
+                    <i class="fas fa-file-pdf me-1"></i>Gerar PDF Assinado
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const btnGerarPDFHistorico = document.getElementById('btnGerarPDFHistoricoAssinado');
+    if (btnGerarPDFHistorico) {
+        btnGerarPDFHistorico.addEventListener('click', function() {
+            const dataInicio = document.getElementById('data_inicio_pdf').value;
+            const dataFim = document.getElementById('data_fim_pdf').value;
+            const funcaoAssinatura = document.getElementById('funcao_assinatura_historico').value;
+            
+            if (!dataInicio || !dataFim || !funcaoAssinatura) {
+                alert('Por favor, preencha todos os campos.');
+                return;
+            }
+            
+            if (new Date(dataInicio) > new Date(dataFim)) {
+                alert('A data de início deve ser anterior ou igual à data de fim.');
+                return;
+            }
+            
+            // Gerar URL com parâmetros
+            const url = '{% url "militares:historico_abastecimento_pdf" viatura.pk %}';
+            const params = new URLSearchParams({
+                'data_inicio': dataInicio,
+                'data_fim': dataFim,
+                'funcao_assinatura': funcaoAssinatura
+            });
+            
+            // Abrir PDF em nova aba
+            window.open(url + '?' + params.toString(), '_blank');
+            
+            // Fechar modal
+            const modalElement = document.getElementById('modalGerarPDFHistorico');
+            const modal = bootstrap.Modal.getInstance(modalElement);
+            if (modal) {
+                modal.hide();
+            }
+        });
+    }
+});
+</script>
+{% endif %}
+{% endblock %}
+

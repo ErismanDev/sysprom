@@ -1,0 +1,434 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load militares_extras %}
+
+{% block title %}{{ funcao.nome }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Cabeçalho Principal -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="fas fa-users-cog text-primary"></i> {{ funcao.nome }}
+            </h1>
+        <div class="btn-group">
+            {% if user.is_superuser %}
+                <a href="{% url 'militares:gerenciar_permissoes_unificado' funcao.id %}" class="btn btn-success">
+                    <i class="fas fa-key"></i> Gerenciar Permissões
+                </a>
+                <a href="{% url 'militares:funcoes_militares_update' funcao.id %}" class="btn btn-primary">
+                    <i class="fas fa-edit"></i> Editar
+                </a>
+                <a href="{% url 'militares:funcoes_militares_delete' funcao.id %}" class="btn btn-danger">
+                    <i class="fas fa-trash"></i> Excluir
+                </a>
+            {% endif %}
+            <a href="{% url 'militares:funcoes_militares_list' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Voltar
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Informações Principais -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle"></i> Informações da Função
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Nome da Função</h6>
+                            <p class="mb-3">{{ funcao.nome }}</p>
+                            
+                            <h6 class="text-muted">Descrição</h6>
+                            <p class="mb-3">{{ funcao.descricao|default:"Sem descrição" }}</p>
+                            
+                            <h6 class="text-muted">Ordem de Exibição</h6>
+                            <p class="mb-3">{{ funcao.ordem }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Status</h6>
+                            <p class="mb-3">
+                                <span class="badge bg-{% if funcao.ativo %}success{% else %}danger{% endif %}">
+                                    {% if funcao.ativo %}Ativo{% else %}Inativo{% endif %}
+                                </span>
+                            </p>
+                            
+                            <h6 class="text-muted">Data de Criação</h6>
+                            <p class="mb-3">{{ funcao.data_criacao|date:"d/m/Y H:i" }}</p>
+                            
+                            <h6 class="text-muted">Última Atualização</h6>
+                            <p class="mb-3">{{ funcao.data_atualizacao|date:"d/m/Y H:i" }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configurações de Acesso -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-shield-alt"></i> Configurações de Acesso
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Acesso/Sigilo</h6>
+                            <p class="mb-3">
+                            <span class="badge bg-{% if funcao.acesso_sigilo == 'NEGADO' %}danger{% elif funcao.acesso_sigilo == 'RESTRITO' %}warning{% elif funcao.acesso_sigilo == 'CONFIDENCIAL' %}info{% elif funcao.acesso_sigilo == 'SECRETO' %}primary{% else %}dark{% endif %}">
+                                {{ funcao.acesso_sigilo_display }}
+                            </span>
+                        </p>
+
+                            <h6 class="text-muted">Nível de Acesso</h6>
+                            <p class="mb-3">
+                                <span class="badge bg-{% if funcao.acesso == 'TOTAL' %}success{% elif funcao.acesso == 'DEPARTAMENTO' %}warning{% elif funcao.acesso == 'UNIDADE' %}info{% elif funcao.acesso == 'ORGAO' %}primary{% elif funcao.acesso == 'SECAO' %}secondary{% else %}dark{% endif %}">
+                                    {{ funcao.acesso_display }}
+                                </span>
+                            </p>
+                    </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Nível Hierárquico</h6>
+                            <p class="mb-3">
+                                <span class="badge bg-primary">{{ funcao.nivel }}</span>
+                            </p>
+                            
+                            <h6 class="text-muted">Grupo</h6>
+                            <p class="mb-3">
+                                <span class="badge bg-{% if funcao.grupo == 'ADMINISTRATIVO' %}primary{% elif funcao.grupo == 'OPERACIONAL' %}success{% elif funcao.grupo == 'COMISSAO' %}info{% elif funcao.grupo == 'GESTAO' %}warning{% else %}secondary{% endif %}">
+                                    {{ funcao.grupo_display }}
+                                </span>
+                            </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+            <!-- Configurações de Publicação -->
+            <div class="card mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="fas fa-file-alt"></i> Configurações de Publicação
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <h6 class="text-muted">Nível de Publicação</h6>
+                            <p class="mb-3">
+                                <span class="badge bg-{% if funcao.publicacao == 'EDITOR_GERAL' %}danger{% elif funcao.publicacao == 'EDITOR_ADJUNTO' %}dark{% elif funcao.publicacao == 'EDITOR' %}primary{% elif funcao.publicacao == 'APROVADOR' %}warning{% elif funcao.publicacao == 'REVISOR' %}info{% elif funcao.publicacao == 'DIGITADOR' %}success{% else %}secondary{% endif %}">
+                                {{ funcao.publicacao_display }}
+                            </span>
+                        </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Estatísticas e Usuários -->
+        <div class="col-lg-4">
+            <!-- Estatísticas -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-bar"></i> Estatísticas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <h3 class="text-primary">{{ total_usuarios }}</h3>
+                            <p class="text-muted mb-0">Total Usuários</p>
+                        </div>
+                        <div class="col-6">
+                            <h3 class="text-success">{{ usuarios_ativos }}</h3>
+                            <p class="text-muted mb-0">Ativos</p>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <h3 class="text-warning">{{ usuarios_inativos }}</h3>
+                            <p class="text-muted mb-0">Inativos</p>
+                        </div>
+                        <div class="col-6">
+                            <h3 class="text-info">{{ funcao.id }}</h3>
+                            <p class="text-muted mb-0">ID</p>
+                        </div>
+                    </div>
+                </div>
+                    </div>
+
+            <!-- Usuários com esta Função -->
+            {% if usuarios_com_funcao %}
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-users"></i> Usuários com esta Função
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        {% for usuario_funcao in usuarios_com_funcao %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">{{ usuario_funcao.usuario.get_full_name|default:usuario_funcao.usuario.username }}</h6>
+                                <small class="text-muted">{{ usuario_funcao.cargo_funcao.nome }}</small>
+                            </div>
+                            <span class="badge bg-{% if usuario_funcao.status == 'ATIVO' %}success{% else %}danger{% endif %}">
+                                {{ usuario_funcao.get_status_display }}
+                            </span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if total_usuarios > 10 %}
+                    <div class="text-center mt-3">
+                        <small class="text-muted">Mostrando 10 de {{ total_usuarios }} usuários</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Histórico de Alterações -->
+            {% if historico_alteracoes %}
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history"></i> Histórico
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        {% for alteracao in historico_alteracoes %}
+                        <div class="list-group-item">
+                            <h6 class="mb-1">{{ alteracao.acao }}</h6>
+                            <small class="text-muted">{{ alteracao.data|date:"d/m/Y H:i" }}</small>
+                            <p class="mb-0">{{ alteracao.descricao }}</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Acordeon de Afastamentos -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="accordion" id="afastamentosAccordion">
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="afastamentosHeader">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#afastamentosCollapse" aria-expanded="false" aria-controls="afastamentosCollapse">
+                            <i class="fas fa-ban me-2 text-warning"></i>Afastamentos dos Militares desta Função
+                            {% if afastamentos_funcao %}
+                            <span class="badge bg-warning ms-2">{{ total_afastamentos }}</span>
+                            {% endif %}
+                        </button>
+                    </h2>
+                    <div id="afastamentosCollapse" class="accordion-collapse collapse" aria-labelledby="afastamentosHeader" data-bs-parent="#afastamentosAccordion">
+                        <div class="accordion-body">
+                            <!-- Estatísticas -->
+                            <div class="row mb-3">
+                                <div class="col-md-3">
+                                    <div class="card bg-success text-white">
+                                        <div class="card-body text-center">
+                                            <h4>{{ afastamentos_ativos|length }}</h4>
+                                            <p class="mb-0">Ativos</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-secondary text-white">
+                                        <div class="card-body text-center">
+                                            <h4>{{ afastamentos_encerrados|length }}</h4>
+                                            <p class="mb-0">Encerrados</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-danger text-white">
+                                        <div class="card-body text-center">
+                                            <h4>{{ afastamentos_cancelados|length }}</h4>
+                                            <p class="mb-0">Cancelados</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-info text-white">
+                                        <div class="card-body text-center">
+                                            <h4>{{ total_afastamentos }}</h4>
+                                            <p class="mb-0">Total</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Tabela de Afastamentos -->
+                            {% if afastamentos_funcao %}
+                            <div class="d-flex justify-content-end mb-3">
+                                {% if menu_permissions.show_afastamentos %}
+                                <a href="{% url 'militares:afastamento_list' %}" class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-list me-1"></i>Ver Todos os Afastamentos
+                                </a>
+                                {% endif %}
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-hover table-sm">
+                                    <thead class="table-warning">
+                                        <tr>
+                                            <th><i class="fas fa-user me-1"></i>Militar</th>
+                                            <th><i class="fas fa-list me-1"></i>Situação</th>
+                                            <th><i class="fas fa-info-circle me-1"></i>Status</th>
+                                            <th><i class="fas fa-calendar me-1"></i>Período</th>
+                                            <th><i class="fas fa-clock me-1"></i>Duração</th>
+                                            <th><i class="fas fa-cogs me-1"></i>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for afastamento in afastamentos_funcao %}
+                                        <tr class="{% if afastamento.status == 'ATIVO' %}table-warning{% elif afastamento.status == 'ENCERRADO' %}table-secondary{% else %}table-danger{% endif %}">
+                                            <td>
+                                                <div class="d-flex flex-column">
+                                                    <strong class="text-primary">
+                                                        {{ afastamento.militar.get_posto_graduacao_display }} {{ afastamento.militar.nome_guerra }}
+                                                    </strong>
+                                                    <small class="text-muted">Mat: {{ afastamento.militar.matricula }}</small>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="text-primary">
+                                                    {{ afastamento.get_tipo_afastamento_display|after_slash }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                {% if afastamento.status == 'ATIVO' %}
+                                                    <span class="badge bg-success">{{ afastamento.status_display }}</span>
+                                                {% elif afastamento.status == 'ENCERRADO' %}
+                                                    <span class="badge bg-secondary">{{ afastamento.status_display }}</span>
+                                                {% elif afastamento.status == 'CANCELADO' %}
+                                                    <span class="badge bg-danger">{{ afastamento.status_display }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="d-flex flex-column">
+                                                    <small class="text-muted">
+                                                        <i class="fas fa-calendar-alt me-1"></i>
+                                                        <strong>Início:</strong> {{ afastamento.data_inicio|date:"d/m/Y" }}
+                                                    </small>
+                                                    {% if afastamento.data_fim_real %}
+                                                        <small class="text-success">
+                                                            <i class="fas fa-calendar-check me-1"></i>
+                                                            <strong>Fim:</strong> {{ afastamento.data_fim_real|date:"d/m/Y" }}
+                                                        </small>
+                                                    {% elif afastamento.data_fim_prevista %}
+                                                        <small class="text-info">
+                                                            <i class="fas fa-calendar-times me-1"></i>
+                                                            <strong>Previsto:</strong> {{ afastamento.data_fim_prevista|date:"d/m/Y" }}
+                                                        </small>
+                                                    {% else %}
+                                                        <small class="text-warning">
+                                                            <i class="fas fa-infinity me-1"></i>
+                                                            <strong>Fim:</strong> Indefinido
+                                                        </small>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="d-flex flex-column">
+                                                    <span class="fw-bold text-primary">{{ afastamento.duracao_formatada }}</span>
+                                                    <small class="badge bg-info text-white">{{ afastamento.duracao_dias }} dias</small>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm" role="group">
+                                                    <a href="{% url 'militares:afastamento_detail' afastamento.pk %}" class="btn btn-outline-info" title="Visualizar">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                    {% if menu_permissions.show_afastamentos %}
+                                                    <a href="{% url 'militares:afastamento_update' afastamento.pk %}" class="btn btn-outline-primary" title="Editar">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                    {% endif %}
+                                                    <a href="{% url 'militares:militar_detail' afastamento.militar.pk %}" class="btn btn-outline-secondary" title="Ver Militar">
+                                                        <i class="fas fa-user"></i>
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% if total_afastamentos > 20 %}
+                            <div class="text-center mt-3">
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Mostrando 20 de {{ total_afastamentos }} afastamento(s) mais recentes
+                                </small>
+                            </div>
+                            {% endif %}
+                            {% else %}
+                            <div class="text-center text-muted py-4">
+                                <i class="fas fa-ban fa-3x mb-3" style="opacity: 0.3;"></i>
+                                <p class="mb-2">Nenhum afastamento registrado</p>
+                                <small>Os militares desta função não possuem afastamentos registrados</small>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.card-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.badge {
+    font-size: 0.875rem;
+}
+
+.list-group-item {
+    border-left: none;
+    border-right: none;
+}
+
+.list-group-item:first-child {
+    border-top: none;
+}
+
+.list-group-item:last-child {
+    border-bottom: none;
+}
+
+.text-muted {
+    color: #6c757d !important;
+}
+
+.btn-group .btn {
+    margin-right: 0.25rem;
+}
+
+.btn-group .btn:last-child {
+        margin-right: 0;
+}
+</style>
+{% endblock %}

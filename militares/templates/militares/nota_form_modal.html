@@ -1,0 +1,2077 @@
+<!-- Modal de Nova Nota -->
+<style>
+/* Estilos para o dropdown de origem no modal */
+#sugestoes_origem_modal {
+    border: 1px solid #dee2e6;
+    border-top: none;
+    border-radius: 0 0 0.375rem 0.375rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    background: white;
+    margin-top: 0;
+    top: 100%;
+    position: absolute;
+    z-index: 1050;
+    width: 100%;
+    left: 0;
+    display: none;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.sugestao-origem {
+    cursor: pointer;
+    padding: 0.5rem 0.75rem;
+    border: none;
+    border-bottom: 1px solid #f8f9fa;
+}
+
+.sugestao-origem:hover {
+    background-color: #f8f9fa;
+}
+
+.sugestao-origem:last-child {
+    border-bottom: none;
+}
+
+.sugestao-origem h6 {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #495057;
+}
+</style>
+
+<div class="modal fade" id="novaNotaModal" tabindex="-1" aria-labelledby="novaNotaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="novaNotaModalLabel">
+                    <i class="fas fa-file-alt me-2"></i>
+                    Adicionar Publicação
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="notaForm" method="post" action="{% url 'militares:notas_create' %}">
+                    {% csrf_token %}
+                    
+                    <!-- Origem da Publicação -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label for="origem_publicacao" class="form-label">
+                                <i class="fas fa-building me-1"></i>
+                                Origem da Publicação
+                            </label>
+                            <div class="position-relative">
+                                <input type="text" class="form-control" id="origem_publicacao" name="origem_publicacao" 
+                                       placeholder="Digite para buscar..." required autocomplete="off">
+                                <div id="sugestoes_origem_modal" class="list-group position-absolute w-100" style="z-index: 1000; display: none; max-height: 200px; overflow-y: auto;">
+                                    <!-- Sugestões serão carregadas via JavaScript -->
+                                    <div class="list-group-item text-muted small">
+                                        <i class="fas fa-spinner fa-spin me-1"></i>
+                                        Carregando organograma...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Título da Publicação -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label for="titulo" class="form-label">
+                                <i class="fas fa-heading me-1"></i>
+                                Título da Publicação
+                            </label>
+                            <div class="position-relative">
+                                <input type="text" class="form-control" id="titulo" name="titulo" 
+                                       placeholder="Digite para buscar..." required autocomplete="off">
+                                <div id="sugestoes_titulo" class="list-group position-absolute w-100" style="z-index: 1000; display: none; max-height: 200px; overflow-y: auto;">
+                                {% for titulo in titulos_publicacao %}
+                                    <button type="button" class="list-group-item list-group-item-action sugestao-titulo" 
+                                            data-value="{{ titulo.titulo }}" data-id="{{ titulo.id }}">
+                                        <div class="d-flex w-100 justify-content-between align-items-center">
+                                            <div class="flex-grow-1">
+                                                <h6 class="mb-1">{{ titulo.titulo }}</h6>
+                                            </div>
+                                            <div class="ms-2">
+                                                {% if titulo.tipo == 'OSTENSIVO' %}
+                                                    <span class="badge bg-success">
+                                                        <i class="fas fa-eye me-1"></i>
+                                                        Ostensivo
+                                                    </span>
+                                                {% elif titulo.tipo == 'RESERVADO' %}
+                                                    <span class="badge bg-warning">
+                                                        <i class="fas fa-lock me-1"></i>
+                                                        Reservado
+                                                    </span>
+                                                {% elif titulo.tipo == 'ESPECIAL' %}
+                                                    <span class="badge bg-danger">
+                                                        <i class="fas fa-star me-1"></i>
+                                                        Especial
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">
+                                                        <i class="fas fa-tag me-1"></i>
+                                                        {{ titulo.get_tipo_display }}
+                                                    </span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </button>
+                                {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tipo de Publicação -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label for="tipo_publicacao" class="form-label">
+                                <i class="fas fa-tag me-1"></i>
+                                Tipo de Publicação
+                                <small class="text-muted ms-2">(Editável - orienta o envio da nota)</small>
+                            </label>
+                            <div class="position-relative">
+                                <input type="text" class="form-control" id="tipo_publicacao" name="tipo_publicacao" 
+                                       placeholder="Ex: Ostensivo, Reservado, Especial..." autocomplete="off" 
+                                       title="Campo editável - orienta o envio da nota de acordo com o tipo de boletim">
+                                <div id="sugestoes_tipo_publicacao" class="list-group position-absolute w-100" style="z-index: 1000; display: none; max-height: 200px; overflow-y: auto;">
+                                    <button type="button" class="list-group-item list-group-item-action sugestao-tipo-publicacao" 
+                                            data-value="Ostensivo">
+                                        <i class="fas fa-eye me-2 text-success"></i>
+                                        Ostensivo
+                                    </button>
+                                    <button type="button" class="list-group-item list-group-item-action sugestao-tipo-publicacao" 
+                                            data-value="Reservado">
+                                        <i class="fas fa-lock me-2 text-warning"></i>
+                                        Reservado
+                                    </button>
+                                    <button type="button" class="list-group-item list-group-item-action sugestao-tipo-publicacao" 
+                                            data-value="Especial">
+                                        <i class="fas fa-star me-2 text-danger"></i>
+                                        Especial
+                                    </button>
+                                    <div class="list-group-item text-muted small">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Outros tipos podem ser digitados livremente
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tópicos -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label for="topicos" class="form-label">
+                                <i class="fas fa-list me-1"></i>
+                                Tópicos
+                            </label>
+                            <input type="text" class="form-control" id="topicos" name="topicos" 
+                                   placeholder="Ex: 1ª PARTE - SERVIÇOS DIÁRIOS" autocomplete="off">
+                        </div>
+                    </div>
+
+                    <!-- Instrução para adicionar nomes -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <p class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Depois de criar o texto da publicação clique em 
+                                <span class="badge bg-info text-white">
+                                    <i class="fas fa-user-plus me-1"></i>
+                                    Adicionar Nomes
+                                </span> 
+                                para adicionar nomes.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Conteúdo da Publicação -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label for="conteudo" class="form-label">
+                                <i class="fas fa-file-text me-1"></i>
+                                Conteúdo da Publicação
+                            </label>
+                            <div class="editor-container">
+                                <!-- Toolbar do Editor -->
+                                <div class="editor-toolbar">
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCommand('undo')" title="Desfazer">
+                                            <i class="fas fa-undo"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCommand('redo')" title="Refazer">
+                                            <i class="fas fa-redo"></i>
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCommand('bold')" title="Negrito">
+                                            <i class="fas fa-bold"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCommand('italic')" title="Itálico">
+                                            <i class="fas fa-italic"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCommand('underline')" title="Sublinhado">
+                                            <i class="fas fa-underline"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCommand('strikeThrough')" title="Riscado">
+                                            <i class="fas fa-strikethrough"></i>
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="btn-group" role="group">
+                                        <select class="form-select form-select-sm" onchange="formatText('fontSize', this.value)" title="Tamanho da Fonte">
+                                            <option value="">Tamanho</option>
+                                            <option value="1">8px</option>
+                                            <option value="2">10px</option>
+                                            <option value="3">12px</option>
+                                            <option value="4">14px</option>
+                                            <option value="5">18px</option>
+                                            <option value="6">24px</option>
+                                            <option value="7">36px</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="btn-group" role="group">
+                                        <select class="form-select form-select-sm" onchange="formatText('fontFamily', this.value)" title="Fonte">
+                                            <option value="">Fonte</option>
+                                            <option value="Arial">Arial</option>
+                                            <option value="Times New Roman">Times New Roman</option>
+                                            <option value="Courier New">Courier New</option>
+                                            <option value="Georgia">Georgia</option>
+                                            <option value="Verdana">Verdana</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCommand('justifyLeft')" title="Alinhar à Esquerda">
+                                            <i class="fas fa-align-left"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCommand('justifyCenter')" title="Centralizar">
+                                            <i class="fas fa-align-center"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCommand('justifyRight')" title="Alinhar à Direita">
+                                            <i class="fas fa-align-right"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCommand('justifyFull')" title="Justificar">
+                                            <i class="fas fa-align-justify"></i>
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCommand('insertUnorderedList')" title="Lista com Marcadores">
+                                            <i class="fas fa-list-ul"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCommand('insertOrderedList')" title="Lista Numerada">
+                                            <i class="fas fa-list-ol"></i>
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCommand('outdent')" title="Diminuir Recuo">
+                                            <i class="fas fa-outdent"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCommand('indent')" title="Aumentar Recuo">
+                                            <i class="fas fa-indent"></i>
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCommand('createLink')" title="Inserir Link">
+                                            <i class="fas fa-link"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCommand('insertHorizontalRule')" title="Linha Horizontal">
+                                            <i class="fas fa-minus"></i>
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="btn-group" role="group">
+                                        <input type="color" class="form-control form-control-sm" style="width: 40px; height: 31px;" 
+                                               onchange="formatText('foreColor', this.value)" title="Cor do Texto">
+                                        <input type="color" class="form-control form-control-sm" style="width: 40px; height: 31px;" 
+                                               onchange="formatText('backColor', this.value)" title="Cor de Fundo">
+                                    </div>
+                                    
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-sm btn-outline-success" onclick="salvarModelo()" title="Salvar Modelo">
+                                            <i class="fas fa-save"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-info" onclick="carregarModelo()" title="Carregar Modelo">
+                                            <i class="fas fa-folder-open"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="abrirGerenciarModelos()" title="Gerenciar Modelos">
+                                            <i class="fas fa-cog"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-warning" onclick="limparEditor()" title="Limpar Editor">
+                                            <i class="fas fa-eraser"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- Área de Edição -->
+                                <div class="editor-content" id="editor-content" contenteditable="true" 
+                                     style="min-height: 400px; border: 1px solid #ced4da; padding: 15px; background: white;"
+                                     placeholder="Digite o conteúdo da publicação aqui..."></div>
+                                
+                                <!-- Campo Hidden para Envio -->
+                                <textarea id="conteudo" name="conteudo" style="display: none;"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Anexos -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label">
+                                <i class="fas fa-paperclip me-1"></i>
+                                Anexos
+                            </label>
+                            
+                            <!-- Área de Upload -->
+                            <div class="border border-2 border-dashed rounded p-3 mb-3" id="anexos-upload-area">
+                                <div class="text-center">
+                                    <i class="fas fa-file-pdf fa-2x text-danger mb-2"></i>
+                                    <p class="text-muted mb-2">Arraste arquivos PDF aqui ou clique para selecionar</p>
+                                    <input type="file" id="anexos-input" multiple accept=".pdf" style="display: none;">
+                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="document.getElementById('anexos-input').click()">
+                                        <i class="fas fa-file-pdf me-1"></i>
+                                        Selecionar PDFs
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Lista de Anexos -->
+                            <div id="anexos-lista" class="mb-3">
+                                <!-- Anexos serão carregados aqui via AJAX -->
+                            </div>
+                            
+                            <div class="form-text">
+                                <i class="fas fa-file-pdf me-1"></i>
+                                Apenas arquivos PDF são permitidos (máx. 10MB cada)
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <div class="d-flex justify-content-end w-100">
+                    <div>
+                        <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-1"></i>
+                            Cancelar
+                        </button>
+                        <button type="button" class="btn btn-warning" id="salvarNota">
+                            <i class="fas fa-save me-1"></i>
+                            Salvar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Salvar Modelo -->
+<div class="modal fade" id="salvarModeloModal" tabindex="-1" aria-labelledby="salvarModeloModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="salvarModeloModalLabel">
+                    <i class="fas fa-save me-2"></i>
+                    Salvar Modelo de Nota
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formSalvarModelo">
+                    <div class="mb-3">
+                        <label for="nomeModelo" class="form-label">Nome do Modelo</label>
+                        <input type="text" class="form-control" id="nomeModelo" name="nome" 
+                               placeholder="Ex: Escala de Serviços, Portaria de Designação..." required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="descricaoModelo" class="form-label">Descrição (opcional)</label>
+                        <textarea class="form-control" id="descricaoModelo" name="descricao" rows="3" 
+                                  placeholder="Descreva quando usar este modelo..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Conteúdo do Modelo</label>
+                        <div class="border p-2 bg-light" style="max-height: 200px; overflow-y: auto;">
+                            <div id="previewModelo"></div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-success" onclick="confirmarSalvarModelo()">
+                    <i class="fas fa-save me-1"></i>
+                    Salvar Modelo
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Carregar Modelo -->
+<div class="modal fade" id="carregarModeloModal" tabindex="-1" aria-labelledby="carregarModeloModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="carregarModeloModalLabel">
+                    <i class="fas fa-folder-open me-2"></i>
+                    Carregar Modelo de Nota
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <input type="text" class="form-control" id="buscarModelo" placeholder="Buscar modelo..." 
+                           onkeyup="filtrarModelos()">
+                </div>
+                <div id="listaModelos" class="row">
+                    <!-- Modelos serão carregados aqui via JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>
+                    Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.editor-container {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#conteudo {
+    min-height: 300px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.5;
+}
+
+/* Estilo para o CKEditor */
+.ck-editor__editable {
+    min-height: 300px;
+    border-radius: 0 0 8px 8px;
+}
+
+.ck.ck-editor {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.ck.ck-toolbar {
+    border-radius: 8px 8px 0 0;
+}
+
+/* Estilos para os filtros de busca */
+.sugestao-origem, .sugestao-titulo {
+    border: none;
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.sugestao-origem:hover, 
+.sugestao-titulo:hover,
+.sugestao-tipo-publicacao:hover {
+    background-color: #e9ecef;
+}
+
+#sugestoes_origem, 
+#sugestoes_titulo,
+#sugestoes_tipo_publicacao {
+    border: 1px solid #dee2e6;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    background: white;
+}
+
+#sugestoes_origem .list-group-item:first-child,
+#sugestoes_titulo .list-group-item:first-child,
+#sugestoes_tipo_publicacao .list-group-item:first-child {
+    border-top: none;
+}
+
+#sugestoes_origem .list-group-item:last-child,
+#sugestoes_titulo .list-group-item:last-child,
+#sugestoes_tipo_publicacao .list-group-item:last-child {
+    border-bottom: none;
+    border-radius: 0 0 8px 8px;
+}
+</style>
+
+<script>
+let editorInstance = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar editor personalizado quando o modal for aberto
+    const modal = document.getElementById('novaNotaModal');
+    if (modal) {
+        modal.addEventListener('shown.bs.modal', function() {
+            console.log('🔄 Modal aberto, inicializando editor e filtros...');
+            inicializarEditorPersonalizado();
+            inicializarFiltros();
+            inicializarAnexos();
+        });
+    } else {
+        console.error('❌ Modal novaNotaModal não encontrado');
+    }
+    
+    // Sincronizar editor personalizado antes do envio do formulário
+    modal.addEventListener('submit', function(e) {
+        syncEditorContent();
+        console.log('Editor personalizado sincronizado antes do envio');
+    });
+    
+    // Limpar editor quando modal for fechado
+    modal.addEventListener('hidden.bs.modal', function() {
+        // Limpar conteúdo do editor personalizado
+        document.getElementById('editor-content').innerHTML = '';
+        document.getElementById('conteudo').value = '';
+        console.log('Editor personalizado limpo');
+    });
+    
+    // Funcionalidade do botão Salvar
+    document.getElementById('salvarNota').addEventListener('click', function(e) {
+        // Verificar se estamos em modo de edição
+        const modalLabel = document.getElementById('novaNotaModalLabel');
+        const isEditMode = modalLabel && modalLabel.innerHTML.includes('Editar Nota');
+        const btnEditMode = this.getAttribute('data-edit-mode') === 'true';
+        const notaId = this.getAttribute('data-nota-id');
+        
+        console.log('🔍 Botão salvar clicado - Modo edição:', isEditMode, 'Btn edit mode:', btnEditMode, 'Nota ID:', notaId);
+        
+        if (isEditMode || btnEditMode) {
+            // Em modo de edição, chamar função de edição
+            console.log('🔧 Modo de edição detectado - executando edição');
+            console.log('🔧 Dados do botão:', {
+                isEditMode,
+                btnEditMode,
+                notaId,
+                titulo: this.innerHTML,
+                dataAttributes: {
+                    editMode: this.getAttribute('data-edit-mode'),
+                    notaId: this.getAttribute('data-nota-id')
+                }
+            });
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            if (notaId) {
+                console.log('🔧 Chamando salvarEdicaoNota com ID:', notaId);
+                // Verificar se a função existe
+                if (typeof salvarEdicaoNota === 'function') {
+                    salvarEdicaoNota(notaId);
+                } else {
+                    console.error('❌ Função salvarEdicaoNota não encontrada');
+                    // Implementar edição diretamente aqui
+                    editarNotaDiretamente(notaId);
+                }
+            } else {
+                console.error('❌ ID da nota não encontrado para edição');
+                console.log('🔧 Tentando obter ID do botão atual:', this);
+                console.log('🔧 Atributos do botão:', this.attributes);
+            }
+            return false;
+        }
+        
+        // Modo de criação - validar campos obrigatórios
+        const origem = document.getElementById('origem_publicacao').value;
+        const titulo = document.getElementById('titulo').value;
+        let conteudo = '';
+        
+        // Obter conteúdo do editor
+        if (editorInstance) {
+            conteudo = editorInstance.getData();
+        } else {
+            conteudo = document.getElementById('conteudo').value;
+        }
+        
+        if (!origem || !titulo || !conteudo.trim()) {
+            mostrarModalErro('Campos Obrigatórios', 'Por favor, preencha todos os campos obrigatórios.');
+            return;
+        }
+        
+        // Atualizar o textarea com o conteúdo do editor
+        if (editorInstance) {
+            document.getElementById('conteudo').value = conteudo;
+        }
+        
+           // Enviar formulário via AJAX para criação
+           enviarFormularioCriacao();
+    });
+});
+
+// Função para editar nota diretamente (fallback)
+function editarNotaDiretamente(notaId) {
+    console.log('🔧 Editando nota diretamente com ID:', notaId);
+    
+    // Coletar dados do formulário
+    const titulo = document.getElementById('titulo').value;
+    const origem = document.getElementById('origem_publicacao').value;
+    const tipo = document.getElementById('tipo_publicacao').value;
+    const topicos = document.getElementById('topicos').value;
+    const conteudo = document.getElementById('editor-content').innerHTML;
+    
+    console.log('📝 Dados coletados para edição:');
+    console.log('  - Título:', titulo);
+    console.log('  - Origem:', origem);
+    console.log('  - Tipo:', tipo);
+    console.log('  - Tópicos:', topicos);
+    console.log('  - Conteúdo (primeiros 100 chars):', conteudo.substring(0, 100) + '...');
+    
+    const formData = new FormData();
+    formData.append('titulo', titulo);
+    formData.append('origem_publicacao', origem);
+    formData.append('tipo_publicacao', tipo);
+    formData.append('topicos', topicos);
+    formData.append('conteudo', conteudo);
+    
+    console.log('📤 Enviando dados para edição...');
+    
+    // Enviar dados
+    fetch(`/militares/notas/${notaId}/editar-ajax/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+        },
+        body: formData
+    })
+    .then(response => {
+        console.log('📡 Resposta recebida:', response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log('📊 Dados da resposta:', data);
+        if (data.success) {
+            console.log('✅ Nota atualizada com sucesso!');
+            
+            // Mostrar modal de sucesso
+            console.log('🔔 Tentando mostrar modal de sucesso...');
+            if (typeof mostrarModalSucesso === 'function') {
+                mostrarModalSucesso('Nota Atualizada!', 'A nota foi atualizada com sucesso no sistema.');
+                console.log('✅ Modal de sucesso chamado');
+            } else {
+                console.error('❌ Função mostrarModalSucesso não encontrada');
+                mostrarModalSucesso('Nota Atualizada!', 'A nota foi atualizada com sucesso!');
+            }
+            
+            // Fechar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('novaNotaModal'));
+            modal.hide();
+            
+            // Restaurar título e botão do modal
+            document.getElementById('novaNotaModalLabel').innerHTML = '<i class="fas fa-plus me-2"></i>Nova Nota';
+            const btnSalvar = document.querySelector('#novaNotaModal .btn-primary');
+            btnSalvar.innerHTML = '<i class="fas fa-save me-1"></i>Salvar Nota';
+            btnSalvar.removeAttribute('data-edit-mode');
+            btnSalvar.removeAttribute('data-nota-id');
+            
+            // Recarregar página após um pequeno delay
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        } else {
+            console.error('❌ Erro ao atualizar nota:', data.error);
+            if (typeof mostrarModalErro === 'function') {
+                mostrarModalErro('Erro ao Atualizar', 'Não foi possível atualizar a nota: ' + data.error);
+            } else {
+                mostrarModalErro('Erro ao Atualizar', 'Erro ao atualizar nota: ' + data.error);
+            }
+        }
+    })
+    .catch(error => {
+        console.error('❌ Erro na requisição:', error);
+        if (typeof mostrarModalErro === 'function') {
+            mostrarModalErro('Erro de Conexão', 'Erro ao atualizar nota. Tente novamente.');
+        } else {
+            mostrarModalErro('Erro de Conexão', 'Erro ao atualizar nota. Tente novamente.');
+        }
+    });
+}
+
+
+// Função para inicializar os filtros de busca
+        function inicializarFiltros() {
+            console.log('🔧 Inicializando filtros...');
+            const inputOrigem = document.getElementById('origem_publicacao');
+            const inputTitulo = document.getElementById('titulo');
+            const inputTipoPublicacao = document.getElementById('tipo_publicacao');
+            const sugestoesOrigem = document.getElementById('sugestoes_origem');
+            const sugestoesTitulo = document.getElementById('sugestoes_titulo');
+            const sugestoesTipoPublicacao = document.getElementById('sugestoes_tipo_publicacao');
+            
+            console.log('🔧 Elementos encontrados:', {
+                inputOrigem: !!inputOrigem,
+                inputTitulo: !!inputTitulo,
+                inputTipoPublicacao: !!inputTipoPublicacao,
+                sugestoesOrigem: !!sugestoesOrigem,
+                sugestoesTitulo: !!sugestoesTitulo,
+                sugestoesTipoPublicacao: !!sugestoesTipoPublicacao
+            });
+    
+    // Filtro para origem
+    if (inputOrigem && sugestoesOrigem) {
+        // Mostrar lista quando o campo recebe foco
+        inputOrigem.addEventListener('focus', function() {
+            sugestoesOrigem.style.display = 'block';
+            filtrarSugestoesOrigem();
+        });
+        
+        // Filtrar conforme digita
+        inputOrigem.addEventListener('input', function() {
+            filtrarSugestoesOrigem();
+        });
+        
+        function filtrarSugestoesOrigem() {
+            const valor = inputOrigem.value.toLowerCase();
+            const botoes = sugestoesOrigem.querySelectorAll('.sugestao-origem');
+            
+            botoes.forEach(botao => {
+                const texto = botao.textContent.toLowerCase();
+                if (texto.includes(valor)) {
+                    botao.style.display = 'block';
+                } else {
+                    botao.style.display = 'none';
+                }
+            });
+        }
+        
+        // Eventos para sugestões de origem
+        sugestoesOrigem.addEventListener('click', function(e) {
+            if (e.target.classList.contains('sugestao-origem')) {
+                inputOrigem.value = e.target.dataset.value;
+                sugestoesOrigem.style.display = 'none';
+            }
+        });
+        
+        // Ocultar sugestões ao clicar fora
+        document.addEventListener('click', function(e) {
+            if (!inputOrigem.contains(e.target) && !sugestoesOrigem.contains(e.target)) {
+                sugestoesOrigem.style.display = 'none';
+            }
+        });
+    }
+    
+    // Filtro para título
+    if (inputTitulo && sugestoesTitulo) {
+        console.log('🔧 Configurando filtro de título...');
+        
+        // Mostrar lista quando o campo recebe foco
+        inputTitulo.addEventListener('focus', function() {
+            console.log('🎯 Campo título recebeu foco');
+            sugestoesTitulo.style.display = 'block';
+            filtrarSugestoesTitulo();
+        });
+        
+        // Filtrar conforme digita
+        inputTitulo.addEventListener('input', function() {
+            console.log('⌨️ Digitando no campo título:', inputTitulo.value);
+            filtrarSugestoesTitulo();
+        });
+        
+        function filtrarSugestoesTitulo() {
+            const valor = inputTitulo.value.toLowerCase();
+            const botoes = sugestoesTitulo.querySelectorAll('.sugestao-titulo');
+            
+            console.log('🔍 Filtrando sugestões de título:', {
+                valor: valor,
+                totalBotoes: botoes.length
+            });
+            
+            botoes.forEach((botao, index) => {
+                const texto = botao.textContent.toLowerCase();
+                const deveMostrar = texto.includes(valor);
+                botao.style.display = deveMostrar ? 'block' : 'none';
+                
+                if (index < 3) { // Log apenas os primeiros 3 para debug
+                    console.log(`🔍 Botão ${index}: "${texto}" - Mostrar: ${deveMostrar}`);
+                }
+            });
+        }
+        
+        // Eventos para sugestões de título
+        sugestoesTitulo.addEventListener('click', function(e) {
+            console.log('🖱️ Clique detectado no elemento:', e.target);
+            console.log('🖱️ Classes do elemento:', e.target.classList);
+            console.log('🖱️ Dataset do elemento:', e.target.dataset);
+            
+            // Verificar se o clique foi em um elemento filho (div, span, etc.)
+            let elementoClicado = e.target;
+            while (elementoClicado && !elementoClicado.classList.contains('sugestao-titulo')) {
+                elementoClicado = elementoClicado.parentElement;
+            }
+            
+            if (elementoClicado && elementoClicado.classList.contains('sugestao-titulo')) {
+                console.log('🎯 Título clicado:', elementoClicado.dataset.value, 'ID:', elementoClicado.dataset.id);
+                inputTitulo.value = elementoClicado.dataset.value;
+                sugestoesTitulo.style.display = 'none';
+                
+                // Buscar detalhes do título selecionado
+                const tituloId = elementoClicado.dataset.id;
+                if (tituloId) {
+                    console.log('🚀 Chamando buscarDetalhesTitulo com ID:', tituloId);
+                    buscarDetalhesTitulo(tituloId);
+                } else {
+                    console.log('⚠️ Nenhum ID encontrado no elemento clicado');
+                }
+            } else {
+                console.log('❌ Elemento clicado não é uma sugestão de título');
+                console.log('❌ Elemento clicado:', e.target);
+                console.log('❌ Classes do elemento:', e.target.classList);
+                console.log('❌ Dataset do elemento:', e.target.dataset);
+            }
+        });
+        
+        // Ocultar sugestões ao clicar fora
+        document.addEventListener('click', function(e) {
+            if (!inputTitulo.contains(e.target) && !sugestoesTitulo.contains(e.target)) {
+                console.log('🖱️ Clicando fora, ocultando sugestões de título');
+                sugestoesTitulo.style.display = 'none';
+            }
+        });
+    }
+    
+    // Filtro para tipo de publicação
+    if (inputTipoPublicacao && sugestoesTipoPublicacao) {
+        // Mostrar lista quando o campo recebe foco
+        inputTipoPublicacao.addEventListener('focus', function() {
+            sugestoesTipoPublicacao.style.display = 'block';
+            filtrarSugestoesTipoPublicacao();
+        });
+        
+        // Adicionar indicador visual de que o campo é editável
+        inputTipoPublicacao.addEventListener('input', function() {
+            // Remover placeholder de sugestão quando usuário digita
+            if (this.placeholder.includes('Sugestão:')) {
+                this.placeholder = 'Ex: Ostensivo, Reservado, Especial...';
+            }
+        });
+        
+        // Filtrar conforme o usuário digita
+        inputTipoPublicacao.addEventListener('input', function() {
+            filtrarSugestoesTipoPublicacao();
+        });
+        
+        function filtrarSugestoesTipoPublicacao() {
+            const valor = inputTipoPublicacao.value.toLowerCase();
+            const botoes = sugestoesTipoPublicacao.querySelectorAll('.sugestao-tipo-publicacao');
+            
+            botoes.forEach(botao => {
+                const texto = botao.textContent.toLowerCase();
+                if (texto.includes(valor)) {
+                    botao.style.display = 'block';
+                } else {
+                    botao.style.display = 'none';
+                }
+            });
+        }
+        
+        // Eventos para sugestões de tipo de publicação
+        sugestoesTipoPublicacao.addEventListener('click', function(e) {
+            if (e.target.classList.contains('sugestao-tipo-publicacao')) {
+                inputTipoPublicacao.value = e.target.dataset.value;
+                sugestoesTipoPublicacao.style.display = 'none';
+            }
+        });
+        
+        // Ocultar sugestões ao clicar fora
+        document.addEventListener('click', function(e) {
+            if (!inputTipoPublicacao.contains(e.target) && !sugestoesTipoPublicacao.contains(e.target)) {
+                sugestoesTipoPublicacao.style.display = 'none';
+            }
+        });
+    }
+}
+
+// Função para buscar detalhes do título selecionado
+function buscarDetalhesTitulo(tituloId) {
+    console.log('🔍 Buscando detalhes do título ID:', tituloId);
+    
+    fetch(`/militares/ajax/titulo-publicacao/${tituloId}/`)
+        .then(response => {
+            console.log('📡 Resposta recebida:', response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log('📊 Dados recebidos:', data);
+            
+            if (data.success) {
+                // Preencher campo Tipo de Publicação sempre que um título for selecionado
+                const inputTipoPublicacao = document.getElementById('tipo_publicacao');
+                if (inputTipoPublicacao && data.titulo.tipo_display) {
+                    inputTipoPublicacao.value = data.titulo.tipo_display;
+                    inputTipoPublicacao.placeholder = `Sugestão: ${data.titulo.tipo_display}`;
+                    console.log('✅ Tipo de publicação preenchido:', data.titulo.tipo_display);
+                }
+                
+                // Preencher campo Tópicos sempre que um título for selecionado
+                const inputTopicos = document.getElementById('topicos');
+                if (inputTopicos && data.titulo.topicos_display) {
+                    inputTopicos.value = data.titulo.topicos_display;
+                    inputTopicos.placeholder = `Sugestão: ${data.titulo.topicos_display}`;
+                    console.log('✅ Tópicos preenchidos:', data.titulo.topicos_display);
+                } else {
+                    console.log('⚠️ Campo tópicos não encontrado ou sem dados:', {
+                        inputTopicos: !!inputTopicos,
+                        topicos_display: data.titulo.topicos_display
+                    });
+                }
+            } else {
+                console.error('❌ Erro ao buscar detalhes do título:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('❌ Erro na requisição:', error);
+        });
+}
+
+// Funções do Editor Personalizado
+function execCommand(command, value = null) {
+    document.execCommand(command, false, value);
+    document.getElementById('editor-content').focus();
+}
+
+function formatText(command, value) {
+    if (value) {
+        document.execCommand(command, false, value);
+    }
+    document.getElementById('editor-content').focus();
+}
+
+// Sincronizar conteúdo do editor com o textarea hidden
+function syncEditorContent() {
+    const editorContent = document.getElementById('editor-content').innerHTML;
+    document.getElementById('conteudo').value = editorContent;
+}
+
+// Inicializar editor personalizado
+function inicializarEditorPersonalizado() {
+    const editorContent = document.getElementById('editor-content');
+    
+    // Adicionar evento de input para sincronizar
+    editorContent.addEventListener('input', syncEditorContent);
+    
+    // Adicionar evento de paste para limpar formatação desnecessária
+    editorContent.addEventListener('paste', function(e) {
+        e.preventDefault();
+        const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+        document.execCommand('insertText', false, text);
+    });
+    
+    console.log('✅ Editor personalizado inicializado');
+}
+
+// Função para inserir link
+function insertLink() {
+    const url = prompt('Digite a URL do link:');
+    if (url) {
+        document.execCommand('createLink', false, url);
+    }
+}
+
+// Função para limpar formatação
+function clearFormatting() {
+    document.execCommand('removeFormat', false, null);
+}
+
+// Função para inserir quebra de linha
+function insertLineBreak() {
+    document.execCommand('insertHTML', false, '<br>');
+}
+
+// Função para salvar modelo
+function salvarModelo() {
+    const conteudo = document.getElementById('editor-content').innerHTML;
+    
+    if (!conteudo.trim()) {
+        mostrarModalErro('Editor Vazio', 'O editor está vazio. Digite algum conteúdo antes de salvar o modelo.');
+        return;
+    }
+    
+    // Mostrar preview do conteúdo
+    document.getElementById('previewModelo').innerHTML = conteudo;
+    
+    // Abrir modal de salvar
+    const modal = new bootstrap.Modal(document.getElementById('salvarModeloModal'));
+    modal.show();
+}
+
+// Função para confirmar salvamento do modelo
+function confirmarSalvarModelo() {
+    const nome = document.getElementById('nomeModelo').value.trim();
+    const descricao = document.getElementById('descricaoModelo').value.trim();
+    const conteudo = document.getElementById('editor-content').innerHTML;
+    
+    if (!nome) {
+        mostrarModalErro('Nome Obrigatório', 'Por favor, digite um nome para o modelo.');
+        return;
+    }
+    
+    // Salvar no banco de dados via AJAX
+    const formData = new FormData();
+    formData.append('nome', nome);
+    formData.append('descricao', descricao);
+    formData.append('conteudo', conteudo);
+    formData.append('tipo_publicacao', 'NOTA');
+    formData.append('padrao', false);
+    
+    fetch('/militares/modelos-notas/novo/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => {
+        if (response.ok) {
+            return response.text();
+        }
+        throw new Error('Erro ao salvar modelo');
+    })
+    .then(data => {
+        // Fechar modal
+        bootstrap.Modal.getInstance(document.getElementById('salvarModeloModal')).hide();
+        
+        // Limpar formulário
+        document.getElementById('formSalvarModelo').reset();
+        
+        mostrarModalSucesso('Modelo Salvo!', 'O modelo foi salvo com sucesso no sistema.');
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        mostrarModalErro('Erro ao Salvar', 'Erro ao salvar modelo: ' + error.message);
+    });
+}
+
+// Função para carregar modelo
+function carregarModelo() {
+    // Carregar modelos do banco de dados via AJAX
+    fetch('/militares/ajax/modelos-notas/')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (data.modelos.length === 0) {
+                mostrarModalErro('Nenhum Modelo', 'Nenhum modelo salvo encontrado.');
+                return;
+            }
+            
+            // Exibir modelos
+            exibirModelos(data.modelos);
+            
+            // Abrir modal
+            const modal = new bootstrap.Modal(document.getElementById('carregarModeloModal'));
+            modal.show();
+        } else {
+            mostrarModalErro('Erro ao Carregar', 'Erro ao carregar modelos: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        mostrarModalErro('Erro de Conexão', 'Erro ao carregar modelos: ' + error.message);
+    });
+}
+
+// Função para exibir modelos
+function exibirModelos(modelos) {
+    const container = document.getElementById('listaModelos');
+    
+    if (modelos.length === 0) {
+        container.innerHTML = '<div class="col-12 text-center text-muted">Nenhum modelo encontrado.</div>';
+        return;
+    }
+    
+    container.innerHTML = modelos.map(modelo => `
+        <div class="col-md-6 mb-3 modelo-item" data-nome="${modelo.nome.toLowerCase()}">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="fas fa-file-alt text-primary me-2"></i>
+                        ${modelo.nome}
+                        ${modelo.padrao ? '<span class="badge bg-warning ms-2">Padrão</span>' : ''}
+                    </h6>
+                    <p class="card-text text-muted small">
+                        ${modelo.descricao || 'Sem descrição'}
+                    </p>
+                    <div class="text-muted small">
+                        <i class="fas fa-user me-1"></i> ${modelo.autor}<br>
+                        <i class="fas fa-calendar me-1"></i> ${modelo.data_criacao}
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="btn-group w-100" role="group">
+                        <button type="button" class="btn btn-sm btn-primary" onclick="aplicarModelo(${modelo.id})">
+                            <i class="fas fa-check me-1"></i>
+                            Usar
+                        </button>
+                        ${modelo.pode_editar ? `
+                        <button type="button" class="btn btn-sm btn-outline-warning" onclick="editarModelo(${modelo.id})">
+                            <i class="fas fa-edit me-1"></i>
+                            Editar
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="excluirModelo(${modelo.id})">
+                            <i class="fas fa-trash me-1"></i>
+                            Excluir
+                        </button>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Função para filtrar modelos
+function filtrarModelos() {
+    const termo = document.getElementById('buscarModelo').value.toLowerCase();
+    const itens = document.querySelectorAll('.modelo-item');
+    
+    itens.forEach(item => {
+        const nome = item.getAttribute('data-nome');
+        if (nome.includes(termo)) {
+            item.style.display = 'block';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+// Função para aplicar modelo
+function aplicarModelo(modeloId) {
+    fetch(`/militares/ajax/modelos-notas/${modeloId}/`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Aplicar conteúdo ao editor
+            document.getElementById('editor-content').innerHTML = data.modelo.conteudo;
+            
+            // Sincronizar com textarea hidden
+            syncEditorContent();
+            
+            // Fechar modal
+            bootstrap.Modal.getInstance(document.getElementById('carregarModeloModal')).hide();
+            
+            mostrarModalSucesso('Modelo Carregado!', `O modelo "${data.modelo.nome}" foi carregado com sucesso!`);
+        } else {
+            mostrarModalErro('Erro ao Carregar', 'Erro ao carregar modelo: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        mostrarModalErro('Erro de Conexão', 'Erro ao carregar modelo: ' + error.message);
+    });
+}
+
+// Função para excluir modelo
+function excluirModelo(modeloId) {
+    mostrarModalConfirmacao(
+        'Confirmar Exclusão',
+        'Tem certeza que deseja excluir este modelo?',
+        function() {
+            fetch(`/militares/modelos-notas/${modeloId}/excluir/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    // Recarregar lista
+                    carregarModelo();
+                    mostrarModalSucesso('Modelo Excluído!', 'O modelo foi excluído com sucesso!');
+                } else {
+                    throw new Error('Erro ao excluir modelo');
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                mostrarModalErro('Erro ao Excluir', 'Erro ao excluir modelo: ' + error.message);
+            });
+        }
+    );
+}
+
+// Função para editar modelo
+function editarModelo(modeloId) {
+    window.open(`/militares/modelos-notas/${modeloId}/editar/`, '_blank');
+}
+
+// Função para abrir gerenciar modelos
+function abrirGerenciarModelos() {
+    window.open('/militares/modelos-notas/', '_blank');
+}
+
+// Função para limpar editor
+function limparEditor() {
+    mostrarModalConfirmacao(
+        'Confirmar Limpeza',
+        'Tem certeza que deseja limpar todo o conteúdo do editor?',
+        function() {
+            document.getElementById('editor-content').innerHTML = '';
+            syncEditorContent();
+        }
+    );
+}
+
+// ==================== FUNCIONALIDADES DE ANEXOS ====================
+
+// notaIdAtual agora é uma variável global definida em notas_list.html
+let arquivosPendentes = []; // Para armazenar arquivos que serão enviados após salvar a nota
+
+// Função para salvar nota primeiro e depois enviar anexos
+function salvarNotaPrimeiro(files) {
+    // Armazenar arquivos para enviar depois
+    arquivosPendentes = files;
+    
+    // Validar campos obrigatórios
+    const origem = document.getElementById('origem_publicacao').value;
+    const titulo = document.getElementById('titulo').value;
+    let conteudo = '';
+    
+    // Obter conteúdo do editor
+    if (editorInstance) {
+        conteudo = editorInstance.getData();
+    } else {
+        conteudo = document.getElementById('conteudo').value;
+    }
+    
+    if (!origem || !titulo || !conteudo.trim()) {
+        mostrarModalErro('Campos Obrigatórios', 'Por favor, preencha todos os campos obrigatórios antes de adicionar anexos.');
+        return;
+    }
+    
+    // Atualizar o textarea com o conteúdo do editor
+    if (editorInstance) {
+        document.getElementById('conteudo').value = conteudo;
+    }
+    
+    // Salvar nota
+    enviarFormularioCriacaoComCallback();
+}
+
+// Função para enviar formulário de criação via AJAX com callback
+function enviarFormularioCriacaoComCallback() {
+    const form = document.getElementById('notaForm');
+    const formData = new FormData(form);
+    
+    // Adicionar header para identificar como AJAX
+    const headers = {
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+    };
+    
+    fetch(form.action, {
+        method: 'POST',
+        headers: headers,
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('✅ Nota criada com sucesso! ID:', data.nota_id);
+            
+            // Definir ID da nota atual para anexos
+            window.notaIdAtual = data.nota_id;
+            
+            // Enviar anexos pendentes
+            if (arquivosPendentes.length > 0) {
+                console.log('📎 Enviando anexos pendentes...');
+                uploadAnexos(arquivosPendentes);
+                arquivosPendentes = []; // Limpar lista
+            }
+            
+            // Mostrar modal de sucesso
+            if (typeof mostrarModalSucesso === 'function') {
+                mostrarModalSucesso('Nota Criada!', 'A nota foi criada com sucesso no sistema.');
+            } else {
+                mostrarModalSucesso('Nota Criada!', 'A nota foi criada com sucesso!');
+            }
+            
+            // Fechar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('novaNotaModal'));
+            modal.hide();
+            
+            // Recarregar página após um pequeno delay
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        } else {
+            console.error('❌ Erro ao criar nota:', data.error);
+            if (typeof mostrarModalErro === 'function') {
+                mostrarModalErro('Erro ao Criar', 'Não foi possível criar a nota: ' + data.error);
+            } else {
+                mostrarModalErro('Erro ao Criar', 'Erro ao criar nota: ' + data.error);
+            }
+        }
+    })
+    .catch(error => {
+        console.error('❌ Erro na requisição:', error);
+        if (typeof mostrarModalErro === 'function') {
+            mostrarModalErro('Erro de Conexão', 'Erro ao criar nota. Tente novamente.');
+        } else {
+            mostrarModalErro('Erro de Conexão', 'Erro ao criar nota. Tente novamente.');
+        }
+    });
+}
+
+// Função para enviar formulário de criação via AJAX
+function enviarFormularioCriacao() {
+    const form = document.getElementById('notaForm');
+    const formData = new FormData(form);
+    
+    // Adicionar header para identificar como AJAX
+    const headers = {
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+    };
+    
+    console.log('📤 Enviando requisição para:', form.action);
+    console.log('📤 Headers:', headers);
+    console.log('📤 FormData contents:');
+    for (let [key, value] of formData.entries()) {
+        console.log(`  ${key}:`, value);
+    }
+    
+    fetch(form.action, {
+        method: 'POST',
+        headers: headers,
+        body: formData
+    })
+    .then(response => {
+        console.log('📡 Resposta recebida:', response.status, response.statusText);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('📊 Dados recebidos:', data);
+        if (data.success) {
+            console.log('✅ Nota criada com sucesso! ID:', data.nota_id);
+            
+            // Definir ID da nota atual para anexos
+            window.notaIdAtual = data.nota_id;
+            
+            // Mostrar modal de sucesso
+            if (typeof mostrarModalSucesso === 'function') {
+                mostrarModalSucesso('Nota Criada!', 'A nota foi criada com sucesso no sistema.');
+            } else {
+                mostrarModalSucesso('Nota Criada!', 'A nota foi criada com sucesso!');
+            }
+            
+            // Fechar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('novaNotaModal'));
+            modal.hide();
+            
+            // Recarregar página após um pequeno delay
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        } else {
+            console.error('❌ Erro ao criar nota:', data.error);
+            if (typeof mostrarModalErro === 'function') {
+                mostrarModalErro('Erro ao Criar', 'Não foi possível criar a nota: ' + data.error);
+            } else {
+                mostrarModalErro('Erro ao Criar', 'Erro ao criar nota: ' + data.error);
+            }
+        }
+    })
+    .catch(error => {
+        console.error('❌ Erro na requisição:', error);
+        console.error('❌ Stack trace:', error.stack);
+        if (typeof mostrarModalErro === 'function') {
+            mostrarModalErro('Erro de Conexão', 'Erro ao criar nota: ' + error.message);
+        } else {
+            mostrarModalErro('Erro de Conexão', 'Erro ao criar nota: ' + error.message);
+        }
+    });
+}
+
+// Inicializar funcionalidades de anexos
+function inicializarAnexos() {
+    const anexosInput = document.getElementById('anexos-input');
+    const anexosUploadArea = document.getElementById('anexos-upload-area');
+    
+    // Event listener para seleção de arquivos
+    anexosInput.addEventListener('change', function(e) {
+        const files = Array.from(e.target.files);
+        if (files.length > 0) {
+            uploadAnexos(files);
+        }
+    });
+    
+    // Event listeners para drag and drop
+    anexosUploadArea.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        anexosUploadArea.classList.add('border-primary', 'bg-light');
+    });
+    
+    anexosUploadArea.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        anexosUploadArea.classList.remove('border-primary', 'bg-light');
+    });
+    
+    anexosUploadArea.addEventListener('drop', function(e) {
+        e.preventDefault();
+        anexosUploadArea.classList.remove('border-primary', 'bg-light');
+        
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length > 0) {
+            uploadAnexos(files);
+        }
+    });
+}
+
+// Upload de anexos
+function uploadAnexos(files) {
+    if (!window.notaIdAtual) {
+        // Se não há ID da nota, salvar a nota primeiro
+        console.log('📝 Nota ainda não salva, salvando primeiro...');
+        salvarNotaPrimeiro(files);
+        return;
+    }
+    
+    files.forEach(file => {
+        // Validar tamanho (10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            mostrarModalErro('Arquivo Muito Grande', `O arquivo "${file.name}" é muito grande. Tamanho máximo: 10MB`);
+            return;
+        }
+        
+                // Validar tipo - apenas PDF
+                const extensao = file.name.split('.').pop().toLowerCase();
+                
+                if (extensao !== 'pdf') {
+                    mostrarModalErro('Tipo de Arquivo Inválido', `Apenas arquivos PDF são permitidos. O arquivo "${file.name}" não é um PDF.`);
+                    return;
+                }
+        
+        // Fazer upload
+        const formData = new FormData();
+        formData.append('arquivo', file);
+        formData.append('descricao', '');
+        
+        fetch(`/militares/notas/${window.notaIdAtual}/anexos/upload/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('✅ Anexo enviado:', data.anexo.nome_original);
+                carregarAnexos(window.notaIdAtual);
+            } else {
+                mostrarModalErro('Erro ao Enviar', 'Erro ao enviar anexo: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('❌ Erro no upload:', error);
+            mostrarModalErro('Erro de Conexão', 'Erro ao enviar anexo. Tente novamente.');
+        });
+    });
+}
+
+// Carregar lista de anexos
+function carregarAnexos(notaId) {
+    console.log('[CARREGAR ANEXOS] Iniciando carregamento para nota ID:', notaId);
+    if (!notaId) {
+        console.error('❌ CARREGAR ANEXOS: notaId não fornecido');
+        return;
+    }
+    
+    const url = `/militares/notas/${notaId}/anexos/`;
+    console.log('[CARREGAR ANEXOS] URL:', url);
+    
+    fetch(url)
+    .then(response => {
+        console.log('[CARREGAR ANEXOS] Resposta recebida:', response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log('[CARREGAR ANEXOS] Dados recebidos:', data);
+        if (data.success) {
+            // Armazenar status da nota para uso na interface
+            if (data.nota_status) {
+                window.notaStatusAtual = data.nota_status;
+                console.log('[CARREGAR ANEXOS] Status da nota definido como:', window.notaStatusAtual);
+            }
+            console.log('[CARREGAR ANEXOS] Exibindo', data.anexos.length, 'anexos');
+            exibirAnexos(data.anexos);
+        } else {
+            console.error('❌ CARREGAR ANEXOS: Erro:', data.error);
+        }
+    })
+    .catch(error => {
+        console.error('❌ CARREGAR ANEXOS: Erro na requisição:', error);
+    });
+}
+
+// Exibir anexos na interface
+function exibirAnexos(anexos) {
+    console.log('📋 EXIBIR ANEXOS: Iniciando exibição de', anexos.length, 'anexos');
+    const anexosLista = document.getElementById('anexos-lista');
+    
+    if (!anexosLista) {
+        console.error('❌ EXIBIR ANEXOS: Elemento anexos-lista não encontrado');
+        return;
+    }
+    
+    if (anexos.length === 0) {
+        console.log('📋 EXIBIR ANEXOS: Nenhum anexo, exibindo mensagem vazia');
+        anexosLista.innerHTML = '<p class="text-muted text-center">Nenhum anexo adicionado</p>';
+        return;
+    }
+    
+    // Verificar se a nota está publicada
+    const isNotaPublicada = window.notaStatusAtual === 'PUBLICADA';
+    
+    let html = '<div class="row">';
+    
+    anexos.forEach(anexo => {
+        // Botões de ação baseados no status da nota
+        let botoesAcao = `
+            <button class="btn btn-outline-primary" onclick="downloadAnexo(${anexo.id})" title="Download">
+                <i class="fas fa-download"></i>
+            </button>
+        `;
+        
+        // Só mostrar botão de exclusão se a nota não estiver publicada
+        if (!isNotaPublicada) {
+            botoesAcao += `
+                <button class="btn btn-outline-danger" onclick="excluirAnexo(${anexo.id})" title="Excluir PDF">
+                    <i class="fas fa-trash"></i>
+                </button>
+            `;
+        } else {
+            // Mostrar indicador de que a nota está publicada
+            botoesAcao += `
+                <span class="badge bg-success" title="Nota publicada - anexos não podem ser editados">
+                    <i class="fas fa-lock"></i> Publicada
+                </span>
+            `;
+        }
+        
+        html += `
+            <div class="col-md-6 mb-2">
+                <div class="card border anexo-card">
+                    <div class="card-body p-2">
+                        <div class="d-flex align-items-center">
+                            <div class="me-2">
+                                <i class="${anexo.icone_tipo} fa-lg"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="card-title mb-1 text-truncate" title="${anexo.nome_original}">
+                                    ${anexo.nome_original}
+                                </h6>
+                                <small class="text-muted">
+                                    ${anexo.tamanho} • ${anexo.data_upload}
+                                </small>
+                                ${anexo.descricao ? `<br><small class="text-info">${anexo.descricao}</small>` : ''}
+                            </div>
+                            <div class="btn-group btn-group-sm">
+                                ${botoesAcao}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    anexosLista.innerHTML = html;
+    console.log('📋 EXIBIR ANEXOS: HTML atualizado com sucesso');
+}
+
+// Download de anexo
+function downloadAnexo(anexoId) {
+    window.open(`/militares/anexos/${anexoId}/download/`, '_blank');
+}
+
+
+// Excluir anexo
+function excluirAnexo(anexoId) {
+    // Verificar se a nota está publicada antes de tentar excluir
+    if (window.notaStatusAtual === 'PUBLICADA') {
+        mostrarModalErro('Anexo Não Pode Ser Excluído', 'Não é possível excluir anexos de notas já publicadas. Apenas anexos de notas em rascunho podem ser excluídos.');
+        return;
+    }
+    
+    // Função para executar a exclusão
+    function executarExclusao() {
+        console.log('🔍 Iniciando exclusão do anexo ID:', anexoId);
+        console.log('🔍 Nota ID atual:', window.notaIdAtual);
+        
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (!csrfToken) {
+            console.error('❌ CSRF token não encontrado');
+            mostrarModalErro('Erro de Segurança', 'Token de segurança não encontrado');
+            return;
+        }
+        
+        console.log('🔍 CSRF token encontrado:', csrfToken.value.substring(0, 10) + '...');
+        
+        const url = `/militares/anexos/${anexoId}/excluir/`;
+        console.log('🔍 URL da requisição:', url);
+        
+        fetch(url, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': csrfToken.value,
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => {
+            console.log('📡 Resposta recebida:', response.status, response.statusText);
+            return response.json();
+        })
+        .then(data => {
+            console.log('📊 Dados recebidos:', data);
+            if (data.success) {
+                console.log('✅ Anexo excluído com sucesso, recarregando lista...');
+                carregarAnexos(window.notaIdAtual);
+                mostrarModalSucesso('Anexo Excluído!', 'O anexo foi excluído com sucesso!');
+            } else {
+                console.error('❌ Erro na resposta:', data.error);
+                mostrarModalErro('Erro ao Excluir', 'Erro ao excluir anexo: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('❌ Erro na requisição:', error);
+            mostrarModalErro('Erro de Conexão', 'Erro ao excluir anexo. Tente novamente.');
+        });
+    }
+    
+    // Mostrar modal de confirmação
+    mostrarModalConfirmacao(
+        'Confirmar Exclusão',
+        'Tem certeza que deseja excluir este anexo?',
+        executarExclusao
+    );
+}
+</script>
+
+<style>
+/* Estilo para o Editor Personalizado */
+.editor-container {
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    overflow: hidden;
+}
+
+.editor-toolbar {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #ced4da;
+    padding: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    align-items: center;
+}
+
+.editor-toolbar .btn-group {
+    margin-right: 5px;
+}
+
+.editor-content {
+    min-height: 400px;
+    padding: 15px;
+    background: white;
+    outline: none;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.editor-content:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.editor-content:empty:before {
+    content: attr(placeholder);
+    color: #6c757d;
+    font-style: italic;
+}
+
+.editor-content p {
+    margin: 0 0 10px 0;
+}
+
+.editor-content ul, .editor-content ol {
+    margin: 10px 0;
+    padding-left: 20px;
+}
+
+.editor-content h1, .editor-content h2, .editor-content h3 {
+    margin: 15px 0 10px 0;
+    font-weight: bold;
+}
+
+.editor-content h1 { font-size: 24px; }
+.editor-content h2 { font-size: 20px; }
+.editor-content h3 { font-size: 16px; }
+
+/* Estilos para os Modais de Modelos */
+.modelo-item {
+    transition: transform 0.2s ease;
+}
+
+.modelo-item:hover {
+    transform: translateY(-2px);
+}
+
+/* Estilos para Anexos */
+#anexos-upload-area {
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+        #anexos-upload-area:hover {
+            border-color: #dc3545 !important;
+            background-color: #fff5f5 !important;
+        }
+
+        #anexos-upload-area.border-primary {
+            border-color: #dc3545 !important;
+            background-color: #fff5f5 !important;
+        }
+
+.anexo-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.anexo-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.modelo-item .card {
+    border: 1px solid #dee2e6;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.modelo-item .card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+#previewModelo {
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+#previewModelo p {
+    margin: 0 0 5px 0;
+}
+
+#previewModelo ul, #previewModelo ol {
+    margin: 5px 0;
+    padding-left: 15px;
+}
+
+#previewModelo h1, #previewModelo h2, #previewModelo h3 {
+    margin: 5px 0;
+    font-size: 14px;
+}
+</style>
+
+<!-- Modais de Feedback -->
+<div class="modal fade" id="feedbackSucessoModal" tabindex="-1" aria-labelledby="feedbackSucessoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-success text-white border-0">
+                <h5 class="modal-title" id="feedbackSucessoModalLabel">
+                    <i class="fas fa-check-circle me-2"></i>
+                    Sucesso
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <div id="feedbackSucessoMensagem" class="fs-5"></div>
+            </div>
+            <div class="modal-footer border-0 justify-content-center">
+                <button type="button" class="btn btn-success px-4" data-bs-dismiss="modal">
+                    <i class="fas fa-check me-1"></i>
+                    Entendi
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="feedbackErroModal" tabindex="-1" aria-labelledby="feedbackErroModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-danger text-white border-0">
+                <h5 class="modal-title" id="feedbackErroModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Erro
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <div id="feedbackErroMensagem" class="fs-5"></div>
+            </div>
+            <div class="modal-footer border-0 justify-content-center">
+                <button type="button" class="btn btn-danger px-4" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>
+                    Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmação é criado dinamicamente pela função mostrarModalConfirmacao em base.html -->
+
+<script>
+// Funções de Modal Modernas
+function mostrarModalSucesso(titulo, mensagem) {
+    const tituloElement = document.getElementById('feedbackSucessoModalLabel');
+    const mensagemElement = document.getElementById('feedbackSucessoMensagem');
+    
+    if (tituloElement) {
+        tituloElement.innerHTML = `<i class="fas fa-check-circle me-2"></i>${titulo}`;
+    }
+    
+    if (mensagemElement) {
+        mensagemElement.textContent = mensagem;
+    }
+    
+    const modal = new bootstrap.Modal(document.getElementById('feedbackSucessoModal'));
+    modal.show();
+}
+
+function mostrarModalErro(titulo, mensagem) {
+    const tituloElement = document.getElementById('feedbackErroModalLabel');
+    const mensagemElement = document.getElementById('feedbackErroMensagem');
+    
+    if (tituloElement) {
+        tituloElement.innerHTML = `<i class="fas fa-exclamation-triangle me-2"></i>${titulo}`;
+    }
+    
+    if (mensagemElement) {
+        mensagemElement.textContent = mensagem;
+    }
+    
+    const modal = new bootstrap.Modal(document.getElementById('feedbackErroModal'));
+    modal.show();
+}
+
+// ==================== CARREGAMENTO DE ORGANOGRAMA ====================
+
+// Variáveis globais para organograma
+let organogramaDisponivel = [];
+
+// Carregar organograma via AJAX
+function carregarOrganograma() {
+    const inputOrigem = document.getElementById('origem_publicacao');
+    const sugestoesDiv = document.getElementById('sugestoes_origem_modal');
+    
+    console.log('🔄 Iniciando carregamento do organograma...');
+    console.log('📍 URL:', '{% url "militares:ajax_organograma_publicacoes" %}');
+    
+    // Mostrar loading
+    sugestoesDiv.innerHTML = `
+        <div class="list-group-item text-muted small">
+            <i class="fas fa-spinner fa-spin me-1"></i>
+            Carregando organograma...
+        </div>
+    `;
+    sugestoesDiv.style.display = 'block';
+    
+    fetch('{% url "militares:ajax_organograma_publicacoes" %}')
+        .then(response => {
+            console.log('📡 Resposta recebida:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('📊 Dados recebidos:', data);
+            if (data.success) {
+                organogramaDisponivel = data.hierarquia;
+                console.log('✅ Organograma carregado:', organogramaDisponivel.length, 'itens');
+                
+                // Atualizar placeholder
+                inputOrigem.placeholder = 'Digite para buscar...';
+                inputOrigem.disabled = false;
+                
+                // Mostrar todas as opções inicialmente
+                mostrarSugestoesOrigem('');
+            } else {
+                console.error('❌ Erro ao carregar organograma:', data.error);
+                sugestoesDiv.innerHTML = `
+                    <div class="list-group-item text-danger small">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        Erro ao carregar organograma: ${data.error}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('❌ Erro na requisição:', error);
+            sugestoesDiv.innerHTML = `
+                <div class="list-group-item text-danger small">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    Erro ao carregar organograma: ${error.message}
+                </div>
+            `;
+        });
+}
+
+// Mostrar sugestões de origem
+function mostrarSugestoesOrigem(texto) {
+    const sugestoesDiv = document.getElementById('sugestoes_origem_modal');
+    
+    console.log('📋 Mostrando sugestões para:', texto, 'Organograma disponível:', organogramaDisponivel.length);
+    
+    if (organogramaDisponivel.length === 0) {
+        console.log('❌ Nenhum organograma disponível');
+        sugestoesDiv.style.display = 'none';
+        return;
+    }
+    
+    // Filtrar origens baseado no texto
+    let origensFiltradas;
+    if (!texto || texto.trim() === '') {
+        origensFiltradas = organogramaDisponivel;
+    } else {
+        origensFiltradas = organogramaDisponivel.filter(origem => 
+            origem.texto.toLowerCase().includes(texto.toLowerCase())
+        );
+    }
+    
+    if (origensFiltradas.length > 0) {
+        sugestoesDiv.innerHTML = '';
+        
+        console.log('📝 Criando', origensFiltradas.length, 'itens para exibição');
+        
+        // Mostrar até 15 origens
+        origensFiltradas.slice(0, 15).forEach((origem, index) => {
+            const item = document.createElement('div');
+            item.className = 'list-group-item list-group-item-action sugestao-origem';
+            item.innerHTML = `
+                <div class="d-flex w-100 justify-content-between">
+                    <h6 class="mb-1">${origem.texto}</h6>
+                    <small class="text-muted">${origem.tipo}</small>
+                </div>
+                <small class="text-muted">Nível: ${origem.nivel}</small>
+            `;
+            
+            item.addEventListener('click', function() {
+                document.getElementById('origem_publicacao').value = origem.texto;
+                // Armazenar o valor JSON para envio
+                document.getElementById('origem_publicacao').dataset.valor = JSON.stringify(origem.valor);
+                sugestoesDiv.style.display = 'none';
+            });
+            
+            sugestoesDiv.appendChild(item);
+        });
+        
+        console.log('👁️ Exibindo dropdown com', sugestoesDiv.children.length, 'itens');
+        sugestoesDiv.style.display = 'block';
+    } else {
+        console.log('❌ Nenhuma origem filtrada encontrada');
+        sugestoesDiv.innerHTML = `
+            <div class="list-group-item text-muted small">
+                <i class="fas fa-search me-1"></i>
+                Nenhuma origem encontrada
+            </div>
+        `;
+        sugestoesDiv.style.display = 'block';
+    }
+}
+
+// Ocultar sugestões de origem
+function ocultarSugestoesOrigem() {
+    const sugestoesDiv = document.getElementById('sugestoes_origem_modal');
+    sugestoesDiv.style.display = 'none';
+}
+
+// ==================== INICIALIZAÇÃO DO MODAL ====================
+
+// Inicializar quando o modal for aberto
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Script do modal de nota carregado!');
+    
+    // Event listener para o modal de nova nota
+    const novaNotaModal = document.getElementById('novaNotaModal');
+    console.log('🔍 Modal encontrado:', novaNotaModal ? '✅' : '❌');
+    
+    if (novaNotaModal) {
+        novaNotaModal.addEventListener('show.bs.modal', function() {
+            console.log('🔄 Modal de nova nota aberto, carregando organograma...');
+            carregarOrganograma();
+        });
+    } else {
+        console.error('❌ Modal novaNotaModal não encontrado!');
+    }
+    
+    // Teste simples para verificar se os elementos existem
+    setTimeout(() => {
+        const inputOrigem = document.getElementById('origem_publicacao');
+        const sugestoesDiv = document.getElementById('sugestoes_origem_modal');
+        console.log('🔍 Teste de elementos:');
+        console.log('  - Input origem:', inputOrigem ? '✅' : '❌');
+        console.log('  - Div sugestões:', sugestoesDiv ? '✅' : '❌');
+        console.log('  - Modal:', novaNotaModal ? '✅' : '❌');
+    }, 1000);
+    
+    // Event listeners para o campo de origem
+    const inputOrigem = document.getElementById('origem_publicacao');
+    const sugestoesDiv = document.getElementById('sugestoes_origem_modal');
+    
+    if (inputOrigem && sugestoesDiv) {
+        // Mostrar sugestões quando o campo recebe foco
+        inputOrigem.addEventListener('focus', function() {
+            console.log('🔍 Campo "Origem da Publicação" recebeu foco!');
+            console.log('📊 Organograma disponível:', organogramaDisponivel.length, 'itens');
+            if (organogramaDisponivel.length > 0) {
+                console.log('✅ Mostrando sugestões existentes');
+                mostrarSugestoesOrigem(inputOrigem.value);
+            } else {
+                console.log('⚠️ Organograma não carregado ainda, carregando...');
+                carregarOrganograma();
+            }
+        });
+        
+        // Filtrar conforme digita
+        inputOrigem.addEventListener('input', function() {
+            if (organogramaDisponivel.length > 0) {
+                mostrarSugestoesOrigem(inputOrigem.value);
+            }
+        });
+        
+        // Ocultar sugestões ao clicar fora
+        document.addEventListener('click', function(e) {
+            if (!inputOrigem.contains(e.target) && !sugestoesDiv.contains(e.target)) {
+                ocultarSugestoesOrigem();
+            }
+        });
+    }
+});
+
+// Função mostrarModalConfirmacao está definida em base.html
+</script>

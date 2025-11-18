@@ -1,0 +1,189 @@
+{% load static %}
+
+<div class="modal-header bg-primary text-white">
+    <h5 class="modal-title" id="criarConfiguracaoMunicaoModalLabel">
+        <i class="fas fa-bullseye me-2"></i>
+        {% if object %}Editar Configuração de Munição{% else %}Nova Configuração de Munição{% endif %}
+    </h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+
+<form id="formCriarConfiguracaoMunicao" method="post" action="{% if object %}{% url 'militares:configuracao_municao_update' object.pk %}{% else %}{% url 'militares:configuracao_municao_create' %}{% endif %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+        <div class="row">
+            <div class="col-md-12 mb-3">
+                <label for="{{ form.imagem.id_for_label }}" class="form-label">
+                    Imagem da Munição
+                </label>
+                {{ form.imagem }}
+                {% if form.imagem.errors %}
+                    <div class="invalid-feedback d-block">{{ form.imagem.errors }}</div>
+                {% endif %}
+                {% if object and object.imagem %}
+                    <div class="mt-2">
+                        <small class="text-muted">Imagem atual:</small><br>
+                        <img src="{{ object.imagem.url }}" 
+                             alt="{{ object.marca }} {{ object.modelo }}" 
+                             class="img-thumbnail" 
+                             style="max-height: 150px;">
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.calibre.id_for_label }}" class="form-label">
+                    Calibre <span class="text-danger">*</span>
+                </label>
+                {{ form.calibre }}
+                {% if form.calibre.errors %}
+                    <div class="invalid-feedback d-block">{{ form.calibre.errors }}</div>
+                {% endif %}
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.tipo_municao.id_for_label }}" class="form-label">
+                    Tipo de Munição <span class="text-danger">*</span>
+                </label>
+                {{ form.tipo_municao }}
+                {% if form.tipo_municao.errors %}
+                    <div class="invalid-feedback d-block">{{ form.tipo_municao.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.marca.id_for_label }}" class="form-label">
+                    Marca <span class="text-danger">*</span>
+                </label>
+                {{ form.marca }}
+                {% if form.marca.errors %}
+                    <div class="invalid-feedback d-block">{{ form.marca.errors }}</div>
+                {% endif %}
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.modelo.id_for_label }}" class="form-label">
+                    Modelo/Tipo <span class="text-danger">*</span>
+                </label>
+                {{ form.modelo }}
+                {% if form.modelo.errors %}
+                    <div class="invalid-feedback d-block">{{ form.modelo.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-12 mb-3">
+                <label for="{{ form.descricao.id_for_label }}" class="form-label">
+                    Descrição
+                </label>
+                {{ form.descricao }}
+                {% if form.descricao.errors %}
+                    <div class="invalid-feedback d-block">{{ form.descricao.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-12 mb-3">
+                <div class="form-check">
+                    {{ form.ativo }}
+                    <label class="form-check-label" for="{{ form.ativo.id_for_label }}">
+                        Ativo
+                    </label>
+                </div>
+                {% if form.ativo.errors %}
+                    <div class="invalid-feedback d-block">{{ form.ativo.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save me-2"></i>Salvar
+        </button>
+    </div>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Submeter formulário via AJAX
+    const formCriarConfiguracaoMunicao = document.getElementById('formCriarConfiguracaoMunicao');
+    if (formCriarConfiguracaoMunicao) {
+        formCriarConfiguracaoMunicao.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(formCriarConfiguracaoMunicao);
+            const submitButton = formCriarConfiguracaoMunicao.querySelector('button[type="submit"]');
+            const originalText = submitButton.innerHTML;
+            
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Salvando...';
+            
+            fetch(formCriarConfiguracaoMunicao.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => {
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    return response.json();
+                } else {
+                    return response.text().then(text => {
+                        throw new Error('Resposta não é JSON');
+                    });
+                }
+            })
+            .then(data => {
+                if (data.success) {
+                    if (typeof showToast === 'function') {
+                        showToast('success', data.message || 'Configuração de munição salva com sucesso!');
+                    } else {
+                        alert(data.message || 'Configuração de munição salva com sucesso!');
+                    }
+                    
+                    const modalElement = document.getElementById('criarConfiguracaoMunicaoModal');
+                    if (modalElement) {
+                        const modal = bootstrap.Modal.getInstance(modalElement);
+                        if (modal) {
+                            modal.hide();
+                        }
+                    }
+                    
+                    setTimeout(function() {
+                        if (data.redirect_url) {
+                            window.location.href = data.redirect_url;
+                        } else {
+                            window.location.reload();
+                        }
+                    }, 300);
+                } else {
+                    let errorMessage = data.message || 'Erro ao salvar configuração de munição.';
+                    if (data.errors) {
+                        errorMessage += '\n\nErros:\n';
+                        for (const field in data.errors) {
+                            errorMessage += field + ': ' + data.errors[field].join(', ') + '\n';
+                        }
+                    }
+                    alert(errorMessage);
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert('Erro ao salvar configuração de munição. Tente novamente.');
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalText;
+            });
+        });
+    }
+});
+</script>
+

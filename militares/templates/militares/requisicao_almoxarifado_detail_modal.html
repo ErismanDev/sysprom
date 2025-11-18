@@ -1,0 +1,387 @@
+{% load static %}
+{% load almoxarifado_filters %}
+<div class="modal-header bg-info text-white">
+    <h5 class="modal-title">
+        <i class="fas fa-eye me-2"></i>Detalhes da Requisição #{{ requisicao.pk }}
+    </h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<div class="modal-body">
+    <!-- Produtos da Requisição -->
+    <div class="card mb-3">
+        <div class="card-header bg-primary text-white">
+            <h6 class="card-title mb-0">
+                <i class="fas fa-boxes me-2"></i>Produtos da Requisição
+            </h6>
+        </div>
+        <div class="card-body">
+            {% if requisicao.produtos_requisicao.exists %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Descrição</th>
+                                <th>Tamanho</th>
+                                <th>Quantidade</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for produto_requisicao in requisicao.produtos_requisicao.all %}
+                                {% if produto_requisicao.produto %}
+                                    <tr>
+                                        <td><strong>{{ produto_requisicao.produto.get_codigo_limpo|default:produto_requisicao.produto.codigo }}</strong></td>
+                                        <td>{{ produto_requisicao.produto.descricao|default:"-" }}</td>
+                                        <td>
+                                            {% if produto_requisicao.produto.tamanho %}
+                                                <span class="badge bg-info">{{ produto_requisicao.produto.tamanho }}</span>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <strong>{{ produto_requisicao.quantidade|formatar_quantidade_unidade:produto_requisicao.produto.unidade_medida }}</strong>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% elif requisicao.produto %}
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <strong><i class="fas fa-box me-2"></i>Produto:</strong>
+                        <p class="mb-0">{{ requisicao.produto.codigo }} - {{ requisicao.produto.descricao }}</p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong><i class="fas fa-hashtag me-2"></i>Quantidade:</strong>
+                        <p class="mb-0">{{ requisicao.quantidade|formatar_quantidade_unidade:requisicao.produto.unidade_medida }}</p>
+                    </div>
+                </div>
+            {% else %}
+                <p class="text-muted mb-0">Nenhum produto cadastrado nesta requisição.</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <hr>
+    
+    <div class="row g-3">
+        <div class="col-md-3 mb-0">
+            <strong><i class="fas fa-building me-2"></i>OM Requisitante:</strong>
+            <p class="mb-0 small">{{ requisicao.get_om_requisitante }}</p>
+        </div>
+        <div class="col-md-3 mb-0">
+            <strong><i class="fas fa-warehouse me-2"></i>OM Requisitada:</strong>
+            <p class="mb-0 small">{{ requisicao.get_om_requisitada }}</p>
+        </div>
+        <div class="col-md-3 mb-0">
+            <strong><i class="fas fa-info-circle me-2"></i>Status:</strong>
+            <p class="mb-0">
+                {% if requisicao.status == 'PENDENTE' %}
+                    <span class="badge bg-warning">{{ requisicao.get_status_display }}</span>
+                {% elif requisicao.status == 'APROVADA' %}
+                    <span class="badge bg-info">{{ requisicao.get_status_display }}</span>
+                {% elif requisicao.status == 'ATENDIDA' %}
+                    <span class="badge bg-success">{{ requisicao.get_status_display }}</span>
+                {% elif requisicao.status == 'NEGADA' %}
+                    <span class="badge bg-danger">{{ requisicao.get_status_display }}</span>
+                {% else %}
+                    <span class="badge bg-secondary">{{ requisicao.get_status_display }}</span>
+                {% endif %}
+            </p>
+        </div>
+        <div class="col-md-3 mb-0">
+            <strong><i class="fas fa-calendar me-2"></i>Data:</strong>
+            <p class="mb-0 small">{{ requisicao.data_requisicao|date:"d/m/Y" }}</p>
+        </div>
+    </div>
+    
+    {% if requisicao.data_aprovacao %}
+    <div class="row g-3">
+        <div class="col-md-6 mb-0">
+            <strong><i class="fas fa-check-circle me-2"></i>Data de Aprovação/Negação:</strong>
+            <p class="mb-0 small">{{ requisicao.data_aprovacao|date:"d/m/Y H:i" }}</p>
+        </div>
+        {% if requisicao.aprovado_por %}
+        <div class="col-md-6 mb-0">
+            <strong><i class="fas fa-user me-2"></i>Aprovado/Negado por:</strong>
+            <p class="mb-0 small">{{ requisicao.aprovado_por.get_full_name|default:requisicao.aprovado_por.username }}</p>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+    
+    {% if requisicao.motivo_negacao %}
+    <div class="row">
+        <div class="col-12 mb-3">
+            <strong><i class="fas fa-exclamation-triangle me-2 text-danger"></i>Motivo da Negação:</strong>
+            <p class="mb-0 text-danger">{{ requisicao.motivo_negacao }}</p>
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if requisicao.observacoes %}
+    <hr>
+    <div class="row">
+        <div class="col-12 mb-3">
+            <strong><i class="fas fa-sticky-note me-2"></i>Observações:</strong>
+            <p class="mb-0">{{ requisicao.observacoes }}</p>
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if assinaturas %}
+    <hr>
+    <div class="card mb-3">
+        <div class="card-header bg-success text-white">
+            <h6 class="card-title mb-0">
+                <i class="fas fa-signature me-2"></i>Assinaturas Eletrônicas
+            </h6>
+        </div>
+        <div class="card-body">
+            {% for assinatura in assinaturas %}
+                <div class="mb-3 p-3 border rounded" style="background-color: #fafafa;">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            {% if assinatura.tipo_assinatura == 'SOLICITANTE' %}
+                                <span class="badge bg-primary">Solicitante</span>
+                            {% elif assinatura.tipo_assinatura == 'APROVACAO' %}
+                                <span class="badge bg-success">Aprovação</span>
+                            {% elif assinatura.tipo_assinatura == 'NEGACAO' %}
+                                <span class="badge bg-danger">Negação</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ assinatura.get_tipo_assinatura_display }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-start">
+                        <div class="me-3">
+                            <img src="{% static 'assinasyspro.png' %}" alt="Logo AssinaSysPro" width="100" height="70" style="background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius: 4px; padding: 5px;">
+                        </div>
+                        <div class="flex-grow-1">
+                            <p class="mb-0 text-justify" style="font-size: 15px;">
+                                Documento assinado eletronicamente por <strong>{% if assinatura.militar %}{{ assinatura.militar.get_posto_graduacao_display }} {{ assinatura.militar.nome_completo }}{% else %}{{ assinatura.assinado_por.get_full_name|default:assinatura.assinado_por.username }}{% endif %}</strong>{% if assinatura.funcao_assinatura %} - <strong>{{ assinatura.funcao_assinatura }}</strong>{% endif %}, em {{ assinatura.data_assinatura|date:"d/m/Y" }}, às {{ assinatura.data_assinatura|date:"H:i" }}, conforme horário oficial de Brasília, com fundamento na Portaria XXX/2025 Gab. Cmdo. Geral/CBMEPI de XX de XXXXX de 2025.
+                            </p>
+                            {% if assinatura.observacoes %}
+                                <p class="mt-2 mb-0 text-muted small">
+                                    <strong>Observações:</strong> {{ assinatura.observacoes }}
+                                </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <hr>
+    <div class="card mb-3">
+        <div class="card-header bg-secondary text-white">
+            <h6 class="card-title mb-0">
+                <i class="fas fa-history me-2"></i>Histórico de Alterações
+            </h6>
+        </div>
+        <div class="card-body">
+            {% if historico.exists or historico|length > 0 %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead>
+                        <tr>
+                            <th style="width: 12%;">Data/Hora</th>
+                            <th style="width: 10%;">Ação</th>
+                            <th style="width: 15%;">Alterado por</th>
+                            <th style="width: 63%;">Detalhes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in historico %}
+                            <tr>
+                                <td>{{ item.data_alteracao|date:"d/m/Y H:i" }}</td>
+                                <td>
+                                    {% if item.tipo_acao == 'CRIACAO' %}
+                                        <span class="badge bg-primary">Criação</span>
+                                    {% elif item.tipo_acao == 'EDICAO' %}
+                                        <span class="badge bg-warning">Edição</span>
+                                    {% elif item.tipo_acao == 'APROVACAO' %}
+                                        <span class="badge bg-success">Aprovação</span>
+                                    {% elif item.tipo_acao == 'NEGACAO' %}
+                                        <span class="badge bg-danger">Negação</span>
+                                    {% elif item.tipo_acao == 'ATENDIMENTO' %}
+                                        <span class="badge bg-info">Atendimento</span>
+                                    {% elif item.tipo_acao == 'CANCELAMENTO' %}
+                                        <span class="badge bg-dark">Cancelamento</span>
+                                    {% elif item.tipo_acao == 'CONFIRMACAO_RECEBIMENTO' %}
+                                        <span class="badge bg-success">Confirmação de Recebimento</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ item.get_tipo_acao_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if item.alterado_por %}
+                                        {{ item.alterado_por.get_full_name|default:item.alterado_por.username }}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="d-flex flex-wrap align-items-start gap-2">
+                                        {% if item.produto %}
+                                            <div>
+                                                <strong><i class="fas fa-box me-1"></i>Produto:</strong> 
+                                                <span class="badge bg-info">{{ item.produto.codigo }}</span>
+                                            </div>
+                                            {% if item.quantidade_anterior or item.quantidade_nova %}
+                                                <div>
+                                                    <strong>Qtd:</strong>
+                                                    {% if item.quantidade_anterior %}
+                                                        <span class="badge bg-danger me-1">
+                                                            <i class="fas fa-arrow-left me-1"></i>{{ item.quantidade_anterior }}
+                                                        </span>
+                                                    {% endif %}
+                                                    {% if item.quantidade_anterior and item.quantidade_nova %}
+                                                        <i class="fas fa-arrow-right text-muted me-1"></i>
+                                                    {% endif %}
+                                                    {% if item.quantidade_nova %}
+                                                        <span class="badge bg-success">
+                                                            {{ item.quantidade_nova }}<i class="fas fa-arrow-right ms-1"></i>
+                                                        </span>
+                                                    {% endif %}
+                                                </div>
+                                            {% endif %}
+                                        {% endif %}
+                                        {% if item.campo_alterado %}
+                                            <div>
+                                                <strong><i class="fas fa-edit me-1"></i>{{ item.campo_alterado|title }}:</strong>
+                                                {% if item.valor_anterior %}
+                                                    <span class="badge bg-danger me-1">
+                                                        <i class="fas fa-arrow-left me-1"></i>{{ item.valor_anterior|truncatewords:3 }}
+                                                    </span>
+                                                {% endif %}
+                                                {% if item.valor_anterior and item.valor_novo %}
+                                                    <i class="fas fa-arrow-right text-muted me-1"></i>
+                                                {% endif %}
+                                                {% if item.valor_novo %}
+                                                    <span class="badge bg-success">
+                                                        {{ item.valor_novo|truncatewords:3 }}<i class="fas fa-arrow-right ms-1"></i>
+                                                    </span>
+                                                {% endif %}
+                                            </div>
+                                        {% endif %}
+                                        {% if item.observacoes %}
+                                            <div class="w-100 mt-1 pt-1 border-top">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-comment me-1"></i>{{ item.observacoes|truncatewords:15 }}
+                                                </small>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted mb-0">
+                <i class="fas fa-info-circle me-2"></i>Nenhum registro de histórico encontrado para esta requisição.
+            </p>
+            {% endif %}
+        </div>
+    </div>
+    
+    {% if requisicao.criado_por %}
+    <hr>
+    <div class="row">
+        <div class="col-12 mb-3">
+            <strong><i class="fas fa-user-plus me-2"></i>Criado por:</strong>
+            <p class="mb-0">{{ requisicao.criado_por.get_full_name|default:requisicao.criado_por.username }} em {{ requisicao.data_criacao|date:"d/m/Y H:i" }}</p>
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if requisicao.data_confirmacao_recebimento %}
+    <hr>
+    <div class="alert alert-success">
+        <i class="fas fa-check-circle me-2"></i>
+        <strong>Recebimento Confirmado</strong><br>
+        Confirmado por: {% if requisicao.confirmado_por %}{{ requisicao.confirmado_por.get_full_name|default:requisicao.confirmado_por.username }}{% endif %}<br>
+        Data: {{ requisicao.data_confirmacao_recebimento|date:"d/m/Y H:i" }}
+    </div>
+    {% endif %}
+</div>
+<div class="modal-footer">
+    {% if requisicao.status == 'ATENDIDA' and not requisicao.data_confirmacao_recebimento and pode_confirmar %}
+        <button type="button" 
+                class="btn btn-success btn-confirmar-recebimento-detail" 
+                data-requisicao-id="{{ requisicao.pk }}">
+            <i class="fas fa-check-double me-2"></i>Confirmar Recebimento
+        </button>
+    {% endif %}
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+        <i class="fas fa-times me-2"></i>Fechar
+    </button>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Confirmar recebimento no modal de detalhes
+    const btnConfirmarDetail = document.querySelector('.btn-confirmar-recebimento-detail');
+    if (btnConfirmarDetail) {
+        btnConfirmarDetail.addEventListener('click', function() {
+            const requisicaoId = this.dataset.requisicaoId;
+            
+            if (!confirm('Tem certeza que deseja confirmar o recebimento desta requisição?')) {
+                return;
+            }
+            
+            const submitBtn = this;
+            const originalHTML = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Confirmando...';
+            
+            fetch(`/militares/almoxarifado/requisicoes/${requisicaoId}/confirmar-recebimento/`, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('verRequisicaoModal'));
+                    if (modal) modal.hide();
+                    if (typeof showGlobalSuccess === 'function') {
+                        showGlobalSuccess(data.message);
+                    } else {
+                        alert(data.message);
+                    }
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    if (typeof showGlobalError === 'function') {
+                        showGlobalError(data.message || 'Erro ao confirmar recebimento');
+                    } else {
+                        alert('Erro: ' + (data.message || 'Erro ao confirmar recebimento'));
+                    }
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalHTML;
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao confirmar recebimento:', error);
+                if (typeof showGlobalError === 'function') {
+                    showGlobalError('Erro ao confirmar recebimento. Tente novamente.');
+                } else {
+                    alert('Erro ao confirmar recebimento. Tente novamente.');
+                }
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalHTML;
+            });
+        });
+    }
+});
+</script>
+

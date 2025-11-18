@@ -1,0 +1,488 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Configurações de Munições{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2><i class="fas fa-bullseye me-2"></i>Configurações de Munições</h2>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#criarConfiguracaoMunicaoModal">
+                    <i class="fas fa-plus me-2"></i>Nova Configuração
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Filtros</h5>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Buscar</label>
+                    <input type="text" name="search" class="form-control" value="{{ search }}" placeholder="Marca ou Modelo">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Calibre</label>
+                    <select name="calibre" class="form-select">
+                        <option value="">Todos</option>
+                        {% for calibre_val, calibre_nome in calibres %}
+                            <option value="{{ calibre_val }}" {% if calibre == calibre_val %}selected{% endif %}>
+                                {{ calibre_nome }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Tipo de Munição</label>
+                    <select name="tipo_municao" class="form-select">
+                        <option value="">Todos</option>
+                        {% for tipo_val, tipo_nome in tipos_municao %}
+                            <option value="{{ tipo_val }}" {% if tipo_municao == tipo_val %}selected{% endif %}>
+                                {{ tipo_nome }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Ativo</label>
+                    <select name="ativo" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="1" {% if ativo == '1' %}selected{% endif %}>Sim</option>
+                        <option value="0" {% if ativo == '0' %}selected{% endif %}>Não</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">
+                        <i class="fas fa-search me-2"></i>Filtrar
+                    </button>
+                    <a href="{% url 'militares:configuracao_municao_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-times me-2"></i>Limpar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Lista -->
+    <div class="card">
+        <div class="card-body">
+            {% if configuracoes %}
+                <div class="row">
+                    {% for configuracao in configuracoes %}
+                        <div class="col-md-4 mb-4">
+                            <div class="card h-100">
+                                {% if configuracao.imagem %}
+                                    <img src="{{ configuracao.imagem.url }}" class="card-img-top" alt="{{ configuracao.marca }} {{ configuracao.modelo }}" style="height: 200px; object-fit: contain; background-color: #f8f9fa;">
+                                {% else %}
+                                    <div class="card-img-top d-flex align-items-center justify-content-center" style="height: 200px; background-color: #f8f9fa;">
+                                        <i class="fas fa-bullseye fa-3x text-muted"></i>
+                                    </div>
+                                {% endif %}
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ configuracao.marca }} {{ configuracao.modelo }}</h5>
+                                    <p class="card-text mb-2">
+                                        <strong>Calibre:</strong> {{ configuracao.get_calibre_display }}<br>
+                                        <strong>Tipo:</strong> {{ configuracao.get_tipo_municao_display }}<br>
+                                    </p>
+                                    {% if configuracao.ativo %}
+                                        <span class="badge bg-success">Ativo</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Inativo</span>
+                                    {% endif %}
+                                </div>
+                                <div class="card-footer">
+                                    <div class="btn-group w-100" role="group">
+                                        <button type="button" 
+                                                class="btn btn-sm btn-info btn-visualizar-configuracao-municao" 
+                                                title="Visualizar"
+                                                data-configuracao-id="{{ configuracao.pk }}">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button type="button" 
+                                                class="btn btn-sm btn-warning btn-editar-configuracao-municao" 
+                                                title="Editar"
+                                                data-configuracao-id="{{ configuracao.pk }}">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <a href="{% url 'militares:configuracao_municao_delete' configuracao.pk %}" class="btn btn-sm btn-danger" title="Excluir">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Paginação -->
+                {% if is_paginated %}
+                    <nav aria-label="Paginação">
+                        <ul class="pagination justify-content-center mt-4">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}{% if calibre %}&calibre={{ calibre }}{% endif %}{% if tipo_municao %}&tipo_municao={{ tipo_municao }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">
+                                        <i class="fas fa-angle-double-left"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if calibre %}&calibre={{ calibre }}{% endif %}{% if tipo_municao %}&tipo_municao={{ tipo_municao }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">
+                                        <i class="fas fa-angle-left"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                            
+                            <li class="page-item disabled">
+                                <span class="page-link">
+                                    Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                                </span>
+                            </li>
+                            
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if calibre %}&calibre={{ calibre }}{% endif %}{% if tipo_municao %}&tipo_municao={{ tipo_municao }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">
+                                        <i class="fas fa-angle-right"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if calibre %}&calibre={{ calibre }}{% endif %}{% if tipo_municao %}&tipo_municao={{ tipo_municao }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">
+                                        <i class="fas fa-angle-double-right"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>Nenhuma configuração de munição encontrada.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Modal de criar configuração de munição
+    const criarConfiguracaoMunicaoModal = document.getElementById('criarConfiguracaoMunicaoModal');
+    const criarConfiguracaoMunicaoModalContent = document.getElementById('criarConfiguracaoMunicaoModalContent');
+    
+    if (criarConfiguracaoMunicaoModal && criarConfiguracaoMunicaoModalContent) {
+        criarConfiguracaoMunicaoModal.addEventListener('show.bs.modal', function(event) {
+            criarConfiguracaoMunicaoModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            fetch('{% url "militares:configuracao_municao_create" %}', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.html) {
+                    criarConfiguracaoMunicaoModalContent.innerHTML = data.html;
+                    
+                    setTimeout(function() {
+                        const scripts = criarConfiguracaoMunicaoModalContent.querySelectorAll('script');
+                        scripts.forEach(function(oldScript) {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(attr => {
+                                newScript.setAttribute(attr.name, attr.value);
+                            });
+                            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                            oldScript.parentNode.replaceChild(newScript, oldScript);
+                        });
+                    }, 100);
+                } else {
+                    criarConfiguracaoMunicaoModalContent.innerHTML = `
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title">
+                                <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body text-center py-4">
+                            <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                            <h5>Erro ao Carregar</h5>
+                            <p class="text-muted">Não foi possível carregar o formulário. Tente novamente.</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar formulário:', error);
+                criarConfiguracaoMunicaoModalContent.innerHTML = `
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body text-center py-4">
+                        <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                        <h5>Erro ao Carregar</h5>
+                        <p class="text-muted">Não foi possível carregar o formulário. Tente novamente.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                `;
+            });
+        });
+        
+        criarConfiguracaoMunicaoModal.addEventListener('hidden.bs.modal', function() {
+            criarConfiguracaoMunicaoModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+        });
+    }
+    
+    // Botões de visualizar configuração de munição
+    document.addEventListener('click', function(e) {
+        const btnVisualizar = e.target.closest('.btn-visualizar-configuracao-municao');
+        if (btnVisualizar) {
+            e.preventDefault();
+            const configuracaoId = btnVisualizar.getAttribute('data-configuracao-id');
+            if (configuracaoId) {
+                const modal = new bootstrap.Modal(document.getElementById('detalhesConfiguracaoMunicaoModal'));
+                const modalContent = document.getElementById('detalhesConfiguracaoMunicaoModalContent');
+                
+                modalContent.innerHTML = `
+                    <div class="modal-body text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                        <p class="mt-3 text-muted">Carregando detalhes...</p>
+                    </div>
+                `;
+                
+                modal.show();
+                
+                fetch(`/militares/configuracoes-municoes/${configuracaoId}/`, {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.html) {
+                        modalContent.innerHTML = data.html;
+                        
+                        const btnEditarModal = modalContent.querySelector('.btn-editar-configuracao-municao-modal');
+                        if (btnEditarModal) {
+                            btnEditarModal.addEventListener('click', function() {
+                                const modalDetalhes = bootstrap.Modal.getInstance(document.getElementById('detalhesConfiguracaoMunicaoModal'));
+                                if (modalDetalhes) {
+                                    modalDetalhes.hide();
+                                }
+                                
+                                setTimeout(function() {
+                                    const btnEditar = document.querySelector(`.btn-editar-configuracao-municao[data-configuracao-id="${configuracaoId}"]`);
+                                    if (btnEditar) {
+                                        btnEditar.click();
+                                    }
+                                }, 300);
+                            });
+                        }
+                    } else {
+                        modalContent.innerHTML = `
+                            <div class="modal-header bg-danger text-white">
+                                <h5 class="modal-title">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                                </h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body text-center py-4">
+                                <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                                <h5>Erro ao Carregar</h5>
+                                <p class="text-muted">Não foi possível carregar os detalhes. Tente novamente.</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar detalhes:', error);
+                    modalContent.innerHTML = `
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title">
+                                <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body text-center py-4">
+                            <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                            <h5>Erro ao Carregar</h5>
+                            <p class="text-muted">Não foi possível carregar os detalhes. Tente novamente.</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                        </div>
+                    `;
+                });
+            }
+            return;
+        }
+        
+        // Botões de editar configuração de munição
+        const btnEditar = e.target.closest('.btn-editar-configuracao-municao');
+        if (btnEditar) {
+            e.preventDefault();
+            const configuracaoId = btnEditar.getAttribute('data-configuracao-id');
+            if (configuracaoId) {
+                const modal = new bootstrap.Modal(document.getElementById('criarConfiguracaoMunicaoModal'));
+                const modalContent = document.getElementById('criarConfiguracaoMunicaoModalContent');
+                
+                modalContent.innerHTML = `
+                    <div class="modal-body text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                        <p class="mt-3 text-muted">Carregando formulário...</p>
+                    </div>
+                `;
+                
+                modal.show();
+                
+                fetch(`/militares/configuracoes-municoes/${configuracaoId}/editar/`, {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.html) {
+                        modalContent.innerHTML = data.html;
+                        
+                        setTimeout(function() {
+                            const scripts = modalContent.querySelectorAll('script');
+                            scripts.forEach(function(oldScript) {
+                                const newScript = document.createElement('script');
+                                Array.from(oldScript.attributes).forEach(attr => {
+                                    newScript.setAttribute(attr.name, attr.value);
+                                });
+                                newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                                oldScript.parentNode.replaceChild(newScript, oldScript);
+                            });
+                        }, 100);
+                    } else {
+                        modalContent.innerHTML = `
+                            <div class="modal-header bg-danger text-white">
+                                <h5 class="modal-title">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                                </h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body text-center py-4">
+                                <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                                <h5>Erro ao Carregar</h5>
+                                <p class="text-muted">Não foi possível carregar o formulário. Tente novamente.</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar formulário:', error);
+                    modalContent.innerHTML = `
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title">
+                                <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body text-center py-4">
+                            <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                            <h5>Erro ao Carregar</h5>
+                            <p class="text-muted">Não foi possível carregar o formulário. Tente novamente.</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                        </div>
+                    `;
+                });
+            }
+        }
+    });
+});
+</script>
+
+<!-- Modal para Criar/Editar Configuração de Munição -->
+<div class="modal fade" id="criarConfiguracaoMunicaoModal" tabindex="-1" aria-labelledby="criarConfiguracaoMunicaoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" id="criarConfiguracaoMunicaoModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Detalhes da Configuração de Munição -->
+<div class="modal fade" id="detalhesConfiguracaoMunicaoModal" tabindex="-1" aria-labelledby="detalhesConfiguracaoMunicaoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" id="detalhesConfiguracaoMunicaoModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando detalhes...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Limpar conteúdo quando fechar o modal de detalhes
+    const detalhesConfiguracaoMunicaoModal = document.getElementById('detalhesConfiguracaoMunicaoModal');
+    const detalhesConfiguracaoMunicaoModalContent = document.getElementById('detalhesConfiguracaoMunicaoModalContent');
+    
+    if (detalhesConfiguracaoMunicaoModal && detalhesConfiguracaoMunicaoModalContent) {
+        detalhesConfiguracaoMunicaoModal.addEventListener('hidden.bs.modal', function() {
+            detalhesConfiguracaoMunicaoModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando detalhes...</p>
+                </div>
+            `;
+        });
+    }
+});
+</script>
+{% endblock %}
+

@@ -1,0 +1,246 @@
+{% load static %}
+
+<div class="modal-header bg-primary text-white">
+    <h5 class="modal-title" id="criarMunicaoModalLabel">
+        <i class="fas fa-boxes me-2"></i>
+        Nova Munição
+    </h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+
+<form id="formCriarMunicao" method="post" action="{% url 'militares:municao_create' %}">
+    {% csrf_token %}
+    <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+        
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.calibre.id_for_label }}" class="form-label">
+                    Calibre <span class="text-danger">*</span>
+                </label>
+                {{ form.calibre }}
+                {% if form.calibre.errors %}
+                    <div class="invalid-feedback d-block">{{ form.calibre.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.quantidade_estoque.id_for_label }}" class="form-label">
+                    Quantidade em Estoque
+                </label>
+                {{ form.quantidade_estoque }}
+                {% if form.quantidade_estoque.errors %}
+                    <div class="invalid-feedback d-block">{{ form.quantidade_estoque.errors }}</div>
+                {% endif %}
+                <small class="form-text text-muted">Quantidade inicial em estoque (pode ser 0)</small>
+            </div>
+        </div>
+        
+        <hr>
+        <h6 class="mb-3"><i class="fas fa-building me-2"></i>Organização Militar (OM)</h6>
+        
+        <!-- Organograma (OM) - Campo único -->
+        <div class="mb-3">
+            <label for="organograma-municao-select" class="form-label">
+                Organização Militar (OM)
+            </label>
+            <select id="organograma-municao-select" class="form-select" style="width: 100%;">
+                <option value="">Selecione uma opção do organograma...</option>
+            </select>
+            <!-- Campos ocultos para armazenar os valores do organograma -->
+            {{ form.orgao }}
+            {{ form.grande_comando }}
+            {{ form.unidade }}
+            {{ form.sub_unidade }}
+            <small class="form-text text-muted">Selecione a organização militar</small>
+            {% if form.orgao.errors or form.grande_comando.errors or form.unidade.errors or form.sub_unidade.errors %}
+                <div class="text-danger small">
+                    {% if form.orgao.errors %}{{ form.orgao.errors }}{% endif %}
+                    {% if form.grande_comando.errors %}{{ form.grande_comando.errors }}{% endif %}
+                    {% if form.unidade.errors %}{{ form.unidade.errors }}{% endif %}
+                    {% if form.sub_unidade.errors %}{{ form.sub_unidade.errors }}{% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save me-2"></i>Salvar
+        </button>
+    </div>
+</form>
+
+<script>
+(function() {
+    // Executar imediatamente quando o script for carregado (não esperar DOMContentLoaded)
+    const organogramaSelect = document.getElementById('organograma-municao-select');
+    const orgaoHidden = document.getElementById('id_orgao');
+    const grandeComandoHidden = document.getElementById('id_grande_comando');
+    const unidadeHidden = document.getElementById('id_unidade');
+    const subUnidadeHidden = document.getElementById('id_sub_unidade');
+    
+    // Função para carregar toda a hierarquia do organograma
+    async function carregarOrganogramaCompleto() {
+        if (!organogramaSelect) {
+            console.error('Select do organograma não encontrado');
+            return;
+        }
+        
+        try {
+            const response = await fetch('{% url "militares:ajax_organograma_completo" %}');
+            if (!response.ok) {
+                throw new Error('Erro ao buscar organograma: ' + response.status);
+            }
+            const data = await response.json();
+            
+            if (!data.hierarquia || !Array.isArray(data.hierarquia)) {
+                console.error('Resposta inválida do servidor:', data);
+                return;
+            }
+            
+            organogramaSelect.innerHTML = '<option value="">Selecione uma opção do organograma...</option>';
+            
+            data.hierarquia.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item.id;
+                option.textContent = item.texto;
+                option.dataset.tipo = item.tipo;
+                option.dataset.valor = JSON.stringify(item.valor);
+                
+                if (item.nivel === 1) {
+                    option.style.fontWeight = 'bold';
+                    option.style.color = '#0d6efd';
+                } else if (item.nivel === 2) {
+                    option.style.fontWeight = '600';
+                    option.style.color = '#198754';
+                } else if (item.nivel === 3) {
+                    option.style.color = '#fd7e14';
+                } else if (item.nivel === 4) {
+                    option.style.color = '#6f42c1';
+                }
+                
+                organogramaSelect.appendChild(option);
+            });
+            
+            console.log('Organograma carregado com sucesso. Total de itens:', data.hierarquia.length);
+        } catch (error) {
+            console.error('Erro ao carregar organograma:', error);
+            if (organogramaSelect) {
+                organogramaSelect.innerHTML = '<option value="">Erro ao carregar organograma. Tente recarregar a página.</option>';
+            }
+        }
+    }
+    
+    // Função para atualizar campos ocultos
+    function atualizarCamposOcultos() {
+        if (!organogramaSelect) return;
+        
+        const selectedOption = organogramaSelect.options[organogramaSelect.selectedIndex];
+        
+        if (selectedOption.value && selectedOption.dataset.valor) {
+            const valor = JSON.parse(selectedOption.dataset.valor);
+            if (orgaoHidden) orgaoHidden.value = valor.orgao_id || '';
+            if (grandeComandoHidden) grandeComandoHidden.value = valor.grande_comando_id || '';
+            if (unidadeHidden) unidadeHidden.value = valor.unidade_id || '';
+            if (subUnidadeHidden) subUnidadeHidden.value = valor.sub_unidade_id || '';
+        } else {
+            if (orgaoHidden) orgaoHidden.value = '';
+            if (grandeComandoHidden) grandeComandoHidden.value = '';
+            if (unidadeHidden) unidadeHidden.value = '';
+            if (subUnidadeHidden) subUnidadeHidden.value = '';
+        }
+    }
+    
+    // Event listener para mudança no select
+    if (organogramaSelect) {
+        organogramaSelect.addEventListener('change', atualizarCamposOcultos);
+    }
+    
+    // Submeter formulário via AJAX
+    const formCriarMunicao = document.getElementById('formCriarMunicao');
+    if (formCriarMunicao) {
+        formCriarMunicao.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(formCriarMunicao);
+            const submitButton = formCriarMunicao.querySelector('button[type="submit"]');
+            const originalText = submitButton.innerHTML;
+            
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Salvando...';
+            
+            fetch(formCriarMunicao.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => {
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    return response.json();
+                } else {
+                    return response.text().then(text => {
+                        throw new Error('Resposta não é JSON');
+                    });
+                }
+            })
+            .then(data => {
+                if (data.success) {
+                    if (typeof showToast === 'function') {
+                        showToast('success', data.message || 'Munição cadastrada com sucesso!');
+                    } else {
+                        alert(data.message || 'Munição cadastrada com sucesso!');
+                    }
+                    
+                    const modalElement = document.getElementById('criarMunicaoModal');
+                    if (modalElement) {
+                        const modal = bootstrap.Modal.getInstance(modalElement);
+                        if (modal) {
+                            modal.hide();
+                        }
+                    }
+                    
+                    setTimeout(function() {
+                        if (data.redirect_url) {
+                            window.location.href = data.redirect_url;
+                        } else {
+                            window.location.reload();
+                        }
+                    }, 300);
+                } else {
+                    let errorMessage = data.message || 'Erro ao salvar munição.';
+                    if (data.errors) {
+                        errorMessage += '\n\nErros:\n';
+                        for (const field in data.errors) {
+                            errorMessage += field + ': ' + data.errors[field].join(', ') + '\n';
+                        }
+                    }
+                    alert(errorMessage);
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert('Erro ao salvar munição. Tente novamente.');
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalText;
+            });
+        });
+    }
+    
+    // Carregar organograma imediatamente
+    // Usar setTimeout para garantir que o DOM esteja pronto
+    setTimeout(function() {
+        carregarOrganogramaCompleto();
+    }, 200);
+})();
+</script>
+

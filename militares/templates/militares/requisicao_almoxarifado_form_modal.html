@@ -1,0 +1,2068 @@
+<div class="modal-header bg-info text-white">
+    <h5 class="modal-title" id="criarRequisicaoModalLabel">
+        <i class="fas fa-hand-holding me-2"></i>{% if is_create %}Nova Requisição{% else %}Editar Requisição{% endif %}
+    </h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<form id="formRequisicaoAlmoxarifado" method="post" action="{% if is_create %}{% url 'militares:requisicao_almoxarifado_create' %}{% else %}{% url 'militares:requisicao_almoxarifado_update' requisicao.pk %}{% endif %}">
+    {% csrf_token %}
+    <div class="modal-body">
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+        
+        <hr>
+        <h6 class="mb-3"><i class="fas fa-hand-holding me-2"></i>OM Requisitante (quem está pedindo)</h6>
+        
+        <!-- Organograma OM Requisitante -->
+        <div class="mb-3">
+            <label for="organograma-requisitante-select" class="form-label">
+                Organização Militar (OM) Requisitante
+            </label>
+            <select id="organograma-requisitante-select" class="form-select">
+                <option value="">Carregando organograma...</option>
+            </select>
+            {{ form.orgao_requisitante.as_hidden }}
+            {{ form.grande_comando_requisitante.as_hidden }}
+            {{ form.unidade_requisitante.as_hidden }}
+            {{ form.sub_unidade_requisitante.as_hidden }}
+            <small class="form-text text-muted">Selecione a organização militar que está requisitando</small>
+        </div>
+        
+        <hr>
+        <h6 class="mb-3"><i class="fas fa-building me-2"></i>OM Requisitada (quem tem o estoque)</h6>
+        
+        <!-- Organograma OM Requisitada -->
+        <div class="mb-3">
+            <label for="organograma-requisitada-select" class="form-label">
+                Organização Militar (OM) Requisitada <span class="text-danger">*</span>
+            </label>
+            <select id="organograma-requisitada-select" class="form-select">
+                <option value="">Carregando organograma...</option>
+            </select>
+            {{ form.orgao_requisitada.as_hidden }}
+            {{ form.grande_comando_requisitada.as_hidden }}
+            {{ form.unidade_requisitada.as_hidden }}
+            {{ form.sub_unidade_requisitada.as_hidden }}
+            <small class="form-text text-muted">Selecione a organização militar que possui o estoque</small>
+        </div>
+        
+        <hr>
+        <h6 class="mb-3"><i class="fas fa-boxes me-2"></i>Produtos da Requisição</h6>
+        
+        <!-- Tabela de Produtos -->
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered" id="tabela-itens-requisicao">
+                        <thead>
+                            <tr>
+                                <th style="width: 15%;">Código</th>
+                                <th style="width: 30%;">Produto <span class="text-danger">*</span></th>
+                                <th style="width: 15%;">Quantidade <span class="text-danger">*</span></th>
+                                <th style="width: 15%;">Tamanhos</th>
+                                <th style="width: 15%;">Estoque Disponível</th>
+                                <th style="width: 10%;">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="itens-requisicao-tbody">
+                            {% if not is_create and requisicao %}
+                                {% with produtos_requisicao_list=requisicao.produtos_requisicao.all %}
+                                {# Debug: verificar se os produtos estão sendo carregados #}
+                                {% comment %}Total de produtos: {{ produtos_requisicao_list|length }}{% endcomment %}
+                                {% if produtos_requisicao_list|length == 0 %}
+                                <tr id="tr-sem-itens">
+                                    <td colspan="6" class="text-center text-muted py-3">
+                                        <i class="fas fa-info-circle me-2"></i>Nenhum produto cadastrado. Adicione produtos abaixo.
+                                    </td>
+                                </tr>
+                                {% else %}
+                                {% for produto_requisicao in produtos_requisicao_list %}
+                                <tr data-item-requisicao-id="{{ produto_requisicao.id }}" data-item-id="{{ produto_requisicao.produto.id }}" data-item-codigo="{{ produto_requisicao.produto.codigo }}" data-item-descricao="{{ produto_requisicao.produto.descricao }}">
+                                    <td>
+                                        <span class="codigo-produto-item fw-bold text-primary">
+                                            {{ produto_requisicao.produto.get_codigo_limpo }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <select class="form-select form-select-sm item-select" required>
+                                            <option value="">Carregando produtos...</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="number" 
+                                               class="form-control form-control-sm quantidade-item" 
+                                               value="{{ produto_requisicao.quantidade }}" 
+                                               data-quantidade-original="{{ produto_requisicao.quantidade }}"
+                                               step="0.01" 
+                                               min="0.01" 
+                                               required>
+                                    </td>
+                                    <td>
+                                        <span class="tamanho-produto-item">
+                                            {% if produto_requisicao.produto.tamanho %}
+                                                <strong class="text-primary">{{ produto_requisicao.produto.tamanho }}</strong>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="estoque-disponivel-item">
+                                            {% if produto_requisicao.produto.quantidade_atual is not None %}
+                                                {{ produto_requisicao.produto.quantidade_atual }} {{ produto_requisicao.produto.get_unidade_medida_display }}
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button type="button" 
+                                                class="btn btn-sm btn-danger btn-remover-item" 
+                                                title="Remover produto">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% endif %}
+                                {% endwith %}
+                            {% endif %}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="6">
+                                    <button type="button" 
+                                            class="btn btn-sm btn-primary" 
+                                            id="btn-adicionar-item-requisicao">
+                                        <i class="fas fa-plus me-1"></i>Adicionar Produto
+                                    </button>
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mb-3">
+            <label for="{{ form.observacoes.id_for_label }}" class="form-label">
+                {{ form.observacoes.label }}
+            </label>
+            {{ form.observacoes }}
+            {% if form.observacoes.errors %}
+                <div class="text-danger small">{{ form.observacoes.errors }}</div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <i class="fas fa-times me-2"></i>Cancelar
+        </button>
+        <button type="submit" class="btn btn-info">
+            <i class="fas fa-save me-2"></i>Salvar
+        </button>
+    </div>
+</form>
+
+<!-- Modal para gerenciar tamanhos de um item específico - Fora do form para garantir z-index correto -->
+<div class="modal fade" id="modalTamanhosItemRequisicao" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-ruler me-2"></i>Gerenciar Tamanhos
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="tamanhos-item-container-requisicao">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Tamanho</th>
+                                    <th>Quantidade</th>
+                                    <th style="width: 80px;">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tamanhos-item-tbody-requisicao">
+                                <!-- Linhas serão adicionadas dinamicamente -->
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="3">
+                                        <button type="button" 
+                                                class="btn btn-sm btn-primary" 
+                                                id="btn-adicionar-tamanho-item-requisicao">
+                                            <i class="fas fa-plus me-1"></i>Adicionar Tamanho
+                                        </button>
+                                        <span class="ms-3">
+                                            <strong>Total:</strong> 
+                                            <span id="total-tamanhos-item-requisicao">0.00</span>
+                                        </span>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal moderno para informações -->
+<div class="modal fade" id="modalInfoRequisicao" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-info text-white border-0">
+                <h5 class="modal-title">
+                    <i class="fas fa-info-circle me-2"></i>Informação
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="text-center mb-3">
+                    <i class="fas fa-hand-point-right fa-3x text-info mb-3"></i>
+                    <h6 class="fw-bold" id="modalInfoRequisicaoTitulo">Título</h6>
+                </div>
+                <div class="text-center mb-0" id="modalInfoRequisicaoMensagem" style="white-space: pre-line;">Mensagem</div>
+            </div>
+            <div class="modal-footer border-0 justify-content-center">
+                <button type="button" class="btn btn-info px-4" data-bs-dismiss="modal">
+                    <i class="fas fa-check me-2"></i>Entendi
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+{% url 'militares:ajax_organograma_completo' as url_organograma %}
+{% url 'militares:ajax_organograma_completo_sem_filtro' as url_organograma_sem_filtro %}
+
+(function() {
+    'use strict';
+    
+    let isSubmitting = false;
+    let isFormInitialized = false;
+    let isOrganogramasInitialized = false;
+    
+    // Inicializar formulário
+    function initForm() {
+        if (isFormInitialized) return;
+        
+        const form = document.getElementById('formRequisicaoAlmoxarifado');
+        if (!form) return;
+        
+        isFormInitialized = true;
+        
+        // Handler de submit
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Proteção contra múltiplos envios
+            if (isSubmitting) {
+                console.warn('Formulário já está sendo enviado, ignorando submit duplicado');
+                return false;
+            }
+            
+            // Verificar se o formulário já foi enviado recentemente (proteção adicional)
+            const formId = form.getAttribute('data-form-id') || 'formRequisicaoAlmoxarifado';
+            const lastSubmit = sessionStorage.getItem(`lastSubmit_${formId}`);
+            const now = Date.now();
+            
+            if (lastSubmit && (now - parseInt(lastSubmit)) < 3000) {
+                console.warn('Formulário foi enviado há menos de 3 segundos, ignorando envio duplicado');
+                return false;
+            }
+            
+            // Registrar timestamp do envio
+            sessionStorage.setItem(`lastSubmit_${formId}`, now.toString());
+            
+            isSubmitting = true;
+            console.log('Iniciando envio do formulário...');
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Salvando...';
+            
+            const formData = new FormData(form);
+            
+            // Coletar dados dos múltiplos itens
+            const itensData = [];
+            const itensTbody = document.getElementById('itens-requisicao-tbody');
+            
+            if (itensTbody) {
+                document.querySelectorAll('#itens-requisicao-tbody tr').forEach(tr => {
+                    // Ignorar linha de "sem itens"
+                    if (tr.id === 'tr-sem-itens') {
+                        return;
+                    }
+                    
+                    const itemSelect = tr.querySelector('.item-select');
+                    const quantidadeInput = tr.querySelector('.quantidade-item');
+                    const itemRequisicaoId = tr.getAttribute('data-item-requisicao-id');
+                    
+                    console.log('Processando linha:', {
+                        itemRequisicaoId: itemRequisicaoId,
+                        itemSelectValue: itemSelect ? itemSelect.value : 'não encontrado',
+                        quantidadeValue: quantidadeInput ? quantidadeInput.value : 'não encontrado'
+                    });
+                    
+                    if (itemSelect && itemSelect.value && quantidadeInput && quantidadeInput.value) {
+                        const quantidade = parseFloat(quantidadeInput.value) || 0;
+                        if (quantidade > 0) {
+                            const itemData = {
+                                id: itemRequisicaoId || null,
+                                item_id: itemSelect.value,
+                                quantidade: quantidade,
+                                tamanhos: []
+                            };
+                            
+                            // Coletar tamanhos do dataset da linha
+                            const tamanhosData = tr.dataset.tamanhos ? JSON.parse(tr.dataset.tamanhos) : [];
+                            itemData.tamanhos = tamanhosData;
+                            
+                            itensData.push(itemData);
+                            console.log('Item adicionado aos dados:', itemData);
+                        }
+                    }
+                });
+            }
+            
+            console.log('Total de itens coletados:', itensData.length);
+            console.log('Itens coletados:', itensData);
+            
+            if (itensData.length > 0) {
+                // IMPORTANTE: Enviar TODOS os produtos em uma única requisição
+                console.log('Enviando requisição com', itensData.length, 'produtos:', itensData);
+                formData.append('itens_data', JSON.stringify(itensData));
+            } else {
+                console.warn('Nenhum item encontrado na tabela');
+                mostrarModalInfo(
+                    'Produtos Necessários',
+                    'Adicione pelo menos um produto à requisição antes de salvar.'
+                );
+                isSubmitting = false;
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+                return;
+            }
+            
+            // Verificar se há campos obrigatórios preenchidos
+            const orgaoRequisitada = formData.get('orgao_requisitada') || formData.get('grande_comando_requisitada') || formData.get('unidade_requisitada') || formData.get('sub_unidade_requisitada');
+            if (!orgaoRequisitada) {
+                console.error('OM Requisitada não foi preenchida');
+                mostrarModalInfo(
+                    'Campo Obrigatório',
+                    'É necessário selecionar a OM Requisitada antes de salvar.'
+                );
+                isSubmitting = false;
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+                return;
+            }
+            
+            // Garantir que só envie uma vez
+            console.log('Enviando formulário para:', form.action);
+            console.log('Dados do formulário:', {
+                'itens_data': formData.get('itens_data'),
+                'total_itens': itensData.length
+            });
+            
+            // Desabilitar o formulário completamente para evitar múltiplos envios
+            form.style.pointerEvents = 'none';
+            form.style.opacity = '0.6';
+            
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                // Verificar se a resposta é JSON
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    return response.text().then(text => {
+                        console.error('Resposta não é JSON:', text);
+                        throw new Error('Resposta do servidor não é JSON. Verifique o console para mais detalhes.');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Resposta do servidor:', data);
+                if (data.status === 'success') {
+                    console.log('Requisição criada com sucesso!');
+                    
+                    // Usar toast global se disponível, senão apenas fechar o modal
+                    if (typeof showGlobalSuccess === 'function') {
+                        showGlobalSuccess(data.message);
+                    }
+                    
+                    // Marcar que houve sucesso para recarregar após fechar o modal
+                    const modalElement = document.getElementById('criarRequisicaoModal');
+                    if (modalElement) {
+                        modalElement.setAttribute('data-reload-on-close', 'true');
+                        
+                        // Adicionar listener para recarregar quando o modal for fechado
+                        const handleModalHidden = () => {
+                            modalElement.removeEventListener('hidden.bs.modal', handleModalHidden);
+                            
+                            // Remover TODOS os backdrops manualmente se ainda existirem
+                            const backdrops = document.querySelectorAll('.modal-backdrop');
+                            backdrops.forEach(backdrop => backdrop.remove());
+                            
+                            // Remover classe modal-open do body se ainda existir
+                            document.body.classList.remove('modal-open');
+                            document.body.style.overflow = '';
+                            document.body.style.paddingRight = '';
+                            
+                            // Pequeno delay antes de recarregar para garantir que tudo foi limpo
+                            setTimeout(() => {
+                                // Verificar novamente e limpar antes de recarregar
+                                const backdrops2 = document.querySelectorAll('.modal-backdrop');
+                                backdrops2.forEach(backdrop => backdrop.remove());
+                                document.body.classList.remove('modal-open');
+                                document.body.style.overflow = '';
+                                document.body.style.paddingRight = '';
+                                
+                                // Recarregar a página
+                                window.location.reload();
+                            }, 200);
+                        };
+                        modalElement.addEventListener('hidden.bs.modal', handleModalHidden);
+                    }
+                    
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    if (modal) {
+                        // Remover backdrop e limpar estilos ANTES de fechar o modal
+                        const backdrop = document.querySelector('.modal-backdrop');
+                        if (backdrop) {
+                            backdrop.remove();
+                        }
+                        document.body.classList.remove('modal-open');
+                        document.body.style.overflow = '';
+                        document.body.style.paddingRight = '';
+                        
+                        // Fechar o modal
+                        modal.hide();
+                        
+                        // Garantir remoção após um pequeno delay (fallback)
+                        setTimeout(() => {
+                            const backdrop2 = document.querySelector('.modal-backdrop');
+                            if (backdrop2) {
+                                backdrop2.remove();
+                            }
+                            document.body.classList.remove('modal-open');
+                            document.body.style.overflow = '';
+                            document.body.style.paddingRight = '';
+                        }, 100);
+                    } else {
+                        // Se não há instância do modal, remover backdrop e recarregar imediatamente
+                        const backdrop = document.querySelector('.modal-backdrop');
+                        if (backdrop) {
+                            backdrop.remove();
+                        }
+                        document.body.classList.remove('modal-open');
+                        document.body.style.overflow = '';
+                        document.body.style.paddingRight = '';
+                        window.location.reload();
+                    }
+                    
+                    // Resetar flag
+                    isSubmitting = false;
+                } else {
+                    // Reabilitar formulário em caso de erro
+                    form.style.pointerEvents = '';
+                    form.style.opacity = '';
+                    
+                    let errorMsg = data.message || 'Erro ao salvar requisição';
+                    if (data.errors) {
+                        errorMsg += '\n\nErro de validação:\n';
+                        for (const [field, errors] of Object.entries(data.errors)) {
+                            errorMsg += field + ': ' + errors.join(', ') + '\n';
+                        }
+                    }
+                    if (data.trace && request.user && request.user.is_superuser) {
+                        console.error('Traceback completo:', data.trace);
+                    }
+                    mostrarModalInfo('Erro ao Salvar', errorMsg);
+                    if (data.html) {
+                        const modalContent = document.getElementById('criarRequisicaoModalContent');
+                        if (modalContent) modalContent.innerHTML = data.html;
+                    }
+                    submitBtn.disabled = false;
+                    isSubmitting = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            })
+            .catch(error => {
+                // Reabilitar formulário em caso de erro
+                form.style.pointerEvents = '';
+                form.style.opacity = '';
+                
+                console.error('Erro:', error);
+                let errorMsg = 'Erro ao salvar. ';
+                if (error.message) {
+                    errorMsg += error.message;
+                } else {
+                    errorMsg += 'Tente novamente.';
+                }
+                mostrarModalInfo('Erro', errorMsg);
+                submitBtn.disabled = false;
+                isSubmitting = false;
+                submitBtn.innerHTML = originalText;
+            });
+        });
+    }
+    
+    // Carregar organograma
+    async function carregarOrganograma(selectId, hiddenFields, usarFiltro = true) {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+        
+        try {
+            // Para requisitante: usar filtro hierárquico
+            // Para requisitada: usar sem filtro (todas as OMs disponíveis)
+            const url = usarFiltro ? '{{ url_organograma }}' : '{{ url_organograma_sem_filtro }}';
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            if (!data.hierarquia || !Array.isArray(data.hierarquia)) {
+                select.innerHTML = '<option value="">Erro ao carregar organograma</option>';
+                return;
+            }
+            
+            select.innerHTML = '<option value="">Selecione uma opção do organograma...</option>';
+            
+            data.hierarquia.forEach(function(item) {
+                const option = document.createElement('option');
+                option.value = item.id;
+                option.textContent = item.texto;
+                option.dataset.valor = JSON.stringify(item.valor);
+                
+                if (item.nivel === 1) {
+                    option.style.fontWeight = 'bold';
+                    option.style.color = '#0d6efd';
+                } else if (item.nivel === 2) {
+                    option.style.fontWeight = '600';
+                    option.style.color = '#198754';
+                } else if (item.nivel === 3) {
+                    option.style.color = '#fd7e14';
+                } else if (item.nivel === 4) {
+                    option.style.color = '#6f42c1';
+                }
+                
+                select.appendChild(option);
+            });
+            
+            // Armazenar flag no select para uso na função de seleção
+            select._selecionandoInicial = false;
+            
+            // Armazenar referência aos campos hidden no select para uso no evento
+            select._hiddenFields = hiddenFields;
+            select._selectId = selectId;
+            
+            // Event listener para atualizar campos hidden
+            select.addEventListener('change', function() {
+                // Se estamos apenas selecionando a opção inicial, não atualizar campos hidden
+                if (this._selecionandoInicial) {
+                    console.log('Ignorando change porque _selecionandoInicial está ativo');
+                    return;
+                }
+                
+                // Usar os campos hidden armazenados no select
+                const camposHidden = this._hiddenFields;
+                if (!camposHidden) {
+                    console.warn('Campos hidden não encontrados no select', this.id);
+                    return;
+                }
+                
+                const option = this.options[this.selectedIndex];
+                console.log('Evento change disparado no', this.id, 'opção selecionada:', option ? option.textContent : 'nenhuma');
+                
+                // Verificar valores atuais antes de atualizar
+                const valoresAntes = {
+                    orgao: camposHidden.orgao ? camposHidden.orgao.value : '',
+                    grandeComando: camposHidden.grandeComando ? camposHidden.grandeComando.value : '',
+                    unidade: camposHidden.unidade ? camposHidden.unidade.value : '',
+                    subUnidade: camposHidden.subUnidade ? camposHidden.subUnidade.value : ''
+                };
+                console.log('Valores ANTES da atualização:', valoresAntes);
+                
+                if (option && option.value && option.dataset.valor) {
+                    const valor = JSON.parse(option.dataset.valor);
+                    console.log('Atualizando campos hidden com valores:', {
+                        orgao: valor.orgao_id,
+                        grandeComando: valor.grande_comando_id,
+                        unidade: valor.unidade_id,
+                        subUnidade: valor.sub_unidade_id
+                    });
+                    
+                    if (camposHidden.orgao) camposHidden.orgao.value = valor.orgao_id || '';
+                    if (camposHidden.grandeComando) camposHidden.grandeComando.value = valor.grande_comando_id || '';
+                    if (camposHidden.unidade) camposHidden.unidade.value = valor.unidade_id || '';
+                    if (camposHidden.subUnidade) camposHidden.subUnidade.value = valor.sub_unidade_id || '';
+                    
+                    // Verificar valores depois de atualizar
+                    const valoresDepois = {
+                        orgao: camposHidden.orgao ? camposHidden.orgao.value : '',
+                        grandeComando: camposHidden.grandeComando ? camposHidden.grandeComando.value : '',
+                        unidade: camposHidden.unidade ? camposHidden.unidade.value : '',
+                        subUnidade: camposHidden.subUnidade ? camposHidden.subUnidade.value : ''
+                    };
+                    console.log('Valores DEPOIS da atualização:', valoresDepois);
+                } else {
+                    // NÃO limpar campos hidden se a opção estiver vazia durante edição
+                    // Isso pode acontecer durante a inicialização
+                    console.log('Opção vazia ou sem valor - mantendo campos hidden como estão');
+                    // Removido o código que limpava os campos
+                }
+            });
+            
+            // Selecionar opção atual se estiver editando (após carregar todas as opções)
+            // Usar setTimeout para garantir que o DOM foi atualizado
+            setTimeout(() => {
+                selecionarOpcaoAtualOrganograma(select, hiddenFields);
+            }, 50);
+        } catch (error) {
+            console.error('Erro ao carregar organograma:', error);
+            select.innerHTML = '<option value="">Erro ao carregar organograma</option>';
+        }
+    }
+    
+    // Função para selecionar a opção atual baseada nos valores dos campos hidden
+    function selecionarOpcaoAtualOrganograma(select, hiddenFields) {
+        if (!select || !hiddenFields) {
+            console.warn('selecionarOpcaoAtualOrganograma: select ou hiddenFields não encontrado');
+            return;
+        }
+        
+        // Obter valores dos campos hidden
+        const orgaoId = hiddenFields.orgao ? hiddenFields.orgao.value : '';
+        const grandeComandoId = hiddenFields.grandeComando ? hiddenFields.grandeComando.value : '';
+        const unidadeId = hiddenFields.unidade ? hiddenFields.unidade.value : '';
+        const subUnidadeId = hiddenFields.subUnidade ? hiddenFields.subUnidade.value : '';
+        
+        console.log('selecionarOpcaoAtualOrganograma chamado para', select.id, {
+            orgaoId, grandeComandoId, unidadeId, subUnidadeId,
+            totalOpcoes: select.options.length
+        });
+        
+        // Log de TODAS as opções para debug (não apenas as primeiras 5)
+        if (select.options.length > 0) {
+            const todasOpcoes = Array.from(select.options).map((opt, index) => {
+                if (opt.value && opt.dataset.valor) {
+                    try {
+                        const valor = JSON.parse(opt.dataset.valor);
+                        return {
+                            indice: index,
+                            texto: opt.textContent,
+                            valor: opt.value,
+                            ids: {
+                                orgao: valor.orgao_id,
+                                grandeComando: valor.grande_comando_id,
+                                unidade: valor.unidade_id,
+                                subUnidade: valor.sub_unidade_id
+                            }
+                        };
+                    } catch (e) {
+                        return { indice: index, texto: opt.textContent, erro: 'erro ao parsear' };
+                    }
+                }
+                return { indice: index, texto: opt.textContent, vazio: true };
+            });
+            console.log(`TODAS as ${todasOpcoes.length} opções do organograma ${select.id}:`, todasOpcoes);
+            console.log(`Procurando correspondência para: orgao=${orgaoId}, grandeComando=${grandeComandoId}, unidade=${unidadeId}, subUnidade=${subUnidadeId}`);
+        }
+        
+        // Se não há valores, não selecionar nada
+        if (!orgaoId && !grandeComandoId && !unidadeId && !subUnidadeId) {
+            console.log('Nenhum valor encontrado nos campos hidden');
+            return;
+        }
+        
+        // Procurar a opção que corresponde aos valores
+        let opcaoEncontrada = false;
+        let melhorCorrespondencia = null;
+        let melhorScore = 0;
+        
+        for (let i = 0; i < select.options.length; i++) {
+            const option = select.options[i];
+            if (option.value && option.dataset.valor) {
+                try {
+                    const valor = JSON.parse(option.dataset.valor);
+                    
+                    // Calcular score de correspondência (quanto mais específico, melhor)
+                    let score = 0;
+                    let corresponde = false;
+                    
+                    // Verificar correspondência exata em todos os níveis
+                    const orgaoMatch = orgaoId && String(valor.orgao_id) == String(orgaoId);
+                    const grandeComandoMatch = grandeComandoId && String(valor.grande_comando_id) == String(grandeComandoId);
+                    const unidadeMatch = unidadeId && String(valor.unidade_id) == String(unidadeId);
+                    const subUnidadeMatch = subUnidadeId && String(valor.sub_unidade_id) == String(subUnidadeId);
+                    
+                    // Priorizar correspondência mais específica
+                    if (subUnidadeMatch && unidadeMatch && grandeComandoMatch && orgaoMatch) {
+                        score = 100; // Correspondência completa
+                        corresponde = true;
+                    } else if (subUnidadeMatch && unidadeMatch && grandeComandoMatch) {
+                        score = 80; // Sub-unidade + unidade + grande comando
+                        corresponde = true;
+                    } else if (subUnidadeMatch && unidadeMatch) {
+                        score = 60; // Sub-unidade + unidade
+                        corresponde = true;
+                    } else if (subUnidadeMatch) {
+                        score = 50; // Apenas sub-unidade
+                        corresponde = true;
+                    } else if (unidadeMatch && grandeComandoMatch && orgaoMatch) {
+                        score = 40; // Unidade + grande comando + órgão
+                        corresponde = true;
+                    } else if (unidadeMatch && grandeComandoMatch) {
+                        score = 30; // Unidade + grande comando
+                        corresponde = true;
+                    } else if (unidadeMatch) {
+                        score = 20; // Apenas unidade
+                        corresponde = true;
+                    } else if (grandeComandoMatch && orgaoMatch) {
+                        score = 15; // Grande comando + órgão
+                        corresponde = true;
+                    } else if (grandeComandoMatch) {
+                        score = 10; // Apenas grande comando
+                        corresponde = true;
+                    } else if (orgaoMatch) {
+                        score = 5; // Apenas órgão
+                        corresponde = true;
+                    }
+                    
+                    // Se encontrou correspondência melhor, armazenar
+                    if (corresponde && score > melhorScore) {
+                        melhorScore = score;
+                        melhorCorrespondencia = option;
+                        console.log('Nova melhor correspondência encontrada:', {
+                            texto: option.textContent,
+                            score: score,
+                            matches: {
+                                orgao: orgaoMatch,
+                                grandeComando: grandeComandoMatch,
+                                unidade: unidadeMatch,
+                                subUnidade: subUnidadeMatch
+                            }
+                        });
+                    }
+                    
+                } catch (e) {
+                    console.error('Erro ao parsear valor da opção:', e, option.dataset.valor);
+                }
+            }
+        }
+        
+        // Se encontrou uma correspondência, selecionar
+        if (melhorCorrespondencia) {
+            // Marcar que estamos selecionando a opção inicial para evitar limpar campos hidden
+            select._selecionandoInicial = true;
+            
+            const valor = JSON.parse(melhorCorrespondencia.dataset.valor);
+            select.value = melhorCorrespondencia.value;
+            console.log('Opção selecionada:', melhorCorrespondencia.textContent, 'valor:', melhorCorrespondencia.value, 'score:', melhorScore);
+            opcaoEncontrada = true;
+            
+            // Verificar se os campos hidden já têm os valores corretos
+            const valoresCorretos = (
+                (!subUnidadeId || (hiddenFields.subUnidade && String(hiddenFields.subUnidade.value) == String(valor.sub_unidade_id))) &&
+                (!unidadeId || (hiddenFields.unidade && String(hiddenFields.unidade.value) == String(valor.unidade_id))) &&
+                (!grandeComandoId || (hiddenFields.grandeComando && String(hiddenFields.grandeComando.value) == String(valor.grande_comando_id))) &&
+                (!orgaoId || (hiddenFields.orgao && String(hiddenFields.orgao.value) == String(valor.orgao_id)))
+            );
+            
+            // Só disparar change se os valores não estiverem corretos
+            if (!valoresCorretos) {
+                // Temporariamente desabilitar a flag para permitir atualização
+                select._selecionandoInicial = false;
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+                select._selecionandoInicial = true;
+            }
+            
+            // Resetar flag após um pequeno delay
+            setTimeout(() => {
+                select._selecionandoInicial = false;
+            }, 200);
+        } else {
+            console.warn('Nenhuma opção correspondente encontrada no organograma', {
+                orgaoId, grandeComandoId, unidadeId, subUnidadeId,
+                totalOpcoes: select.options.length
+            });
+            
+            // NÃO limpar os campos hidden se não encontrar correspondência
+            // Os valores já estão corretos, apenas não há opção no select que corresponda
+            console.log('Mantendo valores dos campos hidden:', {
+                orgao: hiddenFields.orgao ? hiddenFields.orgao.value : '',
+                grandeComando: hiddenFields.grandeComando ? hiddenFields.grandeComando.value : '',
+                unidade: hiddenFields.unidade ? hiddenFields.unidade.value : '',
+                subUnidade: hiddenFields.subUnidade ? hiddenFields.subUnidade.value : ''
+            });
+        }
+    }
+    
+    // Inicializar organogramas
+    async function initOrganogramas() {
+        if (isOrganogramasInitialized) return;
+        
+        // Organograma Requisitante
+        const orgReqSelect = document.getElementById('organograma-requisitante-select');
+        const orgReqHidden = {
+            orgao: document.querySelector('input[name="orgao_requisitante"]'),
+            grandeComando: document.querySelector('input[name="grande_comando_requisitante"]'),
+            unidade: document.querySelector('input[name="unidade_requisitante"]'),
+            subUnidade: document.querySelector('input[name="sub_unidade_requisitante"]')
+        };
+        
+        // Log dos valores iniciais antes de carregar
+        console.log('Valores iniciais Requisitante antes de carregar organograma:', {
+            orgao: orgReqHidden.orgao ? orgReqHidden.orgao.value : 'não encontrado',
+            grandeComando: orgReqHidden.grandeComando ? orgReqHidden.grandeComando.value : 'não encontrado',
+            unidade: orgReqHidden.unidade ? orgReqHidden.unidade.value : 'não encontrado',
+            subUnidade: orgReqHidden.subUnidade ? orgReqHidden.subUnidade.value : 'não encontrado'
+        });
+        
+        if (orgReqSelect) {
+            // Se estiver editando, verificar se a OM da requisição está nos campos hidden
+            // Se estiver, carregar SEM filtro para garantir que a OM esteja disponível
+            const isEditando = {% if not is_create and requisicao %}true{% else %}false{% endif %};
+            const temOMRequisitante = orgReqHidden.orgao?.value || orgReqHidden.grandeComando?.value || orgReqHidden.unidade?.value || orgReqHidden.subUnidade?.value;
+            
+            // Se estiver editando e tem OM requisitante, carregar sem filtro para garantir que a OM esteja disponível
+            const usarFiltro = !(isEditando && temOMRequisitante);
+            
+            console.log('Carregando organograma Requisitante:', {
+                isEditando: isEditando,
+                temOMRequisitante: temOMRequisitante,
+                usarFiltro: usarFiltro
+            });
+            
+            // Requisitante: usar filtro hierárquico apenas se não estiver editando ou se não tiver OM
+            await carregarOrganograma('organograma-requisitante-select', orgReqHidden, usarFiltro);
+            // Selecionar valor atual após carregar (com delay maior para garantir)
+            setTimeout(() => {
+                const select = document.getElementById('organograma-requisitante-select');
+                const camposAtuais = {
+                    orgao: document.querySelector('input[name="orgao_requisitante"]'),
+                    grandeComando: document.querySelector('input[name="grande_comando_requisitante"]'),
+                    unidade: document.querySelector('input[name="unidade_requisitante"]'),
+                    subUnidade: document.querySelector('input[name="sub_unidade_requisitante"]')
+                };
+                console.log('Valores Requisitante antes de selecionar:', {
+                    orgao: camposAtuais.orgao ? camposAtuais.orgao.value : '',
+                    grandeComando: camposAtuais.grandeComando ? camposAtuais.grandeComando.value : '',
+                    unidade: camposAtuais.unidade ? camposAtuais.unidade.value : '',
+                    subUnidade: camposAtuais.subUnidade ? camposAtuais.subUnidade.value : ''
+                });
+                if (select) {
+                    selecionarOpcaoAtualOrganograma(select, camposAtuais);
+                }
+            }, 200);
+        }
+        
+        // Organograma Requisitada
+        const orgReqdSelect = document.getElementById('organograma-requisitada-select');
+        const orgReqdHidden = {
+            orgao: document.querySelector('input[name="orgao_requisitada"]'),
+            grandeComando: document.querySelector('input[name="grande_comando_requisitada"]'),
+            unidade: document.querySelector('input[name="unidade_requisitada"]'),
+            subUnidade: document.querySelector('input[name="sub_unidade_requisitada"]')
+        };
+        
+        // Log dos valores iniciais antes de carregar
+        console.log('Valores iniciais Requisitada antes de carregar organograma:', {
+            orgao: orgReqdHidden.orgao ? orgReqdHidden.orgao.value : 'não encontrado',
+            grandeComando: orgReqdHidden.grandeComando ? orgReqdHidden.grandeComando.value : 'não encontrado',
+            unidade: orgReqdHidden.unidade ? orgReqdHidden.unidade.value : 'não encontrado',
+            subUnidade: orgReqdHidden.subUnidade ? orgReqdHidden.subUnidade.value : 'não encontrado'
+        });
+        
+        if (orgReqdSelect) {
+            // Requisitada: usar sem filtro (todas as OMs disponíveis)
+            await carregarOrganograma('organograma-requisitada-select', orgReqdHidden, false);
+            // Selecionar valor atual após carregar (com delay maior para garantir)
+            setTimeout(() => {
+                const select = document.getElementById('organograma-requisitada-select');
+                const camposAtuais = {
+                    orgao: document.querySelector('input[name="orgao_requisitada"]'),
+                    grandeComando: document.querySelector('input[name="grande_comando_requisitada"]'),
+                    unidade: document.querySelector('input[name="unidade_requisitada"]'),
+                    subUnidade: document.querySelector('input[name="sub_unidade_requisitada"]')
+                };
+                console.log('Valores Requisitada antes de selecionar:', {
+                    orgao: camposAtuais.orgao ? camposAtuais.orgao.value : '',
+                    grandeComando: camposAtuais.grandeComando ? camposAtuais.grandeComando.value : '',
+                    unidade: camposAtuais.unidade ? camposAtuais.unidade.value : '',
+                    subUnidade: camposAtuais.subUnidade ? camposAtuais.subUnidade.value : ''
+                });
+                if (select) {
+                    selecionarOpcaoAtualOrganograma(select, camposAtuais);
+                }
+            }, 200);
+            
+            // Marcar como inicializado
+            isOrganogramasInitialized = true;
+            
+            // Adicionar listener para quando a OM requisitada for selecionada
+            orgReqdSelect.addEventListener('change', async function() {
+                const selectedValue = this.value;
+                if (selectedValue) {
+                    // Aguardar um pouco para garantir que os campos hidden foram atualizados
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                    
+                    // Verificar se os campos hidden foram atualizados
+                    const hasOM = (orgReqdHidden.subUnidade && orgReqdHidden.subUnidade.value) ||
+                                  (orgReqdHidden.unidade && orgReqdHidden.unidade.value) ||
+                                  (orgReqdHidden.grandeComando && orgReqdHidden.grandeComando.value) ||
+                                  (orgReqdHidden.orgao && orgReqdHidden.orgao.value);
+                    
+                    if (hasOM) {
+                        // Limpar cache para forçar recarregamento
+                        listaItensCache = null;
+                        
+                        // Mostrar feedback visual
+                        const selects = document.querySelectorAll('#itens-requisicao-tbody .item-select');
+                        selects.forEach(select => {
+                            if (select.value) {
+                                const originalValue = select.value;
+                                select.innerHTML = '<option value="">Carregando produtos da OM...</option>';
+                                select.disabled = true;
+                            }
+                        });
+                        
+                        // Carregar produtos da OM selecionada
+                        await carregarProdutosDaOM();
+                        
+                        // Reabilitar selects
+                        selects.forEach(select => {
+                            select.disabled = false;
+                        });
+                    }
+                } else {
+                    // Se não há OM selecionada, limpar cache e recarregar todos os produtos
+                    listaItensCache = null;
+                    await carregarProdutosDaOM();
+                }
+            });
+        }
+    }
+    
+    // ========== VERIFICAÇÃO INICIAL DOS CAMPOS HIDDEN ==========
+    // Verificar valores dos campos hidden imediatamente quando o script carrega
+    {% if not is_create and requisicao %}
+    (function() {
+        console.log('=== VERIFICAÇÃO INICIAL DOS CAMPOS HIDDEN ===');
+        const camposRequisitante = {
+            orgao: document.querySelector('input[name="orgao_requisitante"]'),
+            grandeComando: document.querySelector('input[name="grande_comando_requisitante"]'),
+            unidade: document.querySelector('input[name="unidade_requisitante"]'),
+            subUnidade: document.querySelector('input[name="sub_unidade_requisitante"]')
+        };
+        const camposRequisitada = {
+            orgao: document.querySelector('input[name="orgao_requisitada"]'),
+            grandeComando: document.querySelector('input[name="grande_comando_requisitada"]'),
+            unidade: document.querySelector('input[name="unidade_requisitada"]'),
+            subUnidade: document.querySelector('input[name="sub_unidade_requisitada"]')
+        };
+        
+        console.log('Campos Requisitante encontrados:', {
+            orgao: camposRequisitante.orgao ? (camposRequisitante.orgao.value || 'vazio') : 'não encontrado',
+            grandeComando: camposRequisitante.grandeComando ? (camposRequisitante.grandeComando.value || 'vazio') : 'não encontrado',
+            unidade: camposRequisitante.unidade ? (camposRequisitante.unidade.value || 'vazio') : 'não encontrado',
+            subUnidade: camposRequisitante.subUnidade ? (camposRequisitante.subUnidade.value || 'vazio') : 'não encontrado'
+        });
+        
+        console.log('Campos Requisitada encontrados:', {
+            orgao: camposRequisitada.orgao ? (camposRequisitada.orgao.value || 'vazio') : 'não encontrado',
+            grandeComando: camposRequisitada.grandeComando ? (camposRequisitada.grandeComando.value || 'vazio') : 'não encontrado',
+            unidade: camposRequisitada.unidade ? (camposRequisitada.unidade.value || 'vazio') : 'não encontrado',
+            subUnidade: camposRequisitada.subUnidade ? (camposRequisitada.subUnidade.value || 'vazio') : 'não encontrado'
+        });
+        
+        // Verificar HTML dos campos para debug
+        if (camposRequisitada.orgao) {
+            console.log('HTML do campo orgao_requisitada:', camposRequisitada.orgao.outerHTML);
+        }
+    })();
+    {% endif %}
+    
+    // ========== GERENCIAMENTO DE MÚLTIPLOS ITENS ==========
+    const itensTbodyRequisicao = document.getElementById('itens-requisicao-tbody');
+    const btnAdicionarItemRequisicao = document.getElementById('btn-adicionar-item-requisicao');
+    let listaItensCache = null; // Cache da lista de itens
+    let itemAtualTamanhosRequisicao = null; // Linha do item atual sendo editado os tamanhos
+    
+    // Função auxiliar para construir URL de info do produto com parâmetros da OM requisitada
+    function construirUrlProdutoInfo(itemId) {
+        const orgReqdHidden = {
+            orgao: document.querySelector('input[name="orgao_requisitada"]'),
+            grandeComando: document.querySelector('input[name="grande_comando_requisitada"]'),
+            unidade: document.querySelector('input[name="unidade_requisitada"]'),
+            subUnidade: document.querySelector('input[name="sub_unidade_requisitada"]')
+        };
+        
+        let url = `{% url 'militares:produto_almoxarifado_info' 0 %}`.replace('0', itemId);
+        const params = new URLSearchParams();
+        
+        if (orgReqdHidden.subUnidade && orgReqdHidden.subUnidade.value) {
+            params.append('sub_unidade', orgReqdHidden.subUnidade.value);
+        } else if (orgReqdHidden.unidade && orgReqdHidden.unidade.value) {
+            params.append('unidade', orgReqdHidden.unidade.value);
+        } else if (orgReqdHidden.grandeComando && orgReqdHidden.grandeComando.value) {
+            params.append('grande_comando', orgReqdHidden.grandeComando.value);
+        } else if (orgReqdHidden.orgao && orgReqdHidden.orgao.value) {
+            params.append('orgao', orgReqdHidden.orgao.value);
+        }
+        
+        if (params.toString()) {
+            url += '?' + params.toString();
+        }
+        
+        return url;
+    }
+    
+    // Função para carregar produtos da OM requisitada
+    async function carregarProdutosDaOM() {
+        const orgReqdHidden = {
+            orgao: document.querySelector('input[name="orgao_requisitada"]'),
+            grandeComando: document.querySelector('input[name="grande_comando_requisitada"]'),
+            unidade: document.querySelector('input[name="unidade_requisitada"]'),
+            subUnidade: document.querySelector('input[name="sub_unidade_requisitada"]')
+        };
+        
+        // Construir URL com parâmetros da OM
+        const params = new URLSearchParams();
+        if (orgReqdHidden.subUnidade && orgReqdHidden.subUnidade.value) {
+            params.append('sub_unidade', orgReqdHidden.subUnidade.value);
+        } else if (orgReqdHidden.unidade && orgReqdHidden.unidade.value) {
+            params.append('unidade', orgReqdHidden.unidade.value);
+        } else if (orgReqdHidden.grandeComando && orgReqdHidden.grandeComando.value) {
+            params.append('grande_comando', orgReqdHidden.grandeComando.value);
+        } else if (orgReqdHidden.orgao && orgReqdHidden.orgao.value) {
+            params.append('orgao', orgReqdHidden.orgao.value);
+        }
+        
+        try {
+            const url = '{% url "militares:produto_almoxarifado_list_json" %}' + (params.toString() ? '?' + params.toString() : '');
+            const response = await fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            const data = await response.json();
+            if (data.status === 'success') {
+                listaItensCache = data.itens;
+                // Atualizar todos os selects de itens existentes
+                atualizarSelectsItens();
+                return listaItensCache;
+            }
+        } catch (error) {
+            console.error('Erro ao carregar produtos da OM:', error);
+        }
+        return [];
+    }
+    
+    // Função para atualizar todos os selects de itens e seus estoques
+    async function atualizarSelectsItens() {
+        const selects = document.querySelectorAll('#itens-requisicao-tbody .item-select');
+        const produtosDisponiveisIds = (listaItensCache || []).map(item => String(item.id));
+        
+        for (const select of selects) {
+            const itemSelecionadoId = select.value;
+            const options = gerarOpcoesItens(listaItensCache || [], itemSelecionadoId);
+            select.innerHTML = options;
+            
+            // Se havia um produto selecionado, verificar se ainda está disponível na nova OM
+            if (itemSelecionadoId) {
+                const tr = select.closest('tr');
+                const estoqueSpan = tr ? tr.querySelector('.estoque-disponivel-item') : null;
+                const codigoSpan = tr ? tr.querySelector('.codigo-produto-item') : null;
+                
+                // Se o produto selecionado não está mais disponível na nova OM, limpar seleção
+                if (!produtosDisponiveisIds.includes(String(itemSelecionadoId))) {
+                    select.value = '';
+                    if (codigoSpan) {
+                        codigoSpan.textContent = '-';
+                    }
+                    if (estoqueSpan) {
+                        estoqueSpan.textContent = '-';
+                        estoqueSpan.classList.add('text-muted');
+                        estoqueSpan.classList.remove('text-primary', 'fw-bold');
+                    }
+                    continue;
+                }
+                
+                // Atualizar código do produto selecionado
+                if (codigoSpan) {
+                    const produtoSelecionado = listaItensCache.find(item => String(item.id) === String(itemSelecionadoId));
+                    if (produtoSelecionado && produtoSelecionado.codigo) {
+                        codigoSpan.textContent = produtoSelecionado.codigo;
+                        // Atualizar também o data-attribute
+                        tr.setAttribute('data-item-codigo', produtoSelecionado.codigo);
+                    } else if (itemCodigo) {
+                        // Se não encontrou no cache, usar do data-attribute
+                        codigoSpan.textContent = itemCodigo;
+                    }
+                }
+                
+                // Se o produto ainda está disponível, atualizar o estoque
+                if (estoqueSpan) {
+                    try {
+                        const url = construirUrlProdutoInfo(itemSelecionadoId);
+                        const response = await fetch(url, {
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        });
+                        const itemInfo = await response.json();
+                        
+                        if (itemInfo.status === 'success' && itemInfo.item) {
+                            const quantidade = itemInfo.item.quantidade_disponivel !== undefined 
+                                ? itemInfo.item.quantidade_disponivel 
+                                : itemInfo.item.quantidade_atual;
+                            const unidade = itemInfo.item.get_unidade_medida_display || itemInfo.item.unidade_medida || '';
+                            
+                            if (quantidade !== undefined && quantidade !== null) {
+                                estoqueSpan.textContent = `${quantidade} ${unidade}`.trim();
+                                estoqueSpan.classList.remove('text-muted');
+                                estoqueSpan.classList.add('text-primary', 'fw-bold');
+                            } else {
+                                estoqueSpan.textContent = '-';
+                                estoqueSpan.classList.add('text-muted');
+                                estoqueSpan.classList.remove('text-primary', 'fw-bold');
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Erro ao atualizar estoque:', error);
+                        if (estoqueSpan) {
+                            estoqueSpan.textContent = '-';
+                            estoqueSpan.classList.add('text-muted');
+                            estoqueSpan.classList.remove('text-primary', 'fw-bold');
+                        }
+                    }
+                }
+            } else {
+                // Se não havia produto selecionado, apenas limpar estoque
+                const tr = select.closest('tr');
+                const estoqueSpan = tr ? tr.querySelector('.estoque-disponivel-item') : null;
+                if (estoqueSpan) {
+                    estoqueSpan.textContent = '-';
+                    estoqueSpan.classList.add('text-muted');
+                    estoqueSpan.classList.remove('text-primary', 'fw-bold');
+                }
+            }
+        }
+    }
+    
+    // Função para carregar lista de itens da API
+    async function carregarListaItens() {
+        // Se já temos cache e não há OM selecionada, usar cache
+        const orgReqdHidden = {
+            orgao: document.querySelector('input[name="orgao_requisitada"]'),
+            grandeComando: document.querySelector('input[name="grande_comando_requisitada"]'),
+            unidade: document.querySelector('input[name="unidade_requisitada"]'),
+            subUnidade: document.querySelector('input[name="sub_unidade_requisitada"]')
+        };
+        
+        // Se há OM selecionada, carregar produtos dessa OM
+        if (orgReqdHidden.subUnidade && orgReqdHidden.subUnidade.value) {
+            return await carregarProdutosDaOM();
+        } else if (orgReqdHidden.unidade && orgReqdHidden.unidade.value) {
+            return await carregarProdutosDaOM();
+        } else if (orgReqdHidden.grandeComando && orgReqdHidden.grandeComando.value) {
+            return await carregarProdutosDaOM();
+        } else if (orgReqdHidden.orgao && orgReqdHidden.orgao.value) {
+            return await carregarProdutosDaOM();
+        }
+        
+        // Se não há OM selecionada e temos cache, usar cache
+        if (listaItensCache) {
+            return listaItensCache;
+        }
+        
+        // Caso contrário, carregar todos os produtos
+        try {
+            const response = await fetch('{% url "militares:produto_almoxarifado_list_json" %}', {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            const data = await response.json();
+            if (data.status === 'success') {
+                listaItensCache = data.itens;
+                return listaItensCache;
+            }
+        } catch (error) {
+            console.error('Erro ao carregar lista de itens:', error);
+        }
+        return [];
+    }
+    
+    // Função para gerar opções de itens
+    function gerarOpcoesItens(itens, itemSelecionadoId = null) {
+        let options = '<option value="">Selecione um produto...</option>';
+        if (!itens || itens.length === 0) {
+            options += '<option value="" disabled>Nenhum produto disponível nesta OM</option>';
+            return options;
+        }
+        itens.forEach(item => {
+            // Usar comparação com String para evitar problemas de tipo
+            const selected = itemSelecionadoId && String(item.id) == String(itemSelecionadoId) ? 'selected' : '';
+            const tamanho = item.tamanho ? ` - Tamanho ${item.tamanho}` : '';
+            const unidade = item.get_unidade_medida_display || item.unidade_medida || '';
+            const unidadeTexto = unidade ? ` (${unidade})` : '';
+            const codigo = item.codigo || '';
+            options += `<option value="${item.id}" ${selected} data-codigo="${codigo}" data-descricao="${item.descricao || ''}" data-tamanho="${item.tamanho || ''}" data-unidade="${unidade}">${codigo} - ${item.descricao}${tamanho}${unidadeTexto}</option>`;
+        });
+        return options;
+    }
+    
+    // Função para adicionar novo item
+    async function adicionarItemRequisicao() {
+        if (!itensTbodyRequisicao) return;
+        
+        // Verificar se há OM requisitada selecionada
+        const orgReqdHidden = {
+            orgao: document.querySelector('input[name="orgao_requisitada"]'),
+            grandeComando: document.querySelector('input[name="grande_comando_requisitada"]'),
+            unidade: document.querySelector('input[name="unidade_requisitada"]'),
+            subUnidade: document.querySelector('input[name="sub_unidade_requisitada"]')
+        };
+        
+        const hasOM = (orgReqdHidden.subUnidade && orgReqdHidden.subUnidade.value) ||
+                      (orgReqdHidden.unidade && orgReqdHidden.unidade.value) ||
+                      (orgReqdHidden.grandeComando && orgReqdHidden.grandeComando.value) ||
+                      (orgReqdHidden.orgao && orgReqdHidden.orgao.value);
+        
+        if (!hasOM) {
+            // Mostrar modal moderno ao invés de alert
+            mostrarModalInfo(
+                'Selecione a OM Requisitada',
+                'Por favor, selecione primeiro a Organização Militar (OM) Requisitada para carregar os produtos disponíveis.'
+            );
+            return;
+        }
+        
+        const itens = await carregarListaItens();
+        const itemOptions = gerarOpcoesItens(itens);
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>
+                <span class="codigo-produto-item fw-bold text-primary">-</span>
+            </td>
+            <td>
+                <select class="form-select form-select-sm item-select" required>
+                    ${itemOptions}
+                </select>
+            </td>
+            <td>
+                <input type="number" 
+                       class="form-control form-control-sm quantidade-item" 
+                       value="" 
+                       step="0.01" 
+                       min="0.01" 
+                       required>
+            </td>
+            <td>
+                <span class="tamanho-produto-item text-muted">-</span>
+            </td>
+            <td>
+                <span class="estoque-disponivel-item">-</span>
+            </td>
+            <td>
+                <button type="button" 
+                        class="btn btn-sm btn-danger btn-remover-item" 
+                        title="Remover item">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        itensTbodyRequisicao.appendChild(tr);
+        
+        const itemSelect = tr.querySelector('.item-select');
+        const btnRemover = tr.querySelector('.btn-remover-item');
+        const estoqueSpan = tr.querySelector('.estoque-disponivel-item');
+        const codigoSpan = tr.querySelector('.codigo-produto-item');
+        const tamanhoSpan = tr.querySelector('.tamanho-produto-item');
+        
+        // Adicionar event listeners
+        if (itemSelect) {
+            itemSelect.addEventListener('change', async function() {
+                if (this.value) {
+                    // Atualizar código do produto automaticamente
+                    const selectedOption = this.options[this.selectedIndex];
+                    if (selectedOption && codigoSpan) {
+                        // Priorizar data-codigo do option, senão extrair do texto
+                        let codigo = selectedOption.dataset.codigo;
+                        if (!codigo || codigo === '') {
+                            // Tentar extrair do texto do option (formato: "CODIGO - DESCRIÇÃO")
+                            const textoOption = selectedOption.textContent.trim();
+                            const match = textoOption.match(/^([^-]+)\s*-\s*/);
+                            if (match) {
+                                codigo = match[1].trim();
+                            }
+                        }
+                        codigoSpan.textContent = codigo || '-';
+                        // Atualizar data attributes da linha
+                        tr.setAttribute('data-item-id', this.value);
+                        tr.setAttribute('data-item-codigo', codigo || '');
+                        tr.setAttribute('data-item-descricao', selectedOption.dataset.descricao || '');
+                    }
+                    
+                    // Buscar informações detalhadas do item
+                    try {
+                        const url = construirUrlProdutoInfo(this.value);
+                        const response = await fetch(url, {
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        });
+                        const itemInfo = await response.json();
+                        
+                        // Atualizar código com dados da API (mais confiável)
+                        if (codigoSpan && itemInfo.status === 'success' && itemInfo.item) {
+                            const codigoAPI = itemInfo.item.codigo || '';
+                            if (codigoAPI) {
+                                codigoSpan.textContent = codigoAPI;
+                                // Atualizar também o data-attribute
+                                tr.setAttribute('data-item-codigo', codigoAPI);
+                            }
+                        }
+                        
+                        // Atualizar estoque disponível
+                        if (estoqueSpan && itemInfo.status === 'success' && itemInfo.item) {
+                            // Usar quantidade_disponivel se disponível (estoque na OM específica), senão usar quantidade_atual
+                            const quantidade = itemInfo.item.quantidade_disponivel !== undefined && itemInfo.item.quantidade_disponivel !== null
+                                ? itemInfo.item.quantidade_disponivel 
+                                : itemInfo.item.quantidade_atual;
+                            const unidade = itemInfo.item.get_unidade_medida_display || itemInfo.item.unidade_medida || '';
+                            
+                            if (quantidade !== undefined && quantidade !== null) {
+                                estoqueSpan.textContent = `${quantidade} ${unidade}`.trim();
+                                estoqueSpan.classList.remove('text-muted');
+                                estoqueSpan.classList.add('text-primary', 'fw-bold');
+                            } else {
+                                estoqueSpan.textContent = '-';
+                                estoqueSpan.classList.add('text-muted');
+                                estoqueSpan.classList.remove('text-primary', 'fw-bold');
+                            }
+                        }
+                        
+                        // Atualizar tamanho do produto na coluna
+                        if (tamanhoSpan && itemInfo.status === 'success' && itemInfo.item) {
+                            const tamanho = itemInfo.item.tamanho || '';
+                            if (tamanho) {
+                                tamanhoSpan.innerHTML = `<strong class="text-primary">${tamanho}</strong>`;
+                            } else {
+                                tamanhoSpan.innerHTML = '<span class="text-muted">-</span>';
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Erro ao buscar informações do item:', error);
+                        if (estoqueSpan) {
+                            estoqueSpan.textContent = '-';
+                            estoqueSpan.classList.add('text-muted');
+                            estoqueSpan.classList.remove('text-primary', 'fw-bold');
+                        }
+                    }
+                } else {
+                    if (codigoSpan) {
+                        codigoSpan.textContent = '-';
+                    }
+                    if (estoqueSpan) {
+                        estoqueSpan.textContent = '-';
+                        estoqueSpan.classList.add('text-muted');
+                        estoqueSpan.classList.remove('text-primary', 'fw-bold');
+                    }
+                    if (tamanhoSpan) {
+                        tamanhoSpan.innerHTML = '<span class="text-muted">-</span>';
+                    }
+                }
+            });
+        }
+        
+        if (btnRemover) {
+            btnRemover.addEventListener('click', function() {
+                tr.remove();
+            });
+        }
+    }
+    
+    // Variável global para armazenar a instância do modal de informação
+    if (typeof window.modalInfoInstance === 'undefined') {
+        window.modalInfoInstance = null;
+    }
+    
+    // Flag para evitar múltiplas aberturas simultâneas
+    if (typeof window.modalInfoAbrindo === 'undefined') {
+        window.modalInfoAbrindo = false;
+    }
+    
+    // Função para mostrar modal de informação moderno
+    function mostrarModalInfo(titulo, mensagem) {
+        const modalElement = document.getElementById('modalInfoRequisicao');
+        if (!modalElement) return;
+        
+        // Evitar abrir múltiplas vezes simultaneamente
+        if (modalElement.classList.contains('show') || window.modalInfoAbrindo) {
+            return;
+        }
+        
+        window.modalInfoAbrindo = true;
+        
+        document.getElementById('modalInfoRequisicaoTitulo').textContent = titulo;
+        const mensagemElement = document.getElementById('modalInfoRequisicaoMensagem');
+        if (mensagemElement) {
+            mensagemElement.textContent = mensagem;
+        }
+        
+        // Calcular z-index dinamicamente
+        const existingModals = document.querySelectorAll('.modal.show');
+        let maxZIndex = 1050;
+        existingModals.forEach(m => {
+            if (m !== modalElement) {
+                const zIndex = parseInt(window.getComputedStyle(m).zIndex) || 1050;
+                if (zIndex > maxZIndex) maxZIndex = zIndex;
+            }
+        });
+        
+        const newZIndex = maxZIndex + 20;
+        modalElement.style.zIndex = newZIndex.toString();
+        const modalDialog = modalElement.querySelector('.modal-dialog');
+        if (modalDialog) {
+            modalDialog.style.zIndex = newZIndex.toString();
+        }
+        
+        // Reutilizar instância existente ou criar nova
+        if (!window.modalInfoInstance) {
+            window.modalInfoInstance = new bootstrap.Modal(modalElement, {
+                backdrop: true,
+                keyboard: true
+            });
+            
+            // Resetar flag quando o modal for fechado
+            modalElement.addEventListener('hidden.bs.modal', function() {
+                window.modalInfoAbrindo = false;
+            }, { once: true });
+        }
+        
+        window.modalInfoInstance.show();
+        
+        // Resetar flag após um pequeno delay (caso o modal não abra)
+        setTimeout(() => {
+            if (!modalElement.classList.contains('show')) {
+                window.modalInfoAbrindo = false;
+            }
+        }, 100);
+    }
+    
+    // Função para abrir modal de tamanhos
+    function abrirModalTamanhosRequisicao(tr) {
+        const itemId = tr.querySelector('.item-select').value;
+        if (!itemId) {
+            mostrarModalInfo(
+                'Selecione um Produto',
+                'Por favor, selecione um produto primeiro para gerenciar os tamanhos.'
+            );
+            return;
+        }
+        
+        // Carregar tamanhos existentes deste item
+        const tamanhosData = tr.dataset.tamanhos ? JSON.parse(tr.dataset.tamanhos) : [];
+        const tamanhosTbody = document.getElementById('tamanhos-item-tbody-requisicao');
+        tamanhosTbody.innerHTML = '';
+        
+        tamanhosData.forEach(tamanho => {
+            adicionarLinhaTamanhoItemRequisicao(tamanho.tamanho, tamanho.quantidade);
+        });
+        
+        const modalElement = document.getElementById('modalTamanhosItemRequisicao');
+        
+        // Mover o modal para o body se ainda não estiver lá (garantir que está no nível correto do DOM)
+        if (modalElement.parentElement !== document.body) {
+            document.body.appendChild(modalElement);
+        }
+        
+        // Calcular z-index dinamicamente baseado nos modais existentes
+        const existingModals = document.querySelectorAll('.modal.show');
+        let maxZIndex = 1050;
+        existingModals.forEach(m => {
+            if (m !== modalElement) {
+                const zIndex = parseInt(window.getComputedStyle(m).zIndex) || 1050;
+                if (zIndex > maxZIndex) maxZIndex = zIndex;
+            }
+        });
+        
+        const newZIndex = maxZIndex + 20;
+        
+        // Aplicar z-index antes de mostrar
+        modalElement.style.zIndex = newZIndex.toString();
+        const modalDialog = modalElement.querySelector('.modal-dialog');
+        if (modalDialog) {
+            modalDialog.style.zIndex = newZIndex.toString();
+        }
+        
+        const modal = new bootstrap.Modal(modalElement, {
+            backdrop: true,
+            keyboard: true
+        });
+        
+        // Ajustar z-index após mostrar o modal (usar once para evitar múltiplos listeners)
+        const zIndexHandler = function() {
+            // Garantir z-index alto
+            modalElement.style.zIndex = newZIndex.toString();
+            if (modalDialog) {
+                modalDialog.style.zIndex = newZIndex.toString();
+            }
+            
+            // Ajustar backdrop
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            if (backdrops.length > 0) {
+                const lastBackdrop = backdrops[backdrops.length - 1];
+                lastBackdrop.style.zIndex = (newZIndex - 5).toString();
+            }
+        };
+        
+        // Remover listener anterior se existir
+        modalElement.removeEventListener('shown.bs.modal', zIndexHandler);
+        modalElement.addEventListener('shown.bs.modal', zIndexHandler, { once: true });
+        
+        modal.show();
+    }
+    
+    // Função para adicionar linha de tamanho no modal
+    function adicionarLinhaTamanhoItemRequisicao(tamanho = '', quantidade = 0) {
+        const tamanhosTbody = document.getElementById('tamanhos-item-tbody-requisicao');
+        if (!tamanhosTbody) return;
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>
+                <input type="text" 
+                       class="form-control form-control-sm tamanho-input-item" 
+                       value="${tamanho}" 
+                       placeholder="Ex: 35, 36, P, M, G">
+            </td>
+            <td>
+                <input type="number" 
+                       class="form-control form-control-sm quantidade-tamanho-item" 
+                       value="${quantidade}" 
+                       step="0.01" 
+                       min="0" 
+                       placeholder="0">
+            </td>
+            <td>
+                <button type="button" 
+                        class="btn btn-sm btn-danger btn-remover-tamanho-item" 
+                        title="Remover tamanho">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        tamanhosTbody.appendChild(tr);
+        
+        const quantidadeInput = tr.querySelector('.quantidade-tamanho-item');
+        const btnRemover = tr.querySelector('.btn-remover-tamanho-item');
+        
+        if (quantidadeInput) {
+            quantidadeInput.addEventListener('input', calcularTotalTamanhosItemRequisicao);
+        }
+        
+        if (btnRemover) {
+            btnRemover.addEventListener('click', function() {
+                tr.remove();
+                calcularTotalTamanhosItemRequisicao();
+            });
+        }
+        
+        calcularTotalTamanhosItemRequisicao();
+    }
+    
+    // Função para calcular total de tamanhos no modal
+    function calcularTotalTamanhosItemRequisicao() {
+        let total = 0;
+        document.querySelectorAll('#tamanhos-item-tbody-requisicao .quantidade-tamanho-item').forEach(input => {
+            total += parseFloat(input.value) || 0;
+        });
+        const totalSpan = document.getElementById('total-tamanhos-item-requisicao');
+        if (totalSpan) {
+            totalSpan.textContent = total.toFixed(2);
+        }
+        
+        // Atualizar quantidade do item na linha principal
+        if (itemAtualTamanhosRequisicao) {
+            const quantidadeInput = itemAtualTamanhosRequisicao.querySelector('.quantidade-item');
+            if (quantidadeInput) {
+                quantidadeInput.value = total.toFixed(2);
+            }
+        }
+    }
+    
+    // Event listeners
+    if (btnAdicionarItemRequisicao) {
+        btnAdicionarItemRequisicao.addEventListener('click', adicionarItemRequisicao);
+    }
+    
+    document.querySelectorAll('.btn-remover-item').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const tr = this.closest('tr');
+            if (tr) tr.remove();
+        });
+    });
+    
+    // Event listeners para botões de tamanhos existentes
+    document.querySelectorAll('#itens-requisicao-tbody .btn-tamanhos-item').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const tr = this.closest('tr');
+            itemAtualTamanhosRequisicao = tr;
+            abrirModalTamanhosRequisicao(tr);
+        });
+    });
+    
+    // Event listener para adicionar tamanho no modal
+    const btnAdicionarTamanhoItemRequisicao = document.getElementById('btn-adicionar-tamanho-item-requisicao');
+    if (btnAdicionarTamanhoItemRequisicao) {
+        btnAdicionarTamanhoItemRequisicao.addEventListener('click', function() {
+            adicionarLinhaTamanhoItemRequisicao();
+        });
+    }
+    
+    // Salvar tamanhos quando o modal fechar
+    const modalTamanhosRequisicao = document.getElementById('modalTamanhosItemRequisicao');
+    if (modalTamanhosRequisicao) {
+        modalTamanhosRequisicao.addEventListener('hidden.bs.modal', function() {
+            if (itemAtualTamanhosRequisicao) {
+                const tamanhosData = [];
+                document.querySelectorAll('#tamanhos-item-tbody-requisicao tr').forEach(tr => {
+                    const tamanhoInput = tr.querySelector('.tamanho-input-item');
+                    const quantidadeInput = tr.querySelector('.quantidade-tamanho-item');
+                    if (tamanhoInput && quantidadeInput && tamanhoInput.value.trim()) {
+                        tamanhosData.push({
+                            tamanho: tamanhoInput.value.trim(),
+                            quantidade: parseFloat(quantidadeInput.value) || 0
+                        });
+                    }
+                });
+                itemAtualTamanhosRequisicao.dataset.tamanhos = JSON.stringify(tamanhosData);
+                itemAtualTamanhosRequisicao = null;
+            }
+        });
+    }
+    
+    // Carregar dados dos produtos existentes (na edição)
+    {% if not is_create and requisicao %}
+    (async function() {
+        console.log('Carregando produtos da requisição {{ requisicao.pk }}');
+        console.log('Total de produtos no template: {{ requisicao.produtos_requisicao.all|length }}');
+        
+        // Carregar lista de produtos da API
+        const itens = await carregarListaItens();
+        console.log('Produtos carregados da API:', itens.length);
+        
+        const itensTbody = document.getElementById('itens-requisicao-tbody');
+        console.log('Linhas encontradas no tbody:', itensTbody ? itensTbody.querySelectorAll('tr[data-item-requisicao-id]').length : 0);
+        
+        // Atualizar selects dos produtos existentes
+        document.querySelectorAll('#itens-requisicao-tbody tr[data-item-requisicao-id]').forEach(async (tr) => {
+            const itemId = tr.getAttribute('data-item-id');
+            const itemCodigo = tr.getAttribute('data-item-codigo');
+            const itemDescricao = tr.getAttribute('data-item-descricao');
+            const itemSelect = tr.querySelector('.item-select');
+            const estoqueSpan = tr.querySelector('.estoque-disponivel-item');
+            const codigoSpan = tr.querySelector('.codigo-produto-item');
+            const tamanhoSpan = tr.querySelector('.tamanho-produto-item');
+            
+            if (itemSelect) {
+                console.log('Preenchendo select para produto:', {
+                    itemId: itemId,
+                    itemCodigo: itemCodigo,
+                    totalItens: itens.length
+                });
+                
+                // Preencher select com produtos carregados
+                itemSelect.innerHTML = gerarOpcoesItens(itens, itemId);
+                
+                // Definir o valor selecionado
+                if (itemId) {
+                    // Tentar definir o valor
+                    itemSelect.value = itemId;
+                    
+                    // Verificar se o valor foi definido corretamente
+                    if (itemSelect.value != itemId) {
+                        console.warn('Valor não foi definido corretamente no select. Esperado:', itemId, 'Atual:', itemSelect.value);
+                        // Tentar novamente com String
+                        itemSelect.value = String(itemId);
+                    }
+                    
+                    console.log('Valor definido no select:', itemSelect.value);
+                    
+                    // Atualizar código do produto automaticamente
+                    if (codigoSpan) {
+                        codigoSpan.textContent = itemCodigo || '-';
+                    }
+                }
+                
+                // Carregar informações detalhadas do produto
+                if (itemId) {
+                    // Aguardar um pouco para garantir que o select foi atualizado
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    try {
+                        const url = construirUrlProdutoInfo(itemId);
+                        const response = await fetch(url, {
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        });
+                        const itemInfo = await response.json();
+                        
+                        console.log('Informações do produto carregadas:', itemInfo);
+                        
+                        // Atualizar código do produto
+                        if (codigoSpan && itemInfo.status === 'success' && itemInfo.item) {
+                            const codigoAPI = itemInfo.item.codigo || itemCodigo || '';
+                            if (codigoAPI) {
+                                codigoSpan.textContent = codigoAPI;
+                                tr.setAttribute('data-item-codigo', codigoAPI);
+                            }
+                        } else if (codigoSpan && itemCodigo) {
+                            // Se não conseguiu da API, usar do data-attribute
+                            codigoSpan.textContent = itemCodigo;
+                        }
+                        
+                        // Atualizar tamanho do produto na coluna
+                        if (tamanhoSpan && itemInfo.status === 'success' && itemInfo.item) {
+                            const tamanho = itemInfo.item.tamanho || '';
+                            if (tamanho) {
+                                tamanhoSpan.innerHTML = `<strong class="text-primary">${tamanho}</strong>`;
+                            } else {
+                                tamanhoSpan.innerHTML = '<span class="text-muted">-</span>';
+                            }
+                        }
+                        
+                        // Atualizar estoque disponível
+                        if (estoqueSpan && itemInfo.status === 'success' && itemInfo.item) {
+                            // Usar quantidade_disponivel se disponível (estoque na OM específica), senão usar quantidade_atual
+                            const quantidade = itemInfo.item.quantidade_disponivel !== undefined && itemInfo.item.quantidade_disponivel !== null
+                                ? itemInfo.item.quantidade_disponivel 
+                                : itemInfo.item.quantidade_atual;
+                            const unidade = itemInfo.item.get_unidade_medida_display || itemInfo.item.unidade_medida || '';
+                            
+                            console.log('Quantidade:', quantidade, 'Unidade:', unidade);
+                            
+                            if (quantidade !== undefined && quantidade !== null) {
+                                estoqueSpan.textContent = `${quantidade} ${unidade}`.trim();
+                                estoqueSpan.classList.remove('text-muted');
+                                estoqueSpan.classList.add('text-primary', 'fw-bold');
+                            } else {
+                                estoqueSpan.textContent = '-';
+                                estoqueSpan.classList.add('text-muted');
+                                estoqueSpan.classList.remove('text-primary', 'fw-bold');
+                            }
+                        } else {
+                            console.warn('Resposta da API não contém item válido:', itemInfo);
+                        }
+                        
+                    } catch (error) {
+                        console.error('Erro ao buscar informações do produto:', error);
+                        if (estoqueSpan) {
+                            estoqueSpan.textContent = '-';
+                            estoqueSpan.classList.add('text-muted');
+                            estoqueSpan.classList.remove('text-primary', 'fw-bold');
+                        }
+                        if (tamanhoSpan) {
+                            tamanhoSpan.innerHTML = '<span class="text-muted">-</span>';
+                        }
+                    }
+                } else {
+                    // Se não há itemId, limpar estoque
+                    if (estoqueSpan) {
+                        estoqueSpan.textContent = '-';
+                        estoqueSpan.classList.add('text-muted');
+                        estoqueSpan.classList.remove('text-primary', 'fw-bold');
+                    }
+                }
+            }
+            
+            // Carregar tamanhos do produto no dataset (se houver suporte a tamanhos no futuro)
+            // Por enquanto, não há tamanhos separados, cada produto já tem seu tamanho definido
+            
+            // Adicionar event listeners
+            if (itemSelect) {
+                itemSelect.addEventListener('change', async function() {
+                    if (this.value) {
+                        // Buscar informações detalhadas do item
+                        try {
+                            const url = construirUrlProdutoInfo(this.value);
+                            const response = await fetch(url, {
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                }
+                            });
+                            const itemInfo = await response.json();
+                            
+                            // Atualizar código do produto
+                            if (codigoSpan && itemInfo.status === 'success' && itemInfo.item) {
+                                const codigoAPI = itemInfo.item.codigo || itemCodigo || '';
+                                if (codigoAPI) {
+                                    codigoSpan.textContent = codigoAPI;
+                                    // Atualizar também o data-attribute
+                                    tr.setAttribute('data-item-codigo', codigoAPI);
+                                }
+                            } else if (codigoSpan && itemCodigo) {
+                                // Se não conseguiu da API, usar do data-attribute
+                                codigoSpan.textContent = itemCodigo;
+                            }
+                            
+                            // Atualizar estoque disponível
+                            if (estoqueSpan && itemInfo.status === 'success' && itemInfo.item) {
+                                // Usar quantidade_disponivel se disponível (estoque na OM específica), senão usar quantidade_atual
+                                const quantidade = itemInfo.item.quantidade_disponivel !== undefined && itemInfo.item.quantidade_disponivel !== null
+                                    ? itemInfo.item.quantidade_disponivel 
+                                    : itemInfo.item.quantidade_atual;
+                                const unidade = itemInfo.item.get_unidade_medida_display || itemInfo.item.unidade_medida || '';
+                                
+                                if (quantidade !== undefined && quantidade !== null) {
+                                    estoqueSpan.textContent = `${quantidade} ${unidade}`.trim();
+                                    estoqueSpan.classList.remove('text-muted');
+                                    estoqueSpan.classList.add('text-primary', 'fw-bold');
+                                } else {
+                                    estoqueSpan.textContent = '-';
+                                    estoqueSpan.classList.add('text-muted');
+                                    estoqueSpan.classList.remove('text-primary', 'fw-bold');
+                                }
+                            }
+                            
+                        } catch (error) {
+                            console.error('Erro ao buscar informações do item:', error);
+                            if (estoqueSpan) {
+                                estoqueSpan.textContent = '-';
+                                estoqueSpan.classList.add('text-muted');
+                                estoqueSpan.classList.remove('text-primary', 'fw-bold');
+                            }
+                            if (tamanhoSpan) {
+                                tamanhoSpan.innerHTML = '<span class="text-muted">-</span>';
+                            }
+                        }
+                    } else {
+                        if (estoqueSpan) {
+                            estoqueSpan.textContent = '-';
+                            estoqueSpan.classList.add('text-muted');
+                            estoqueSpan.classList.remove('text-primary', 'fw-bold');
+                        }
+                        if (tamanhoSpan) {
+                            tamanhoSpan.innerHTML = '<span class="text-muted">-</span>';
+                        }
+                    }
+                });
+            }
+            
+            // Event listener para remover item
+            const btnRemover = tr.querySelector('.btn-remover-item');
+            if (btnRemover) {
+                btnRemover.addEventListener('click', function() {
+                    tr.remove();
+                });
+            }
+        });
+    })();
+    {% endif %}
+    
+    // Se não houver itens (criação ou edição sem itens), adicionar um item vazio
+    if (itensTbodyRequisicao) {
+        const trSemItens = document.getElementById('tr-sem-itens');
+        if (trSemItens) {
+            trSemItens.remove(); // Remover mensagem de "sem itens" se houver
+        }
+        
+        const linhasItens = itensTbodyRequisicao.querySelectorAll('tr[data-item-requisicao-id]');
+        console.log('Linhas de itens encontradas:', linhasItens.length);
+        
+        if (linhasItens.length === 0) {
+            console.log('Nenhum produto encontrado, adicionando produto vazio...');
+            adicionarItemRequisicao();
+        } else {
+            console.log('Produtos encontrados:', linhasItens.length);
+        }
+    }
+    
+    // REMOVIDO: Modal informativo inicial que estava causando loop
+    // O usuário pode consultar as instruções quando necessário através de outros meios
+    
+    // Executar inicialização com tratamento de erros
+    setTimeout(async function() {
+        try {
+            console.log('Iniciando inicialização do formulário...');
+            initForm();
+            console.log('Form inicializado, carregando organogramas...');
+            await initOrganogramas();
+            console.log('Organogramas carregados');
+        } catch (error) {
+            console.error('Erro durante inicialização do formulário:', error);
+            // Não propagar o erro para evitar que o modal feche
+        }
+        
+        // Se há uma requisição existente (edição), carregar dados
+        {% if not is_create and requisicao %}
+        // Aguardar um pouco para garantir que os organogramas foram carregados
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Debug: verificar valores dos campos hidden
+        const orgReqHidden = {
+            orgao: document.querySelector('input[name="orgao_requisitante"]'),
+            grandeComando: document.querySelector('input[name="grande_comando_requisitante"]'),
+            unidade: document.querySelector('input[name="unidade_requisitante"]'),
+            subUnidade: document.querySelector('input[name="sub_unidade_requisitante"]')
+        };
+        
+        const orgReqdHidden = {
+            orgao: document.querySelector('input[name="orgao_requisitada"]'),
+            grandeComando: document.querySelector('input[name="grande_comando_requisitada"]'),
+            unidade: document.querySelector('input[name="unidade_requisitada"]'),
+            subUnidade: document.querySelector('input[name="sub_unidade_requisitada"]')
+        };
+        
+        console.log('Valores dos campos hidden (Requisitante):', {
+            orgao: orgReqHidden.orgao ? orgReqHidden.orgao.value : 'não encontrado',
+            grandeComando: orgReqHidden.grandeComando ? orgReqHidden.grandeComando.value : 'não encontrado',
+            unidade: orgReqHidden.unidade ? orgReqHidden.unidade.value : 'não encontrado',
+            subUnidade: orgReqHidden.subUnidade ? orgReqHidden.subUnidade.value : 'não encontrado'
+        });
+        
+        console.log('Valores dos campos hidden (Requisitada):', {
+            orgao: orgReqdHidden.orgao ? orgReqdHidden.orgao.value : 'não encontrado',
+            grandeComando: orgReqdHidden.grandeComando ? orgReqdHidden.grandeComando.value : 'não encontrado',
+            unidade: orgReqdHidden.unidade ? orgReqdHidden.unidade.value : 'não encontrado',
+            subUnidade: orgReqdHidden.subUnidade ? orgReqdHidden.subUnidade.value : 'não encontrado'
+        });
+        
+        // Selecionar OM Requisitante no organograma - aguardar mais tempo para garantir que foi carregado
+        setTimeout(() => {
+            try {
+                const orgReqSelect = document.getElementById('organograma-requisitante-select');
+                console.log('Tentando selecionar OM Requisitante. Select encontrado:', !!orgReqSelect);
+                console.log('Valores dos campos hidden Requisitante:', {
+                    orgao: orgReqHidden.orgao?.value,
+                    grandeComando: orgReqHidden.grandeComando?.value,
+                    unidade: orgReqHidden.unidade?.value,
+                    subUnidade: orgReqHidden.subUnidade?.value
+                });
+                
+                if (orgReqSelect) {
+                    const temValores = orgReqHidden.orgao?.value || orgReqHidden.grandeComando?.value || orgReqHidden.unidade?.value || orgReqHidden.subUnidade?.value;
+                    console.log('Tem valores para selecionar:', temValores);
+                    console.log('Total de opções no select:', orgReqSelect.options.length);
+                    
+                    if (temValores) {
+                        // Tentar múltiplas vezes se necessário
+                        let tentativas = 0;
+                        const tentarSelecionar = () => {
+                            tentativas++;
+                            console.log(`Tentativa ${tentativas} de selecionar OM Requisitante`);
+                            selecionarOpcaoAtualOrganograma(orgReqSelect, orgReqHidden);
+                            
+                            // Se ainda não selecionou e há opções, tentar novamente
+                            if (orgReqSelect.options.length > 1 && !orgReqSelect.value && tentativas < 5) {
+                                setTimeout(tentarSelecionar, 200);
+                            }
+                        };
+                        tentarSelecionar();
+                    }
+                }
+            } catch (err) {
+                console.error('Erro ao selecionar OM Requisitante:', err);
+            }
+        }, 800);
+        
+        // Selecionar OM Requisitada no organograma
+        setTimeout(() => {
+            try {
+                const orgReqdSelect = document.getElementById('organograma-requisitada-select');
+                if (orgReqdSelect && (orgReqdHidden.orgao?.value || orgReqdHidden.grandeComando?.value || orgReqdHidden.unidade?.value || orgReqdHidden.subUnidade?.value)) {
+                    selecionarOpcaoAtualOrganograma(orgReqdSelect, orgReqdHidden);
+                    
+                    // Aguardar um pouco e carregar produtos da OM requisitada
+                    setTimeout(async () => {
+                        try {
+                            listaItensCache = null;
+                            await carregarProdutosDaOM();
+                            console.log('Produtos da OM requisitada carregados');
+                        } catch (produtosError) {
+                            console.error('Erro ao carregar produtos da OM:', produtosError);
+                        }
+                    }, 300);
+                }
+            } catch (err) {
+                console.error('Erro ao selecionar OM Requisitada:', err);
+            }
+        }, 800);
+        
+        // Garantir que as quantidades dos produtos sejam preservadas - executar múltiplas vezes
+        const preservarQuantidades = () => {
+            try {
+                const linhasProdutos = document.querySelectorAll('#itens-requisicao-tbody tr[data-item-requisicao-id]');
+                console.log('Preservando quantidades. Total de linhas encontradas:', linhasProdutos.length);
+                
+                linhasProdutos.forEach((tr, index) => {
+                    const quantidadeInput = tr.querySelector('.quantidade-item');
+                    if (quantidadeInput) {
+                        const quantidadeOriginal = quantidadeInput.getAttribute('data-quantidade-original');
+                        const valorAtual = quantidadeInput.value;
+                        
+                        console.log(`Linha ${index}: valor atual=${valorAtual}, valor original=${quantidadeOriginal}`);
+                        
+                        // Se não tem valor ou o valor está vazio, usar o original
+                        if (!valorAtual || valorAtual === '' || valorAtual === '0') {
+                            if (quantidadeOriginal) {
+                                // Converter vírgula para ponto se necessário
+                                const quantidadeCorrigida = quantidadeOriginal.replace(',', '.');
+                                quantidadeInput.value = quantidadeCorrigida;
+                                quantidadeInput.setAttribute('data-quantidade-original', quantidadeCorrigida);
+                                console.log(`Quantidade restaurada para linha ${index}: ${quantidadeCorrigida} (original: ${quantidadeOriginal})`);
+                            }
+                        } else {
+                            // Se tem valor, garantir que o data-attribute está atualizado
+                            // Converter vírgula para ponto se necessário
+                            const valorCorrigido = valorAtual.replace(',', '.');
+                            if (valorCorrigido !== valorAtual) {
+                                quantidadeInput.value = valorCorrigido;
+                            }
+                            if (!quantidadeOriginal || quantidadeOriginal !== valorCorrigido) {
+                                quantidadeInput.setAttribute('data-quantidade-original', valorCorrigido);
+                            }
+                        }
+                    }
+                });
+            } catch (err) {
+                console.error('Erro ao preservar quantidades:', err);
+            }
+        };
+        
+        // Executar imediatamente e depois algumas vezes para garantir
+        preservarQuantidades();
+        setTimeout(preservarQuantidades, 200);
+        setTimeout(preservarQuantidades, 500);
+        setTimeout(preservarQuantidades, 1000);
+        {% endif %}
+    }, 100);
+})();
+</script>
+
+
+

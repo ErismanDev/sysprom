@@ -1283,6 +1283,13 @@ urlpatterns += [
     path('configuracoes-armas/<int:pk>/editar/', views_material_belico.ConfiguracaoArmaUpdateView.as_view(), name='configuracao_arma_update'),
     path('configuracoes-armas/<int:pk>/excluir/', views_material_belico.ConfiguracaoArmaDeleteView.as_view(), name='configuracao_arma_delete'),
     
+    # URLs para Configurações de Munições
+    path('configuracoes-municoes/', views_material_belico.ConfiguracaoMunicaoListView.as_view(), name='configuracao_municao_list'),
+    path('configuracoes-municoes/criar/', views_material_belico.ConfiguracaoMunicaoCreateView.as_view(), name='configuracao_municao_create'),
+    path('configuracoes-municoes/<int:pk>/', views_material_belico.ConfiguracaoMunicaoDetailView.as_view(), name='configuracao_municao_detail'),
+    path('configuracoes-municoes/<int:pk>/editar/', views_material_belico.ConfiguracaoMunicaoUpdateView.as_view(), name='configuracao_municao_update'),
+    path('configuracoes-municoes/<int:pk>/excluir/', views_material_belico.ConfiguracaoMunicaoDeleteView.as_view(), name='configuracao_municao_delete'),
+    
     path('painel-guarda-login/', views_rodagens.painel_guarda_login, name='painel_guarda_login'),
     path('painel-guarda-ajax/', views_rodagens.painel_guarda_ajax, name='painel_guarda_ajax'),
     path('painel-guarda-enderecos-ajax/', views_rodagens.painel_guarda_enderecos_ajax, name='painel_guarda_enderecos_ajax'),

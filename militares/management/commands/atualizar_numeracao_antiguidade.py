@@ -16,7 +16,7 @@ class Command(BaseCommand):
         self.stdout.write('Verificando numeração de antiguidade dos militares...')
         
         # Buscar todos os militares ativos
-        militares_ativos = Militar.objects.filter(situacao='AT')
+        militares_ativos = Militar.objects.filter(classificacao='ATIVO')
         total_militares = militares_ativos.count()
         
         if total_militares == 0:

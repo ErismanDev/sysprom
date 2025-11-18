@@ -51,37 +51,8 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # 2. Adicionar campo cargo_funcao como nullable
-        migrations.AddField(
-            model_name='usuariofuncao',
-            name='cargo_funcao',
-            field=models.ForeignKey(
-                blank=True,
-                null=True,
-                on_delete=django.db.models.deletion.CASCADE,
-                to='militares.cargofuncao',
-                verbose_name='Cargo/Função'
-            ),
-        ),
-        # 3. Migrar dados existentes
-        migrations.RunPython(criar_cargo_padrao, reverse_criar_cargo_padrao),
-        # 4. Remover duplicados
-        migrations.RunPython(remover_funcoes_duplicadas),
-        # 5. Tornar o campo obrigatório
-        migrations.AlterField(
-            model_name='usuariofuncao',
-            name='cargo_funcao',
-            field=models.ForeignKey(
-                on_delete=django.db.models.deletion.CASCADE,
-                to='militares.cargofuncao',
-                verbose_name='Cargo/Função'
-            ),
-        ),
-        # 6. Atualizar unique_together
-        migrations.AlterUniqueTogether(
-            name='usuariofuncao',
-            unique_together={('usuario', 'cargo_funcao', 'data_inicio')},
-        ),
+        # NOTA: As operações que dependem de FuncaoMilitar foram movidas para a migração 0139
+        # para garantir que FuncaoMilitar seja criado primeiro (migração 0138)
         # 7. Remover o campo nome_funcao
         migrations.RemoveField(
             model_name='usuariofuncao',

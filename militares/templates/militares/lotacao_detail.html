@@ -1,0 +1,403 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Lotação: {{ object.militar.nome_guerra }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .lotacao-detail {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    
+    .lotacao-header {
+        background: linear-gradient(135deg, #e53935 0%, #c62828 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 15px 15px 0 0;
+        text-align: center;
+    }
+    
+    .lotacao-body {
+        background: white;
+        padding: 30px;
+        border-radius: 0 0 15px 15px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .info-card {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border-left: 4px solid #e53935;
+    }
+    
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .info-row:last-child {
+        border-bottom: none;
+    }
+    
+    .info-label {
+        font-weight: 600;
+        color: #495057;
+        min-width: 120px;
+    }
+    
+    .info-value {
+        color: #212529;
+        text-align: right;
+    }
+    
+    .status-badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    
+    .status-atual {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .status-anterior {
+        background-color: #e2e3e5;
+        color: #383d41;
+    }
+    
+    .status-temporaria {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .status-comando {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    .status-afastamento {
+        background-color: #d1ecf1;
+        color: #0c5460;
+    }
+    
+    .militar-photo {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px solid #e53935;
+    }
+    
+    .lotacao-text {
+        background: #e3f2fd;
+        border: 1px solid #bbdefb;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 10px 0;
+    }
+    
+    .organograma-info {
+        background: #e8f5e8;
+        border: 1px solid #c8e6c9;
+        border-radius: 8px;
+        padding: 10px;
+        margin-top: 10px;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        margin-top: 20px;
+    }
+    
+    .table-responsive {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .table th {
+        background-color: #f8f9fa;
+        border-top: none;
+        font-weight: 600;
+        color: #495057;
+    }
+    
+    .badge {
+        font-size: 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="lotacao-detail">
+        <!-- Cabeçalho -->
+        <div class="lotacao-header">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h3 class="mb-2">
+                        <i class="fas fa-building me-2"></i>Detalhes da Lotação
+                    </h3>
+                    <p class="mb-0 opacity-75">
+                        <i class="fas fa-user me-1"></i>{{ object.militar.nome_completo }} - {{ object.militar.get_posto_graduacao_display }}
+                    </p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <a href="{% url 'militares:lotacao_militar_list' object.militar.pk %}" class="btn btn-light btn-sm me-2">
+                        <i class="fas fa-arrow-left me-1"></i>Voltar
+                    </a>
+                    {% if not menu_permissions.is_consultor and pode_crud_pdf %}
+                    <a href="{% url 'militares:lotacao_update' object.pk %}" class="btn btn-warning btn-sm">
+                        <i class="fas fa-edit me-1"></i>Editar
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Corpo Principal -->
+        <div class="lotacao-body">
+            <!-- Informações do Militar -->
+            <div class="info-card">
+                <h5 class="text-primary mb-3">
+                    <i class="fas fa-user me-2"></i>Informações do Militar
+                </h5>
+                <div class="row align-items-center">
+                    <div class="col-md-2 text-center">
+                        {% if object.militar.foto %}
+                            <img src="{{ object.militar.foto.url }}" alt="Foto" class="militar-photo">
+                        {% else %}
+                            <div class="militar-photo bg-light d-flex align-items-center justify-content-center">
+                                <i class="fas fa-user text-muted fa-2x"></i>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-10">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="info-row">
+                                    <span class="info-label">Nome Completo:</span>
+                                    <span class="info-value">{{ object.militar.nome_completo }}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Nome de Guerra:</span>
+                                    <span class="info-value">{{ object.militar.nome_guerra }}</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="info-row">
+                                    <span class="info-label">Posto/Graduação:</span>
+                                    <span class="info-value text-primary fw-bold">{{ object.militar.get_posto_graduacao_display }}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Matrícula:</span>
+                                    <span class="info-value">{{ object.militar.matricula }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Informações da Lotação -->
+            <div class="info-card">
+                <h5 class="text-primary mb-3">
+                    <i class="fas fa-info-circle me-2"></i>Informações da Lotação
+                </h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="info-row">
+                            <span class="info-label">Status:</span>
+                            <span class="info-value">
+                                {% if object.status == 'ATUAL' %}
+                                    <span class="status-badge status-atual">{{ object.status_display }}</span>
+                                {% elif object.status == 'ANTERIOR' %}
+                                    <span class="status-badge status-anterior">{{ object.status_display }}</span>
+                                {% elif object.status == 'TEMPORARIA' %}
+                                    <span class="status-badge status-temporaria">{{ object.status_display }}</span>
+                                {% elif object.status == 'COMANDO' %}
+                                    <span class="status-badge status-comando">{{ object.status_display }}</span>
+                                {% elif object.status == 'AFASTAMENTO' %}
+                                    <span class="status-badge status-afastamento">{{ object.status_display }}</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Data de Início:</span>
+                            <span class="info-value">{{ object.data_inicio|date:"d/m/Y" }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Data de Fim:</span>
+                            <span class="info-value">
+                                {% if object.data_fim %}
+                                    {{ object.data_fim|date:"d/m/Y" }}
+                                {% else %}
+                                    <span class="text-success">Em andamento</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="info-row">
+                            <span class="info-label">Duração:</span>
+                            <span class="info-value text-primary fw-bold">{{ object.duracao_formatada }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Ativo:</span>
+                            <span class="info-value">
+                                {% if object.ativo %}
+                                    <span class="badge bg-success">Sim</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Não</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Data de Cadastro:</span>
+                            <span class="info-value">{{ object.data_cadastro|date:"d/m/Y H:i" }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detalhes da Lotação -->
+            <div class="info-card">
+                <h5 class="text-primary mb-3">
+                    <i class="fas fa-building me-2"></i>Detalhes da Lotação
+                </h5>
+                <div class="lotacao-text">
+                    <h6 class="text-primary mb-2">{{ object.lotacao }}</h6>
+                    {% if object.hierarquia_organograma != "Sem vinculação ao organograma" %}
+                        <div class="organograma-info">
+                            <div class="d-flex align-items-center mb-1">
+                                <i class="fas fa-sitemap me-2 text-success"></i>
+                                <strong class="text-success">{{ object.nivel_organograma }}</strong>
+                            </div>
+                            <div class="text-muted">
+                                <i class="fas fa-arrow-right me-1"></i>{{ object.hierarquia_organograma }}
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="text-muted">
+                            <i class="fas fa-minus me-1"></i>Sem vinculação ao organograma
+                        </div>
+                    {% endif %}
+                </div>
+                
+                {% if object.observacoes %}
+                <div class="mt-3">
+                    <h6 class="text-primary mb-2">
+                        <i class="fas fa-sticky-note me-1"></i>Observações
+                    </h6>
+                    <div class="alert alert-light border-start border-primary border-3">
+                        {{ object.observacoes }}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Outras Lotações do Militar -->
+            <div class="info-card">
+                <h5 class="text-primary mb-3">
+                    <i class="fas fa-history me-2"></i>Outras Lotações do Militar
+                </h5>
+                {% with outras_lotacoes=object.militar.lotacoes.all %}
+                    {% if outras_lotacoes %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Lotação</th>
+                                        <th>Status</th>
+                                        <th>Período</th>
+                                        <th>Duração</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for lotacao in outras_lotacoes %}
+                                        {% if lotacao.pk != object.pk %}
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex flex-column">
+                                                <strong class="text-primary">{{ lotacao.lotacao|truncatechars:50 }}</strong>
+                                                {% if lotacao.hierarquia_organograma != "Sem vinculação ao organograma" %}
+                                                    <small class="text-success">
+                                                        <i class="fas fa-sitemap me-1"></i>{{ lotacao.nivel_organograma }}
+                                                    </small>
+                                                {% endif %}
+                                                {% if lotacao.observacoes %}
+                                                    <small class="text-muted mt-1">{{ lotacao.observacoes|truncatechars:40 }}</small>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            {% if lotacao.status == 'ATUAL' %}
+                                                <span class="badge bg-success">{{ lotacao.status_display }}</span>
+                                            {% elif lotacao.status == 'ANTERIOR' %}
+                                                <span class="badge bg-secondary">{{ lotacao.status_display }}</span>
+                                            {% elif lotacao.status == 'TEMPORARIA' %}
+                                                <span class="badge bg-warning text-dark">{{ lotacao.status_display }}</span>
+                                            {% elif lotacao.status == 'COMANDO' %}
+                                                <span class="badge bg-danger">{{ lotacao.status_display }}</span>
+                                            {% elif lotacao.status == 'AFASTAMENTO' %}
+                                                <span class="badge bg-dark">{{ lotacao.status_display }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">
+                                                {{ lotacao.data_inicio|date:"d/m/Y" }}
+                                                {% if lotacao.data_fim %}
+                                                    - {{ lotacao.data_fim|date:"d/m/Y" }}
+                                                {% else %}
+                                                    - Atual
+                                                {% endif %}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">{{ lotacao.duracao_formatada }}</small>
+                                        </td>
+                                        <td>
+                                            <a href="{% url 'militares:lotacao_detail' lotacao.pk %}" class="btn btn-outline-primary btn-sm">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                        {% endif %}
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-building fa-3x mb-3" style="opacity: 0.3;"></i>
+                            <p class="mb-0">Nenhuma outra lotação registrada</p>
+                        </div>
+                    {% endif %}
+                {% endwith %}
+            </div>
+
+            <!-- Botões de Ação -->
+            <div class="action-buttons">
+                <a href="{% url 'militares:lotacao_militar_list' object.militar.pk %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Voltar às Lotações
+                </a>
+                {% if not menu_permissions.is_consultor and pode_crud_pdf %}
+                <a href="{% url 'militares:lotacao_update' object.pk %}" class="btn btn-warning">
+                    <i class="fas fa-edit me-1"></i>Editar Lotação
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

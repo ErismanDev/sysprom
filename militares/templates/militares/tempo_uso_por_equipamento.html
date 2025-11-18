@@ -1,0 +1,249 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Tempos de Uso - {{ equipamento.codigo }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-clock me-2 text-primary"></i>Tempos de Uso
+                    </h2>
+                    <p class="text-muted mb-0">
+                        Equipamento: <strong>{{ equipamento.codigo }}</strong> - {{ equipamento.get_tipo_display }}
+                    </p>
+                </div>
+                <div>
+                    <a href="{% url 'militares:equipamento_operacional_list' %}" class="btn btn-outline-secondary me-2">
+                        <i class="fas fa-arrow-left me-2"></i>Voltar
+                    </a>
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalTempoUso" onclick="carregarFormTempoUso({{ equipamento.pk }})">
+                        <i class="fas fa-plus me-2"></i>Novo Tempo de Uso
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Informações do Equipamento -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-cog me-2"></i>Informações do Equipamento
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <strong>Código:</strong> {{ equipamento.codigo }}
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Tipo:</strong> {{ equipamento.get_tipo_display }}
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Marca/Modelo:</strong> {{ equipamento.marca }} {{ equipamento.modelo }}
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Horas de Uso:</strong> <span class="text-primary"><strong>{{ equipamento.horas_uso|default:"0.00" }}h</strong></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Lista de Tempos de Uso -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Histórico de Tempos de Uso
+                    </h6>
+                    <div>
+                        <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalTempoUso" onclick="carregarFormTempoUso({{ equipamento.pk }})">
+                            <i class="fas fa-plus me-2"></i>Novo Tempo de Uso
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if tempos_uso %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Data Início</th>
+                                        <th>Hora Início</th>
+                                        <th>Data Fim</th>
+                                        <th>Hora Fim</th>
+                                        <th>Horas Inicial</th>
+                                        <th>Horas Final</th>
+                                        <th>Horas Usadas</th>
+                                        <th>Operador</th>
+                                        <th>Objetivo</th>
+                                        <th>Status</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for tempo_uso in tempos_uso %}
+                                        <tr>
+                                            <td>{{ tempo_uso.data_inicio|date:"d/m/Y" }}</td>
+                                            <td>{{ tempo_uso.hora_inicio|time:"H:i" }}</td>
+                                            <td>{{ tempo_uso.data_fim|date:"d/m/Y"|default:"-" }}</td>
+                                            <td>{{ tempo_uso.hora_fim|time:"H:i"|default:"-" }}</td>
+                                            <td>{{ tempo_uso.horas_inicial }}h</td>
+                                            <td>{{ tempo_uso.horas_final|default:"-" }}{% if tempo_uso.horas_final %}h{% endif %}</td>
+                                            <td><strong class="text-primary">{{ tempo_uso.horas_usadas }}h</strong></td>
+                                            <td>
+                                                {% if tempo_uso.operador %}
+                                                    {{ tempo_uso.operador.get_posto_graduacao_display }} {{ tempo_uso.operador.nome_completo }}
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ tempo_uso.get_objetivo_display }}</td>
+                                            <td>
+                                                {% if tempo_uso.status == 'FINALIZADA' %}
+                                                    <span class="badge bg-success">{{ tempo_uso.get_status_display }}</span>
+                                                {% elif tempo_uso.status == 'EM_ANDAMENTO' %}
+                                                    <span class="badge bg-info">{{ tempo_uso.get_status_display }}</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">{{ tempo_uso.get_status_display }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <button type="button" class="btn btn-sm btn-primary" 
+                                                        onclick="carregarFormTempoUso({{ equipamento.pk }}, {{ tempo_uso.pk }})"
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#modalTempoUso"
+                                                        title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-danger" 
+                                                        onclick="excluirTempoUso({{ tempo_uso.pk }})"
+                                                        title="Excluir">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if tempos_uso.has_other_pages %}
+                            <nav aria-label="Paginação">
+                                <ul class="pagination justify-content-center mt-4">
+                                    {% if tempos_uso.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ tempos_uso.previous_page_number }}">
+                                                <i class="fas fa-angle-left"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                    
+                                    <li class="page-item disabled">
+                                        <span class="page-link">
+                                            Página {{ tempos_uso.number }} de {{ tempos_uso.paginator.num_pages }}
+                                        </span>
+                                    </li>
+                                    
+                                    {% if tempos_uso.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ tempos_uso.next_page_number }}">
+                                                <i class="fas fa-angle-right"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Nenhum tempo de uso registrado para este equipamento.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Formulário de Tempo de Uso -->
+<div class="modal fade" id="modalTempoUso" tabindex="-1" aria-labelledby="modalTempoUsoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" id="modalTempoUsoContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center p-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function carregarFormTempoUso(equipamentoId, tempoUsoId = null) {
+    const url = tempoUsoId 
+        ? `{% url 'militares:tempo_uso_update' 0 %}`.replace('0', tempoUsoId)
+        : `{% url 'militares:tempo_uso_create' 0 %}`.replace('0', equipamentoId);
+    
+    fetch(url, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.html) {
+            document.getElementById('modalTempoUsoContent').innerHTML = data.html;
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro ao carregar formulário');
+    });
+}
+
+function excluirTempoUso(tempoUsoId) {
+    if (!confirm('Tem certeza que deseja excluir este tempo de uso?')) {
+        return;
+    }
+    
+    const url = `{% url 'militares:tempo_uso_delete' 0 %}`.replace('0', tempoUsoId);
+    
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            if (data.redirect) {
+                window.location.href = data.redirect;
+            } else {
+                location.reload();
+            }
+        } else {
+            alert(data.message || 'Erro ao excluir tempo de uso');
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro ao excluir tempo de uso');
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Limpar modal ao fechar
+    document.getElementById('modalTempoUso').addEventListener('hidden.bs.modal', function() {
+        document.getElementById('modalTempoUsoContent').innerHTML = '<div class="modal-body text-center p-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Carregando...</span></div></div>';
+    });
+});
+</script>
+{% endblock %}
+

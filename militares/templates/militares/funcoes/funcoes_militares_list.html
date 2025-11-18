@@ -1,0 +1,341 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load militares_extras %}
+
+{% block title %}Funções Militares{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Cabeçalho Principal -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-users-cog text-primary"></i> Funções
+        </h1>
+    </div>
+
+    <!-- Botões de Ação -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex flex-wrap gap-2">
+                <a href="{% url 'militares:funcoes_militares_sincronizar' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-sync-alt"></i> Sincronizar a Tabela
+                </a>
+                {% if user.is_superuser or user|tem_funcao_especifica:"Administrador do Sistema,Administrador" %}
+                    <a href="{% url 'militares:funcoes_militares_create' %}" class="btn btn-success">
+                        <i class="fas fa-plus-circle"></i> Adicionar Função
+                    </a>
+                {% endif %}
+                <a href="{% url 'militares:funcoes_militares_tempo_atual' %}" class="btn btn-outline-info">
+                    <i class="fas fa-download"></i> Tempo Atual na Função
+                </a>
+                <a href="{% url 'militares:funcoes_militares_media_tempo' %}" class="btn btn-outline-warning">
+                    <i class="fas fa-download"></i> Média Tempo na Função
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barra de Pesquisa e Filtros -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="input-group">
+                <span class="input-group-text">
+                    <i class="fas fa-search"></i>
+                </span>
+                <input type="text" class="form-control" id="pesquisar-funcoes" placeholder="Pesquisar funções..." value="{{ pesquisa }}">
+            </div>
+        </div>
+        <div class="col-md-3">
+            <select class="form-select" id="filtro-grupo">
+                <option value="">Todos os Grupos</option>
+                <option value="ADMINISTRATIVO" {% if grupo_filtro == 'ADMINISTRATIVO' %}selected{% endif %}>Administrativo</option>
+                <option value="OPERACIONAL" {% if grupo_filtro == 'OPERACIONAL' %}selected{% endif %}>Operacional</option>
+                <option value="COMISSAO" {% if grupo_filtro == 'COMISSAO' %}selected{% endif %}>Comissão</option>
+                <option value="GESTAO" {% if grupo_filtro == 'GESTAO' %}selected{% endif %}>Gestão</option>
+                <option value="SUPORTE" {% if grupo_filtro == 'SUPORTE' %}selected{% endif %}>Suporte Técnico</option>
+                <option value="OUTROS" {% if grupo_filtro == 'OUTROS' %}selected{% endif %}>Outros</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <select class="form-select" id="filtro-status">
+                <option value="">Todos os Status</option>
+                <option value="ativo" {% if status_filtro == 'ativo' %}selected{% endif %}>Ativo</option>
+                <option value="inativo" {% if status_filtro == 'inativo' %}selected{% endif %}>Inativo</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Controles de Paginação -->
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <div class="d-flex align-items-center">
+                <label for="resultados-por-pagina" class="form-label me-2">10 resultados por página</label>
+                <select class="form-select form-select-sm" id="resultados-por-pagina" style="width: auto;">
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela de Funções -->
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="tabela-funcoes">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="sortable" data-sort="id">
+                                ID <i class="fas fa-sort"></i>
+                            </th>
+                            <th class="sortable" data-sort="nome">
+                                Nome <i class="fas fa-sort"></i>
+                            </th>
+                            <th class="sortable" data-sort="acesso_sigilo">
+                                Acesso/Sigilo <i class="fas fa-sort"></i>
+                            </th>
+                            <th class="sortable" data-sort="ordem">
+                                Ordem <i class="fas fa-sort"></i>
+                            </th>
+                            <th class="sortable" data-sort="acesso">
+                                Acesso <i class="fas fa-sort"></i>
+                            </th>
+                            <th class="sortable" data-sort="nivel">
+                                Nível <i class="fas fa-sort"></i>
+                            </th>
+                            <th class="sortable" data-sort="grupo">
+                                Grupo <i class="fas fa-sort"></i>
+                            </th>
+                            <th class="sortable" data-sort="publicacao">
+                                Publicação <i class="fas fa-sort"></i>
+                            </th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for funcao in funcoes %}
+                        <tr data-funcao-id="{{ funcao.id }}">
+                            <td>{{ funcao.id }}</td>
+                            <td>
+                                <strong>{{ funcao.nome }}</strong>
+                            </td>
+                            <td>
+                                <span class="badge bg-{% if funcao.acesso_sigilo == 'NEGADO' %}danger{% elif funcao.acesso_sigilo == 'RESTRITO' %}warning{% elif funcao.acesso_sigilo == 'CONFIDENCIAL' %}info{% elif funcao.acesso_sigilo == 'SECRETO' %}primary{% else %}dark{% endif %}">
+                                    {{ funcao.acesso_sigilo_display }}
+                                </span>
+                            </td>
+                            <td>{{ funcao.ordem }}</td>
+                            <td>
+                                <span class="badge bg-{% if funcao.acesso == 'TOTAL' %}success{% elif funcao.acesso == 'DEPARTAMENTO' %}warning{% elif funcao.acesso == 'UNIDADE' %}info{% elif funcao.acesso == 'ORGAO' %}primary{% elif funcao.acesso == 'SECAO' %}secondary{% else %}dark{% endif %}">
+                                    {{ funcao.acesso_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge bg-primary">{{ funcao.nivel }}</span>
+                            </td>
+                            <td>
+                                <span class="badge bg-{% if funcao.grupo == 'ADMINISTRATIVO' %}primary{% elif funcao.grupo == 'OPERACIONAL' %}success{% elif funcao.grupo == 'COMISSAO' %}info{% elif funcao.grupo == 'GESTAO' %}warning{% else %}secondary{% endif %}">
+                                    {{ funcao.grupo_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge bg-{% if funcao.publicacao == 'EDITOR_GERAL' %}danger{% elif funcao.publicacao == 'EDITOR_ADJUNTO' %}dark{% elif funcao.publicacao == 'EDITOR' %}primary{% elif funcao.publicacao == 'APROVADOR' %}warning{% elif funcao.publicacao == 'REVISOR' %}info{% elif funcao.publicacao == 'DIGITADOR' %}success{% else %}secondary{% endif %}">
+                                    {{ funcao.publicacao_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'militares:funcoes_militares_detail' funcao.id %}" 
+                                       class="btn btn-sm btn-outline-info" title="Ver detalhes">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    {% if user.is_superuser or user|tem_funcao_especifica:"Administrador do Sistema,Administrador" %}
+                                        <a href="{% url 'militares:gerenciar_permissoes_unificado' funcao.id %}" 
+                                           class="btn btn-sm btn-outline-success" title="Gerenciar Permissões">
+                                            <i class="fas fa-key"></i>
+                                        </a>
+                                        <a href="{% url 'militares:funcoes_militares_update' funcao.id %}" 
+                                           class="btn btn-sm btn-outline-primary" title="Editar">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a href="{% url 'militares:funcoes_militares_delete' funcao.id %}" 
+                                           class="btn btn-sm btn-outline-danger" title="Excluir"
+                                           onclick="return confirm('Tem certeza que deseja excluir esta função militar?')">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center py-4">
+                                <div class="alert alert-info mb-0">
+                                    <i class="fas fa-info-circle"></i>
+                                    Nenhuma função militar cadastrada.
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estatísticas -->
+    <div class="row mt-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-primary">{{ total_funcoes }}</h5>
+                    <p class="card-text">Total de Funções</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-success">{{ funcoes_ativas }}</h5>
+                    <p class="card-text">Funções Ativas</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-warning">{{ funcoes_inativas }}</h5>
+                    <p class="card-text">Funções Inativas</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-info">{{ funcoes|length }}</h5>
+                    <p class="card-text">Exibindo</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Pesquisa em tempo real
+    $('#pesquisar-funcoes').on('input', function() {
+        var pesquisa = $(this).val().toLowerCase();
+        $('#tabela-funcoes tbody tr').each(function() {
+            var texto = $(this).text().toLowerCase();
+            if (texto.includes(pesquisa)) {
+                $(this).show();
+            } else {
+                $(this).hide();
+            }
+        });
+    });
+
+    // Filtro por grupo
+    $('#filtro-grupo').on('change', function() {
+        var grupo = $(this).val();
+        if (grupo) {
+            $('#tabela-funcoes tbody tr').each(function() {
+                var grupoTexto = $(this).find('td:nth-child(7)').text().trim();
+                if (grupoTexto.includes(grupo)) {
+                    $(this).show();
+                } else {
+                    $(this).hide();
+                }
+            });
+        } else {
+            $('#tabela-funcoes tbody tr').show();
+        }
+    });
+
+    // Filtro por status
+    $('#filtro-status').on('change', function() {
+        var status = $(this).val();
+        if (status) {
+            $('#tabela-funcoes tbody tr').each(function() {
+                var funcaoId = $(this).data('funcao-id');
+                // Aqui você pode implementar a lógica de filtro por status
+                // Por enquanto, mostramos todas as linhas
+                $(this).show();
+            });
+        } else {
+            $('#tabela-funcoes tbody tr').show();
+        }
+    });
+
+    // Ordenação da tabela
+    $('.sortable').on('click', function() {
+        var coluna = $(this).data('sort');
+        var ordem = $(this).hasClass('sort-asc') ? 'desc' : 'asc';
+        
+        // Remover classes de ordenação de todas as colunas
+        $('.sortable i').removeClass('fa-sort-asc fa-sort-desc').addClass('fa-sort');
+        
+        // Adicionar classe de ordenação à coluna atual
+        var icone = $(this).find('i');
+        if (ordem === 'asc') {
+            icone.removeClass('fa-sort fa-sort-desc').addClass('fa-sort-asc');
+            $(this).addClass('sort-asc').removeClass('sort-desc');
+        } else {
+            icone.removeClass('fa-sort fa-sort-asc').addClass('fa-sort-desc');
+            $(this).addClass('sort-desc').removeClass('sort-asc');
+        }
+        
+        // Aqui você pode implementar a lógica de ordenação
+        console.log('Ordenar por:', coluna, 'ordem:', ordem);
+    });
+
+    // Controle de resultados por página
+    $('#resultados-por-pagina').on('change', function() {
+        var resultados = $(this).val();
+        console.log('Mostrar', resultados, 'resultados por página');
+        // Aqui você pode implementar a lógica de paginação
+    });
+});
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.sortable:hover {
+    background-color: #f8f9fa;
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+
+.btn-group .btn {
+    margin-right: 2px;
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: #495057;
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.gap-2 > * {
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+</style>
+{% endblock %}

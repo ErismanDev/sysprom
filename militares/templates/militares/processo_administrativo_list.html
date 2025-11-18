@@ -1,0 +1,470 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Processos Administrativos{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-folder-open me-2 text-primary"></i>Processos Administrativos
+                    </h2>
+                    <p class="text-muted mb-0">Gerenciar processos e procedimentos administrativos</p>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#criarProcessoModal">
+                        <i class="fas fa-plus me-2"></i>Novo Processo
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Cards de Estatísticas -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-folder fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_processos }}</h4>
+                            <p class="mb-0">Total de Processos</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card stats-card primary">
+                        <div class="card-body text-center">
+                            <i class="fas fa-spinner fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ processos_em_andamento }}</h4>
+                            <p class="mb-0">Em Andamento</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card stats-card danger">
+                        <div class="card-body text-center">
+                            <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ processos_vencidos }}</h4>
+                            <p class="mb-0">Vencidos</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Pesquisa</label>
+                            <input type="text" name="search" class="form-control" 
+                                   value="{{ search }}" placeholder="Número, assunto, descrição...">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Tipo</label>
+                            <select name="tipo" class="form-select">
+                                <option value="">Todos</option>
+                                {% for tipo_val, tipo_nome in tipos %}
+                                    <option value="{{ tipo_val }}" {% if tipo == tipo_val %}selected{% endif %}>
+                                        {{ tipo_nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-select">
+                                <option value="">Todos</option>
+                                {% for status_val, status_nome in status_choices %}
+                                    <option value="{{ status_val }}" {% if status == status_val %}selected{% endif %}>
+                                        {{ status_nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Prioridade</label>
+                            <select name="prioridade" class="form-select">
+                                <option value="">Todas</option>
+                                {% for prioridade_val, prioridade_nome in prioridades %}
+                                    <option value="{{ prioridade_val }}" {% if prioridade == prioridade_val %}selected{% endif %}>
+                                        {{ prioridade_nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                            <a href="{% url 'militares:processo_administrativo_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Limpar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Lista de Processos -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Lista de Processos
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if processos %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Número</th>
+                                        <th>Assunto</th>
+                                        <th>Tipo</th>
+                                        <th>Status</th>
+                                        <th>Prioridade</th>
+                                        <th>Data Abertura</th>
+                                        <th>Prazo</th>
+                                        <th>Processo de Origem</th>
+                                        <th>Processo Realização</th>
+                                        <th>Dias em Aberto</th>
+                                        <th style="width: 160px;">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for processo in processos %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ processo.numero }}</strong>
+                                                {% if not processo.ativo %}
+                                                    <span class="badge bg-secondary ms-1">Inativo</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ processo.assunto|truncatewords:10 }}</td>
+                                            <td>{{ processo.get_tipo_display }}</td>
+                                            <td>
+                                                <span class="badge bg-{{ processo.get_status_cor }}">
+                                                    {{ processo.get_status_display }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-{{ processo.get_prioridade_cor }}">
+                                                    {{ processo.get_prioridade_display }}
+                                                </span>
+                                            </td>
+                                            <td>{{ processo.data_abertura|date:"d/m/Y" }}</td>
+                                            <td>
+                                                {% if processo.data_prazo %}
+                                                    {{ processo.data_prazo|date:"d/m/Y" }}
+                                                    {% if processo.esta_vencido %}
+                                                        <span class="badge bg-danger ms-1">Vencido</span>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if processo.processo_origem %}
+                                                    <span class="badge bg-info">{{ processo.processo_origem }}</span>
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if processo.processo_procedimento %}
+                                                    <span class="badge bg-secondary">{{ processo.processo_procedimento }}</span>
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <strong>{{ processo.get_dias_em_aberto }}</strong> dias
+                                            </td>
+                                            <td class="text-nowrap">
+                                                <div class="btn-group btn-group-sm" role="group">
+                                                    <a href="{% url 'militares:processo_administrativo_detail' processo.pk %}" 
+                                                       class="btn btn-outline-info" title="Visualizar">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                    <a href="{% url 'militares:processo_administrativo_pdf' processo.pk %}" 
+                                                       class="btn btn-success" 
+                                                       title="Gerar PDF"
+                                                       target="_blank">
+                                                        <i class="fas fa-file-pdf"></i>
+                                                    </a>
+                                                    <button type="button" 
+                                                            class="btn btn-outline-primary btn-editar-processo" 
+                                                            data-processo-id="{{ processo.pk }}"
+                                                            title="Editar">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <button type="button" 
+                                                            class="btn btn-outline-danger btn-excluir-processo" 
+                                                            data-processo-id="{{ processo.pk }}"
+                                                            data-processo-numero="{{ processo.numero }}"
+                                                            title="Excluir">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if is_paginated %}
+                            <nav aria-label="Paginação">
+                                <ul class="pagination justify-content-center mt-4">
+                                    {% if page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}{% if tipo %}&tipo={{ tipo }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if prioridade %}&prioridade={{ prioridade }}{% endif %}">
+                                                <i class="fas fa-angle-double-left"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if tipo %}&tipo={{ tipo }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if prioridade %}&prioridade={{ prioridade }}{% endif %}">
+                                                <i class="fas fa-angle-left"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                    
+                                    <li class="page-item disabled">
+                                        <span class="page-link">
+                                            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                                        </span>
+                                    </li>
+                                    
+                                    {% if page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if tipo %}&tipo={{ tipo }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if prioridade %}&prioridade={{ prioridade }}{% endif %}">
+                                                <i class="fas fa-angle-right"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if tipo %}&tipo={{ tipo }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if prioridade %}&prioridade={{ prioridade }}{% endif %}">
+                                                <i class="fas fa-angle-double-right"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Nenhum processo encontrado.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Criar Processo -->
+<div class="modal fade" id="criarProcessoModal" tabindex="-1" aria-labelledby="criarProcessoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="criarProcessoModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Editar Processo -->
+<div class="modal fade" id="editarProcessoModal" tabindex="-1" aria-labelledby="editarProcessoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="editarProcessoModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Excluir Processo -->
+<div class="modal fade" id="excluirProcessoModal" tabindex="-1" aria-labelledby="excluirProcessoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" id="excluirProcessoModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-danger" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Otimização da tabela de processos */
+    .table-responsive {
+        overflow-x: auto;
+    }
+    
+    .table th:last-child,
+    .table td:last-child {
+        white-space: nowrap;
+        min-width: 160px;
+    }
+    
+    .btn-group {
+        display: inline-flex;
+        flex-wrap: nowrap;
+    }
+    
+    .btn-group .btn {
+        flex-shrink: 0;
+    }
+    
+    /* Garantir que os botões não quebrem linha */
+    @media (max-width: 768px) {
+        .table th:last-child,
+        .table td:last-child {
+            position: sticky;
+            right: 0;
+            background-color: #fff;
+            z-index: 10;
+            box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+        }
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Carregar formulário de criação quando o modal abrir
+    const criarModal = document.getElementById('criarProcessoModal');
+    if (criarModal) {
+        criarModal.addEventListener('show.bs.modal', function() {
+            fetch('{% url "militares:processo_administrativo_create" %}', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const modalContent = document.getElementById('criarProcessoModalContent');
+                    modalContent.innerHTML = data.html;
+                    
+                    // Re-executar scripts do modal carregado
+                    setTimeout(function() {
+                        const scripts = modalContent.querySelectorAll('script');
+                        scripts.forEach(function(oldScript) {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(attr => {
+                                newScript.setAttribute(attr.name, attr.value);
+                            });
+                            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                            oldScript.parentNode.replaceChild(newScript, oldScript);
+                        });
+                        
+                        // Forçar inicialização do organograma após scripts serem executados
+                        setTimeout(function() {
+                            if (typeof window.carregarOrganogramaCompleto === 'function') {
+                                window.carregarOrganogramaCompleto();
+                            }
+                        }, 200);
+                    }, 100);
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert('Erro ao carregar formulário. Tente novamente.');
+            });
+        });
+    }
+    
+    // Editar processo
+    document.querySelectorAll('.btn-editar-processo').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const processoId = this.getAttribute('data-processo-id');
+            fetch(`/militares/processos/${processoId}/editar/`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const modalContent = document.getElementById('editarProcessoModalContent');
+                    modalContent.innerHTML = data.html;
+                    const editarModal = new bootstrap.Modal(document.getElementById('editarProcessoModal'));
+                    editarModal.show();
+                    
+                    // Re-executar scripts do modal carregado
+                    setTimeout(function() {
+                        const scripts = modalContent.querySelectorAll('script');
+                        scripts.forEach(function(oldScript) {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(attr => {
+                                newScript.setAttribute(attr.name, attr.value);
+                            });
+                            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                            oldScript.parentNode.replaceChild(newScript, oldScript);
+                        });
+                        
+                        // Forçar inicialização do organograma após scripts serem executados
+                        setTimeout(function() {
+                            if (typeof window.carregarOrganogramaCompleto === 'function') {
+                                window.carregarOrganogramaCompleto();
+                            }
+                        }, 200);
+                    }, 100);
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert('Erro ao carregar processo. Tente novamente.');
+            });
+        });
+    });
+    
+    // Excluir processo
+    document.querySelectorAll('.btn-excluir-processo').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const processoId = this.getAttribute('data-processo-id');
+            fetch(`/militares/processos/${processoId}/excluir/`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    document.getElementById('excluirProcessoModalContent').innerHTML = data.html;
+                    const excluirModal = new bootstrap.Modal(document.getElementById('excluirProcessoModal'));
+                    excluirModal.show();
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert('Erro ao carregar processo. Tente novamente.');
+            });
+        });
+    });
+});
+</script>
+{% endblock %}
+

@@ -1,0 +1,809 @@
+﻿{% load origem_tags %}
+{% load militares_extras %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escala de Abonar</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #ff6b35;
+            --secondary-color: #d62828;
+            --accent-color: #ff8c42;
+            --success-color: #28a745;
+            --info-color: #17a2b8;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --light-color: #f8f9fa;
+            --dark-color: #343a40;
+        }
+
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .main-content {
+            margin-left: 0;
+            padding: 20px;
+            min-height: calc(100vh - 56px);
+        }
+
+        .navbar-custom {
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            box-shadow: 0 2px 4px rgba(0,0,0,.1);
+            height: 56px;
+        }
+
+        .navbar-brand {
+            font-weight: 600;
+            font-size: 1.2rem;
+        }
+
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            color: white;
+            border-radius: 12px 12px 0 0 !important;
+            border: none;
+            padding: 15px 20px;
+        }
+
+        .card-header h5 {
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stats-card .stat-item {
+            text-align: center;
+        }
+
+        .stats-card .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .stats-card .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .filters-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: var(--dark-color);
+            margin-bottom: 8px;
+        }
+
+        .form-control, .form-select {
+            border-radius: 8px;
+            border: 2px solid #e9ecef;
+            padding: 10px 15px;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.25);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 107, 53, 0.4);
+        }
+
+        .btn-outline-secondary {
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-weight: 600;
+        }
+
+        .table-responsive {
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        /* Ajustes para ocupar 100% da largura em todas as telas */
+        .table.w-100 { width: 100%; }
+        .escalas-grid { table-layout: fixed; width: 100%; }
+        .escalas-grid th, .escalas-grid td {
+            padding: 6px 4px;
+            font-size: 0.85rem;
+            word-wrap: break-word;
+            white-space: normal;
+            overflow: visible;
+            text-overflow: clip;
+        }
+        .turnos-wrap { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+        /* Destaques de fim de semana e feriados - vermelho apenas no cabeçalho */
+        .weekend-day { background: #ffd6d6 !important; color: #7a1f1f; }
+        .holiday-day { background: #ffb3b3 !important; color: #7a1f1f; }
+        /* Células de turnos mantêm cores normais */
+        .escalas-grid td.weekend-day, .escalas-grid td.holiday-day { 
+            background: transparent !important; 
+            color: inherit; 
+        }
+        .escalas-grid td.weekend-day .badge, .escalas-grid td.holiday-day .badge { 
+            background: #f8f9fa; 
+            color: #212529; 
+            border-color: #dee2e6; 
+        }
+        @media (max-width: 1200px) {
+            .escalas-grid th, .escalas-grid td { font-size: 0.8rem; padding: 4px 3px; }
+        }
+
+        .table {
+            margin-bottom: 0;
+        }
+
+        .table thead th {
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            color: white;
+            border: none;
+            font-weight: 600;
+            padding: 15px 12px;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .table tbody tr {
+            transition: all 0.3s ease;
+        }
+
+        .table tbody tr:hover {
+            background-color: #f8f9fa;
+            transform: scale(1.01);
+        }
+
+        .table tbody td {
+            border: 1px solid #e9ecef;
+            padding: 12px;
+            vertical-align: middle;
+        }
+
+        .militar-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .militar-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--primary-color);
+        }
+
+        .militar-avatar-placeholder {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .militar-details h6 {
+            margin: 0;
+            font-weight: 600;
+            color: var(--dark-color);
+        }
+
+        .militar-details small {
+            color: #6c757d;
+            font-size: 0.85rem;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-ativo {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .status-pronto {
+            background-color: #cce5ff;
+            color: #004085;
+        }
+
+        .status-ferias {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+
+        .status-licenca {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .horas-cell {
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .horas-trabalhadas {
+            color: var(--success-color);
+            font-size: 1.1rem;
+        }
+
+        .horas-zero {
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        .lotacao-info {
+            font-size: 0.9rem;
+            color: #6c757d;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .organizacao-header {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white;
+            padding: 15px 20px;
+            margin: 20px 0 10px 0;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            border-left: 5px solid var(--primary-color);
+        }
+
+        .organizacao-title {
+            margin: 0;
+            font-size: 1.3rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+        }
+
+        .organizacao-title i {
+            color: var(--primary-color);
+            margin-right: 10px;
+        }
+
+        .pagination {
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .page-link {
+            border-radius: 8px;
+            margin: 0 2px;
+            border: 2px solid #e9ecef;
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        .page-link:hover {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            color: white;
+        }
+
+        .page-item.active .page-link {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+
+        .no-data i {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .weekend-day {
+            background-color: #f8f9fa;
+            color: #6c757d;
+        }
+
+        .today {
+            background-color: #fff3cd;
+            color: #856404;
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 10px;
+            }
+            
+            .table-responsive {
+                font-size: 0.85rem;
+            }
+            
+            .militar-info {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-cogs me-2"></i>
+                Escala de Abonar
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{% url 'militares:escalas_list' %}">
+                    <i class="fas fa-arrow-left me-1"></i>
+                    Voltar às Escalas
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Conteúdo Principal -->
+    <div class="main-content">
+        <div class="container-fluid">
+            <!-- Cabeçalho -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-cogs me-2"></i>
+                        Escala de Abonar - {{ mes|stringformat:"02d" }}/{{ ano }}
+                    </h1>
+                    <p class="text-muted mb-0">Gerenciamento e visualização de escalas de serviço</p>
+                    {% if funcao_usuario and funcao_usuario.funcao_militar %}
+                        <small class="text-info">
+                            <i class="fas fa-user-shield me-1"></i>
+                            Acesso: {{ funcao_usuario.funcao_militar.get_acesso_display }}
+                            {% if funcao_usuario.orgao %} - {{ funcao_usuario.orgao.nome }}{% endif %}
+                            {% if funcao_usuario.grande_comando %} - {{ funcao_usuario.grande_comando.nome }}{% endif %}
+                            {% if funcao_usuario.unidade %} - {{ funcao_usuario.unidade.nome }}{% endif %}
+                            {% if funcao_usuario.sub_unidade %} - {{ funcao_usuario.sub_unidade.nome }}{% endif %}
+                        </small>
+                    {% endif %}
+                </div>
+                <div>
+                    <a href="{% url 'militares:escalas_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>
+                        Voltar
+                    </a>
+                </div>
+            </div>
+
+            
+
+            <!-- Filtros -->
+            <div class="filters-card">
+                <form method="get" id="filters-form" class="row g-3">
+                    <div class="col-md-3">
+                        <label for="search" class="form-label">Buscar militar</label>
+                        <input type="text" class="form-control" id="search" name="search" 
+                               value="{{ search }}" placeholder="Nome, matrícula ou nome de guerra">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="mes" class="form-label">Mês</label>
+                        <select class="form-select" id="mes" name="mes">
+                            {% for i in "123456789012"|make_list %}
+                                <option value="{{ forloop.counter }}" {% if mes == forloop.counter %}selected{% endif %}>
+                                    {{ forloop.counter|stringformat:"02d" }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="ano" class="form-label">Ano</label>
+                        {% now 'Y' as current_year %}
+                        <select class="form-select" id="ano" name="ano">
+                            {% for ano_option in anos_disponiveis %}
+                                <option value="{{ ano_option }}" {% if ano == ano_option or not ano and ano_option|stringformat:'s' == current_year %}selected{% endif %}>
+                                    {{ ano_option }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="status" class="form-label">Status</label>
+                        <select class="form-select" id="status" name="status">
+                            <option value="">Todos os status</option>
+                            <option value="ATIVO" {% if status_filtro == 'ATIVO' %}selected{% endif %}>Ativo</option>
+                            <option value="PRONTO" {% if status_filtro == 'PRONTO' %}selected{% endif %}>Pronto</option>
+                            <option value="FERIAS" {% if status_filtro == 'FERIAS' %}selected{% endif %}>Férias</option>
+                            <option value="LICENCA" {% if status_filtro == 'LICENCA' %}selected{% endif %}>Licença</option>
+                            <option value="AFASTADO" {% if status_filtro == 'AFASTADO' %}selected{% endif %}>Afastado</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="organizacao_id" class="form-label">Organização</label>
+                        <select class="form-select" id="organizacao_id" name="organizacao_id">
+                            <option value="">Todas as organizações</option>
+                            {% for opcao in opcoes_filtro_hierarquico %}
+                                <option value="{{ opcao.id }}" {% if organizacao_id == opcao.id %}selected{% endif %}>
+                                    {% if opcao.nivel == 1 %}🏢 {% elif opcao.nivel == 2 %}🏛️ {% elif opcao.nivel == 3 %}🏢 {% elif opcao.nivel == 4 %}🏘️ {% endif %}{{ opcao.nome }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        {% if opcoes_filtro_hierarquico %}
+                            <small class="form-text text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Mostrando {{ opcoes_filtro_hierarquico|length }} organização{{ opcoes_filtro_hierarquico|length|pluralize:"ões" }} disponível{{ opcoes_filtro_hierarquico|length|pluralize:"is" }}
+                            </small>
+                        {% endif %}
+                    </div>
+                </form>
+                
+                <!-- Botões de ação -->
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <button type="submit" form="filters-form" class="btn btn-primary me-2">
+                            <i class="fas fa-search me-1"></i>
+                            Filtrar
+                        </button>
+                        <a href="{% url 'militares:escalas_configuracao' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-1"></i>
+                            Limpar Filtros
+                        </a>
+                        <button type="button" class="btn btn-outline-info" onclick="window.print()">
+                            <i class="fas fa-print me-1"></i>
+                            Imprimir
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lista de Militares por Organização -->
+            {% if militares_por_lotacao %}
+                {% for lotacao_nome, militares_lotacao in militares_por_lotacao %}
+                    <!-- Cabeçalho da Organização -->
+                    <div class="organizacao-header">
+                        <h4 class="organizacao-title">
+                            <i class="fas fa-building me-2"></i>
+                            {{ lotacao_nome }} ({{ militares_lotacao|length }} militar{{ militares_lotacao|length|pluralize:"es" }})
+                        </h4>
+                    </div>
+                    
+                    <!-- Tabela de Militares -->
+                    <div class="table-responsive">
+                        <table class="table table-hover w-100">
+                            <thead>
+                                <tr>
+                                    <th style="width: 250px;">Militar</th>
+                                    <th style="width: 100px;">Status</th>
+                                    <th style="width: 200px;">Lotação</th>
+                                    <th style="width: 100px;">Total Horas</th>
+                                    <th style="width: 100px;">Escalas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in militares_lotacao %}
+                                    <tr>
+                                        <td>
+                                            <div class="militar-info">
+                                                {% if item.militar.foto %}
+                                                    <img src="{{ item.militar.foto.url }}" 
+                                                         class="militar-avatar" 
+                                                         alt="{{ item.militar.nome_guerra }}">
+                                                {% else %}
+                                                    <div class="militar-avatar-placeholder">
+                                                        {{ item.militar.nome_completo|first|upper }}
+                                                    </div>
+                                                {% endif %}
+                                                <div class="militar-details">
+                                                    <h6>{{ item.militar.nome_guerra }}</h6>
+                                                    <small>{{ item.militar.get_posto_graduacao_display }} BM</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            {% if item.militar.situacao == 'ATIVO' %}
+                                                <span class="status-badge status-ativo">Ativo</span>
+                                            {% elif item.militar.situacao == 'PRONTO' %}
+                                                <span class="status-badge status-pronto">Pronto</span>
+                                            {% elif item.militar.situacao == 'FERIAS' %}
+                                                <span class="status-badge status-ferias">Férias</span>
+                                            {% elif item.militar.situacao == 'LICENCA' %}
+                                                <span class="status-badge status-licenca">Licença</span>
+                                            {% else %}
+                                                <span class="status-badge">{{ item.militar.situacao }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="lotacao-info">
+                                                {% if item.lotacao_atual %}
+                                                    {{ item.lotacao_atual.lotacao|ultima_instancia_origem|truncatechars:30 }}
+                                                {% else %}
+                                                    <span class="text-muted">Sem lotação</span>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td class="horas-cell">
+                                            {% if item.total_horas > 0 %}
+                                                <span class="horas-trabalhadas">{{ item.total_horas }}h</span>
+                                            {% else %}
+                                                <span class="horas-zero">0h</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-primary">{{ item.escalas_count }}</span>
+                                        </td>
+                                    </tr>
+                                    <!-- Grade por dias/turnos -->
+                                    <tr>
+                                        <td colspan="5">
+                                            <div class="table-responsive">
+                                                <table class="table table-sm mb-0 escalas-grid">
+                                                    <thead>
+                                                        <tr>
+                                                            {% for d in dias_mes %}
+                                                                <th class="text-center {% if d.is_holiday %}holiday-day{% elif d.is_weekend %}weekend-day{% endif %}" 
+                                                                    style="font-size: 0.8rem;" 
+                                                                    {% if d.nome_feriado %}title="{{ d.nome_feriado }}"{% endif %}>
+                                                                    {{ d.data|date:"D"|slice:":1" }}<br>
+                                                                    <span class="text-muted">{{ d.dia|stringformat:"02d" }}</span>
+                                                                </th>
+                                                            {% endfor %}
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr>
+                                                            {% for d in dias_mes %}
+                                                                {% with registros=item.turnos_por_dia %}
+                                                                {% with dia_reg=registros|get_item:d.dia %}
+                                                                <td class="text-center align-top {% if d.is_holiday %}holiday-day{% elif d.is_weekend %}weekend-day{% endif %}" style="min-width: 80px;">
+                                                                    {% if dia_reg and dia_reg.turnos %}
+                                                                        <div class="turnos-wrap">
+                                                                            {% for t in dia_reg.turnos %}
+                                                                                <span class="badge bg-light text-dark border">{{ t.horas|floatformat:0 }}h</span>
+                                                                            {% endfor %}
+                                                                        </div>
+                                                                    {% else %}
+                                                                        {% comment %} Verificar feriado municipal baseado na cidade do militar {% endcomment %}
+                                                                        {% with lotacao=item.militar.lotacao_atual %}
+                                                                        {% if lotacao %}
+                                                                            {% if lotacao.sub_unidade and lotacao.sub_unidade.cidade %}
+                                                                                {% with cidade_militar=lotacao.sub_unidade.cidade %}
+                                                                                    {% if (cidade_militar == 'Teresina' and d.dia == 16 and mes == 8) or 
+                                                                                          (cidade_militar == 'Parnaíba' and d.dia == 14 and mes == 8) or
+                                                                                          (cidade_militar == 'Picos' and d.dia == 12 and mes == 8) or
+                                                                                          (cidade_militar == 'Floriano' and d.dia == 24 and mes == 7) or
+                                                                                          (cidade_militar == 'Piripiri' and d.dia == 15 and mes == 8) or
+                                                                                          (cidade_militar == 'Luís Correia' and d.dia == 19 and mes == 8) or
+                                                                                          (cidade_militar == 'Esperantina' and d.dia == 26 and mes == 8) or
+                                                                                          (cidade_militar == 'Oeiras' and d.dia == 15 and mes == 6) or
+                                                                                          (cidade_militar == 'São Raimundo Nonato' and d.dia == 31 and mes == 8) or
+                                                                                          (cidade_militar == 'Bom Jesus' and d.dia == 18 and mes == 8) or
+                                                                                          (d.dia == 8 and mes == 12 and cidade_militar) %}
+                                                                                        <span class="badge bg-info">Feriado</span>
+                                                                                    {% else %}
+                                                                                        <span class="badge bg-success">Folga</span>
+                                                                                    {% endif %}
+                                                                                {% endwith %}
+                                                                            {% elif lotacao.unidade and lotacao.unidade.cidade %}
+                                                                                {% with cidade_militar=lotacao.unidade.cidade %}
+                                                                                    {% if cidade_militar == 'Teresina' and d.dia == 16 and mes == 8 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal Teresina">Feriado</span>
+                                                                                    {% elif cidade_militar == 'Parnaíba' and d.dia == 14 and mes == 8 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal Parnaíba">Feriado</span>
+                                                                                    {% elif cidade_militar == 'Picos' and d.dia == 12 and mes == 8 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal Picos">Feriado</span>
+                                                                                    {% elif cidade_militar == 'Floriano' and d.dia == 24 and mes == 7 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal Floriano">Feriado</span>
+                                                                                    {% elif cidade_militar == 'Piripiri' and d.dia == 15 and mes == 8 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal Piripiri">Feriado</span>
+                                                                                    {% elif cidade_militar == 'Luís Correia' and d.dia == 13 and mes == 8 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal Luís Correia">Feriado</span>
+                                                                                    {% elif cidade_militar == 'Esperantina' and d.dia == 10 and mes == 8 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal Esperantina">Feriado</span>
+                                                                                    {% elif cidade_militar == 'Oeiras' and d.dia == 3 and mes == 8 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal Oeiras">Feriado</span>
+                                                                                    {% elif cidade_militar == 'São Raimundo Nonato' and d.dia == 4 and mes == 8 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal São Raimundo Nonato">Feriado</span>
+                                                                                    {% elif cidade_militar == 'Bom Jesus' and d.dia == 18 and mes == 8 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal Bom Jesus">Feriado</span>
+                                                                                    {% elif d.dia == 8 and mes == 12 and cidade_militar %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal">Feriado</span>
+                                                                                    {% else %}
+                                                                                        <span class="badge bg-success">Folga</span>
+                                                                                    {% endif %}
+                                                                                {% endwith %}
+                                                                            {% elif lotacao.grande_comando and lotacao.grande_comando.cidade %}
+                                                                                {% with cidade_militar=lotacao.grande_comando.cidade %}
+                                                                                    {% if cidade_militar == 'Teresina' and d.dia == 16 and mes == 8 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal Teresina">Feriado</span>
+                                                                                    {% elif cidade_militar == 'Parnaíba' and d.dia == 14 and mes == 8 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal Parnaíba">Feriado</span>
+                                                                                    {% elif cidade_militar == 'Picos' and d.dia == 12 and mes == 8 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal Picos">Feriado</span>
+                                                                                    {% elif cidade_militar == 'Floriano' and d.dia == 24 and mes == 7 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal Floriano">Feriado</span>
+                                                                                    {% elif cidade_militar == 'Piripiri' and d.dia == 15 and mes == 8 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal Piripiri">Feriado</span>
+                                                                                    {% elif cidade_militar == 'Luís Correia' and d.dia == 13 and mes == 8 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal Luís Correia">Feriado</span>
+                                                                                    {% elif cidade_militar == 'Esperantina' and d.dia == 10 and mes == 8 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal Esperantina">Feriado</span>
+                                                                                    {% elif cidade_militar == 'Oeiras' and d.dia == 3 and mes == 8 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal Oeiras">Feriado</span>
+                                                                                    {% elif cidade_militar == 'São Raimundo Nonato' and d.dia == 4 and mes == 8 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal São Raimundo Nonato">Feriado</span>
+                                                                                    {% elif cidade_militar == 'Bom Jesus' and d.dia == 18 and mes == 8 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal Bom Jesus">Feriado</span>
+                                                                                    {% elif d.dia == 8 and mes == 12 and cidade_militar %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal">Feriado</span>
+                                                                                    {% else %}
+                                                                                        <span class="badge bg-success">Folga</span>
+                                                                                    {% endif %}
+                                                                                {% endwith %}
+                                                                            {% elif lotacao.orgao and lotacao.orgao.cidade %}
+                                                                                {% with cidade_militar=lotacao.orgao.cidade %}
+                                                                                    {% if cidade_militar == 'Teresina' and d.dia == 16 and mes == 8 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal Teresina">Feriado</span>
+                                                                                    {% elif cidade_militar == 'Parnaíba' and d.dia == 14 and mes == 8 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal Parnaíba">Feriado</span>
+                                                                                    {% elif cidade_militar == 'Picos' and d.dia == 12 and mes == 8 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal Picos">Feriado</span>
+                                                                                    {% elif cidade_militar == 'Floriano' and d.dia == 24 and mes == 7 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal Floriano">Feriado</span>
+                                                                                    {% elif cidade_militar == 'Piripiri' and d.dia == 15 and mes == 8 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal Piripiri">Feriado</span>
+                                                                                    {% elif cidade_militar == 'Luís Correia' and d.dia == 13 and mes == 8 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal Luís Correia">Feriado</span>
+                                                                                    {% elif cidade_militar == 'Esperantina' and d.dia == 10 and mes == 8 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal Esperantina">Feriado</span>
+                                                                                    {% elif cidade_militar == 'Oeiras' and d.dia == 3 and mes == 8 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal Oeiras">Feriado</span>
+                                                                                    {% elif cidade_militar == 'São Raimundo Nonato' and d.dia == 4 and mes == 8 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal São Raimundo Nonato">Feriado</span>
+                                                                                    {% elif cidade_militar == 'Bom Jesus' and d.dia == 18 and mes == 8 %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal Bom Jesus">Feriado</span>
+                                                                                    {% elif d.dia == 8 and mes == 12 and cidade_militar %}
+                                                                                        <span class="badge bg-info" title="Feriado Municipal">Feriado</span>
+                                                                                    {% else %}
+                                                                                        <span class="badge bg-success">Folga</span>
+                                                                                    {% endif %}
+                                                                                {% endwith %}
+                                                                            {% else %}
+                                                                                <span class="badge bg-success">Folga</span>
+                                                                            {% endif %}
+                                                                        {% else %}
+                                                                            <span class="badge bg-success">Folga</span>
+                                                                        {% endif %}
+                                                                        {% endwith %}
+                                                                    {% endif %}
+                                                                </td>
+                                                                {% endwith %}
+                                                                {% endwith %}
+                                                            {% endfor %}
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% endfor %}
+
+                <!-- Paginação -->
+                {% if is_paginated %}
+                    <nav aria-label="Paginação">
+                        <ul class="pagination">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}{% if organizacao_id %}&organizacao_id={{ organizacao_id }}{% endif %}{% if status_filtro %}&status={{ status_filtro }}{% endif %}&mes={{ mes }}&ano={{ ano }}">
+                                        <i class="fas fa-angle-double-left"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if organizacao_id %}&organizacao_id={{ organizacao_id }}{% endif %}{% if status_filtro %}&status={{ status_filtro }}{% endif %}&mes={{ mes }}&ano={{ ano }}">
+                                        <i class="fas fa-angle-left"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+
+                            <li class="page-item active">
+                                <span class="page-link">
+                                    Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                                </span>
+                            </li>
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if organizacao_id %}&organizacao_id={{ organizacao_id }}{% endif %}{% if status_filtro %}&status={{ status_filtro }}{% endif %}&mes={{ mes }}&ano={{ ano }}">
+                                        <i class="fas fa-angle-right"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if organizacao_id %}&organizacao_id={{ organizacao_id }}{% endif %}{% if status_filtro %}&status={{ status_filtro }}{% endif %}&mes={{ mes }}&ano={{ ano }}">
+                                        <i class="fas fa-angle-double-right"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+            {% else %}
+                <!-- Nenhum dado encontrado -->
+                <div class="card">
+                    <div class="card-body">
+                        <div class="no-data">
+                            <i class="fas fa-calendar-times"></i>
+                            <h4>Nenhum militar encontrado</h4>
+                            <p>Não há militares com escalas no período selecionado.</p>
+                            <p>Tente ajustar os filtros ou selecionar outro mês/ano.</p>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Adicionar classe 'today' para o dia atual
+            const today = new Date();
+            const currentMonth = parseInt('{{ mes }}');
+            const currentYear = parseInt('{{ ano }}');
+            
+            if (today.getMonth() + 1 === currentMonth && today.getFullYear() === currentYear) {
+                const todayDay = today.getDate();
+                // Aqui você pode adicionar lógica para destacar o dia atual se necessário
+                console.log('Dia atual:', todayDay);
+            }
+        });
+    </script>
+</body>
+</html>

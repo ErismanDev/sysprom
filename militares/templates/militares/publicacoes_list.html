@@ -1,0 +1,1104 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load militar_permissions %}
+
+{% block title %}Publicações{% endblock %}
+
+{% block extra_css %}
+<style>
+    .publicacao-card {
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        transition: all 0.3s ease;
+        background: white;
+    }
+    
+    .publicacao-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+    }
+    
+    .publicacao-header {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        padding: 15px 20px;
+        border-bottom: 1px solid #dee2e6;
+        border-radius: 8px 8px 0 0;
+    }
+    
+    .publicacao-body {
+        padding: 20px;
+    }
+    
+    .publicacao-meta {
+        font-size: 0.9em;
+        color: #6c757d;
+        margin-bottom: 10px;
+    }
+    
+    .publicacao-titulo {
+        font-size: 1.2em;
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 10px;
+    }
+    
+    .publicacao-conteudo {
+        color: #6c757d;
+        line-height: 1.6;
+        max-height: 100px;
+        overflow: hidden;
+        position: relative;
+    }
+    
+    .publicacao-conteudo::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 20px;
+        background: linear-gradient(transparent, white);
+    }
+    
+    .status-badge {
+        font-size: 0.8em;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-weight: 500;
+    }
+    
+    .status-rascunho {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .status-publicado {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .status-arquivado {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    .tipo-badge {
+        font-size: 0.8em;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-weight: 500;
+    }
+    
+    .tipo-nota {
+        background-color: #e3f2fd;
+        color: #1976d2;
+    }
+    
+    .tipo-boletim-ostensivo {
+        background-color: #e8f5e8;
+        color: #2e7d32;
+    }
+    
+    .tipo-boletim-reservado {
+        background-color: #fff3e0;
+        color: #f57c00;
+    }
+    
+    .tipo-boletim-especial {
+        background-color: #f3e5f5;
+        color: #7b1fa2;
+    }
+    
+    .tipo-aviso {
+        background-color: #fff8e1;
+        color: #f57c00;
+    }
+    
+    .tipo-ordem-servico {
+        background-color: #e8f5e8;
+        color: #2e7d32;
+    }
+    
+    .tipo-default {
+        background-color: #e9ecef;
+        color: #495057;
+    }
+    
+    .stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 20px;
+        text-align: center;
+    }
+    
+    .stats-number {
+        font-size: 2em;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    
+    .stats-label {
+        font-size: 0.9em;
+        opacity: 0.9;
+    }
+    
+    .nav-pills .nav-link {
+        border-radius: 20px;
+        margin-right: 10px;
+        font-weight: 500;
+    }
+    
+    .nav-pills .nav-link.active {
+        background-color: #007bff;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #6c757d;
+    }
+    
+    .empty-state i {
+        font-size: 4em;
+        margin-bottom: 20px;
+        opacity: 0.5;
+    }
+    
+    /* Estilos para autocomplete de títulos e origem */
+    #sugestoesTitulos, #sugestoesOrigem {
+        max-height: 300px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        background: white;
+    }
+    
+    #sugestoesTitulos .list-group-item, #sugestoesOrigem .list-group-item {
+        border: none;
+        border-bottom: 1px solid #f8f9fa;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    
+    #sugestoesTitulos .list-group-item:hover, #sugestoesOrigem .list-group-item:hover {
+        background-color: #f8f9fa;
+    }
+    
+    #sugestoesTitulos .list-group-item:last-child, #sugestoesOrigem .list-group-item:last-child {
+        border-bottom: none;
+    }
+    
+    #sugestoesTitulos .list-group-item h6, #sugestoesOrigem .list-group-item h6 {
+        color: #495057;
+        font-weight: 600;
+    }
+    
+    #sugestoesTitulos .list-group-item small, #sugestoesOrigem .list-group-item small {
+        color: #6c757d;
+    }
+    
+    /* Posicionamento relativo para os containers dos inputs */
+    .col-12:has(#titulo_publicacao), .col-12:has(#origem_publicacao) {
+        position: relative;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Cabeçalho -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-newspaper me-2"></i>
+                Publicações
+            </h1>
+            <p class="text-muted mb-0">Gerencie notas e boletins do sistema</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCriarPublicacao">
+                <i class="fas fa-plus me-2"></i>
+                Nova Publicação
+            </button>
+        </div>
+    </div>
+
+    <!-- Navegação por tipo -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <ul class="nav nav-pills">
+                <li class="nav-item">
+                    <a class="nav-link {% if not tipo %}active{% endif %}" 
+                       href="{% url 'militares:publicacoes_list' %}">
+                        <i class="fas fa-list me-1"></i>
+                        Todas
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if tipo == 'nota' %}active{% endif %}" 
+                       href="{% url 'militares:publicacoes_list_tipo' 'nota' %}">
+                        <i class="fas fa-sticky-note me-1"></i>
+                        Notas
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if tipo == 'boletim-ostensivo' %}active{% endif %}" 
+                       href="{% url 'militares:publicacoes_list_tipo' 'boletim-ostensivo' %}">
+                        <i class="fas fa-file-alt me-1"></i>
+                        Boletins Ostensivos
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if tipo == 'boletim-reservado' %}active{% endif %}" 
+                       href="{% url 'militares:publicacoes_list_tipo' 'boletim-reservado' %}">
+                        <i class="fas fa-lock me-1"></i>
+                        Boletins Reservados
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if tipo == 'boletim-especial' %}active{% endif %}" 
+                       href="{% url 'militares:publicacoes_list_tipo' 'boletim-especial' %}">
+                        <i class="fas fa-star me-1"></i>
+                        Boletins Especiais
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if tipo == 'aviso' %}active{% endif %}" 
+                       href="{% url 'militares:publicacoes_list_tipo' 'aviso' %}">
+                        <i class="fas fa-bullhorn me-1"></i>
+                        Avisos
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if tipo == 'ordem-servico' %}active{% endif %}" 
+                       href="{% url 'militares:publicacoes_list_tipo' 'ordem-servico' %}">
+                        <i class="fas fa-clipboard-list me-1"></i>
+                        Ordens de Serviço
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Estatísticas -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stats-card">
+                <div class="stats-number">{{ stats.total }}</div>
+                <div class="stats-label">Total</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card">
+                <div class="stats-number">{{ stats.publicadas }}</div>
+                <div class="stats-label">Publicadas</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card">
+                <div class="stats-number">{{ stats.rascunhos }}</div>
+                <div class="stats-label">Rascunhos</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card">
+                <div class="stats-number">{{ stats.arquivadas }}</div>
+                <div class="stats-label">Arquivadas</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de Publicações -->
+    {% if publicacoes %}
+        <div class="row">
+            {% for publicacao in publicacoes %}
+            <div class="col-md-6 col-lg-4">
+                <div class="publicacao-card">
+                    <div class="publicacao-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                {% if publicacao.tipo == 'NOTA' %}
+                                <span class="tipo-badge tipo-nota">
+                                    {{ publicacao.get_tipo_display_short }}
+                                </span>
+                                {% elif publicacao.tipo == 'BOLETIM_OSTENSIVO' %}
+                                <span class="tipo-badge tipo-boletim-ostensivo">
+                                    {{ publicacao.get_tipo_display_short }}
+                                </span>
+                                {% elif publicacao.tipo == 'BOLETIM_RESERVADO' %}
+                                <span class="tipo-badge tipo-boletim-reservado">
+                                    {{ publicacao.get_tipo_display_short }}
+                                </span>
+                                {% elif publicacao.tipo == 'BOLETIM_ESPECIAL' %}
+                                <span class="tipo-badge tipo-boletim-especial">
+                                    {{ publicacao.get_tipo_display_short }}
+                                </span>
+                                {% elif publicacao.tipo == 'AVISO' %}
+                                <span class="tipo-badge tipo-aviso">
+                                    {{ publicacao.get_tipo_display_short }}
+                                </span>
+                                {% elif publicacao.tipo == 'ORDEM_SERVICO' %}
+                                <span class="tipo-badge tipo-ordem-servico">
+                                    {{ publicacao.get_tipo_display_short }}
+                                </span>
+                                {% else %}
+                                <span class="tipo-badge tipo-default">
+                                    {{ publicacao.get_tipo_display_short }}
+                                </span>
+                                {% endif %}
+                                <span class="status-badge status-{{ publicacao.status|lower }}">
+                                    {{ publicacao.get_status_display }}
+                                </span>
+                            </div>
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                        type="button" data-bs-toggle="dropdown">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'militares:publicacao_detail' publicacao.pk %}">
+                                            <i class="fas fa-eye me-2"></i>Visualizar
+                                        </a>
+                                    </li>
+                                    {% if publicacao|pode_editar_publicacao:user %}
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'militares:publicacao_edit' publicacao.pk %}">
+                                            <i class="fas fa-edit me-2"></i>Editar
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                    {% if publicacao|pode_publicar_publicacao:user and publicacao.status == 'RASCUNHO' %}
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'militares:publicacao_publish' publicacao.pk %}">
+                                            <i class="fas fa-paper-plane me-2"></i>Publicar
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                    {% if publicacao|pode_editar_publicacao:user %}
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <a class="dropdown-item text-danger" href="{% url 'militares:publicacao_delete' publicacao.pk %}">
+                                            <i class="fas fa-trash me-2"></i>Excluir
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="publicacao-body">
+                        <div class="publicacao-meta">
+                            <strong>{{ publicacao.numero }}</strong> • 
+                            {{ publicacao.data_criacao|date:"d/m/Y H:i" }}
+                            {% if publicacao.data_publicacao %}
+                                • Publicado em {{ publicacao.data_publicacao|date:"d/m/Y H:i" }}
+                            {% endif %}
+                        </div>
+                        <div class="publicacao-titulo">{{ publicacao.titulo }}</div>
+                        <div class="publicacao-conteudo">
+                            {{ publicacao.conteudo|truncatewords:30 }}
+                        </div>
+                        <div class="mt-3">
+                            <a href="{% url 'militares:publicacao_detail' publicacao.pk %}" 
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye me-1"></i>
+                                Ver Detalhes
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Paginação -->
+        {% if publicacoes.has_other_pages %}
+        <nav aria-label="Paginação">
+            <ul class="pagination justify-content-center">
+                {% if publicacoes.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1">&laquo; Primeira</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ publicacoes.previous_page_number }}">Anterior</a>
+                    </li>
+                {% endif %}
+                
+                <li class="page-item active">
+                    <span class="page-link">
+                        Página {{ publicacoes.number }} de {{ publicacoes.paginator.num_pages }}
+                    </span>
+                </li>
+                
+                {% if publicacoes.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ publicacoes.next_page_number }}">Próxima</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ publicacoes.paginator.num_pages }}">Última &raquo;</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    {% else %}
+        <div class="empty-state">
+            <i class="fas fa-newspaper"></i>
+            <h4>Nenhuma publicação encontrada</h4>
+            <p>Comece criando sua primeira publicação.</p>
+            <a href="{% url 'militares:publicacao_create' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>
+                Criar Primeira Publicação
+            </a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Adicionar animação aos cards
+        $('.publicacao-card').each(function(index) {
+            $(this).css('animation-delay', (index * 0.1) + 's');
+            $(this).addClass('fade-in');
+        });
+    });
+</script>
+
+<style>
+    .fade-in {
+        animation: fadeInUp 0.5s ease-out forwards;
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    
+    @keyframes fadeInUp {
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+
+<!-- Modal para Criar Publicação -->
+<div class="modal fade" id="modalCriarPublicacao" tabindex="-1" aria-labelledby="modalCriarPublicacaoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalCriarPublicacaoLabel">
+                    <i class="fas fa-plus me-2"></i>
+                    Nova Publicação
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formCriarPublicacao" method="post" action="{% url 'militares:publicacao_create' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <!-- Campos ocultos para o formulário -->
+                    <input type="hidden" name="tipo" value="NOTA">
+                    <input type="hidden" name="status" value="RASCUNHO">
+                    
+                    <!-- Origem da Publicação -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <label for="origem_publicacao" class="form-label">
+                                <i class="fas fa-building me-1"></i>
+                                Origem da Publicação
+                                <span class="text-danger">*</span>
+                            </label>
+                            <div class="position-relative">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="origem_publicacao" name="origem_publicacao" 
+                                           placeholder="Carregando organograma..." required autocomplete="off" disabled>
+                                    <button class="btn btn-outline-secondary" type="button" id="btnRecarregarOrganograma">
+                                        <i class="fas fa-spinner fa-spin"></i>
+                                    </button>
+                                </div>
+                                <!-- Sugestões de origem -->
+                                <div id="sugestoesOrigem" class="list-group position-absolute w-100" style="z-index: 1000; display: none; top: 100%;">
+                                    <!-- Sugestões serão inseridas aqui via JavaScript -->
+                                </div>
+                            </div>
+                            <div class="form-text">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Digite para buscar no organograma do sistema ou selecione uma opção
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Título da Publicação -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <label for="titulo_publicacao" class="form-label">
+                                <i class="fas fa-heading me-1"></i>
+                                Título da Publicação
+                                <span class="text-danger">*</span>
+                            </label>
+                            <div class="position-relative">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="titulo_publicacao" name="titulo" 
+                                           placeholder="Carregando títulos disponíveis..." required autocomplete="off" disabled>
+                                    <button class="btn btn-outline-secondary" type="button" id="btnCarregarTitulos">
+                                        <i class="fas fa-spinner fa-spin"></i>
+                                    </button>
+                                </div>
+                                <!-- Sugestões de títulos -->
+                                <div id="sugestoesTitulos" class="list-group position-absolute w-100" style="z-index: 1000; display: none; top: 100%;">
+                                    <!-- Sugestões serão inseridas aqui via JavaScript -->
+                                </div>
+                            </div>
+                            <div class="form-text">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Digite para buscar títulos pré-configurados ou crie um personalizado
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Conteúdo da Publicação -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-primary border-bottom pb-2">
+                                <i class="fas fa-file-alt me-2"></i>
+                                Conteúdo da Publicação
+                            </h6>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="conteudo_publicacao" class="form-label">
+                            <i class="fas fa-edit me-1"></i>
+                            Conteúdo
+                            <span class="text-danger">*</span>
+                        </label>
+                        <div class="editor-container border rounded">
+                            <textarea id="conteudo_publicacao" name="conteudo" class="form-control" rows="15" 
+                                      style="height: 400px; border: none;" placeholder="Digite o conteúdo da publicação..."></textarea>
+                        </div>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Use o editor para formatar o texto da publicação
+                        </div>
+                    </div>
+                    
+                    <!-- Instruções -->
+                    <div class="alert alert-info">
+                        <i class="fas fa-lightbulb me-2"></i>
+                        <strong>Dica:</strong> Após criar o conteúdo, você pode adicionar nomes de militares clicando no botão 👥 no editor.
+                    </div>
+                </div>
+                
+                <div class="modal-footer bg-light">
+                    <div class="d-flex justify-content-end w-100">
+                        <div>
+                            <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">
+                                <i class="fas fa-times me-2"></i>
+                                Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-success" id="btnSalvarPublicacao">
+                                <i class="fas fa-save me-2"></i>
+                                Salvar Publicação
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts para o modal -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Variáveis globais
+    let editorInstance = null;
+    let titulosDisponiveis = [];
+    let organogramaDisponivel = [];
+    let timeoutBusca = null;
+    let timeoutBuscaOrigem = null;
+    
+    // ==================== FUNÇÕES UTILITÁRIAS ====================
+    
+    // Função removida - número será gerado automaticamente pelo servidor
+    
+    // ==================== CARREGAMENTO DE DADOS ====================
+    
+    // Carregar organograma via AJAX
+    function carregarOrganograma() {
+        const inputOrigem = document.getElementById('origem_publicacao');
+        const btnRecarregar = document.getElementById('btnRecarregarOrganograma');
+        
+        // Mostrar loading
+        inputOrigem.disabled = true;
+        inputOrigem.placeholder = 'Carregando organograma...';
+        btnRecarregar.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        
+        fetch('{% url "militares:ajax_organograma_publicacoes" %}')
+            .then(response => {
+                if (response.status === 403) {
+                    throw new Error('Sem permissão para acessar organograma');
+                }
+                if (!response.ok) {
+                    throw new Error('Erro na requisição: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    organogramaDisponivel = data.hierarquia;
+                    console.log('✅ Organograma carregado:', organogramaDisponivel.length, 'itens');
+                    
+                    // Habilitar o campo
+                    inputOrigem.disabled = false;
+                    inputOrigem.placeholder = 'Digite para buscar no organograma...';
+                    
+                    // Atualizar botão
+                    btnRecarregar.innerHTML = '<i class="fas fa-sync-alt"></i>';
+                } else {
+                    console.error('❌ Erro ao carregar organograma:', data.error);
+                    inputOrigem.disabled = false;
+                    inputOrigem.placeholder = 'Erro - digite manualmente';
+                    btnRecarregar.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+                }
+            })
+            .catch(error => {
+                console.error('❌ Erro na requisição do organograma:', error);
+                inputOrigem.disabled = false;
+                if (error.message.includes('permissão')) {
+                    inputOrigem.placeholder = 'Sem permissão - digite manualmente';
+                } else {
+                    inputOrigem.placeholder = 'Erro - digite manualmente';
+                }
+                btnRecarregar.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+            });
+    }
+    
+    // Carregar títulos de publicação via AJAX
+    function carregarTitulos() {
+        const inputTitulo = document.getElementById('titulo_publicacao');
+        const btnCarregar = document.getElementById('btnCarregarTitulos');
+        
+        // Mostrar loading
+        inputTitulo.disabled = true;
+        inputTitulo.placeholder = 'Carregando títulos...';
+        btnCarregar.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        
+        fetch('{% url "militares:ajax_titulos_publicacao" %}')
+            .then(response => {
+                if (response.status === 403) {
+                    throw new Error('Sem permissão para acessar títulos');
+                }
+                if (!response.ok) {
+                    throw new Error('Erro na requisição: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    titulosDisponiveis = data.titulos;
+                    console.log('✅ Títulos carregados:', titulosDisponiveis.length);
+                    
+                    // Habilitar o campo
+                    inputTitulo.disabled = false;
+                    inputTitulo.placeholder = 'Digite para buscar títulos ou crie um personalizado...';
+                    
+                    // Atualizar botão
+                    btnCarregar.innerHTML = '<i class="fas fa-sync-alt"></i>';
+                } else {
+                    console.error('❌ Erro ao carregar títulos:', data.error);
+                    inputTitulo.disabled = false;
+                    inputTitulo.placeholder = 'Erro - digite manualmente';
+                    btnCarregar.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+                }
+            })
+            .catch(error => {
+                console.error('❌ Erro na requisição dos títulos:', error);
+                inputTitulo.disabled = false;
+                if (error.message.includes('permissão')) {
+                    inputTitulo.placeholder = 'Sem permissão - digite manualmente';
+                } else {
+                    inputTitulo.placeholder = 'Erro - digite manualmente';
+                }
+                btnCarregar.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+            });
+    }
+    
+    // ==================== AUTOCOMPLETE DE TÍTULOS ====================
+    
+    // Configurar autocomplete para títulos
+    function configurarAutocompleteTitulos() {
+        const inputTitulo = document.getElementById('titulo_publicacao');
+        const sugestoesDiv = document.getElementById('sugestoesTitulos');
+        
+        // Evento de digitação
+        inputTitulo.addEventListener('input', function() {
+            const valor = this.value.trim();
+            
+            // Limpar timeout anterior
+            if (timeoutBusca) {
+                clearTimeout(timeoutBusca);
+            }
+            
+            // Aguardar 300ms antes de buscar
+            timeoutBusca = setTimeout(() => {
+                if (valor.length >= 2) {
+                    buscarTitulos(valor);
+                } else {
+                    ocultarSugestoes();
+                }
+            }, 300);
+        });
+        
+        // Evento de foco
+        inputTitulo.addEventListener('focus', function() {
+            if (this.value.trim().length >= 2) {
+                buscarTitulos(this.value.trim());
+            }
+        });
+        
+        // Evento de clique fora
+        document.addEventListener('click', function(e) {
+            if (!inputTitulo.contains(e.target) && !sugestoesDiv.contains(e.target)) {
+                ocultarSugestoes();
+            }
+        });
+        
+        // Botão de recarregar títulos
+        document.getElementById('btnCarregarTitulos').addEventListener('click', function() {
+            carregarTitulos();
+        });
+        
+        // Botão de recarregar organograma
+        document.getElementById('btnRecarregarOrganograma').addEventListener('click', function() {
+            carregarOrganograma();
+        });
+    }
+    
+    // Buscar títulos baseado no texto digitado
+    function buscarTitulos(texto) {
+        const sugestoesDiv = document.getElementById('sugestoesTitulos');
+        
+        if (titulosDisponiveis.length === 0) {
+            ocultarSugestoes();
+            return;
+        }
+        
+        // Se não há texto, mostrar todos os títulos
+        let titulosFiltrados;
+        if (!texto || texto.trim() === '') {
+            titulosFiltrados = titulosDisponiveis;
+        } else {
+            // Filtrar títulos que contenham o texto
+            titulosFiltrados = titulosDisponiveis.filter(titulo => 
+                titulo.titulo.toLowerCase().includes(texto.toLowerCase())
+            );
+        }
+        
+        if (titulosFiltrados.length > 0) {
+            sugestoesDiv.innerHTML = '';
+            
+            // Mostrar até 15 títulos (aumentado de 10 para 15)
+            titulosFiltrados.slice(0, 15).forEach(titulo => {
+                const item = document.createElement('div');
+                item.className = 'list-group-item list-group-item-action';
+                item.innerHTML = `
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1">${titulo.titulo}</h6>
+                        <small class="text-muted">${titulo.tipo_display}</small>
+                    </div>
+                    ${titulo.topicos ? `<small class="text-muted">${titulo.topicos}</small>` : ''}
+                `;
+                
+                item.addEventListener('click', function() {
+                    document.getElementById('titulo_publicacao').value = titulo.titulo;
+                    ocultarSugestoes();
+                });
+                
+                sugestoesDiv.appendChild(item);
+            });
+            
+            sugestoesDiv.style.display = 'block';
+        } else {
+            ocultarSugestoes();
+        }
+    }
+    
+    // Ocultar sugestões
+    function ocultarSugestoes() {
+        document.getElementById('sugestoesTitulos').style.display = 'none';
+    }
+    
+    // ==================== AUTOCOMPLETE DE ORIGEM ====================
+    
+    // Configurar autocomplete para origem
+    function configurarAutocompleteOrigem() {
+        const inputOrigem = document.getElementById('origem_publicacao');
+        const sugestoesDiv = document.getElementById('sugestoesOrigem');
+        
+        // Evento de digitação
+        inputOrigem.addEventListener('input', function() {
+            const valor = this.value.trim();
+            
+            // Limpar timeout anterior
+            if (timeoutBuscaOrigem) {
+                clearTimeout(timeoutBuscaOrigem);
+            }
+            
+            // Aguardar 300ms antes de buscar
+            timeoutBuscaOrigem = setTimeout(() => {
+                if (valor.length >= 2) {
+                    buscarOrigem(valor);
+                } else {
+                    ocultarSugestoesOrigem();
+                }
+            }, 300);
+        });
+        
+        // Evento de foco
+        inputOrigem.addEventListener('focus', function() {
+            // Mostrar todas as origens quando o campo recebe foco e está vazio
+            if (this.value.trim() === '') {
+                buscarOrigem(''); // Passa string vazia para listar todas
+            } else if (this.value.trim().length >= 2) {
+                buscarOrigem(this.value.trim());
+            }
+        });
+        
+        // Evento de clique fora
+        document.addEventListener('click', function(e) {
+            if (!inputOrigem.contains(e.target) && !sugestoesDiv.contains(e.target)) {
+                ocultarSugestoesOrigem();
+            }
+        });
+    }
+    
+    // Buscar origem baseado no texto digitado
+    function buscarOrigem(texto) {
+        const sugestoesDiv = document.getElementById('sugestoesOrigem');
+        
+        if (organogramaDisponivel.length === 0) {
+            ocultarSugestoesOrigem();
+            return;
+        }
+        
+        // Se não há texto, mostrar todas as origens
+        let origensFiltradas;
+        if (!texto || texto.trim() === '') {
+            origensFiltradas = organogramaDisponivel;
+        } else {
+            // Filtrar origens que contenham o texto
+            origensFiltradas = organogramaDisponivel.filter(origem => 
+                origem.texto.toLowerCase().includes(texto.toLowerCase())
+            );
+        }
+        
+        if (origensFiltradas.length > 0) {
+            sugestoesDiv.innerHTML = '';
+            
+            // Mostrar até 15 origens
+            origensFiltradas.slice(0, 15).forEach(origem => {
+                const item = document.createElement('div');
+                item.className = 'list-group-item list-group-item-action';
+                item.innerHTML = `
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1">${origem.texto}</h6>
+                        <small class="text-muted">${origem.tipo}</small>
+                    </div>
+                    <small class="text-muted">Nível: ${origem.nivel}</small>
+                `;
+                
+                item.addEventListener('click', function() {
+                    document.getElementById('origem_publicacao').value = origem.texto;
+                    // Armazenar o valor JSON para envio
+                    document.getElementById('origem_publicacao').dataset.valor = JSON.stringify(origem.valor);
+                    ocultarSugestoesOrigem();
+                });
+                
+                sugestoesDiv.appendChild(item);
+            });
+            
+            sugestoesDiv.style.display = 'block';
+        } else {
+            ocultarSugestoesOrigem();
+        }
+    }
+    
+    // Ocultar sugestões de origem
+    function ocultarSugestoesOrigem() {
+        document.getElementById('sugestoesOrigem').style.display = 'none';
+    }
+    
+    // ==================== CKEDITOR ====================
+    
+    // Inicializar CKEditor
+    function inicializarEditor() {
+        if (editorInstance) {
+            return; // Já inicializado
+        }
+        
+        // Aguardar um pouco para o modal estar totalmente carregado
+        setTimeout(function() {
+            if (typeof ClassicEditor !== 'undefined') {
+                ClassicEditor
+                    .create(document.querySelector('#conteudo_publicacao'), {
+                        toolbar: {
+                            items: [
+                                'heading', '|',
+                                'bold', 'italic', 'underline', 'strikethrough', '|',
+                                'fontSize', 'fontFamily', 'fontColor', 'fontBackgroundColor', '|',
+                                'alignment', '|',
+                                'numberedList', 'bulletedList', '|',
+                                'indent', 'outdent', '|',
+                                'link', 'blockQuote', 'insertTable', '|',
+                                'undo', 'redo', '|',
+                                'sourceEditing'
+                            ]
+                        },
+                        language: 'pt-br',
+                        height: 400
+                    })
+                    .then(editor => {
+                        editorInstance = editor;
+                        console.log('✅ CKEditor inicializado');
+                    })
+                    .catch(error => {
+                        console.error('❌ Erro ao inicializar CKEditor:', error);
+                    });
+            } else {
+                console.warn('⚠️ CKEditor não está disponível');
+            }
+        }, 200);
+    }
+    
+    // ==================== VALIDAÇÃO ====================
+    
+    // Validar formulário
+    function validarFormulario() {
+        const inputOrigem = document.getElementById('origem_publicacao');
+        const titulo = document.getElementById('titulo_publicacao').value.trim();
+        let conteudo = '';
+        
+        // Obter conteúdo do CKEditor se estiver disponível
+        if (editorInstance) {
+            conteudo = editorInstance.getData().trim();
+        } else {
+            conteudo = document.getElementById('conteudo_publicacao').value.trim();
+        }
+        
+        // Validar origem
+        if (!inputOrigem.value.trim()) {
+            alert('Por favor, digite ou selecione a origem da publicação!');
+            inputOrigem.focus();
+            return false;
+        }
+        
+        // Validar título
+        if (!titulo) {
+            alert('Por favor, digite o título da publicação!');
+            document.getElementById('titulo_publicacao').focus();
+            return false;
+        }
+        
+        // Validar conteúdo
+        if (!conteudo) {
+            alert('Por favor, digite o conteúdo da publicação!');
+            if (editorInstance) {
+                editorInstance.focus();
+            } else {
+                document.getElementById('conteudo_publicacao').focus();
+            }
+            return false;
+        }
+        
+        return true;
+    }
+    
+    // ==================== EVENTOS DO MODAL ====================
+    
+    // Quando o modal abrir
+    document.getElementById('modalCriarPublicacao').addEventListener('show.bs.modal', function () {
+        console.log('[INICIALIZANDO] Modal de criação de publicação...');
+        
+        // Número será gerado automaticamente pelo servidor
+        
+        // Carregar dados
+        carregarOrganograma();
+        carregarTitulos();
+        
+        // Inicializar editor
+        inicializarEditor();
+    });
+    
+    // Quando o modal fechar
+    document.getElementById('modalCriarPublicacao').addEventListener('hidden.bs.modal', function () {
+        console.log('[LIMPANDO] Modal...');
+        
+        // Limpar editor
+        if (editorInstance) {
+            editorInstance.destroy();
+            editorInstance = null;
+        }
+        
+        // Limpar formulário
+        document.getElementById('formCriarPublicacao').reset();
+        
+        // Limpar sugestões
+        ocultarSugestoes();
+        ocultarSugestoesOrigem();
+        
+        // Resetar campos
+        document.getElementById('origem_publicacao').disabled = true;
+        document.getElementById('origem_publicacao').placeholder = 'Carregando organograma...';
+        document.getElementById('origem_publicacao').value = '';
+        document.getElementById('origem_publicacao').dataset.valor = '';
+        document.getElementById('titulo_publicacao').disabled = true;
+        document.getElementById('titulo_publicacao').placeholder = 'Carregando títulos disponíveis...';
+    });
+    
+    // ==================== EVENTOS DO FORMULÁRIO ====================
+    
+    // Validação do formulário
+    document.getElementById('formCriarPublicacao').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        console.log('[VALIDANDO] Formulário...');
+        
+        if (!validarFormulario()) {
+            return;
+        }
+        
+        // Atualizar o textarea com o conteúdo do editor
+        if (editorInstance) {
+            document.getElementById('conteudo_publicacao').value = editorInstance.getData();
+        }
+        
+        // Adicionar campo oculto com o texto da origem
+        const inputOrigem = document.getElementById('origem_publicacao');
+        const origemTexto = inputOrigem.value.trim();
+        const origemTextoInput = document.createElement('input');
+        origemTextoInput.type = 'hidden';
+        origemTextoInput.name = 'origem_texto';
+        origemTextoInput.value = origemTexto;
+        this.appendChild(origemTextoInput);
+        
+        console.log('✅ Formulário válido, enviando...');
+        
+        // Enviar formulário
+        this.submit();
+    });
+    
+    
+    // ==================== INICIALIZAÇÃO ====================
+    
+    // Inicializar autocomplete quando o DOM estiver pronto
+    configurarAutocompleteTitulos();
+    configurarAutocompleteOrigem();
+    
+    console.log('✅ Scripts do modal de publicações carregados');
+});
+</script>
+{% endblock %}

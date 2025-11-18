@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     # 'django_ckeditor_5',
     'dal',
     'dal_select2',
+    # 'captcha',  # Temporariamente comentado até instalação
 ]
 
 # Configurações de Login
@@ -61,6 +62,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "militares.middleware.FuncaoSelecaoMiddleware",
     "militares.middleware.ControleAcessoComissaoMiddleware",
+    "militares.middleware.LoggingMiddleware",  # Middleware para registrar logs do sistema
 ]
 
 ROOT_URLCONF = "sepromcbmepi.urls"
@@ -77,10 +79,15 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "militares.context_processors.sessao_alertas",
                 "militares.context_processors.notificacoes_processor",
+                "militares.context_processors.chat_processor",
                 "militares.context_processors.funcao_atual_processor",
+                "militares.context_processors.sessao_ativa_processor",
+                "militares.context_processors.funcoes_usuario_processor",
                 "militares.context_processors.menu_permissions_processor",
-                "militares.permissoes_simples.permissoes_simples_processor",
                 "militares.permissoes_sistema.permissoes_context",
+                "militares.context_processors_alertas.alertas_login_processor",
+                "militares.context_processors.revisoes_proximas_processor",
+                "militares.context_processors.alertas_frota_processor",
             ],
         },
     },
@@ -100,6 +107,11 @@ DATABASES = {
         "PASSWORD": "11322361",
         "HOST": "localhost",
         "PORT": "5432",
+        "OPTIONS": {
+            "client_encoding": "UTF8",
+            "connect_timeout": 10,
+        },
+        "CONN_MAX_AGE": 0,
     }
 }
 
@@ -138,6 +150,38 @@ USE_TZ = True
 DEFAULT_CHARSET = 'utf-8'
 FILE_CHARSET = 'utf-8'
 
+# Configurações específicas para caracteres especiais
+import locale
+import sys
+
+# Garantir que o Python use UTF-8 (configuração compatível com Windows)
+try:
+    if sys.platform.startswith('win'):
+        # Windows - usar configuração padrão ou específica do Windows
+        try:
+            locale.setlocale(locale.LC_ALL, 'Portuguese_Brazil.1252')
+        except locale.Error:
+            try:
+                locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
+            except locale.Error:
+                # Fallback para configuração padrão
+                pass
+    else:
+        # Unix/Linux
+        if sys.version_info >= (3, 7):
+            locale.setlocale(locale.LC_ALL, 'C.UTF-8')
+        else:
+            try:
+                locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
+            except locale.Error:
+                locale.setlocale(locale.LC_ALL, 'C.UTF-8')
+except locale.Error:
+    # Se tudo falhar, usar configuração padrão
+    pass
+
+# Garantir que todos os outputs sejam UTF-8
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
 # Configurações de idioma
 LANGUAGES = [
     ('pt-br', 'Português (Brasil)'),
@@ -157,7 +201,7 @@ DATETIME_INPUT_FORMATS = ['%Y-%m-%d %H:%M:%S', '%d/%m/%Y %H:%M', '%d-%m-%Y %H:%M
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
@@ -623,3 +667,20 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Configurações de segurança para permitir acesso aos PDFs
 SECURE_CONTENT_TYPE_NOSNIFF = False
 SECURE_BROWSER_XSS_FILTER = False
+
+# Configurações do Captcha
+CAPTCHA_CHALLENGE_FUNCT = 'captcha.helpers.math_challenge'
+CAPTCHA_LENGTH = 4
+CAPTCHA_TIMEOUT = 5
+CAPTCHA_FONT_SIZE = 30
+CAPTCHA_IMAGE_SIZE = (120, 40)
+CAPTCHA_BACKGROUND_COLOR = '#ffffff'
+CAPTCHA_FOREGROUND_COLOR = '#000000'
+CAPTCHA_NOISE_FUNCTIONS = ('captcha.helpers.noise_dots',)
+CAPTCHA_CHARACTERS = 'ABCDEFGHIJKLMNPQRSTUVWXYZ123456789'
+
+# Configurações de upload para formulários com muitos campos
+# Aumentar limite de campos para formulários de permissões
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 5000  # Padrão: 1000 - Aumentado para formulários de permissões
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB (padrão: 2.5MB)
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB (padrão: 2.5MB)

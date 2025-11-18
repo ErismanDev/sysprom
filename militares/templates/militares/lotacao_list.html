@@ -1,0 +1,419 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Lotações - Lista{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-building me-2 text-primary"></i>Lotações
+                    </h2>
+                    <p class="text-muted mb-0">Gerenciar lotações dos militares</p>
+                    {% if funcao_atual %}
+                        <small class="text-info">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Acesso: {{ funcao_atual.funcao_militar.get_acesso_display }}
+                            {% if funcao_atual.orgao %}
+                                - {{ funcao_atual.orgao.nome }}
+                            {% elif funcao_atual.grande_comando %}
+                                - {{ funcao_atual.grande_comando.nome }}
+                            {% elif funcao_atual.unidade %}
+                                - {{ funcao_atual.unidade.nome }}
+                            {% elif funcao_atual.sub_unidade %}
+                                - {{ funcao_atual.sub_unidade.nome }}
+                            {% endif %}
+                        </small>
+                    {% endif %}
+                </div>
+                <div>
+                    {% if menu_permissions.BOTAO_LOTACAO_ESTATISTICAS %}
+                    <a href="{% url 'militares:lotacao_estatisticas' %}" class="btn btn-outline-info">
+                        <i class="fas fa-chart-bar me-2"></i>Estatísticas
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Cards de Estatísticas -->
+            <div class="row mb-4">
+                <div class="col-md-2">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-building fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_lotacoes }}</h4>
+                            <p class="mb-0">Total</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card stats-card success">
+                        <div class="card-body text-center">
+                            <i class="fas fa-check-circle fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ lotacoes_atuais }}</h4>
+                            <p class="mb-0">Atuais</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card stats-card secondary">
+                        <div class="card-body text-center">
+                            <i class="fas fa-history fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ lotacoes_anteriores }}</h4>
+                            <p class="mb-0">Anteriores</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card stats-card warning">
+                        <div class="card-body text-center">
+                            <i class="fas fa-clock fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ lotacoes_temporarias }}</h4>
+                            <p class="mb-0">Temporárias</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card stats-card danger">
+                        <div class="card-body text-center">
+                            <i class="fas fa-medal fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ lotacoes_comando }}</h4>
+                            <p class="mb-0">Comando</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card stats-card dark">
+                        <div class="card-body text-center">
+                            <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ lotacoes_afastamento }}</h4>
+                            <p class="mb-0">Afastamento</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Card de Tempo Médio -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <div class="card bg-info text-white">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">
+                                <i class="fas fa-clock me-2"></i>Tempo Médio de Lotação
+                            </h5>
+                            <h3 class="card-text">
+                                {% if tempo_medio_lotacao > 0 %}
+                                    {% if tempo_medio_lotacao < 30 %}
+                                        {{ tempo_medio_lotacao|floatformat:0 }} dias
+                                    {% elif tempo_medio_lotacao < 365 %}
+                                        {{ tempo_medio_meses|floatformat:1 }} meses
+                                    {% else %}
+                                        {{ tempo_medio_anos|floatformat:1 }} anos
+                                    {% endif %}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3" id="filtro-form">
+                        <div class="col-md-3">
+                            <label for="{{ filter_form.militar.id_for_label }}" class="form-label">
+                                <i class="fas fa-user me-2"></i>Militar
+                            </label>
+                            <select name="militar" id="id_militar" class="form-select">
+                                <option value="">Todos os militares</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="{{ filter_form.organizacao.id_for_label }}" class="form-label">
+                                <i class="fas fa-sitemap me-2"></i>Organização
+                            </label>
+                            {{ filter_form.organizacao }}
+                        </div>
+                        <div class="col-md-2">
+                            <label for="{{ filter_form.status.id_for_label }}" class="form-label">Status</label>
+                            {{ filter_form.status }}
+                        </div>
+                        <div class="col-md-2">
+                            <label for="{{ filter_form.data_inicio.id_for_label }}" class="form-label">Data Início</label>
+                            {{ filter_form.data_inicio }}
+                        </div>
+                        <div class="col-md-2">
+                            <label for="{{ filter_form.data_fim.id_for_label }}" class="form-label">Data Fim</label>
+                            {{ filter_form.data_fim }}
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end gap-2">
+                            <button type="submit" class="btn btn-primary flex-fill">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                            <a href="{% url 'militares:lotacao_list' %}" class="btn btn-outline-secondary flex-fill">
+                                <i class="fas fa-times me-1"></i>Limpar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Botão Nova Lotação -->
+            {% if menu_permissions.BOTAO_LOTACAO_NOVA %}
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="d-flex justify-content-end">
+                        <a href="{% url 'militares:lotacao_create' %}" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Nova Lotação
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Lista de Lotações -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Lista de Lotações
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if lotacoes %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Militar</th>
+                                        <th style="min-width: 300px;">Lotações</th>
+                                        <th>Status</th>
+                                        <th>Período</th>
+                                        <th>Duração</th>
+                                        {% if menu_permissions.BOTAO_LOTACAO_EDITAR or menu_permissions.BOTAO_LOTACAO_EXCLUIR %}
+                                        <th>Ações</th>
+                                        {% endif %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for lotacao in lotacoes %}
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                {% if lotacao.militar.foto %}
+                                                    <img src="{{ lotacao.militar.foto.url }}" alt="Foto" class="rounded me-2" style="width: 60px; height: 60px; object-fit: cover;">
+                                                {% else %}
+                                                    <div class="bg-light rounded d-flex align-items-center justify-content-center me-2" style="width: 60px; height: 60px;">
+                                                        <i class="fas fa-user text-muted"></i>
+                                                    </div>
+                                                {% endif %}
+                                                <div>
+                                                    <strong>{{ lotacao.militar.get_posto_graduacao_display }}</strong><br>
+                                                    <small class="text-muted">{{ lotacao.militar.nome_guerra }}</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td style="max-width: 400px; word-wrap: break-word;">
+                                            <div class="d-flex flex-column">
+                                                <span class="text-primary fw-bold" style="word-break: break-word; line-height: 1.3;">{{ lotacao.lotacao|truncatechars:120 }}</span>
+                                                {% if lotacao.hierarquia_organograma != "Sem vinculação ao organograma" %}
+                                                    <small class="text-success mt-1">
+                                                        <i class="fas fa-sitemap me-1"></i>{{ lotacao.nivel_organograma }}
+                                                    </small>
+                                                    <small class="text-muted mt-1" title="{{ lotacao.hierarquia_organograma }}" style="word-break: break-word; line-height: 1.2;">
+                                                        {{ lotacao.hierarquia_organograma|truncatechars:150 }}
+                                                    </small>
+                                                {% else %}
+                                                    <small class="text-muted mt-1">
+                                                        <i class="fas fa-minus me-1"></i>Sem vinculação ao organograma
+                                                    </small>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex flex-column">
+                                                {% if lotacao.status == 'ATUAL' %}
+                                                    <span class="badge bg-success mb-1">{{ lotacao.status_display }}</span>
+                                                {% elif lotacao.status == 'ANTERIOR' %}
+                                                    <span class="badge bg-secondary mb-1">{{ lotacao.status_display }}</span>
+                                                {% elif lotacao.status == 'TEMPORARIA' %}
+                                                    <span class="badge bg-warning text-dark mb-1">{{ lotacao.status_display }}</span>
+                                                {% elif lotacao.status == 'COMANDO' %}
+                                                    <span class="badge bg-danger mb-1">{{ lotacao.status_display }}</span>
+                                                {% elif lotacao.status == 'AFASTAMENTO' %}
+                                                    <span class="badge bg-dark mb-1">{{ lotacao.status_display }}</span>
+                                                {% endif %}
+                                                <small class="text-muted">
+                                                    {% if lotacao.status == 'ATUAL' %}
+                                                        <i class="fas fa-clock me-1"></i>Em andamento
+                                                    {% else %}
+                                                        <i class="fas fa-calendar-check me-1"></i>Finalizada
+                                                    {% endif %}
+                                                </small>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">
+                                                <strong>Início:</strong> {{ lotacao.data_inicio|date:"d/m/Y" }}<br>
+                                                {% if lotacao.data_fim %}
+                                                    <strong>Fim:</strong> {{ lotacao.data_fim|date:"d/m/Y" }}
+                                                {% else %}
+                                                    <strong>Fim:</strong> <span class="text-success">Atual</span>
+                                                {% endif %}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex flex-column">
+                                                <span class="fw-bold text-primary">{{ lotacao.duracao_formatada }}</span>
+                                                <small class="text-muted">
+                                                    {% if lotacao.status == 'ATUAL' %}
+                                                        <i class="fas fa-hourglass-half me-1"></i>Tempo atual
+                                                    {% else %}
+                                                        <i class="fas fa-history me-1"></i>Tempo total
+                                                    {% endif %}
+                                                </small>
+                                            </div>
+                                        </td>
+                                        {% if menu_permissions.BOTAO_LOTACAO_EDITAR or menu_permissions.BOTAO_LOTACAO_EXCLUIR %}
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <a href="{% url 'militares:lotacao_detail' lotacao.pk %}" class="btn btn-outline-info" title="Visualizar">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                {% if menu_permissions.BOTAO_LOTACAO_EDITAR %}
+                                                <a href="{% url 'militares:lotacao_update' lotacao.pk %}" class="btn btn-outline-primary" title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                {% endif %}
+                                                {% if menu_permissions.BOTAO_LOTACAO_EXCLUIR %}
+                                                <a href="{% url 'militares:lotacao_delete' lotacao.pk %}" class="btn btn-outline-danger" title="Excluir" 
+                                                   onclick="return confirm('Tem certeza que deseja excluir esta lotação?')">
+                                                    <i class="fas fa-trash"></i>
+                                                </a>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        {% endif %}
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if is_paginated %}
+                            <nav aria-label="Paginação">
+                                <ul class="pagination justify-content-center">
+                                    {% if page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1{% if request.GET.militar %}&militar={{ request.GET.militar }}{% endif %}{% if request.GET.organizacao %}&organizacao={{ request.GET.organizacao }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.data_inicio %}&data_inicio={{ request.GET.data_inicio }}{% endif %}{% if request.GET.data_fim %}&data_fim={{ request.GET.data_fim }}{% endif %}">Primeira</a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.militar %}&militar={{ request.GET.militar }}{% endif %}{% if request.GET.organizacao %}&organizacao={{ request.GET.organizacao }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.data_inicio %}&data_inicio={{ request.GET.data_inicio }}{% endif %}{% if request.GET.data_fim %}&data_fim={{ request.GET.data_fim }}{% endif %}">Anterior</a>
+                                        </li>
+                                    {% endif %}
+                                    
+                                    <li class="page-item active">
+                                        <span class="page-link">
+                                            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                                        </span>
+                                    </li>
+                                    
+                                    {% if page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.militar %}&militar={{ request.GET.militar }}{% endif %}{% if request.GET.organizacao %}&organizacao={{ request.GET.organizacao }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.data_inicio %}&data_inicio={{ request.GET.data_inicio }}{% endif %}{% if request.GET.data_fim %}&data_fim={{ request.GET.data_fim }}{% endif %}">Próxima</a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.militar %}&militar={{ request.GET.militar }}{% endif %}{% if request.GET.organizacao %}&organizacao={{ request.GET.organizacao }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.data_inicio %}&data_inicio={{ request.GET.data_inicio }}{% endif %}{% if request.GET.data_fim %}&data_fim={{ request.GET.data_fim }}{% endif %}">Última</a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="text-center text-muted py-5">
+                            <i class="fas fa-building fa-4x mb-3" style="opacity: 0.3;"></i>
+                            <h5>Nenhuma lotação encontrada</h5>
+                            <p>Não há lotações que correspondam aos filtros aplicados.</p>
+                            {% if menu_permissions.LOTACOES_CRIAR %}
+                            <a href="{% url 'militares:lotacao_create' %}" class="btn btn-primary">
+                                <i class="fas fa-plus me-2"></i>Criar Primeira Lotação
+                            </a>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar Select2 para o campo de militar
+    $('#id_militar').select2({
+        placeholder: 'Digite o nome do militar...',
+        allowClear: true,
+        minimumInputLength: 2,
+        ajax: {
+            url: '{% url "militares:ajax_buscar_militares_lotacao" %}',
+            dataType: 'json',
+            delay: 250,
+            data: function (params) {
+                return {
+                    q: params.term
+                };
+            },
+            processResults: function (data) {
+                return {
+                    results: data.results
+                };
+            },
+            cache: true
+        },
+        language: {
+            inputTooShort: function () {
+                return 'Digite pelo menos 2 caracteres...';
+            },
+            noResults: function () {
+                return 'Nenhum militar encontrado';
+            },
+            searching: function () {
+                return 'Buscando...';
+            }
+        }
+    });
+    
+    // Se há um militar selecionado na URL, carregar e selecionar
+    const urlParams = new URLSearchParams(window.location.search);
+    const militarId = urlParams.get('militar');
+    
+    if (militarId) {
+        // Fazer uma requisição para obter os dados do militar selecionado
+        fetch(`{% url 'militares:ajax_buscar_militares_lotacao' %}?q=${militarId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.results.length > 0) {
+                    const militar = data.results[0];
+                    const option = new Option(militar.text, militar.id, true, true);
+                    $('#id_militar').append(option).trigger('change');
+                }
+            });
+    }
+});
+</script>
+{% endblock %}
+
+

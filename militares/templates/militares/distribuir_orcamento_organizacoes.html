@@ -1,0 +1,1659 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load money_filters %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Cabeçalho -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">{{ page_title }}</h1>
+                    <p class="text-muted mb-0">Distribua o orçamento entre as organizações do organograma</p>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-outline-primary me-2" onclick="forcarAtualizacaoCompleta()" title="Forçar atualização dos valores">
+                        <i class="fas fa-sync-alt me-2"></i>Atualizar Valores
+                    </button>
+                    <button type="button" class="btn btn-outline-success me-2" onclick="window.location.reload(true)" title="Recarregar página">
+                        <i class="fas fa-refresh me-2"></i>Recarregar
+                    </button>
+                    <a href="{% url 'militares:orcamento_planejadas_detail' orcamento.id %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Voltar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resumo do Orçamento -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>Resumo do Orçamento
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="text-center p-3 border rounded">
+                                <i class="fas fa-dollar-sign fa-2x text-success mb-2"></i>
+                                <h4 class="text-success">{{ orcamento.valor_total_formatado }}</h4>
+                                <p class="text-muted mb-0">Orçamento Total</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3 border rounded">
+                                <i class="fas fa-chart-pie fa-2x text-info mb-2"></i>
+                                <h4 class="text-info" id="total-distribuido">R$ 0,00</h4>
+                                <p class="text-muted mb-0">Já Distribuído</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3 border rounded">
+                                <i class="fas fa-balance-scale fa-2x text-warning mb-2"></i>
+                                <h4 class="text-warning" id="valor-restante">R$ 0,00</h4>
+                                <p class="text-muted mb-0">Valor Restante</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3 border rounded">
+                                <i class="fas fa-percentage fa-2x text-primary mb-2"></i>
+                                <h4 class="text-primary" id="percentual-distribuido">0%</h4>
+                                <p class="text-muted mb-0">Distribuído</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Segunda linha com totais de utilização -->
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <div class="text-center p-3 border rounded">
+                                <i class="fas fa-money-bill-wave fa-2x text-danger mb-2"></i>
+                                <h4 class="text-danger" id="total-utilizado">R$ 0,00</h4>
+                                <p class="text-muted mb-0">Valor Utilizado Total</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="text-center p-3 border rounded">
+                                <i class="fas fa-wallet fa-2x text-success mb-2"></i>
+                                <h4 class="text-success" id="total-saldo">R$ 0,00</h4>
+                                <p class="text-muted mb-0">Saldo Total</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulário de Distribuição -->
+    <form method="post" id="distribuicaoForm">
+        {% csrf_token %}
+        
+        <!-- Órgãos -->
+        {% if orgaos %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-building me-2"></i>Órgãos
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Órgão</th>
+                                        <th class="text-center">Operações</th>
+                                        <th class="text-end">Destinado</th>
+                                        <th class="text-end">Utilizado</th>
+                                        <th class="text-end">Saldo</th>
+                                        <th class="text-end">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                            {% for orgao in orgaos %}
+                                    <tr>
+                                        <td>
+                                <div class="d-flex align-items-center">
+                                                <i class="fas fa-folder text-warning me-2"></i>
+                                                <div>
+                                                    <strong>{{ orgao.nome }}</strong>
+                                                    <br><small class="text-muted">{{ orgao.sigla }}</small>
+                                                </div>
+                                    </div>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-primary">0</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <span class="text-success fw-bold" id="destinado_orgao_{{ orgao.id }}">R$ 0,00</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <span class="text-info fw-bold" id="utilizado_orgao_{{ orgao.id }}">R$ 0,00</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <span class="text-warning fw-bold" id="saldo_orgao_{{ orgao.id }}">R$ 0,00</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <div class="btn-group" role="group">
+                                                <button type="button" 
+                                                        class="btn btn-success btn-sm" 
+                                                        id="btnAdicionarOrgao_{{ orgao.id }}"
+                                                        onclick="adicionarValorDestinado('orgao', {{ orgao.id }}, '{{ orgao.nome|escapejs }}')">
+                                                    <i class="fas fa-plus me-1"></i>Adicionar Valor
+                                                </button>
+                                                <button type="button" 
+                                                        class="btn btn-info btn-sm" 
+                                                        onclick="visualizarPlanejadas('orgao', {{ orgao.id }}, '{{ orgao.nome|escapejs }}')">
+                                                    <i class="fas fa-eye me-1"></i>Ver Planejadas
+                                                </button>
+                                        </div>
+                                        <input type="hidden" name="orgao_ids" value="{{ orgao.id }}">
+                                            <input type="hidden" name="valor_orgao_{{ orgao.id }}" value="0">
+                                        </td>
+                                    </tr>
+                            {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Grandes Comandos -->
+        {% if grandes_comandos %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-flag me-2"></i>Grandes Comandos
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Grande Comando</th>
+                                        <th class="text-center">Operações</th>
+                                        <th class="text-end">Destinado</th>
+                                        <th class="text-end">Utilizado</th>
+                                        <th class="text-end">Saldo</th>
+                                        <th class="text-end">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                            {% for gc in grandes_comandos %}
+                                    <tr>
+                                        <td>
+                                <div class="d-flex align-items-center">
+                                                <i class="fas fa-folder text-warning me-2"></i>
+                                                <div>
+                                                    <strong>{{ gc.nome }}</strong>
+                                                    <br><small class="text-muted">{{ gc.sigla }}</small>
+                                                </div>
+                                    </div>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-primary">0</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <span class="text-success fw-bold" id="destinado_grande_comando_{{ gc.id }}">R$ 0,00</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <span class="text-info fw-bold" id="utilizado_grande_comando_{{ gc.id }}">R$ 0,00</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <span class="text-warning fw-bold" id="saldo_grande_comando_{{ gc.id }}">R$ 0,00</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <div class="btn-group" role="group">
+                                                <button type="button" 
+                                                        class="btn btn-success btn-sm" 
+                                                        id="btnAdicionarGrandeComando_{{ gc.id }}"
+                                                        onclick="adicionarValorDestinado('grande_comando', {{ gc.id }}, '{{ gc.nome|escapejs }}')">
+                                                    <i class="fas fa-plus me-1"></i>Adicionar Valor
+                                                </button>
+                                                <button type="button" 
+                                                        class="btn btn-info btn-sm" 
+                                                        onclick="visualizarPlanejadas('grande_comando', {{ gc.id }}, '{{ gc.nome|escapejs }}')">
+                                                    <i class="fas fa-eye me-1"></i>Ver Planejadas
+                                                </button>
+                                        </div>
+                                        <input type="hidden" name="grande_comando_ids" value="{{ gc.id }}">
+                                            <input type="hidden" name="valor_grande_comando_{{ gc.id }}" value="0">
+                                        </td>
+                                    </tr>
+                            {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Unidades -->
+        {% if unidades %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-users me-2"></i>Unidades
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Unidade</th>
+                                        <th class="text-center">Operações</th>
+                                        <th class="text-end">Destinado</th>
+                                        <th class="text-end">Utilizado</th>
+                                        <th class="text-end">Saldo</th>
+                                        <th class="text-end">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                            {% for unidade in unidades %}
+                                    <tr>
+                                        <td>
+                                <div class="d-flex align-items-center">
+                                                <i class="fas fa-folder text-warning me-2"></i>
+                                                <div>
+                                                    <strong>{{ unidade.nome }}</strong>
+                                                    <br><small class="text-muted">{{ unidade.sigla }}</small>
+                                                </div>
+                                    </div>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-primary">0</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <span class="text-success fw-bold" id="destinado_unidade_{{ unidade.id }}">R$ 0,00</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <span class="text-info fw-bold" id="utilizado_unidade_{{ unidade.id }}">R$ 0,00</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <span class="text-warning fw-bold" id="saldo_unidade_{{ unidade.id }}">R$ 0,00</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <div class="btn-group" role="group">
+                                                <button type="button" 
+                                                        class="btn btn-success btn-sm" 
+                                                        id="btnAdicionarUnidade_{{ unidade.id }}"
+                                                        onclick="adicionarValorDestinado('unidade', {{ unidade.id }}, '{{ unidade.nome|escapejs }}')">
+                                                    <i class="fas fa-plus me-1"></i>Adicionar Valor
+                                                </button>
+                                                <button type="button" 
+                                                        class="btn btn-info btn-sm" 
+                                                        onclick="visualizarPlanejadas('unidade', {{ unidade.id }}, '{{ unidade.nome|escapejs }}')">
+                                                    <i class="fas fa-eye me-1"></i>Ver Planejadas
+                                                </button>
+                                        </div>
+                                        <input type="hidden" name="unidade_ids" value="{{ unidade.id }}">
+                                            <input type="hidden" name="valor_unidade_{{ unidade.id }}" value="0">
+                                        </td>
+                                    </tr>
+                            {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Sub-Unidades -->
+        {% if sub_unidades %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-sitemap me-2"></i>Sub-Unidades
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Sub-Unidade</th>
+                                        <th class="text-center">Operações</th>
+                                        <th class="text-end">Destinado</th>
+                                        <th class="text-end">Utilizado</th>
+                                        <th class="text-end">Saldo</th>
+                                        <th class="text-end">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                            {% for sub_unidade in sub_unidades %}
+                                    <tr>
+                                        <td>
+                                <div class="d-flex align-items-center">
+                                                <i class="fas fa-folder text-warning me-2"></i>
+                                                <div>
+                                                    <strong>{{ sub_unidade.nome }}</strong>
+                                                    <br><small class="text-muted">{{ sub_unidade.sigla }}</small>
+                                                </div>
+                                    </div>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-primary">0</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <span class="text-success fw-bold" id="destinado_sub_unidade_{{ sub_unidade.id }}">R$ 0,00</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <span class="text-info fw-bold" id="utilizado_sub_unidade_{{ sub_unidade.id }}">R$ 0,00</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <span class="text-warning fw-bold" id="saldo_sub_unidade_{{ sub_unidade.id }}">R$ 0,00</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <div class="btn-group" role="group">
+                                                <button type="button" 
+                                                        class="btn btn-success btn-sm" 
+                                                        id="btnAdicionarSubUnidade_{{ sub_unidade.id }}"
+                                                        onclick="adicionarValorDestinado('sub_unidade', {{ sub_unidade.id }}, '{{ sub_unidade.nome|escapejs }}')">
+                                                    <i class="fas fa-plus me-1"></i>Adicionar Valor
+                                                </button>
+                                                <button type="button" 
+                                                        class="btn btn-info btn-sm" 
+                                                        onclick="visualizarPlanejadas('sub_unidade', {{ sub_unidade.id }}, '{{ sub_unidade.nome|escapejs }}')">
+                                                    <i class="fas fa-eye me-1"></i>Ver Planejadas
+                                                </button>
+                                        </div>
+                                        <input type="hidden" name="sub_unidade_ids" value="{{ sub_unidade.id }}">
+                                            <input type="hidden" name="valor_sub_unidade_{{ sub_unidade.id }}" value="0">
+                                        </td>
+                                    </tr>
+                            {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Resumo da Distribuição -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">Total Distribuído: <span id="total-distribuido-resumo" class="text-success fw-bold">R$ 0,00</span></h6>
+                                <h6 class="mb-0">Valor Restante: <span id="valor-restante-resumo" class="text-warning fw-bold">R$ 0,00</span></h6>
+                            </div>
+                            <div>
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Os valores são salvos automaticamente ao inserir
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Modal para Adicionar/Editar Valor -->
+<div class="modal fade" id="modalAdicionarValor" tabindex="-1" aria-labelledby="modalAdicionarValorLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalAdicionarValorLabel">Adicionar Valor Destinado</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Organização:</label>
+                    <p class="fw-bold" id="nomeOrganizacao"></p>
+                </div>
+                <div class="mb-3">
+                    <label for="valorDestinado" class="form-label">Valor Destinado:</label>
+                    <div class="input-group">
+                        <span class="input-group-text">R$</span>
+                        <input type="text" 
+                               class="form-control" 
+                               id="valorDestinado" 
+                               placeholder="0,00"
+                               onkeypress="return apenasNumeros(event)"
+                               oninput="formatarValorInput(this)">
+                    </div>
+                    <div class="form-text">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            O valor será salvo automaticamente ao confirmar
+                        </small>
+                    </div>
+                </div>
+                <div class="mb-3" id="valorAtualContainer" style="display: none;">
+                    <label class="form-label">Valor Atual:</label>
+                    <p class="fw-bold text-info" id="valorAtual">R$ 0,00</p>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Orçamento Disponível:</label>
+                    <p class="fw-bold text-success" id="valorDisponivel">R$ 0,00</p>
+                    <div class="form-text">
+                        <small class="text-muted">
+                            <i class="fas fa-wallet me-1"></i>
+                            Valor restante do orçamento total
+                        </small>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btnRemoverValor" onclick="removerValorDestinado()" style="display: none;">
+                    <i class="fas fa-trash me-1"></i>Remover Valor
+                </button>
+                <button type="button" class="btn btn-success" onclick="confirmarAdicionarValor()">
+                    <i class="fas fa-save me-1"></i>Salvar Valor
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Visualizar Planejadas -->
+<div class="modal fade" id="modalVisualizarPlanejadas" tabindex="-1" aria-labelledby="modalVisualizarPlanejadasLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalVisualizarPlanejadasLabel">Planejadas da Organização</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Organização:</label>
+                    <p class="fw-bold" id="nomeOrganizacaoPlanejadas"></p>
+                </div>
+                <div id="conteudoPlanejadas">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                        <p class="mt-2">Carregando planejadas...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação -->
+<div class="modal fade" id="modalConfirmacao" tabindex="-1" aria-labelledby="modalConfirmacaoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-success text-white border-0">
+                <h5 class="modal-title d-flex align-items-center" id="modalConfirmacaoLabel">
+                    <i class="fas fa-check-circle me-2"></i>
+                    Confirmação
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <div class="mb-3">
+                    <i class="fas fa-check-circle text-success" style="font-size: 3rem;"></i>
+                </div>
+                <h6 class="mb-3" id="mensagemConfirmacao">Valor adicionado com sucesso!</h6>
+                <p class="text-muted mb-0" id="detalhesConfirmacao">O valor foi destinado à organização selecionada.</p>
+            </div>
+            <div class="modal-footer border-0 justify-content-center">
+                <button type="button" class="btn btn-success px-4" data-bs-dismiss="modal">
+                    <i class="fas fa-check me-2"></i>Entendi
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Erro -->
+<div class="modal fade" id="modalErro" tabindex="-1" aria-labelledby="modalErroLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-danger text-white border-0">
+                <h5 class="modal-title d-flex align-items-center" id="modalErroLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Erro
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <div class="mb-3">
+                    <i class="fas fa-exclamation-triangle text-danger" style="font-size: 3rem;"></i>
+                </div>
+                <h6 class="mb-3" id="mensagemErro">Ocorreu um erro!</h6>
+                <p class="text-muted mb-0" id="detalhesErro">Tente novamente ou entre em contato com o suporte.</p>
+            </div>
+            <div class="modal-footer border-0 justify-content-center">
+                <button type="button" class="btn btn-danger px-4" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Verificar se Bootstrap está carregado
+    if (typeof bootstrap === 'undefined') {
+        console.error('Bootstrap não está carregado!');
+        alert('Erro: Bootstrap não está carregado. Verifique se os scripts estão incluídos.');
+        return;
+    }
+    
+    const orcamentoTotal = parseFloat('{{ orcamento.valor_total }}');
+    const totalDistribuidoElement = document.getElementById('total-distribuido');
+    const valorRestanteElement = document.getElementById('valor-restante');
+    const percentualElement = document.getElementById('percentual-distribuido');
+    const totalDistribuidoResumo = document.getElementById('total-distribuido-resumo');
+    const valorRestanteResumo = document.getElementById('valor-restante-resumo');
+    
+    // Variáveis para controlar o modal
+    let tipoOrganizacaoAtual = '';
+    let idOrganizacaoAtual = '';
+    
+    console.log('JavaScript carregado com sucesso!');
+    
+    // Teste de clique simples
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('button[onclick*="adicionarValorDestinado"]')) {
+            console.log('Botão Adicionar Valor clicado!');
+        }
+        if (e.target.closest('button[onclick*="visualizarPlanejadas"]')) {
+            console.log('Botão Ver Planejadas clicado!');
+        }
+    });
+    
+    // Função para formatar valor monetário
+    function formatarValor(valor) {
+        return new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL'
+        }).format(valor);
+    }
+    
+    // Função para formatar input em tempo real
+    function formatarValorInput(input) {
+        if (!input.value) return '';
+        
+        // Remover tudo que não é dígito
+        const digitsOnly = input.value.replace(/\D/g, '');
+        
+        if (digitsOnly.length === 0) {
+            input.value = '';
+            return;
+        }
+        
+        // Se tem apenas 1-2 dígitos, deixar como está
+        if (digitsOnly.length <= 2) {
+            input.value = digitsOnly;
+            return;
+        }
+        
+        // Para 3+ dígitos, formatar
+        const parteInteira = digitsOnly.slice(0, -2);
+        const decimais = digitsOnly.slice(-2);
+        
+        // Adicionar pontos para milhares
+        const parteInteiraFormatada = parteInteira.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        
+        input.value = parteInteiraFormatada + ',' + decimais;
+    }
+    
+    // Função para permitir apenas números
+    function apenasNumeros(event) {
+        const allowedKeys = /[0-9,]/;
+        const controlKeys = ['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+        
+        if (!allowedKeys.test(event.key) && !controlKeys.includes(event.key)) {
+            event.preventDefault();
+        }
+    }
+    
+    // Tornar funções globais
+    window.formatarValorInput = formatarValorInput;
+    window.apenasNumeros = apenasNumeros;
+    
+    // Função para calcular total atual
+    function calcularTotalAtual() {
+        let total = 0;
+        const inputs = document.querySelectorAll('input[name^="valor_"]');
+        
+        inputs.forEach(input => {
+            const valor = parseFloat(input.value) || 0;
+            total += valor;
+        });
+        
+        return total;
+    }
+    
+    // Função para calcular total sem um valor específico
+    function calcularTotalSemValor(tipo, id) {
+        let total = 0;
+        const inputs = document.querySelectorAll('input[name^="valor_"]');
+        
+        inputs.forEach(input => {
+            const valor = parseFloat(input.value) || 0;
+            // Se for o campo que estamos editando, não incluir no total
+            if (input.name === `valor_${tipo}_${id}`) {
+                return; // Pula este campo
+            }
+            total += valor;
+        });
+        
+        return total;
+    }
+    
+    // Função para calcular total
+    function calcularTotal() {
+        console.log('=== DEBUG: Calculando total ===');
+        let total = 0;
+        const inputs = document.querySelectorAll('input[name^="valor_"]');
+        
+        console.log('Inputs encontrados:', inputs.length);
+        
+        inputs.forEach(input => {
+            const valor = parseFloat(input.value.replace(/\./g, '').replace(',', '.')) || 0;
+            console.log(`Campo ${input.name}: ${input.value} (valor: ${valor})`);
+            total += valor;
+        });
+        
+        console.log('Total calculado:', total);
+        
+        const restante = orcamentoTotal - total;
+        const percentual = orcamentoTotal > 0 ? (total / orcamentoTotal) * 100 : 0;
+        
+        // Atualizar elementos
+        console.log('Atualizando elementos da interface...');
+        totalDistribuidoElement.textContent = formatarValor(total);
+        valorRestanteElement.textContent = formatarValor(restante);
+        percentualElement.textContent = percentual.toFixed(1) + '%';
+        totalDistribuidoResumo.textContent = formatarValor(total);
+        valorRestanteResumo.textContent = formatarValor(restante);
+        
+        console.log('Totais atualizados:', {
+            total: formatarValor(total),
+            restante: formatarValor(restante),
+            percentual: percentual.toFixed(1) + '%'
+        });
+        
+        // Mudar cor baseada no valor restante
+        if (restante < 0) {
+            valorRestanteElement.className = 'text-danger';
+            valorRestanteResumo.className = 'text-danger fw-bold';
+        } else if (restante === 0) {
+            valorRestanteElement.className = 'text-success';
+            valorRestanteResumo.className = 'text-success fw-bold';
+        } else {
+            valorRestanteElement.className = 'text-warning';
+            valorRestanteResumo.className = 'text-warning fw-bold';
+        }
+    }
+    
+    // Função para abrir modal de adicionar/editar valor
+    function adicionarValorDestinado(tipo, id, nome) {
+        try {
+            tipoOrganizacaoAtual = tipo;
+            idOrganizacaoAtual = id;
+            document.getElementById('nomeOrganizacao').textContent = nome;
+            
+            // Verificar se já existe valor destinado
+            const campoHidden = document.querySelector(`input[name="valor_${tipo}_${id}"]`);
+            const valorAtual = parseFloat(campoHidden.value) || 0;
+            
+            console.log('=== DEBUG: Abrindo modal ===');
+            console.log('Tipo:', tipo, 'ID:', id, 'Valor atual:', valorAtual);
+            
+            // Calcular valor disponível
+            const totalAtual = calcularTotalAtual();
+            const valorDisponivel = orcamentoTotal - totalAtual;
+            
+            // Atualizar valor disponível no modal
+            document.getElementById('valorDisponivel').textContent = formatarValor(valorDisponivel);
+            console.log('Valor disponível:', valorDisponivel);
+            
+            if (valorAtual > 0) {
+                // Modo edição
+                document.getElementById('modalAdicionarValorLabel').textContent = 'Editar Valor Destinado';
+                document.getElementById('valorDestinado').value = valorAtual.toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+                document.getElementById('valorAtualContainer').style.display = 'block';
+                document.getElementById('valorAtual').textContent = formatarValor(valorAtual);
+                document.getElementById('btnRemoverValor').style.display = 'inline-block';
+                
+                // Atualizar texto do botão
+                document.querySelector('#modalAdicionarValor .btn-success').innerHTML = '<i class="fas fa-save me-1"></i>Salvar Alterações';
+            } else {
+                // Modo adição
+                document.getElementById('modalAdicionarValorLabel').textContent = 'Adicionar Valor Destinado';
+            document.getElementById('valorDestinado').value = '';
+                document.getElementById('valorAtualContainer').style.display = 'none';
+                document.getElementById('btnRemoverValor').style.display = 'none';
+                
+                // Atualizar texto do botão
+                document.querySelector('#modalAdicionarValor .btn-success').innerHTML = '<i class="fas fa-plus me-1"></i>Adicionar Valor';
+            }
+            
+            const modal = new bootstrap.Modal(document.getElementById('modalAdicionarValor'));
+            modal.show();
+        } catch (error) {
+            console.error('Erro ao abrir modal:', error);
+            alert('Erro ao abrir modal: ' + error.message);
+        }
+    }
+    
+    // Tornar função global
+    window.adicionarValorDestinado = adicionarValorDestinado;
+    
+    // Função para visualizar planejadas
+    function visualizarPlanejadas(tipo, id, nome) {
+        try {
+            document.getElementById('nomeOrganizacaoPlanejadas').textContent = nome;
+            
+            // Mostrar loading
+            document.getElementById('conteudoPlanejadas').innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-2">Carregando planejadas...</p>
+                </div>
+            `;
+            
+            // Abrir modal
+            const modal = new bootstrap.Modal(document.getElementById('modalVisualizarPlanejadas'));
+            modal.show();
+            
+            // Carregar planejadas via AJAX
+            const orcamentoId = {{ orcamento.id }};
+            fetch(`/militares/planejadas/organizacao/${tipo}/${id}/?orcamento_id=${orcamentoId}`)
+                .then(response => response.text())
+                .then(html => {
+                    document.getElementById('conteudoPlanejadas').innerHTML = html;
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar planejadas:', error);
+                    document.getElementById('conteudoPlanejadas').innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Erro ao carregar planejadas: ${error.message}
+                        </div>
+                    `;
+                });
+        } catch (error) {
+            console.error('Erro ao visualizar planejadas:', error);
+            alert('Erro ao visualizar planejadas: ' + error.message);
+        }
+    }
+    
+    // Tornar função global
+    window.visualizarPlanejadas = visualizarPlanejadas;
+    
+    // Função para confirmar adição/edição de valor
+    function confirmarAdicionarValor() {
+        try {
+            const valorInput = document.getElementById('valorDestinado');
+            const valor = parseFloat(valorInput.value.replace(/\./g, '').replace(',', '.')) || 0;
+            
+            if (valor <= 0) {
+                mostrarModalErro('Valor inválido', 'Por favor, insira um valor válido maior que zero.');
+                return;
+            }
+            
+            // Verificar se o valor não ultrapassa o orçamento total
+            const totalSemAtual = calcularTotalSemValor(tipoOrganizacaoAtual, idOrganizacaoAtual);
+            const novoTotal = totalSemAtual + valor;
+            
+            // Obter valor atual para comparação
+            const valorAtual = parseFloat(document.querySelector(`input[name="valor_${tipoOrganizacaoAtual}_${idOrganizacaoAtual}"]`).value) || 0;
+            
+            console.log('=== DEBUG: Validação de orçamento ===');
+            console.log('Total sem atual:', totalSemAtual);
+            console.log('Valor atual:', valorAtual);
+            console.log('Novo valor:', valor);
+            console.log('Novo total:', novoTotal);
+            console.log('Orçamento total:', orcamentoTotal);
+            console.log('Diferença:', valor - valorAtual);
+            console.log('Valor restante atual:', orcamentoTotal - totalSemAtual);
+            
+            // Só validar se estiver aumentando o valor E ultrapassando o orçamento
+            const estaAumentando = valor > valorAtual;
+            const ultrapassaOrcamento = novoTotal > orcamentoTotal;
+            
+            console.log('Esta aumentando:', estaAumentando);
+            console.log('Ultrapassa orçamento:', ultrapassaOrcamento);
+            
+            if (estaAumentando && ultrapassaOrcamento) {
+                const valorRestante = orcamentoTotal - totalSemAtual;
+                console.log('=== DEBUG: BLOQUEANDO - Valor restante:', valorRestante, '===');
+                mostrarModalErro('Orçamento insuficiente', 
+                    `O valor inserido ultrapassa o orçamento disponível. Valor restante: ${formatarValor(valorRestante)}`);
+                return;
+            } else {
+                console.log('=== DEBUG: PERMITINDO - Valor restante:', orcamentoTotal - totalSemAtual, '===');
+            }
+            
+            // Atualizar o campo hidden com o valor
+            const nomeCampo = `valor_${tipoOrganizacaoAtual}_${idOrganizacaoAtual}`;
+            const campoHidden = document.querySelector(`input[name="${nomeCampo}"]`);
+            
+            if (campoHidden) {
+                campoHidden.value = valor;
+            }
+            
+            // Atualizar o valor destinado na tabela
+            const destinadoElement = document.getElementById(`destinado_${tipoOrganizacaoAtual}_${idOrganizacaoAtual}`);
+            if (destinadoElement) {
+                destinadoElement.textContent = formatarValor(valor);
+            }
+            
+            // Atualizar o botão para mostrar que foi adicionado/editado
+            const botao = document.querySelector(`#btnAdicionar${tipoOrganizacaoAtual.charAt(0).toUpperCase() + tipoOrganizacaoAtual.slice(1)}_${idOrganizacaoAtual}`);
+            if (botao) {
+                botao.innerHTML = `<i class="fas fa-edit me-1"></i>R$ ${formatarValor(valor)}`;
+                botao.className = 'btn btn-outline-warning btn-sm';
+            }
+            
+            // Fechar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalAdicionarValor'));
+            modal.hide();
+            
+            // Salvar valor diretamente no banco via AJAX
+            salvarValorDestinado(tipoOrganizacaoAtual, idOrganizacaoAtual, valor);
+            
+        } catch (error) {
+            console.error('Erro ao confirmar adição/edição de valor:', error);
+            mostrarModalErro('Erro ao salvar valor', error.message);
+        }
+    }
+    
+    // Função para remover valor destinado
+    function removerValorDestinado() {
+        try {
+            console.log('=== DEBUG: Removendo valor ===');
+            console.log('Tipo atual:', tipoOrganizacaoAtual);
+            console.log('ID atual:', idOrganizacaoAtual);
+            
+            // Verificar se as variáveis estão definidas
+            if (!tipoOrganizacaoAtual || !idOrganizacaoAtual) {
+                console.error('=== DEBUG: ERRO - Variáveis de tipo/ID não definidas ===');
+                mostrarModalErro('Erro', 'Não foi possível identificar a organização. Tente novamente.');
+                return;
+            }
+            
+            // Fechar modal primeiro
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalAdicionarValor'));
+            modal.hide();
+            
+            // Salvar valor zero no banco via AJAX (que já inclui atualização automática)
+            salvarValorDestinado(tipoOrganizacaoAtual, idOrganizacaoAtual, 0);
+            
+        } catch (error) {
+            console.error('Erro ao remover valor:', error);
+            mostrarModalErro('Erro ao remover valor', error.message);
+        }
+    }
+    
+    // Tornar função global
+    window.confirmarAdicionarValor = confirmarAdicionarValor;
+    window.removerValorDestinado = removerValorDestinado;
+    
+    // Função para mostrar modal de confirmação
+    function mostrarModalConfirmacao(titulo, detalhes) {
+        document.getElementById('mensagemConfirmacao').textContent = titulo;
+        document.getElementById('detalhesConfirmacao').textContent = detalhes;
+        const modal = new bootstrap.Modal(document.getElementById('modalConfirmacao'));
+        modal.show();
+    }
+    
+    // Função para mostrar modal de erro
+    function mostrarModalErro(titulo, detalhes) {
+        document.getElementById('mensagemErro').textContent = titulo;
+        document.getElementById('detalhesErro').textContent = detalhes;
+        const modal = new bootstrap.Modal(document.getElementById('modalErro'));
+        modal.show();
+    }
+    
+    // Função para atualizar dados da página
+    function atualizarDadosPagina() {
+        console.log('=== DEBUG: Atualizando dados da página ===');
+        
+        // Fazer requisição para obter dados atualizados
+        fetch(window.location.href, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            console.log('=== DEBUG: Resposta recebida ===');
+            console.log('Status:', response.status);
+            console.log('OK:', response.ok);
+            return response.text();
+        })
+        .then(html => {
+            console.log('=== DEBUG: HTML recebido ===');
+            console.log('Tamanho do HTML:', html.length);
+            
+            // Criar um elemento temporário para parsear o HTML
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            
+            console.log('=== DEBUG: Parseando HTML ===');
+            
+            // Atualizar valores na tabela
+            const novosValores = tempDiv.querySelectorAll('[id^="destinado_"]');
+            console.log('Valores encontrados:', novosValores.length);
+            
+            novosValores.forEach(elemento => {
+                const id = elemento.id;
+                const valor = elemento.textContent;
+                const elementoAtual = document.getElementById(id);
+                if (elementoAtual) {
+                    console.log(`Atualizando ${id}: ${valor}`);
+                    elementoAtual.textContent = valor;
+                } else {
+                    console.log(`Elemento não encontrado: ${id}`);
+                }
+            });
+            
+            // Atualizar campos hidden
+            const novosCampos = tempDiv.querySelectorAll('input[name^="valor_"]');
+            console.log('Campos encontrados:', novosCampos.length);
+            
+            novosCampos.forEach(campo => {
+                const nome = campo.name;
+                const valor = campo.value;
+                const campoAtual = document.querySelector(`input[name="${nome}"]`);
+                if (campoAtual) {
+                    console.log(`Atualizando campo ${nome}: ${valor}`);
+                    campoAtual.value = valor;
+                } else {
+                    console.log(`Campo não encontrado: ${nome}`);
+                }
+            });
+            
+            // Atualizar botões baseado nos valores
+            atualizarBotoes();
+            
+            // Recalcular totais
+            calcularTotal();
+            
+            console.log('=== DEBUG: Dados atualizados com sucesso ===');
+        })
+        .catch(error => {
+            console.error('Erro ao atualizar dados:', error);
+            console.error('Stack trace:', error.stack);
+        });
+    }
+    
+    // Função alternativa para atualização simples
+    function atualizarDadosSimples() {
+        console.log('=== DEBUG: Atualização simples ===');
+        
+        // Atualizar o campo hidden primeiro
+        const nomeCampo = `valor_${tipoOrganizacaoAtual}_${idOrganizacaoAtual}`;
+        const campoHidden = document.querySelector(`input[name="${nomeCampo}"]`);
+        if (campoHidden) {
+            campoHidden.value = valor;
+            console.log(`Campo hidden ${nomeCampo} atualizado para: ${valor}`);
+        }
+        
+        // Atualizar o valor destinado na tabela
+        const destinadoElement = document.getElementById(`destinado_${tipoOrganizacaoAtual}_${idOrganizacaoAtual}`);
+        if (destinadoElement) {
+            const valorFormatado = valor > 0 ? formatarValor(parseFloat(valor)) : 'R$ 0,00';
+            destinadoElement.textContent = valorFormatado;
+            console.log(`Atualizando destinado_${tipoOrganizacaoAtual}_${idOrganizacaoAtual}: ${valorFormatado}`);
+        }
+        
+        // Atualizar o botão correspondente
+        let botao = null;
+        if (tipoOrganizacaoAtual === 'orgao') {
+            botao = document.querySelector(`#btnAdicionarOrgao_${idOrganizacaoAtual}`);
+        } else if (tipoOrganizacaoAtual === 'grande_comando') {
+            botao = document.querySelector(`#btnAdicionarGrandeComando_${idOrganizacaoAtual}`);
+        } else if (tipoOrganizacaoAtual === 'unidade') {
+            botao = document.querySelector(`#btnAdicionarUnidade_${idOrganizacaoAtual}`);
+        } else if (tipoOrganizacaoAtual === 'sub_unidade') {
+            botao = document.querySelector(`#btnAdicionarSubUnidade_${idOrganizacaoAtual}`);
+        }
+        
+        if (botao) {
+            if (valor > 0) {
+                botao.innerHTML = `<i class="fas fa-edit me-1"></i>R$ ${formatarValor(valor)}`;
+                botao.className = 'btn btn-outline-warning btn-sm';
+                console.log(`Botão atualizado para editar: R$ ${formatarValor(valor)}`);
+            } else {
+                botao.innerHTML = '<i class="fas fa-plus me-1"></i>Adicionar Valor';
+                botao.className = 'btn btn-success btn-sm';
+                console.log('Botão atualizado para adicionar');
+            }
+        }
+        
+        // Recalcular totais
+        calcularTotal();
+        
+        // A página sempre será recarregada após qualquer operação
+        
+        console.log('=== DEBUG: Atualização simples concluída ===');
+    }
+    
+    // Função para atualizar botões baseado nos valores
+    function atualizarBotoes() {
+        const inputs = document.querySelectorAll('input[name^="valor_"]');
+        
+        inputs.forEach(input => {
+            const valor = parseFloat(input.value) || 0;
+            const nomeCampo = input.name;
+            
+            // Extrair tipo e ID do nome do campo
+            let tipo, id;
+            if (nomeCampo.startsWith('valor_orgao_')) {
+                tipo = 'orgao';
+                id = nomeCampo.replace('valor_orgao_', '');
+            } else if (nomeCampo.startsWith('valor_grande_comando_')) {
+                tipo = 'grande_comando';
+                id = nomeCampo.replace('valor_grande_comando_', '');
+            } else if (nomeCampo.startsWith('valor_unidade_')) {
+                tipo = 'unidade';
+                id = nomeCampo.replace('valor_unidade_', '');
+            } else if (nomeCampo.startsWith('valor_sub_unidade_')) {
+                tipo = 'sub_unidade';
+                id = nomeCampo.replace('valor_sub_unidade_', '');
+            } else {
+                return; // Pular campos não reconhecidos
+            }
+            
+            // Atualizar botão correspondente
+            let botao = null;
+            if (tipo === 'orgao') {
+                botao = document.querySelector(`#btnAdicionarOrgao_${id}`);
+            } else if (tipo === 'grande_comando') {
+                botao = document.querySelector(`#btnAdicionarGrandeComando_${id}`);
+            } else if (tipo === 'unidade') {
+                botao = document.querySelector(`#btnAdicionarUnidade_${id}`);
+            } else if (tipo === 'sub_unidade') {
+                botao = document.querySelector(`#btnAdicionarSubUnidade_${id}`);
+            }
+            
+            if (botao) {
+                if (valor > 0) {
+                    botao.innerHTML = `<i class="fas fa-edit me-1"></i>R$ ${formatarValor(valor)}`;
+                    botao.className = 'btn btn-outline-warning btn-sm';
+                } else {
+                    botao.innerHTML = '<i class="fas fa-plus me-1"></i>Adicionar Valor';
+                    botao.className = 'btn btn-success btn-sm';
+                }
+            }
+        });
+    }
+    
+    // Função para salvar valor destinado via AJAX
+    function salvarValorDestinado(tipo, id, valor) {
+        console.log('=== DEBUG: Salvando valor via AJAX ===');
+        console.log(`Tipo: ${tipo}, ID: ${id}, Valor: ${valor}`);
+        
+        // Criar dados para envio
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        formData.append('tipo_organizacao', tipo);
+        formData.append('organizacao_id', id);
+        formData.append('valor', valor);
+        formData.append('salvar_individual', 'true');
+        
+        // Debug dos dados sendo enviados
+        console.log('=== DEBUG: Dados sendo enviados ===');
+        for (let [key, value] of formData.entries()) {
+            console.log(`${key}: ${value}`);
+        }
+        
+        // Enviar via AJAX
+        fetch(window.location.href, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('=== DEBUG: Resposta do servidor ===');
+            console.log('Resposta completa:', data);
+            console.log('Success:', data.success);
+            console.log('Message:', data.message);
+            
+            if (data.success) {
+                console.log('=== DEBUG: Salvamento bem-sucedido ===');
+                console.log('Valor salvo:', data.valor);
+                console.log('Organização:', data.organizacao);
+                
+                // Atualizar dados da página automaticamente
+                setTimeout(() => {
+                    console.log('=== DEBUG: Iniciando atualização da página ===');
+                    
+                    // Sempre recarregar a página para garantir sincronização completa
+                    console.log('=== DEBUG: Recarregando página para sincronização completa ===');
+                    location.reload();
+                    
+                }, 500);
+                
+                // Mostrar modal de confirmação
+                mostrarModalConfirmacao('Valor salvo com sucesso!', `O valor de ${formatarValor(valor)} foi destinado à organização.`);
+            } else {
+                console.log('=== DEBUG: Erro no salvamento ===');
+                console.log('Erro:', data.message);
+                mostrarModalErro('Erro ao salvar', data.message || 'Erro desconhecido');
+            }
+        })
+        .catch(error => {
+            console.error('Erro na requisição AJAX:', error);
+            mostrarModalErro('Erro de conexão', 'Não foi possível salvar o valor. Tente novamente.');
+        });
+    }
+    
+    // Tornar funções globais
+    window.mostrarModalConfirmacao = mostrarModalConfirmacao;
+    window.mostrarModalErro = mostrarModalErro;
+    window.salvarValorDestinado = salvarValorDestinado;
+    
+    // Variáveis para armazenar totais
+    let totalUtilizado = 0;
+    let totalSaldo = 0;
+    let organizacoesProcessadas = 0;
+    let totalOrganizacoes = 0;
+    
+    // Função para carregar valores utilizados e calcular saldos
+    function carregarValoresUtilizados() {
+        console.log('=== DEBUG: Carregando valores utilizados ===');
+        
+        // Resetar totais
+        totalUtilizado = 0;
+        totalSaldo = 0;
+        organizacoesProcessadas = 0;
+        
+        // Contar total de organizações
+        totalOrganizacoes = document.querySelectorAll('[id^="saldo_orgao_"]').length +
+                           document.querySelectorAll('[id^="saldo_grande_comando_"]').length +
+                           document.querySelectorAll('[id^="saldo_unidade_"]').length +
+                           document.querySelectorAll('[id^="saldo_sub_unidade_"]').length;
+        
+        console.log(`Total de organizações: ${totalOrganizacoes}`);
+        
+        // Buscar valores utilizados para órgãos
+        document.querySelectorAll('[id^="saldo_orgao_"]').forEach(elemento => {
+            const id = elemento.id.replace('saldo_orgao_', '');
+            buscarValorUtilizado('orgao', id, elemento);
+        });
+        
+        // Buscar valores utilizados para grandes comandos
+        document.querySelectorAll('[id^="saldo_grande_comando_"]').forEach(elemento => {
+            const id = elemento.id.replace('saldo_grande_comando_', '');
+            buscarValorUtilizado('grande_comando', id, elemento);
+        });
+        
+        // Buscar valores utilizados para unidades
+        document.querySelectorAll('[id^="saldo_unidade_"]').forEach(elemento => {
+            const id = elemento.id.replace('saldo_unidade_', '');
+            buscarValorUtilizado('unidade', id, elemento);
+        });
+        
+        // Buscar valores utilizados para sub-unidades
+        document.querySelectorAll('[id^="saldo_sub_unidade_"]').forEach(elemento => {
+            const id = elemento.id.replace('saldo_sub_unidade_', '');
+            buscarValorUtilizado('sub_unidade', id, elemento);
+        });
+    }
+    
+    // Função para buscar valor utilizado de uma organização
+    function buscarValorUtilizado(tipo, id, elementoSaldo) {
+        const orcamentoId = {{ orcamento.id }};
+        fetch(`/militares/api/valor-utilizado/${tipo}/${id}/?orcamento_id=${orcamentoId}`, {
+            method: 'GET',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Atualizar elemento de saldo
+                elementoSaldo.textContent = formatarValor(data.saldo);
+                elementoSaldo.className = data.saldo < 0 ? 'text-danger fw-bold' : 'text-warning fw-bold';
+                
+                // Atualizar elemento de valor utilizado se existir
+                const elementoUtilizado = document.getElementById(`utilizado_${tipo}_${id}`);
+                if (elementoUtilizado) {
+                    elementoUtilizado.textContent = formatarValor(data.valor_utilizado);
+                }
+                
+                // Acumular totais
+                totalUtilizado += parseFloat(data.valor_utilizado) || 0;
+                totalSaldo += parseFloat(data.saldo) || 0;
+                
+                console.log(`${tipo} ${id}: Utilizado: ${formatarValor(data.valor_utilizado)}, Saldo: ${formatarValor(data.saldo)}`);
+            } else {
+                console.log(`Erro ao carregar valor utilizado para ${tipo} ${id}:`, data.message);
+                elementoSaldo.textContent = 'R$ 0,00';
+                elementoSaldo.className = 'text-warning fw-bold';
+            }
+            
+            // Incrementar contador de organizações processadas
+            organizacoesProcessadas++;
+            
+            // Se todas as organizações foram processadas, atualizar totais
+            if (organizacoesProcessadas >= totalOrganizacoes) {
+                atualizarTotais();
+            }
+        })
+        .catch(error => {
+            console.error(`Erro na requisição para ${tipo} ${id}:`, error);
+            elementoSaldo.textContent = 'R$ 0,00';
+            elementoSaldo.className = 'text-warning fw-bold';
+            
+            // Incrementar contador mesmo em caso de erro
+            organizacoesProcessadas++;
+            if (organizacoesProcessadas >= totalOrganizacoes) {
+                atualizarTotais();
+            }
+        });
+    }
+    
+    // Função para atualizar totais na interface
+    function atualizarTotais() {
+        console.log('=== DEBUG: Atualizando totais ===');
+        console.log(`Total Utilizado: ${formatarValor(totalUtilizado)}`);
+        console.log(`Total Saldo: ${formatarValor(totalSaldo)}`);
+        
+        // Atualizar elementos da interface
+        const totalUtilizadoElement = document.getElementById('total-utilizado');
+        const totalSaldoElement = document.getElementById('total-saldo');
+        
+        if (totalUtilizadoElement) {
+            totalUtilizadoElement.textContent = formatarValor(totalUtilizado);
+        }
+        
+        if (totalSaldoElement) {
+            totalSaldoElement.textContent = formatarValor(totalSaldo);
+            
+            // Mudar cor baseada no saldo total
+            if (totalSaldo < 0) {
+                totalSaldoElement.className = 'text-danger';
+            } else if (totalSaldo === 0) {
+                totalSaldoElement.className = 'text-success';
+            } else {
+                totalSaldoElement.className = 'text-success';
+            }
+        }
+    }
+    
+    // Função para carregar valores existentes
+    function carregarValoresExistentes() {
+        // Carregar valores existentes do contexto Django
+        const valoresExistentes = {{ orcamentos_existentes|safe }};
+        const gastosPorDistribuicao = {{ gastos_por_distribuicao|safe }};
+        const valoresExcluidosPorDistribuicao = {{ valores_excluidos_por_distribuicao|safe }};
+        
+        console.log('=== DEBUG: Carregando valores ===');
+        console.log('valoresExistentes:', valoresExistentes);
+        console.log('gastosPorDistribuicao:', gastosPorDistribuicao);
+        console.log('valoresExcluidosPorDistribuicao:', valoresExcluidosPorDistribuicao);
+        
+        // Mostrar alerta com dados para debug
+        if (Object.keys(valoresExcluidosPorDistribuicao).some(key => valoresExcluidosPorDistribuicao[key] > 0)) {
+            alert('DEBUG: Valores excluídos encontrados!\n' + JSON.stringify(valoresExcluidosPorDistribuicao, null, 2));
+        }
+        
+        for (const [key, valor] of Object.entries(valoresExistentes)) {
+            const campo = document.querySelector(`input[name="valor_${key}"]`);
+            if (campo && valor > 0) {
+                campo.value = valor;
+                
+                // Atualizar exibição na tabela
+                const destinado = document.getElementById(`destinado_${key}`);
+                if (destinado) {
+                    destinado.textContent = formatarValor(valor);
+                }
+                
+                // Calcular gasto real (somente planejadas ativas, não excluídas)
+                const gastoReal = gastosPorDistribuicao[key] || 0;
+                const valorExcluido = valoresExcluidosPorDistribuicao[key] || 0;
+                
+                console.log(`=== DEBUG: ${key} ===`);
+                console.log('gastoReal:', gastoReal);
+                console.log('valorExcluido:', valorExcluido);
+                
+                // Atualizar valores utilizados (apenas gastos reais, não excluídas)
+                const utilizado = document.getElementById(`utilizado_${key}`);
+                if (utilizado) {
+                    // Limpar conteúdo anterior
+                    utilizado.innerHTML = '';
+                    
+                    // Adicionar gasto real
+                    const spanGasto = document.createElement('span');
+                    spanGasto.className = 'text-info fw-bold';
+                    spanGasto.textContent = formatarValor(gastoReal);
+                    utilizado.appendChild(spanGasto);
+                    
+                    // Se houver valores excluídos, adicionar informação visual
+                    if (valorExcluido > 0) {
+                        const spanExcluido = document.createElement('span');
+                        spanExcluido.className = 'text-success ms-2';
+                        spanExcluido.innerHTML = `<br><small><i class="fas fa-undo"></i> R$ ${formatarValor(valorExcluido)} liberado</small>`;
+                        utilizado.appendChild(spanExcluido);
+                    }
+                }
+                
+                // Atualizar saldo (destinado - gasto real)
+                const saldo = document.getElementById(`saldo_${key}`);
+                if (saldo) {
+                    const saldoCalculado = valor - gastoReal;
+                    saldo.textContent = formatarValor(saldoCalculado);
+                    
+                    // Colorir saldo baseado no valor
+                    if (saldoCalculado < 0) {
+                        saldo.className = 'text-danger fw-bold';
+                    } else if (saldoCalculado === 0) {
+                        saldo.className = 'text-warning fw-bold';
+                    } else {
+                        saldo.className = 'text-success fw-bold';
+                    }
+                }
+                
+                // Atualizar botão baseado no tipo
+                let botao = null;
+                if (key.startsWith('orgao_')) {
+                    const id = key.replace('orgao_', '');
+                    botao = document.querySelector(`#btnAdicionarOrgao_${id}`);
+                } else if (key.startsWith('grande_comando_')) {
+                    const id = key.replace('grande_comando_', '');
+                    botao = document.querySelector(`#btnAdicionarGrandeComando_${id}`);
+                } else if (key.startsWith('unidade_')) {
+                    const id = key.replace('unidade_', '');
+                    botao = document.querySelector(`#btnAdicionarUnidade_${id}`);
+                } else if (key.startsWith('sub_unidade_')) {
+                    const id = key.replace('sub_unidade_', '');
+                    botao = document.querySelector(`#btnAdicionarSubUnidade_${id}`);
+                }
+                
+                if (botao) {
+                    botao.innerHTML = `<i class="fas fa-edit me-1"></i>R$ ${formatarValor(valor)}`;
+                    botao.className = 'btn btn-outline-warning btn-sm';
+                }
+            }
+        }
+    }
+    
+    // Preparar dados para envio
+    document.getElementById('distribuicaoForm').addEventListener('submit', function(e) {
+        console.log('=== DEBUG: Formulário sendo enviado ===');
+        const valorInputs = document.querySelectorAll('input[name^="valor_"]');
+        let temValor = false;
+        
+        console.log('Campos de valor encontrados:', valorInputs.length);
+        valorInputs.forEach(input => {
+            const valor = parseFloat(input.value) || 0;
+            console.log(`Campo ${input.name}: ${input.value} (valor: ${valor})`);
+            if (valor > 0) {
+                temValor = true;
+            }
+        });
+        
+        if (!temValor) {
+            e.preventDefault();
+            mostrarModalErro('Nenhum valor adicionado', 'Por favor, adicione pelo menos um valor para distribuir antes de salvar.');
+            return false;
+        }
+        
+        console.log('Formulário será enviado com valores válidos');
+    });
+    
+    // Carregar valores existentes e calcular total inicial
+    carregarValoresExistentes();
+    calcularTotal();
+    
+    // Carregar valores utilizados e calcular saldos
+    carregarValoresUtilizados();
+});
+</script>
+
+<style>
+    /* Alinhamento das colunas das tabelas */
+    .table th,
+    .table td {
+        vertical-align: middle;
+    }
+    
+    .table th.text-center,
+    .table td.text-center {
+        text-align: center !important;
+    }
+    
+    .table th.text-end,
+    .table td.text-end {
+        text-align: right !important;
+    }
+    
+    /* Largura fixa para colunas de valores */
+    .table th:nth-child(1),
+    .table td:nth-child(1) {
+        width: 200px;
+        max-width: 200px;
+        min-width: 200px;
+    }
+    
+    .table th:nth-child(2),
+    .table td:nth-child(2) {
+        width: 100px;
+        min-width: 100px;
+    }
+    
+    .table th:nth-child(3),
+    .table td:nth-child(3) {
+        width: 120px;
+        min-width: 120px;
+    }
+    
+    .table th:nth-child(4),
+    .table td:nth-child(4) {
+        width: 120px;
+        min-width: 120px;
+    }
+    
+    .table th:nth-child(5),
+    .table td:nth-child(5) {
+        width: 120px;
+        min-width: 120px;
+    }
+    
+    .table th:nth-child(6),
+    .table td:nth-child(6) {
+        width: 200px;
+        min-width: 200px;
+    }
+    
+    /* Espaçamento consistente */
+    .table td {
+        padding: 0.75rem 0.5rem;
+    }
+    
+    .table th {
+        padding: 0.75rem 0.5rem;
+        font-weight: 600;
+        background-color: #f8f9fa;
+    }
+    
+    /* Melhorar aparência dos valores monetários */
+    .table td.text-end span {
+        font-family: 'Courier New', monospace;
+        font-weight: 600;
+    }
+    
+    /* Alinhamento dos botões */
+    .btn-group {
+        display: flex;
+        gap: 0.25rem;
+    }
+    
+    .btn-group .btn {
+        flex: 0 0 auto;
+    }
+    
+    /* Diminuir tamanho do nome das organizações */
+    .table td strong {
+        font-size: 0.9rem;
+        font-weight: 600;
+        line-height: 1.2;
+    }
+    
+    .table td small {
+        font-size: 0.75rem;
+        line-height: 1.1;
+    }
+    
+    /* Quebra de linha para nomes longos */
+    .table td:nth-child(1) {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        white-space: normal;
+    }
+    
+    /* Ajustar altura das linhas */
+    .table td {
+        padding: 0.5rem 0.5rem;
+        vertical-align: top;
+    }
+    
+    .table th {
+        padding: 0.5rem 0.5rem;
+    }
+</style>
+
+<script>
+// Detectar exclusões de planejadas e atualizar valores automaticamente
+document.addEventListener('DOMContentLoaded', function() {
+    // Verificar se estamos na página de distribuição
+    if (window.location.pathname.includes('/distribuir/')) {
+        console.log('Página de distribuição detectada - configurando atualização automática');
+        
+        // Função para atualizar todos os valores da página
+        function atualizarTodosValores() {
+            console.log('Atualizando todos os valores da página de distribuição...');
+            
+            // Limpar cache e forçar reload dos dados
+            if (typeof carregarValoresUtilizados === 'function') {
+                // Resetar contadores
+                totalUtilizado = 0;
+                totalSaldo = 0;
+                organizacoesProcessadas = 0;
+                
+                // Limpar elementos de saldo
+                document.querySelectorAll('[id*="saldo_"]').forEach(elemento => {
+                    elemento.textContent = 'R$ 0,00';
+                    elemento.className = 'text-warning fw-bold';
+                });
+                
+                // Limpar elementos de valor utilizado
+                document.querySelectorAll('[id*="utilizado_"]').forEach(elemento => {
+                    elemento.textContent = 'R$ 0,00';
+                });
+                
+                // Re-executar a função
+                carregarValoresUtilizados();
+            }
+        }
+        
+        // Função para forçar atualização completa
+        function forcarAtualizacaoCompleta() {
+            console.log('Forçando atualização completa da página...');
+            
+            // Limpar localStorage
+            localStorage.removeItem('planejadaExcluida');
+            
+            // Recarregar página após 1 segundo
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        }
+        
+        // Escutar eventos de exclusão de planejadas
+        document.addEventListener('planejadaExcluida', function(event) {
+            console.log('Evento de exclusão de planejada detectado:', event.detail);
+            if (event.detail && event.detail.budget_updated) {
+                console.log('Orçamento foi atualizado, recarregando valores...');
+                setTimeout(atualizarTodosValores, 1000); // Aguardar 1 segundo para garantir que a exclusão foi processada
+            }
+        });
+        
+        // Monitorar mudanças no localStorage (usado para comunicação entre abas)
+        window.addEventListener('storage', function(event) {
+            if (event.key === 'planejadaExcluida' && event.newValue) {
+                try {
+                    const data = JSON.parse(event.newValue);
+                    if (data.budget_updated) {
+                        console.log('Exclusão de planejada detectada via localStorage:', data);
+                        setTimeout(atualizarTodosValores, 1000);
+                    }
+                } catch (e) {
+                    console.error('Erro ao processar evento de exclusão:', e);
+                }
+            }
+        });
+        
+        // Verificar se há uma exclusão recente no localStorage
+        const exclusaoRecente = localStorage.getItem('planejadaExcluida');
+        if (exclusaoRecente) {
+            try {
+                const data = JSON.parse(exclusaoRecente);
+                if (data.budget_updated && data.timestamp) {
+                    const agora = new Date().getTime();
+                    const tempoExclusao = new Date(data.timestamp).getTime();
+                    const diferenca = agora - tempoExclusao;
+                    
+                    // Se a exclusão foi há menos de 30 segundos, atualizar valores
+                    if (diferenca < 30000) {
+                        console.log('Exclusão recente detectada, atualizando valores...');
+                        setTimeout(atualizarTodosValores, 500);
+                    }
+                }
+            } catch (e) {
+                console.error('Erro ao processar exclusão recente:', e);
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

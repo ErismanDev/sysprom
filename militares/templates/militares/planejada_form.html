@@ -1,0 +1,2992 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<!-- Modal Overlay -->
+<div id="modal-overlay" class="modal-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;">
+    <div class="modal-content" style="background: white; border-radius: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); max-width: 90%; max-height: 90%; width: 1200px; overflow-y: auto;">
+        <div class="container-fluid">
+    <!-- Cabeçalho -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">{{ page_title }}</h1>
+                    <p class="text-muted mb-0">
+                        {% if planejada %}
+                            Edite os dados da operação planejada
+                        {% else %}
+                            Preencha os dados da nova operação planejada
+                        {% endif %}
+                    </p>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-outline-secondary me-2" onclick="fecharModal()">
+                        <i class="fas fa-arrow-left me-2"></i>Voltar
+                    </button>
+                    <button type="button" class="btn btn-outline-danger" onclick="fecharModal()">
+                        <i class="fas fa-times me-2"></i>Fechar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulário -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-plus me-2"></i>Dados da Operação
+                    </h5>
+                    {% if planejada %}
+                        <div class="mt-2">
+                            <div id="status-tempo" class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <span id="status-mensagem">Carregando status de tempo...</span>
+                            </div>
+                        </div>
+            {% else %}
+                <div class="mt-2">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <span>Planejadas podem ser criadas até a data da operação, mas em horário anterior ao início</span>
+                    </div>
+                </div>
+            {% endif %}
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="planejadaForm">
+                        {% csrf_token %}
+                        {% if planejada %}
+                            <input type="hidden" name="ativo" value="{% if planejada.ativo %}on{% endif %}">
+                        {% endif %}
+                        
+                        <!-- Campos hidden para militares selecionados -->
+                        <div id="militares-selecionados-hidden"></div>
+                        
+                        <!-- Informações Básicas -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary mb-3">
+                                    <i class="fas fa-info-circle me-2"></i>Informações Básicas
+                                </h6>
+                            </div>
+                            <div class="col-md-12">
+                                <label for="nome" class="form-label">Nome da Operação *</label>
+                                <input type="text" class="form-control" id="nome" name="nome" value="{% if planejada %}{{ planejada.nome }}{% endif %}" required>
+                            </div>
+                            <div class="col-md-12">
+                                <label for="origem" class="form-label">Origem *</label>
+                                <select class="form-select" id="origem" name="origem" required>
+                                    <option value="">Selecione a organização...</option>
+                                    
+                                    {% if orgaos %}
+                                        <optgroup label="Órgãos ({{ orgaos.count }})">
+                                            {% for orgao in orgaos %}
+                                            <option value="{{ orgao.nome }}" data-tipo="orgao" data-id="{{ orgao.id }}">{{ orgao.nome }}</option>
+                                            {% endfor %}
+                                        </optgroup>
+                                    {% endif %}
+                                    
+                                    {% if grandes_comandos %}
+                                        <optgroup label="Grandes Comandos ({{ grandes_comandos.count }})">
+                                            {% for gc in grandes_comandos %}
+                                            <option value="{{ gc.orgao.nome }} | {{ gc.nome }}" data-tipo="grande_comando" data-id="{{ gc.id }}">{{ gc.orgao.nome }} | {{ gc.nome }}</option>
+                                            {% endfor %}
+                                        </optgroup>
+                                    {% endif %}
+                                    
+                                    {% if unidades %}
+                                        <optgroup label="Unidades ({{ unidades.count }})">
+                                            {% for unidade in unidades %}
+                                            <option value="{{ unidade.grande_comando.orgao.nome }} | {{ unidade.grande_comando.nome }} | {{ unidade.nome }}" data-tipo="unidade" data-id="{{ unidade.id }}">{{ unidade.grande_comando.orgao.nome }} | {{ unidade.grande_comando.nome }} | {{ unidade.nome }}</option>
+                                            {% endfor %}
+                                        </optgroup>
+                                    {% endif %}
+                                    
+                                    {% if sub_unidades %}
+                                        <optgroup label="Sub-Unidades ({{ sub_unidades.count }})">
+                                            {% for sub_unidade in sub_unidades %}
+                                            <option value="{{ sub_unidade.unidade.grande_comando.orgao.nome }} | {{ sub_unidade.unidade.grande_comando.nome }} | {{ sub_unidade.unidade.nome }} | {{ sub_unidade.nome }}" data-tipo="sub_unidade" data-id="{{ sub_unidade.id }}">{{ sub_unidade.unidade.grande_comando.orgao.nome }} | {{ sub_unidade.unidade.grande_comando.nome }} | {{ sub_unidade.unidade.nome }} | {{ sub_unidade.nome }}</option>
+                                            {% endfor %}
+                                        </optgroup>
+                                    {% endif %}
+                                </select>
+                            </div>
+                            <div class="col-12 mt-3">
+                                <label for="descricao" class="form-label">Descrição</label>
+                                <textarea class="form-control" id="descricao" name="descricao" rows="3">{% if planejada %}{{ planejada.descricao }}{% endif %}</textarea>
+                            </div>
+                            <div class="col-md-6 mt-3">
+                                <label for="numero_nota" class="form-label">Ordem de Operação Planejada</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="numero_nota" name="numero_nota" 
+                                           value="{% if planejada %}{{ planejada.numero_nota }}{% endif %}" 
+                                           placeholder="Ex: 123/2025">
+                                    <button type="button" class="btn btn-outline-success" id="btn-colar-link" 
+                                            onclick="colarLinkPDF()" title="Colar Link PDF">
+                                        <i class="fas fa-paste"></i>
+                                    </button>
+                                </div>
+                                <div class="form-text">Número da ordem que autorizou esta planejada</div>
+                                
+                                <!-- Botão para ir à página de notas -->
+                                <div class="mt-2">
+                                    <a href="{% url 'militares:notas_list' %}" target="_blank" class="btn btn-outline-info btn-sm">
+                                        <i class="fas fa-external-link-alt me-1"></i>
+                                        Ir para Notas (Copiar Link)
+                                    </a>
+                                    <small class="text-muted d-block mt-1">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Abre a página de notas em nova aba para copiar o link da nota
+                                    </small>
+                                </div>
+                            </div>
+                            
+                            <!-- Link do PDF da Nota (se existir) -->
+                            {% if planejada.link_pdf_nota %}
+                            <div class="col-12 mt-3">
+                                <div class="card border-info" style="position: relative; z-index: 1;">
+                                    <div class="card-body p-3">
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <div>
+                                                <i class="fas fa-file-pdf me-2 text-info"></i>
+                                                <strong>Nota Vinculada:</strong> {{ planejada.numero_nota|default:"N/A" }}
+                                                <br><small class="text-muted">Link salvo automaticamente</small>
+                                            </div>
+                                            <a href="{{ planejada.link_pdf_nota }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                                                <i class="fas fa-external-link-alt me-1"></i>
+                                                Abrir PDF
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            <!-- Campo oculto para salvar o link do PDF -->
+                            <input type="hidden" id="link_pdf_nota" name="link_pdf_nota" 
+                                   value="{% if planejada.link_pdf_nota %}{{ planejada.link_pdf_nota }}{% endif %}">
+                        </div>
+
+                        <!-- Localização e Data -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary mb-3">
+                                    <i class="fas fa-map-marker-alt me-2"></i>Localização e Data
+                                </h6>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="cidade" class="form-label">Cidade *</label>
+                                <select class="form-select" id="cidade" name="cidade" required>
+                                    <option value="">Selecione uma cidade...</option>
+                                    <option value="Teresina">Teresina</option>
+                                    <option value="Parnaíba">Parnaíba</option>
+                                    <option value="Picos">Picos</option>
+                                    <option value="Piripiri">Piripiri</option>
+                                    <option value="Floriano">Floriano</option>
+                                    <option value="Campo Maior">Campo Maior</option>
+                                    <option value="Barras">Barras</option>
+                                    <option value="União">União</option>
+                                    <option value="Altos">Altos</option>
+                                    <option value="Beneditinos">Beneditinos</option>
+                                    <option value="Coivaras">Coivaras</option>
+                                    <option value="Curralinhos">Curralinhos</option>
+                                    <option value="Demerval Lobão">Demerval Lobão</option>
+                                    <option value="José de Freitas">José de Freitas</option>
+                                    <option value="Lagoa Alegre">Lagoa Alegre</option>
+                                    <option value="Lagoa do Piauí">Lagoa do Piauí</option>
+                                    <option value="Lagoinha do Piauí">Lagoinha do Piauí</option>
+                                    <option value="Miguel Leão">Miguel Leão</option>
+                                    <option value="Monsenhor Gil">Monsenhor Gil</option>
+                                    <option value="Nazária">Nazária</option>
+                                    <option value="Pau d'Arco do Piauí">Pau d'Arco do Piauí</option>
+                                    <option value="São João da Fronteira">São João da Fronteira</option>
+                                    <option value="São João do Arraial">São João do Arraial</option>
+                                    <option value="São Pedro do Piauí">São Pedro do Piauí</option>
+                                    <option value="Sigefredo Pacheco">Sigefredo Pacheco</option>
+                                    <option value="Agricolândia">Agricolândia</option>
+                                    <option value="Água Branca">Água Branca</option>
+                                    <option value="Alagoinha do Piauí">Alagoinha do Piauí</option>
+                                    <option value="Alegrete do Piauí">Alegrete do Piauí</option>
+                                    <option value="Alto Longá">Alto Longá</option>
+                                    <option value="Alvorada do Gurguéia">Alvorada do Gurguéia</option>
+                                    <option value="Amarante">Amarante</option>
+                                    <option value="Angical do Piauí">Angical do Piauí</option>
+                                    <option value="Anísio de Abreu">Anísio de Abreu</option>
+                                    <option value="Antônio Almeida">Antônio Almeida</option>
+                                    <option value="Aroazes">Aroazes</option>
+                                    <option value="Aroeiras do Itaim">Aroeiras do Itaim</option>
+                                    <option value="Arraial">Arraial</option>
+                                    <option value="Assunção do Piauí">Assunção do Piauí</option>
+                                    <option value="Avelino Lopes">Avelino Lopes</option>
+                                    <option value="Baixa Grande do Ribeiro">Baixa Grande do Ribeiro</option>
+                                    <option value="Barra d'Alcântara">Barra d'Alcântara</option>
+                                    <option value="Barreiras do Piauí">Barreiras do Piauí</option>
+                                    <option value="Barro Duro">Barro Duro</option>
+                                    <option value="Batalha">Batalha</option>
+                                    <option value="Bela Vista do Piauí">Bela Vista do Piauí</option>
+                                    <option value="Belém do Piauí">Belém do Piauí</option>
+                                    <option value="Bertolínia">Bertolínia</option>
+                                    <option value="Betânia do Piauí">Betânia do Piauí</option>
+                                    <option value="Boa Hora">Boa Hora</option>
+                                    <option value="Bocaina">Bocaina</option>
+                                    <option value="Bom Jesus">Bom Jesus</option>
+                                    <option value="Bom Princípio do Piauí">Bom Princípio do Piauí</option>
+                                    <option value="Bonfim do Piauí">Bonfim do Piauí</option>
+                                    <option value="Boqueirão do Piauí">Boqueirão do Piauí</option>
+                                    <option value="Brasileira">Brasileira</option>
+                                    <option value="Brejo do Piauí">Brejo do Piauí</option>
+                                    <option value="Buriti dos Lopes">Buriti dos Lopes</option>
+                                    <option value="Buriti dos Montes">Buriti dos Montes</option>
+                                    <option value="Cabeceiras do Piauí">Cabeceiras do Piauí</option>
+                                    <option value="Cajazeiras do Piauí">Cajazeiras do Piauí</option>
+                                    <option value="Cajueiro da Praia">Cajueiro da Praia</option>
+                                    <option value="Caldeirão Grande do Piauí">Caldeirão Grande do Piauí</option>
+                                    <option value="Campinas do Piauí">Campinas do Piauí</option>
+                                    <option value="Campo Alegre do Fidalgo">Campo Alegre do Fidalgo</option>
+                                    <option value="Campo Grande do Piauí">Campo Grande do Piauí</option>
+                                    <option value="Campo Largo do Piauí">Campo Largo do Piauí</option>
+                                    <option value="Campo Novo do Piauí">Campo Novo do Piauí</option>
+                                    <option value="Canavieira">Canavieira</option>
+                                    <option value="Canto do Buriti">Canto do Buriti</option>
+                                    <option value="Capitão de Campos">Capitão de Campos</option>
+                                    <option value="Capitão Gervásio Oliveira">Capitão Gervásio Oliveira</option>
+                                    <option value="Caracol">Caracol</option>
+                                    <option value="Caraúbas do Piauí">Caraúbas do Piauí</option>
+                                    <option value="Caridade do Piauí">Caridade do Piauí</option>
+                                    <option value="Castelo do Piauí">Castelo do Piauí</option>
+                                    <option value="Caxingó">Caxingó</option>
+                                    <option value="Cocal">Cocal</option>
+                                    <option value="Cocal de Telha">Cocal de Telha</option>
+                                    <option value="Cocal dos Alves">Cocal dos Alves</option>
+                                    <option value="Coivaras">Coivaras</option>
+                                    <option value="Colônia do Gurguéia">Colônia do Gurguéia</option>
+                                    <option value="Colônia do Piauí">Colônia do Piauí</option>
+                                    <option value="Conceição do Canindé">Conceição do Canindé</option>
+                                    <option value="Coronel José Dias">Coronel José Dias</option>
+                                    <option value="Corrente">Corrente</option>
+                                    <option value="Cristalândia do Piauí">Cristalândia do Piauí</option>
+                                    <option value="Cristino Castro">Cristino Castro</option>
+                                    <option value="Curimatá">Curimatá</option>
+                                    <option value="Currais">Currais</option>
+                                    <option value="Curralinhos">Curralinhos</option>
+                                    <option value="Curral Novo do Piauí">Curral Novo do Piauí</option>
+                                    <option value="Demerval Lobão">Demerval Lobão</option>
+                                    <option value="Dirceu Arcoverde">Dirceu Arcoverde</option>
+                                    <option value="Dom Expedito Lopes">Dom Expedito Lopes</option>
+                                    <option value="Domingos Mourão">Domingos Mourão</option>
+                                    <option value="Dom Inocêncio">Dom Inocêncio</option>
+                                    <option value="Elesbão Veloso">Elesbão Veloso</option>
+                                    <option value="Eliseu Martins">Eliseu Martins</option>
+                                    <option value="Esperantina">Esperantina</option>
+                                    <option value="Fartura do Piauí">Fartura do Piauí</option>
+                                    <option value="Flores do Piauí">Flores do Piauí</option>
+                                    <option value="Floresta do Piauí">Floresta do Piauí</option>
+                                    <option value="Francinópolis">Francinópolis</option>
+                                    <option value="Francisco Ayres">Francisco Ayres</option>
+                                    <option value="Francisco Macedo">Francisco Macedo</option>
+                                    <option value="Francisco Santos">Francisco Santos</option>
+                                    <option value="Fronteiras">Fronteiras</option>
+                                    <option value="Geminiano">Geminiano</option>
+                                    <option value="Gilbués">Gilbués</option>
+                                    <option value="Guadalupe">Guadalupe</option>
+                                    <option value="Guaribas">Guaribas</option>
+                                    <option value="Hugo Napoleão">Hugo Napoleão</option>
+                                    <option value="Ilha Grande">Ilha Grande</option>
+                                    <option value="Inhuma">Inhuma</option>
+                                    <option value="Ipiranga do Piauí">Ipiranga do Piauí</option>
+                                    <option value="Isaías Coelho">Isaías Coelho</option>
+                                    <option value="Itainópolis">Itainópolis</option>
+                                    <option value="Itaueira">Itaueira</option>
+                                    <option value="Jacobina do Piauí">Jacobina do Piauí</option>
+                                    <option value="Jaicós">Jaicós</option>
+                                    <option value="Jardim do Mulato">Jardim do Mulato</option>
+                                    <option value="Jatobá do Piauí">Jatobá do Piauí</option>
+                                    <option value="Jerumenha">Jerumenha</option>
+                                    <option value="João Costa">João Costa</option>
+                                    <option value="Joaquim Pires">Joaquim Pires</option>
+                                    <option value="Joca Marques">Joca Marques</option>
+                                    <option value="José de Freitas">José de Freitas</option>
+                                    <option value="Juazeiro do Piauí">Juazeiro do Piauí</option>
+                                    <option value="Júlio Borges">Júlio Borges</option>
+                                    <option value="Jurema">Jurema</option>
+                                    <option value="Lagoa Alegre">Lagoa Alegre</option>
+                                    <option value="Lagoa de São Francisco">Lagoa de São Francisco</option>
+                                    <option value="Lagoa do Barro do Piauí">Lagoa do Barro do Piauí</option>
+                                    <option value="Lagoa do Piauí">Lagoa do Piauí</option>
+                                    <option value="Lagoa do Sítio">Lagoa do Sítio</option>
+                                    <option value="Lagoinha do Piauí">Lagoinha do Piauí</option>
+                                    <option value="Landri Sales">Landri Sales</option>
+                                    <option value="Luís Correia">Luís Correia</option>
+                                    <option value="Luzilândia">Luzilândia</option>
+                                    <option value="Madeiro">Madeiro</option>
+                                    <option value="Manoel Emídio">Manoel Emídio</option>
+                                    <option value="Marcolândia">Marcolândia</option>
+                                    <option value="Marcos Parente">Marcos Parente</option>
+                                    <option value="Massapê do Piauí">Massapê do Piauí</option>
+                                    <option value="Matias Olímpio">Matias Olímpio</option>
+                                    <option value="Miguel Alves">Miguel Alves</option>
+                                    <option value="Miguel Leão">Miguel Leão</option>
+                                    <option value="Milton Brandão">Milton Brandão</option>
+                                    <option value="Monsenhor Gil">Monsenhor Gil</option>
+                                    <option value="Monsenhor Hipólito">Monsenhor Hipólito</option>
+                                    <option value="Monte Alegre do Piauí">Monte Alegre do Piauí</option>
+                                    <option value="Morro Cabeça no Tempo">Morro Cabeça no Tempo</option>
+                                    <option value="Morro do Chapéu do Piauí">Morro do Chapéu do Piauí</option>
+                                    <option value="Murici dos Portelas">Murici dos Portelas</option>
+                                    <option value="Nazaré do Piauí">Nazaré do Piauí</option>
+                                    <option value="Nazária">Nazária</option>
+                                    <option value="Nossa Senhora de Nazaré">Nossa Senhora de Nazaré</option>
+                                    <option value="Nossa Senhora dos Remédios">Nossa Senhora dos Remédios</option>
+                                    <option value="Nova Santa Rita">Nova Santa Rita</option>
+                                    <option value="Novo Oriente do Piauí">Novo Oriente do Piauí</option>
+                                    <option value="Novo Santo Antônio">Novo Santo Antônio</option>
+                                    <option value="Oeiras">Oeiras</option>
+                                    <option value="Olho d'Água do Piauí">Olho d'Água do Piauí</option>
+                                    <option value="Padre Marcos">Padre Marcos</option>
+                                    <option value="Paes Landim">Paes Landim</option>
+                                    <option value="Pajeú do Piauí">Pajeú do Piauí</option>
+                                    <option value="Palmeira do Piauí">Palmeira do Piauí</option>
+                                    <option value="Palmeirais">Palmeirais</option>
+                                    <option value="Paquetá">Paquetá</option>
+                                    <option value="Parnaguá">Parnaguá</option>
+                                    <option value="Parnaíba">Parnaíba</option>
+                                    <option value="Passagem Franca do Piauí">Passagem Franca do Piauí</option>
+                                    <option value="Patos do Piauí">Patos do Piauí</option>
+                                    <option value="Pau d'Arco do Piauí">Pau d'Arco do Piauí</option>
+                                    <option value="Paulistana">Paulistana</option>
+                                    <option value="Pavussu">Pavussu</option>
+                                    <option value="Pedro II">Pedro II</option>
+                                    <option value="Pedro Laurentino">Pedro Laurentino</option>
+                                    <option value="Picos">Picos</option>
+                                    <option value="Pimenteiras">Pimenteiras</option>
+                                    <option value="Pio IX">Pio IX</option>
+                                    <option value="Piracuruca">Piracuruca</option>
+                                    <option value="Piripiri">Piripiri</option>
+                                    <option value="Porto">Porto</option>
+                                    <option value="Porto Alegre do Piauí">Porto Alegre do Piauí</option>
+                                    <option value="Prata do Piauí">Prata do Piauí</option>
+                                    <option value="Queimada Nova">Queimada Nova</option>
+                                    <option value="Redenção do Gurguéia">Redenção do Gurguéia</option>
+                                    <option value="Regeneração">Regeneração</option>
+                                    <option value="Riacho Frio">Riacho Frio</option>
+                                    <option value="Ribeira do Piauí">Ribeira do Piauí</option>
+                                    <option value="Ribeiro Gonçalves">Ribeiro Gonçalves</option>
+                                    <option value="Rio Grande do Piauí">Rio Grande do Piauí</option>
+                                    <option value="Santa Cruz do Piauí">Santa Cruz do Piauí</option>
+                                    <option value="Santa Cruz dos Milagres">Santa Cruz dos Milagres</option>
+                                    <option value="Santa Filomena">Santa Filomena</option>
+                                    <option value="Santa Luz">Santa Luz</option>
+                                    <option value="Santa Rosa do Piauí">Santa Rosa do Piauí</option>
+                                    <option value="Santana do Piauí">Santana do Piauí</option>
+                                    <option value="Santo Antônio de Lisboa">Santo Antônio de Lisboa</option>
+                                    <option value="Santo Antônio dos Milagres">Santo Antônio dos Milagres</option>
+                                    <option value="Santo Inácio do Piauí">Santo Inácio do Piauí</option>
+                                    <option value="São Braz do Piauí">São Braz do Piauí</option>
+                                    <option value="São Félix do Piauí">São Félix do Piauí</option>
+                                    <option value="São Francisco de Assis do Piauí">São Francisco de Assis do Piauí</option>
+                                    <option value="São Francisco do Piauí">São Francisco do Piauí</option>
+                                    <option value="São Gonçalo do Gurguéia">São Gonçalo do Gurguéia</option>
+                                    <option value="São Gonçalo do Piauí">São Gonçalo do Piauí</option>
+                                    <option value="São João da Canabrava">São João da Canabrava</option>
+                                    <option value="São João da Fronteira">São João da Fronteira</option>
+                                    <option value="São João da Serra">São João da Serra</option>
+                                    <option value="São João da Varjota">São João da Varjota</option>
+                                    <option value="São João do Arraial">São João do Arraial</option>
+                                    <option value="São João do Piauí">São João do Piauí</option>
+                                    <option value="São José do Divino">São José do Divino</option>
+                                    <option value="São José do Peixe">São José do Peixe</option>
+                                    <option value="São José do Piauí">São José do Piauí</option>
+                                    <option value="São Julião">São Julião</option>
+                                    <option value="São Lourenço do Piauí">São Lourenço do Piauí</option>
+                                    <option value="São Luis do Piauí">São Luis do Piauí</option>
+                                    <option value="São Miguel da Baixa Grande">São Miguel da Baixa Grande</option>
+                                    <option value="São Miguel do Fidalgo">São Miguel do Fidalgo</option>
+                                    <option value="São Miguel do Tapuio">São Miguel do Tapuio</option>
+                                    <option value="São Pedro do Piauí">São Pedro do Piauí</option>
+                                    <option value="São Raimundo Nonato">São Raimundo Nonato</option>
+                                    <option value="Sebastião Barros">Sebastião Barros</option>
+                                    <option value="Sebastião Leal">Sebastião Leal</option>
+                                    <option value="Sigefredo Pacheco">Sigefredo Pacheco</option>
+                                    <option value="Simões">Simões</option>
+                                    <option value="Simplício Mendes">Simplício Mendes</option>
+                                    <option value="Socorro do Piauí">Socorro do Piauí</option>
+                                    <option value="Sussuapara">Sussuapara</option>
+                                    <option value="Tamboril do Piauí">Tamboril do Piauí</option>
+                                    <option value="Tanque do Piauí">Tanque do Piauí</option>
+                                    <option value="Teresina">Teresina</option>
+                                    <option value="União">União</option>
+                                    <option value="Uruçuí">Uruçuí</option>
+                                    <option value="Valença do Piauí">Valença do Piauí</option>
+                                    <option value="Várzea Branca">Várzea Branca</option>
+                                    <option value="Várzea Grande">Várzea Grande</option>
+                                    <option value="Vera Mendes">Vera Mendes</option>
+                                    <option value="Vila Nova do Piauí">Vila Nova do Piauí</option>
+                                    <option value="Wall Ferraz">Wall Ferraz</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="feriado_municipal" name="feriado_municipal" {% if planejada and planejada.feriado_municipal %}checked{% endif %}>
+                                    <label class="form-check-label" for="feriado_municipal">
+                                        <i class="fas fa-calendar-day me-1"></i>Feriado
+                                    </label>
+                                    <div class="form-text">Marque se for um feriado não cadastrado no sistema</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="data_operacao" class="form-label">Data da Operação *</label>
+                                <input type="date" class="form-control" id="data_operacao" name="data_operacao" value="{% if planejada %}{{ planejada.data_operacao|date:'Y-m-d' }}{% endif %}" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="dia_semana" class="form-label">Dia da Semana</label>
+                                <input type="text" class="form-control" id="dia_semana" name="dia_semana" readonly>
+                                <input type="hidden" id="semana" name="semana" value="">
+                            </div>
+                        </div>
+
+
+                        <!-- Valores e Recursos -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary mb-3">
+                                    <i class="fas fa-dollar-sign me-2"></i>Valores e Recursos
+                                </h6>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="tipo_planejada" class="form-label">Tipo de Planejada *</label>
+                                <select class="form-select" id="tipo_planejada" name="tipo_planejada" required>
+                                    <option value="">Selecione...</option>
+                                    {% for tipo in tipos_planejadas %}
+                                        <option value="{{ tipo.codigo }}" data-horas="{{ tipo.horas }}" {% if planejada and planejada.tipo_planejada == tipo.codigo %}selected{% endif %}>{{ tipo.nome }} ({{ tipo.horas }}h)</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="hora_inicio" class="form-label">Hora Início *</label>
+                                <input type="time" class="form-control" id="hora_inicio" name="hora_inicio" value="{% if planejada %}{{ planejada.hora_inicio|time:'H:i' }}{% endif %}" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="hora_termino" class="form-label">Hora Término *</label>
+                                <input type="time" class="form-control" id="hora_termino" name="hora_termino" value="{% if planejada %}{{ planejada.hora_termino|time:'H:i' }}{% endif %}" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="valor" class="form-label">Valor *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">R$</span>
+                                    <input type="text" class="form-control" id="valor" name="valor" placeholder="0,00" value="{% if planejada %}{{ planejada.valor|floatformat:2 }}{% endif %}" readonly required>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mt-3">
+                                <label for="saldo" class="form-label">Saldo</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">R$</span>
+                                    <input type="text" class="form-control" id="saldo" name="saldo" placeholder="0,00" value="{% if planejada %}{{ planejada.saldo|floatformat:2 }}{% else %}0,00{% endif %}">
+                                </div>
+                            </div>
+                            <div class="col-md-3 mt-3">
+                                <label for="policiais" class="form-label">Número de Bombeiros</label>
+                                <input type="number" class="form-control" id="policiais" name="policiais" min="1" value="{% if planejada %}{{ planejada.policiais }}{% else %}1{% endif %}">
+                            </div>
+                            <div class="col-md-3 mt-3">
+                                <label for="valor_total" class="form-label">Valor Total da Planejada</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">R$</span>
+                                    <input type="text" class="form-control" id="valor_total" name="valor_total" placeholder="0,00" value="{% if planejada %}{{ planejada.valor_total|floatformat:2 }}{% else %}0,00{% endif %}" readonly>
+                                </div>
+                                <div class="form-text">Valor × Número de Bombeiros</div>
+                            </div>
+                        </div>
+
+
+                        <!-- Observações -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary mb-3">
+                                    <i class="fas fa-comment me-2"></i>Observações
+                                </h6>
+                            </div>
+                            <div class="col-12 mt-3">
+                                <label for="observacoes" class="form-label">Observações</label>
+                                <textarea class="form-control" id="observacoes" name="observacoes" rows="3">{% if planejada %}{{ planejada.observacoes }}{% endif %}</textarea>
+                            </div>
+                        </div>
+
+                        <!-- Seleção de Militares -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary mb-3">
+                                    <i class="fas fa-users me-2"></i>Militares da Operação
+                                </h6>
+                                
+                                <!-- Filtros de Busca -->
+                                <div class="card border-0 bg-light mb-3">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-search me-2"></i>Buscar Militares
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-8">
+                                                <div class="input-group">
+                                                    <span class="input-group-text">
+                                                        <i class="fas fa-search"></i>
+                                                    </span>
+                                                    <input type="text" class="form-control" id="filtroMilitares" placeholder="Buscar por nome, matrícula ou posto...">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <button type="button" class="btn btn-outline-primary me-2" id="btnBuscarMilitares">
+                                                    <i class="fas fa-search me-1"></i>Buscar
+                                                </button>
+                                                <button type="button" class="btn btn-outline-secondary" id="btnLimparFiltro">
+                                                    <i class="fas fa-times me-1"></i>Limpar
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Lista de Militares Disponíveis -->
+                                <div class="card border-0 mb-3">
+                                    <div class="card-header">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <h6 class="mb-0">
+                                                <i class="fas fa-list me-2"></i>Militares Disponíveis
+                                                <span class="badge bg-info ms-2" id="total-disponiveis">0</span>
+                                            </h6>
+                                            {% if pode_editar_militares %}
+                                            <button type="button" class="btn btn-sm btn-success" id="btnAdicionarSelecionados">
+                                                <i class="fas fa-plus me-1"></i>Adicionar Selecionados
+                                            </button>
+                                            {% else %}
+                                            <span class="text-muted small">
+                                                <i class="fas fa-lock me-1"></i>Bloqueado após assinatura do fiscal
+                                            </span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                            <table class="table table-hover mb-0">
+                                                <thead class="table-light sticky-top">
+                                                    <tr>
+                                                        <th class="text-center" style="width: 50px;">
+                                                            <input type="checkbox" class="form-check-input" id="selecionarTodos">
+                                                        </th>
+                                                        <th>Nome</th>
+                                                        <th>Posto/Graduação</th>
+                                                        <th>Lotacao</th>
+                                                        <th>CPF</th>
+                                                        <th>Status</th>
+                                                        <th>Tipos Permitidos</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="listaMilitares">
+                                                    <tr>
+                                                        <td colspan="7" class="text-center py-4">
+                                                            <div class="text-muted">
+                                                                <i class="fas fa-calendar-alt fa-2x mb-2"></i>
+                                                                <p>Selecione uma data para ver os militares disponíveis</p>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Militares Escalados -->
+                                <div class="card border-0 bg-light">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-user-check me-2"></i>Militares Escalados
+                                            <span class="badge bg-primary ms-2" id="total-escalados">0</span>
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="militares-escalados-container">
+                                            <div class="text-center text-muted py-3">
+                                                <i class="fas fa-users fa-2x mb-2"></i>
+                                                <p>Nenhum militar escalado</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Botões -->
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="d-flex justify-content-end gap-2">
+                                    <a href="{% url 'militares:planejadas_list' %}" class="btn btn-outline-secondary">
+                                        <i class="fas fa-times me-2"></i>Cancelar
+                                    </a>
+                                    <button type="submit" class="btn btn-success">
+                                        <i class="fas fa-save me-2"></i>{% if planejada %}Atualizar Operação{% else %}Salvar Operação{% endif %}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Modal de Impedimentos -->
+<div class="modal fade" id="modalImpedimentos" tabindex="-1" aria-labelledby="modalImpedimentosLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="modalImpedimentosLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Impedimentos para Salvar Operação
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger mb-3">
+                    <i class="fas fa-ban me-2"></i>
+                    <strong>Não foi possível salvar a operação devido aos seguintes impedimentos:</strong>
+                </div>
+                
+                <div id="listaImpedimentos">
+                    <!-- Os impedimentos serão inseridos aqui via JavaScript -->
+                </div>
+                
+                <div class="mt-4">
+                    <h6 class="text-muted">
+                        <i class="fas fa-info-circle me-2"></i>Como resolver:
+                    </h6>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success me-2"></i>Verifique se há saldo suficiente no orçamento</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Confirme se os militares não estão escalados em outras operações no mesmo horário</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Verifique se todos os campos obrigatórios estão preenchidos</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação de Remoção -->
+<div class="modal fade" id="modalConfirmarRemocao" tabindex="-1" aria-labelledby="modalConfirmarRemocaoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="modalConfirmarRemocaoLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Confirmar Remoção
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="avatar bg-warning text-dark rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 50px; height: 50px;">
+                        <i class="fas fa-user-times fa-lg"></i>
+                    </div>
+                    <div>
+                        <h6 class="mb-1">Remover Militar da Operação</h6>
+                        <p class="text-muted mb-0">Esta ação removerá o militar da lista de escalados</p>
+                    </div>
+                </div>
+                
+                <div class="alert alert-warning">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Tem certeza que deseja remover <span id="modalConfirmarRemocaoNome">este militar</span> da operação?</strong>
+                </div>
+                
+                <div class="row">
+                    <div class="col-12">
+                        <h6 class="text-muted">
+                            <i class="fas fa-info-circle me-2"></i>O que acontecerá:
+                        </h6>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-check text-warning me-2"></i>Militar será removido da lista de escalados</li>
+                            <li><i class="fas fa-check text-warning me-2"></i>Valor individual será recalculado</li>
+                            <li><i class="fas fa-check text-warning me-2"></i>Militar ficará disponível para outras operações</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-warning" onclick="confirmarRemocaoMilitar()">
+                    <i class="fas fa-user-times me-1"></i>Confirmar Remoção
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Dados da configuração para JavaScript -->
+<script type="application/json" id="configuracao-data">
+{
+    "valor_por_hora_normal": {% if configuracao_ativa %}{{ configuracao_ativa.valor_por_hora_normal|stringformat:"s" }}{% else %}150.00{% endif %},
+    "valor_por_hora_fds": {% if configuracao_ativa %}{{ configuracao_ativa.valor_por_hora_fds|stringformat:"s" }}{% else %}200.00{% endif %},
+    "configuracao_existe": {% if configuracao_ativa %}true{% else %}false{% endif %}
+}
+</script>
+
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // Carregar status de tempo para planejadas existentes
+    {% if planejada %}
+        carregarStatusTempo();
+    {% endif %}
+    
+    // Máscara para valores monetários
+    const valorInput = document.getElementById('valor');
+    const saldoInput = document.getElementById('saldo');
+    const valorTotalInput = document.getElementById('valor_total');
+    
+    function formatCurrency(input) {
+        let value = input.value.replace(/\D/g, '');
+        value = (value / 100).toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+        input.value = value;
+    }
+    
+    valorInput.addEventListener('input', function() {
+        formatCurrency(this);
+    });
+    
+    saldoInput.addEventListener('input', function() {
+        formatCurrency(this);
+    });
+    
+    // Definir data atual como padrão apenas se não estiver editando
+    const hoje = new Date();
+    const dataInput = document.getElementById('data_operacao');
+    if (!dataInput.value) {
+        dataInput.value = hoje.toISOString().split('T')[0];
+    }
+    
+    // Função para calcular dia da semana baseado na data
+    function calcularDiaSemana(dataString) {
+        if (!dataString) {
+            // Limpar campos se não há data
+            document.getElementById('dia_semana').value = '';
+            document.getElementById('semana').value = '';
+            return;
+        }
+        
+        // Criar data corretamente (adicionar timezone para evitar problemas)
+        const data = new Date(dataString + 'T00:00:00');
+        
+        // Verificar se a data é válida
+        if (isNaN(data.getTime())) {
+            console.error('Data inválida:', dataString);
+            return;
+        }
+        
+        const diasSemana = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
+        const diasSemanaLabels = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+        
+        const diaIndex = data.getDay();
+        const diaSemana = diasSemana[diaIndex];
+        const diaSemanaLabel = diasSemanaLabels[diaIndex];
+        
+        
+        // Preencher campo readonly (exibição)
+        const diaSemanaInput = document.getElementById('dia_semana');
+        diaSemanaInput.value = diaSemanaLabel;
+        
+        // Preencher campo hidden (valor para o backend)
+        const semanaHidden = document.getElementById('semana');
+        semanaHidden.value = diaSemana;
+    }
+    
+    // Calcular dia da semana inicial
+    calcularDiaSemana(dataInput.value);
+    
+    // Se estiver editando, carregar valores padrão
+    {% if planejada %}
+        // Carregar valores padrão para edição
+        document.getElementById('semana').value = '{{ planejada.semana }}';
+        document.getElementById('dia_semana').value = '{{ planejada.get_semana_display }}';
+        
+        // Converter valores monetários de formato americano para brasileiro
+        if (valorInput && valorInput.value) {
+            valorInput.value = valorInput.value.replace('.', ',');
+        }
+        if (saldoInput && saldoInput.value) {
+            saldoInput.value = saldoInput.value.replace('.', ',');
+        }
+        if (valorTotalInput && valorTotalInput.value) {
+            valorTotalInput.value = valorTotalInput.value.replace('.', ',');
+        }
+        
+        // Carregar origem se existir
+        const origemSelectForEdit = document.getElementById('origem');
+        if (origemSelectForEdit && '{{ planejada.origem }}') {
+            // Procurar pela opção que corresponde à origem
+            for (let i = 0; i < origemSelectForEdit.options.length; i++) {
+                if (origemSelectForEdit.options[i].value === '{{ planejada.origem }}') {
+                    origemSelectForEdit.selectedIndex = i;
+                    break;
+                }
+            }
+        } else if (origemSelectForEdit && '{{ planejada.instancia_nome }}') {
+            // Se não há origem definida, usar a instância organizacional
+            const instanciaNome = '{{ planejada.instancia_nome }}';
+            for (let i = 0; i < origemSelectForEdit.options.length; i++) {
+                const optionText = origemSelectForEdit.options[i].text;
+                if (optionText.includes(instanciaNome.split(' - ')[0])) {
+                    origemSelectForEdit.selectedIndex = i;
+                    break;
+                }
+            }
+        }
+        
+        // Carregar saldo da OM ao carregar a edição (usar setTimeout para garantir que o select foi atualizado)
+        setTimeout(function() {
+            if (origemSelectForEdit && origemSelectForEdit.options[origemSelectForEdit.selectedIndex]) {
+                const selectedOption = origemSelectForEdit.options[origemSelectForEdit.selectedIndex];
+                if (selectedOption.value && selectedOption.dataset.tipo && selectedOption.dataset.id) {
+                    carregarSaldoOM();
+                }
+            }
+        }, 100);
+        
+        // Carregar cidade se existir
+        const cidadeSelect = document.getElementById('cidade');
+        if ('{{ planejada.cidade }}') {
+            // Procurar pela opção que corresponde à cidade
+            for (let i = 0; i < cidadeSelect.options.length; i++) {
+                if (cidadeSelect.options[i].value === '{{ planejada.cidade }}') {
+                    cidadeSelect.selectedIndex = i;
+                    break;
+                }
+            }
+        }
+    {% endif %}
+    
+    // Event listeners para mudança de data
+    dataInput.addEventListener('change', function() {
+        calcularDiaSemana(this.value);
+        // Recarregar saldo quando a data mudar
+        carregarSaldoOM();
+    });
+    
+    dataInput.addEventListener('input', function() {
+        calcularDiaSemana(this.value);
+    });
+    
+    // Também calcular quando a página carrega
+    dataInput.addEventListener('load', function() {
+        calcularDiaSemana(this.value);
+    });
+    
+    // Função para calcular hora término baseada no tipo de planejada
+    function calcularHoraTermino() {
+        const tipoSelect = document.getElementById('tipo_planejada');
+        const horaInicioInput = document.getElementById('hora_inicio');
+        const horaTerminoInput = document.getElementById('hora_termino');
+        
+        if (!tipoSelect.value || !horaInicioInput.value) {
+            horaTerminoInput.value = '';
+            return;
+        }
+        
+        const tipoPlanejada = tipoSelect.value;
+        const horaInicio = horaInicioInput.value;
+        
+        // Obter horas do tipo selecionado
+        const horasAdicionar = parseInt(tipoSelect.options[tipoSelect.selectedIndex].dataset.horas);
+        
+        // Converter hora início para minutos
+        const [horas, minutos] = horaInicio.split(':').map(Number);
+        const minutosInicio = horas * 60 + minutos;
+        
+        // Adicionar horas da planejada
+        const minutosTermino = minutosInicio + (horasAdicionar * 60);
+        
+        // Converter de volta para formato HH:MM
+        const horasTermino = Math.floor(minutosTermino / 60) % 24;
+        const minutosTerminoFinal = minutosTermino % 60;
+        
+        const horaTermino = `${horasTermino.toString().padStart(2, '0')}:${minutosTerminoFinal.toString().padStart(2, '0')}`;
+        horaTerminoInput.value = horaTermino;
+        
+    }
+    
+    // Event listeners para tipo de planejada e hora início
+    const tipoPlanejada = document.getElementById('tipo_planejada');
+    const horaInicio = document.getElementById('hora_inicio');
+    if (tipoPlanejada) {
+        tipoPlanejada.addEventListener('change', calcularHoraTermino);
+    }
+    if (horaInicio) {
+        horaInicio.addEventListener('change', calcularHoraTermino);
+        horaInicio.addEventListener('input', calcularHoraTermino);
+    }
+    
+    // Carregar dados da configuração
+    let configuracaoData;
+    try {
+        const configuracaoElement = document.getElementById('configuracao-data');
+        if (configuracaoElement) {
+            const jsonText = configuracaoElement.textContent;
+            configuracaoData = JSON.parse(jsonText);
+        } else {
+            throw new Error('Elemento configuracao-data não encontrado');
+        }
+    } catch (error) {
+        console.error('Erro ao carregar configuração:', error);
+        configuracaoData = {
+            valor_por_hora_normal: 150.00,
+            valor_por_hora_fds: 200.00,
+            configuracao_existe: false
+        };
+    }
+    
+    // Função para verificar se uma data é feriado
+    function isFeriado(data) {
+        const mes = data.getMonth() + 1; // 1-12
+        const dia = data.getDate();
+        const mmdd = String(mes).padStart(2, '0') + '-' + String(dia).padStart(2, '0');
+        
+        // Feriados nacionais fixos
+        const feriadosNacionais = {
+            '01-01': 'Confraternização Universal',
+            '04-21': 'Tiradentes',
+            '05-01': 'Dia do Trabalho',
+            '09-07': 'Independência do Brasil',
+            '10-12': 'Nossa Senhora Aparecida',
+            '11-02': 'Finados',
+            '11-15': 'Proclamação da República',
+            '11-20': 'Dia da Consciência Negra',
+            '12-25': 'Natal'
+        };
+        
+        // Feriados estaduais do Piauí
+        const feriadosPiaui = {
+            '03-13': 'Batalha do Jenipapo',
+            '10-19': 'Dia do Piauí'
+        };
+        
+        return feriadosNacionais[mmdd] || feriadosPiaui[mmdd] || false;
+    }
+    
+    // Função para calcular valor baseado no tipo e dia da semana
+    function calcularValor() {
+        const tipoSelect = document.getElementById('tipo_planejada');
+        const dataInput = document.getElementById('data_operacao');
+        
+        
+        if (!tipoSelect.value || !dataInput.value) {
+            valorInput.value = '';
+            return;
+        }
+        
+        const tipoPlanejada = tipoSelect.value;
+        const dataOperacao = new Date(dataInput.value + 'T00:00:00');
+        const diaSemana = dataOperacao.getDay(); // 0=domingo, 6=sábado
+        
+        // Verificar se é fim de semana (sexta=5, sábado=6, domingo=0) ou feriado
+        const feriadoManual = document.getElementById('feriado_municipal').checked;
+        const feriadoAutomatico = isFeriado(dataOperacao);
+        const isFimSemana = (diaSemana === 0 || diaSemana === 5 || diaSemana === 6) || feriadoManual || feriadoAutomatico;
+        
+        // Determinar valor base
+        let valorBase = 0;
+        if (isFimSemana) {
+            valorBase = configuracaoData.valor_por_hora_fds || 200.00;
+        } else {
+            valorBase = configuracaoData.valor_por_hora_normal || 150.00;
+        }
+        
+        
+        // Calcular quantidade de planejadas baseado no tipo
+        let quantidadePlanejadas = 1;
+        switch(tipoPlanejada) {
+            case 'P1':
+                quantidadePlanejadas = 1; // P1 = 1 planejada
+                break;
+            case 'P2':
+                quantidadePlanejadas = 2; // P2 = 2 planejadas
+                break;
+            case 'P3':
+                quantidadePlanejadas = 3; // P3 = 3 planejadas
+                break;
+            case 'P4':
+                quantidadePlanejadas = 4; // P4 = 4 planejadas
+                break;
+        }
+        
+        
+        // O valor final é: valor por planejada × quantidade de planejadas
+        const valorFinal = valorBase * quantidadePlanejadas;
+        
+        // Formatar valor para exibição
+        const valorFormatado = valorFinal.toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+        
+        valorInput.value = valorFormatado;
+        
+        // Calcular valor total (valor × número de bombeiros)
+        calcularValorTotal();
+        
+    }
+    
+    // Função para calcular valor total (valor × número de bombeiros)
+    function calcularValorTotal() {
+        const policiaisInput = document.getElementById('policiais');
+        const valorTotalInput = document.getElementById('valor_total');
+        
+        if (!valorInput || !policiaisInput || !valorTotalInput) {
+            return;
+        }
+        
+        // Obter valor da planejada (remover formatação brasileira)
+        const valorStr = valorInput.value.replace(/\./g, '').replace(',', '.');
+        const valor = parseFloat(valorStr) || 0;
+        
+        // Obter número de bombeiros
+        const numeroBombeiros = parseInt(policiaisInput.value) || 1;
+        
+        // Calcular valor total
+        const valorTotal = valor * numeroBombeiros;
+        
+        // Formatar valor total no padrão brasileiro
+        const valorTotalFormatado = valorTotal.toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+        
+        valorTotalInput.value = valorTotalFormatado;
+        
+    }
+    
+    // Event listeners para calcular valor
+    if (tipoPlanejada) {
+        tipoPlanejada.addEventListener('change', function() {
+        calcularHoraTermino();
+        calcularValor();
+    });
+    }
+    
+    const dataOperacaoInput = document.getElementById('data_operacao');
+    if (dataOperacaoInput) {
+        dataOperacaoInput.addEventListener('change', function() {
+        calcularDiaSemana(this.value);
+        calcularValor();
+    });
+    }
+    
+    const feriadoMunicipal = document.getElementById('feriado_municipal');
+    if (feriadoMunicipal) {
+        feriadoMunicipal.addEventListener('change', function() {
+        calcularValor();
+    });
+    }
+    
+    // Verificar se é superusuário
+    {% if planejada %}
+    const isEdicao = true;
+    const policiaisOriginal = {{ planejada.policiais }};
+    const dataHoraOperacaoStr = '{{ planejada.data_operacao|date:"Y-m-d" }} {{ planejada.hora_inicio|date:"H:i" }}';
+    {% else %}
+    const isEdicao = false;
+    const policiaisOriginal = 1;
+    const dataHoraOperacaoStr = '';
+    {% endif %}
+    
+    // Event listener para número de bombeiros
+    const policiaisInput = document.getElementById('policiais');
+    if (policiaisInput) {
+        policiaisInput.addEventListener('input', function() {
+        calcularValorTotal();
+    });
+    
+    // Validação adicional quando o campo perde o foco
+        policiaisInput.addEventListener('blur', function() {
+        // VALIDAÇÃO: Verificar se pode alterar número de bombeiros
+        const quantidadeMilitares = militaresSelecionados.length;
+        const numeroBombeiros = parseInt(this.value) || 1;
+        
+        // Superusuário pode alterar sempre
+        // Usuários normais têm regras específicas baseadas no tempo
+        {% if planejada %}
+        const isSuperuser = {% if request.user.is_superuser %}true{% else %}false{% endif %};
+        if (!isSuperuser) {
+            const agora = new Date();
+            const dataHoraOperacao = new Date(dataHoraOperacaoStr);
+            
+            // Se já passou da data/hora da operação
+            if (agora >= dataHoraOperacao) {
+                // Após o início: só pode DIMINUIR, não pode AUMENTAR
+                if (numeroBombeiros > policiaisOriginal) {
+                    mostrarModalValidacao('Não é possível aumentar o número de bombeiros após o início da operação. Apenas superusuários podem aumentar neste momento.');
+                    this.value = policiaisOriginal;
+                    calcularValorTotal();
+                    return;
+                }
+                // Diminuir é permitido após o início
+                console.log(`✅ Diminuição de policiais permitida após início: ${policiaisOriginal} -> ${numeroBombeiros}`);
+            } else {
+                // Antes do início: pode AUMENTAR ou DIMINUIR
+                console.log(`✅ Alteração de policiais permitida antes do início: ${policiaisOriginal} -> ${numeroBombeiros}`);
+            }
+        } else {
+            // Superusuário pode alterar sempre
+            console.log(`✅ Superusuário pode alterar policiais: ${policiaisOriginal} -> ${numeroBombeiros}`);
+        }
+        {% endif %}
+        
+        // Permitir qualquer número de policiais maior ou igual à quantidade de militares
+        // Só impedir se for menor que a quantidade de militares escalados
+        if (quantidadeMilitares > 0 && numeroBombeiros < quantidadeMilitares) {
+            mostrarModalValidacao(`Não é possível reduzir para ${numeroBombeiros} quando já existem ${quantidadeMilitares} militares. Remova ${quantidadeMilitares - numeroBombeiros > 1 ? 'alguns' : 'um'} primeiro.`);
+            this.value = quantidadeMilitares;
+            calcularValorTotal();
+            return;
+        }
+        
+        // Permitir aumento do número de policiais (maior que quantidade de militares)
+        if (numeroBombeiros > quantidadeMilitares) {
+            console.log(`✅ Aumento de policiais permitido: ${quantidadeMilitares} militares -> ${numeroBombeiros} policiais`);
+        }
+        
+        // Garantir que o valor seja válido (mínimo 1)
+        if (numeroBombeiros < 1) {
+            this.value = 1;
+            calcularValorTotal();
+        }
+    });
+    
+    // Validação também no evento 'change' para capturar mudanças
+        policiaisInput.addEventListener('change', function() {
+        const quantidadeMilitares = militaresSelecionados.length;
+        const numeroBombeiros = parseInt(this.value) || 1;
+        
+        // Superusuário pode alterar sempre
+        // Usuários normais têm regras específicas baseadas no tempo
+        {% if planejada %}
+        const isSuperuserChange = {% if request.user.is_superuser %}true{% else %}false{% endif %};
+        if (!isSuperuserChange) {
+            const agora = new Date();
+            const dataHoraOperacao = new Date(dataHoraOperacaoStr);
+            
+            // Se já passou da data/hora da operação
+            if (agora >= dataHoraOperacao) {
+                // Após o início: só pode DIMINUIR, não pode AUMENTAR
+                if (numeroBombeiros > policiaisOriginal) {
+                    mostrarModalValidacao('Não é possível aumentar o número de bombeiros após o início da operação. Apenas superusuários podem aumentar neste momento.');
+                    this.value = policiaisOriginal;
+                    calcularValorTotal();
+                    return;
+                }
+                // Diminuir é permitido após o início
+                console.log(`✅ Diminuição de policiais permitida após início: ${policiaisOriginal} -> ${numeroBombeiros}`);
+            } else {
+                // Antes do início: pode AUMENTAR ou DIMINUIR
+                console.log(`✅ Alteração de policiais permitida antes do início: ${policiaisOriginal} -> ${numeroBombeiros}`);
+            }
+        } else {
+            // Superusuário pode alterar sempre
+            console.log(`✅ Superusuário pode alterar policiais: ${policiaisOriginal} -> ${numeroBombeiros}`);
+        }
+        {% endif %}
+        
+        // Permitir qualquer número de policiais maior ou igual à quantidade de militares
+        // Só impedir se for menor que a quantidade de militares escalados
+        if (quantidadeMilitares > 0 && numeroBombeiros < quantidadeMilitares) {
+            mostrarModalValidacao(`Não é possível reduzir para ${numeroBombeiros} quando já existem ${quantidadeMilitares} militares. Remova ${quantidadeMilitares - numeroBombeiros > 1 ? 'alguns' : 'um'} primeiro.`);
+            this.value = quantidadeMilitares;
+            calcularValorTotal();
+            return;
+        }
+        
+        // Permitir aumento do número de policiais (maior que quantidade de militares)
+        if (numeroBombeiros > quantidadeMilitares) {
+            console.log(`✅ Aumento de policiais permitido: ${quantidadeMilitares} militares -> ${numeroBombeiros} policiais`);
+        }
+        
+        // Garantir que o valor seja válido (mínimo 1)
+        if (numeroBombeiros < 1) {
+            this.value = 1;
+            calcularValorTotal();
+        }
+    });
+    }
+    
+    // Função para mostrar modal de validação (mantida dentro do escopo)
+    window.mostrarModalValidacao = function(mensagem) {
+        const mensagemElement = document.getElementById('modal-validacao-mensagem');
+        const modalElement = document.getElementById('modal-validacao');
+        
+        if (mensagemElement && modalElement) {
+            mensagemElement.textContent = mensagem;
+            const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+        } else {
+            console.error('Elementos do modal de validação não encontrados');
+            alert(mensagem); // Fallback
+    }
+    };
+    
+    // Função para mostrar toast de sucesso
+    function mostrarToastSucesso(mensagem, redirectUrl = null) {
+        showGlobalSuccess(mensagem);
+        if (redirectUrl) {
+            setTimeout(() => {
+                window.location.href = redirectUrl;
+            }, 4000);
+        }
+    }
+
+    // Função para mostrar toast de erro
+    function mostrarToastErro(mensagem) {
+        showGlobalError(mensagem);
+    }
+
+    // Função para mostrar toast de aviso
+    function mostrarToastAviso(mensagem) {
+        showGlobalWarning(mensagem);
+    }
+
+    // Função para mostrar toast de informação
+    function mostrarToastInfo(mensagem) {
+        showGlobalInfo(mensagem);
+    }
+    
+    
+    // Função para carregar saldo da OM selecionada
+    function carregarSaldoOM() {
+        const origemSelectLocal = document.getElementById('origem');
+        const saldoInput = document.getElementById('saldo');
+        const dataOperacao = document.getElementById('data_operacao');
+        
+        if (!origemSelectLocal) {
+            return;
+        }
+        
+        const selectedOption = origemSelectLocal.options[origemSelectLocal.selectedIndex];
+        if (selectedOption.value && selectedOption.dataset.tipo && selectedOption.dataset.id) {
+            const tipo = selectedOption.dataset.tipo;
+            const id = selectedOption.dataset.id;
+            
+            // Obter ano e mês da data da operação
+            let url = `/militares/api/saldo-om/${tipo}/${id}/`;
+            
+            // Determinar a data a usar
+            let dataParaUsar = null;
+            {% if planejada %}
+                // Se estamos editando, usar a data da planejada do backend
+                dataParaUsar = new Date('{{ planejada.data_operacao|date:"Y-m-d" }}');
+            {% else %}
+                // Se estamos criando, usar a data do campo
+                if (dataOperacao && dataOperacao.value) {
+                    dataParaUsar = new Date(dataOperacao.value);
+                }
+            {% endif %}
+            
+            if (dataParaUsar && !isNaN(dataParaUsar.getTime())) {
+                const ano = dataParaUsar.getFullYear();
+                const mes = dataParaUsar.getMonth() + 1; // getMonth() retorna 0-11
+                url += `?ano=${ano}&mes=${mes}`;
+                console.log(`Carregando saldo para ${mes}/${ano}`);
+            }
+            
+            // Fazer requisição AJAX para obter o saldo
+            fetch(url, {
+                method: 'GET',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => {
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    // Formatar valor no padrão brasileiro (R$ 1.234,56)
+                    const valorFormatado = data.saldo.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    });
+                    saldoInput.value = valorFormatado;
+                } else {
+                    saldoInput.value = '0,00';
+                }
+            })
+            .catch(error => {
+                console.error('Erro na requisição:', error);
+                saldoInput.value = '0,00';
+            });
+        } else {
+            saldoInput.value = '0,00';
+        }
+    }
+    
+    // Event listener para carregar saldo da OM selecionada
+    const origemSelect = document.getElementById('origem');
+    if (origemSelect) {
+        origemSelect.addEventListener('change', function() {
+        carregarSaldoOM();
+    });
+    }
+    
+    // Calcular valor inicial se já houver dados
+    setTimeout(function() {
+        calcularValor();
+    }, 100);
+    
+    // Validação do formulário - REMOVIDO PARA EVITAR DUPLICAÇÃO
+    /*
+    document.getElementById('planejadaForm').addEventListener('submit', function(e) {
+        const nome = document.getElementById('nome').value.trim();
+        const origem = document.getElementById('origem').value.trim();
+        const cidade = document.getElementById('cidade').value.trim();
+        const dataOperacao = document.getElementById('data_operacao').value;
+        const tipoPlanejada = document.getElementById('tipo_planejada').value;
+        const horaInicio = document.getElementById('hora_inicio').value;
+        const horaTermino = document.getElementById('hora_termino').value;
+        const valor = document.getElementById('valor').value.trim();
+        
+        if (!nome || !origem || !cidade || !dataOperacao || !tipoPlanejada || !horaInicio || !horaTermino) {
+            e.preventDefault();
+            alert('Por favor, preencha todos os campos obrigatórios.');
+            return false;
+        }
+        
+        // REMOVIDA A VALIDAÇÃO QUE IMPEDIA HORÁRIOS QUE PASSAM DA MEIA-NOITE
+        // O sistema já está preparado para lidar com planejadas que começam em um dia e terminam no dia seguinte
+        // Exemplo: 22:00 até 02:00 (turno noturno)
+        // A validação anterior impedia operações noturnas legítimas
+        
+        // Converter valor para formato americano antes do envio
+        const valorFormatado = valor.replace('.', '').replace(',', '.');
+        document.getElementById('valor').value = valorFormatado;
+        
+        const saldo = document.getElementById('saldo').value.trim();
+        if (saldo) {
+            const saldoFormatado = saldo.replace('.', '').replace(',', '.');
+            document.getElementById('saldo').value = saldoFormatado;
+        }
+        
+        // Interceptar o submit para capturar erros específicos via AJAX
+        e.preventDefault();
+        
+        // Coletar dados do formulário
+        const formData = new FormData(this);
+        
+        // Adicionar militares selecionados se houver
+        if (militaresSelecionados.length > 0) {
+            militaresSelecionados.forEach(militar => {
+                formData.append('militares_selecionados', militar.id);
+            });
+        }
+        
+        // Enviar via AJAX para capturar erros específicos
+        fetch(window.location.href, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Sucesso - mostrar toast e redirecionar
+                const mensagemSucesso = data.message || 'Operação realizada com sucesso!';
+                mostrarToastSucesso(mensagemSucesso, '/militares/operacoes-planejadas/');
+            } else {
+                // Erro - mostrar toast com detalhes
+                const mensagemErro = data.message || 'Erro ao processar solicitação';
+                mostrarToastErro(mensagemErro);
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao salvar operação:', error);
+            mostrarToastErro('Erro ao salvar operação. Tente novamente.');
+        });
+    });
+    */
+    
+
+    // ===== GERENCIAMENTO DE MILITARES =====
+    
+    // Verificar se é edição ou criação
+    const isEditMode = {% if planejada %}true{% else %}false{% endif %};
+    const planejadaId = {% if planejada %}{{ planejada.id }}{% else %}null{% endif %};
+    
+    // Array para armazenar militares selecionados durante a criação
+    let militaresSelecionados = [];
+    
+    // Carregar militares escalados ao abrir a página (apenas se for edição)
+    if (isEditMode && planejadaId) {
+        carregarMilitaresEscalados();
+        carregarMilitaresDisponiveis('');
+    } else {
+        // Se for criação, mostrar array vazio
+        atualizarInterfaceMilitares();
+    }
+    
+    // Event listeners para o modal de militares
+    const btnBuscarMilitares = document.getElementById('btnBuscarMilitares');
+    if (btnBuscarMilitares) {
+        btnBuscarMilitares.addEventListener('click', function() {
+        const termo = document.getElementById('filtroMilitares').value.trim();
+        carregarMilitaresDisponiveis(termo);
+    });
+    }
+    
+    const btnLimparFiltro = document.getElementById('btnLimparFiltro');
+    if (btnLimparFiltro) {
+        btnLimparFiltro.addEventListener('click', function() {
+        document.getElementById('filtroMilitares').value = '';
+        carregarMilitaresDisponiveis('');
+    });
+    }
+    
+    const filtroMilitares = document.getElementById('filtroMilitares');
+    if (filtroMilitares) {
+        filtroMilitares.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            const termo = this.value.trim();
+            carregarMilitaresDisponiveis(termo);
+        }
+    });
+    }
+    
+    // Selecionar todos os militares
+    const selecionarTodos = document.getElementById('selecionarTodos');
+    if (selecionarTodos) {
+        selecionarTodos.addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('.militar-checkbox');
+        checkboxes.forEach(cb => cb.checked = this.checked);
+    });
+    }
+    
+    // Adicionar militares selecionados
+    const btnAdicionarSelecionados = document.getElementById('btnAdicionarSelecionados');
+    if (btnAdicionarSelecionados) {
+        btnAdicionarSelecionados.addEventListener('click', function() {
+        adicionarMilitaresSelecionados();
+    });
+    }
+    
+    // Carregar militares quando a data for selecionada
+    if (dataOperacaoInput) {
+        dataOperacaoInput.addEventListener('change', function() {
+        const dataOperacao = this.value;
+        if (dataOperacao) {
+            console.log('Data selecionada:', dataOperacao);
+            carregarMilitaresDisponiveis('');
+        }
+    });
+    }
+    
+    // Carregar militares quando o horário de início mudar
+    if (horaInicio) {
+        horaInicio.addEventListener('change', function() {
+        const dataOperacao = document.getElementById('data_operacao').value;
+        if (dataOperacao) {
+            console.log('Horário selecionado:', this.value);
+            carregarMilitaresDisponiveis('');
+        }
+    });
+    }
+    
+    // Carregar militares quando o tipo de planejada for selecionado
+    if (tipoPlanejada) {
+        tipoPlanejada.addEventListener('change', function() {
+        const dataOperacao = document.getElementById('data_operacao').value;
+        if (dataOperacao) {
+            console.log('Tipo selecionado:', this.value);
+            carregarMilitaresDisponiveis('');
+        }
+    });
+    }
+    
+    
+    // Atualizar campos hidden antes do envio do formulário
+    const planejadaForm = document.getElementById('planejadaForm');
+    if (planejadaForm) {
+        planejadaForm.addEventListener('submit', function() {
+        atualizarCamposHiddenMilitares();
+    });
+    }
+
+    
+    function carregarMilitaresEscalados() {
+        if (!isEditMode || !planejadaId) return;
+        
+        fetch(`/militares/operacoes-planejadas/${planejadaId}/api/militares-escalados/`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                const container = document.getElementById('militares-escalados-container');
+                const totalBadge = document.getElementById('total-escalados');
+                
+                totalBadge.textContent = data.total;
+                
+                // NÃO zerar valores automaticamente no modo de edição
+                // Os valores devem ser preservados conforme foram salvos
+                
+                if (data.total === 0) {
+                    container.innerHTML = `
+                        <div class="text-center text-muted py-3">
+                            <i class="fas fa-users fa-2x mb-2"></i>
+                            <p>Nenhum militar escalado</p>
+                        </div>
+                    `;
+                } else {
+                    // Adicionar militares ao array de selecionados
+                    militaresSelecionados = data.militares.map(militar => ({
+                        id: militar.id,
+                        nome_completo: militar.nome_completo,
+                        posto_graduacao_display: militar.posto_graduacao_display,
+                        matricula: militar.matricula,
+                        lotacao: militar.lotacao
+                    }));
+                    
+                    let html = '<div class="row">';
+                    data.militares.forEach(militar => {
+                        html += `
+                            <div class="col-md-6 col-lg-4 mb-3">
+                                <div class="card border-0 bg-white shadow-sm h-100">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <div class="d-flex align-items-center">
+                                                <div class="avatar bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                                    <i class="fas fa-user"></i>
+                                                </div>
+                                                <div>
+                                                    <div class="fw-bold text-dark">${militar.nome_completo}</div>
+                                                    <div class="text-muted small">
+                                                        <span class="badge bg-secondary me-1">${militar.posto_graduacao_display}</span>
+                                                        <span class="text-muted">${militar.matricula}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% if pode_editar_militares %}
+                                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removerMilitar(${militar.id})" title="Remover militar">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                            {% else %}
+                                            <span class="text-muted small">
+                                                <i class="fas fa-lock"></i>
+                                            </span>
+                                            {% endif %}
+                                        </div>
+                                        <div class="text-muted small">
+                                            <i class="fas fa-map-marker-alt me-1"></i>${militar.lotacao || 'Não informado'}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                    container.innerHTML = html;
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar militares escalados:', error);
+            });
+    }
+    
+    function atualizarInterfaceMilitares() {
+        const container = document.getElementById('militares-escalados-container');
+        const totalBadge = document.getElementById('total-escalados');
+        
+        totalBadge.textContent = militaresSelecionados.length;
+        
+        if (militaresSelecionados.length === 0) {
+            container.innerHTML = `
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-users fa-3x mb-3 text-muted"></i>
+                    <h6 class="text-muted">Nenhum militar selecionado</h6>
+                    <p class="text-muted small">Clique em "Adicionar Militares" para selecionar militares para esta operação</p>
+                </div>
+            `;
+        } else {
+            let html = '<div class="row">';
+            militaresSelecionados.forEach(militar => {
+                html += `
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card border-0 bg-white shadow-sm h-100">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                            <i class="fas fa-user"></i>
+                                        </div>
+                                        <div>
+                                            <div class="fw-bold text-dark">${militar.nome_completo}</div>
+                                            <div class="text-muted small">
+                                                <span class="badge bg-secondary me-1">${militar.posto_graduacao_display}</span>
+                                                <span class="text-muted">${militar.matricula}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% if pode_editar_militares %}
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removerMilitar(${militar.id})" title="Remover militar">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                    {% else %}
+                                    <span class="text-muted small">
+                                        <i class="fas fa-lock"></i>
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                <div class="text-muted small">
+                                    <i class="fas fa-map-marker-alt me-1"></i>${militar.lotacao || 'Não informado'}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        }
+    }
+    
+    function carregarMilitaresDisponiveis(termo = '') {
+        // Se for criação, usar uma API genérica ou simular dados
+        if (!isEditMode || !planejadaId) {
+            carregarMilitaresDisponiveisCriacao(termo);
+            return;
+        }
+        
+        const url = `/militares/operacoes-planejadas/${planejadaId}/api/militares-disponiveis/${termo ? '?q=' + encodeURIComponent(termo) : ''}`;
+        
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                const tbody = document.getElementById('listaMilitares');
+                const totalBadge = document.getElementById('total-disponiveis');
+                
+                totalBadge.textContent = data.total;
+                
+                if (data.total === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="text-center py-4">
+                                <div class="text-muted">
+                                    <i class="fas fa-search fa-2x mb-2"></i>
+                                    <p>Nenhum militar encontrado</p>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                } else {
+                    let html = '';
+                    data.militares.forEach(militar => {
+                        let statusClass, statusIcon, rowClass = '';
+                        
+                        // Definir classes e ícones baseados no status
+                        if (militar.status_disponibilidade === 'disponivel') {
+                            statusClass = 'text-success';
+                            statusIcon = 'fa-check-circle';
+                        } else if (militar.status_disponibilidade === 'indisponivel_p4') {
+                            statusClass = 'text-danger';
+                            statusIcon = 'fa-ban';
+                            rowClass = 'table-danger';
+                        } else if (militar.status_disponibilidade === 'ja_escalado') {
+                            statusClass = 'text-info';
+                            statusIcon = 'fa-user-check';
+                        } else {
+                            statusClass = 'text-warning';
+                            statusIcon = 'fa-exclamation-triangle';
+                        }
+                        
+                        // Determinar tipos permitidos baseado no status
+                        let tiposPermitidos = '';
+                        if (militar.status_disponibilidade === 'disponivel') {
+                            tiposPermitidos = '<span class="badge bg-success">P1, P2, P3, P4</span>';
+                        } else if (militar.status_disponibilidade === 'indisponivel_p1') {
+                            tiposPermitidos = '<span class="badge bg-warning">P2, P3, P4</span>';
+                        } else if (militar.status_disponibilidade === 'indisponivel_p2') {
+                            tiposPermitidos = '<span class="badge bg-warning">P3, P4</span>';
+                        } else if (militar.status_disponibilidade === 'indisponivel_p3') {
+                            tiposPermitidos = '<span class="badge bg-warning">P4</span>';
+                        } else if (militar.status_disponibilidade === 'indisponivel_p4') {
+                            tiposPermitidos = '<span class="badge bg-danger">Nenhum</span>';
+                        } else {
+                            tiposPermitidos = '<span class="badge bg-secondary">N/A</span>';
+                        }
+                        
+                        html += `
+                            <tr class="${rowClass}">
+                                <td class="text-center">
+                                    <input type="checkbox" class="form-check-input militar-checkbox" 
+                                           value="${militar.id}" 
+                                           ${militar.ja_escalado || militar.status_disponibilidade.startsWith('indisponivel_') ? 'disabled' : ''}>
+                                </td>
+                                <td>${militar.nome_completo}</td>
+                                <td>${militar.posto_graduacao_display}</td>
+                                <td>${militar.cpf || ''}</td>
+                                <td>
+                                    <span class="${statusClass}">
+                                        <i class="fas ${statusIcon} me-1"></i>
+                                        ${militar.mensagem_status}
+                                    </span>
+                                </td>
+                                <td>${tiposPermitidos}</td>
+                            </tr>
+                        `;
+                    });
+                    tbody.innerHTML = html;
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar militares disponíveis:', error);
+            });
+    }
+    
+    function carregarMilitaresDisponiveisCriacao(termo = '') {
+        // Para criação, vamos usar a data, horário e tipo de planejada selecionados
+        const dataOperacao = document.getElementById('data_operacao').value;
+        const horaInicio = document.getElementById('hora_inicio').value;
+        const tipoPlanejada = document.getElementById('tipo_planejada').value;
+        
+        if (!dataOperacao) {
+            document.getElementById('listaMilitares').innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center py-4">
+                        <div class="text-muted">
+                            <i class="fas fa-calendar-alt fa-2x mb-2"></i>
+                            <p>Selecione uma data para ver os militares disponíveis</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        // Construir URL com parâmetros
+        let url = `/militares/api/militares-disponiveis-planejada/?data=${dataOperacao}`;
+        if (horaInicio) {
+            url += `&hora_inicio=${horaInicio}`;
+        }
+        if (tipoPlanejada) {
+            url += `&tipo=${tipoPlanejada}`;
+        }
+        if (termo) {
+            url += `&q=${encodeURIComponent(termo)}`;
+        }
+        
+        console.log('Carregando militares com URL:', url);
+        
+        // Mostrar indicador de carregamento
+        const tbody = document.getElementById('listaMilitares');
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center py-4">
+                        <div class="text-muted">
+                            <i class="fas fa-spinner fa-spin fa-2x mb-2"></i>
+                            <p>Carregando militares...</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+        
+        fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Resposta da API:', data);
+                
+                const tbody = document.getElementById('listaMilitares');
+                const totalBadge = document.getElementById('total-disponiveis');
+                
+                if (!tbody) {
+                    console.error('Elemento listaMilitares não encontrado');
+                    return;
+                }
+                
+                if (data.error) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="text-center py-4">
+                                <div class="text-danger">
+                                    <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                                    <p>Erro: ${data.error}</p>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                    if (totalBadge) totalBadge.textContent = '0';
+                    return;
+                }
+                
+                if (totalBadge) {
+                    totalBadge.textContent = data.total || (data.militares ? data.militares.length : 0);
+                }
+                
+                if (!data.militares || data.militares.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="text-center py-4">
+                                <div class="text-muted">
+                                    <i class="fas fa-search fa-2x mb-2"></i>
+                                    <p>Nenhum militar encontrado</p>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                } else {
+                    let html = '';
+                    data.militares.forEach(militar => {
+                        const jaSelecionado = militaresSelecionados.some(m => m.id === militar.id);
+                        
+                        // Determinar status baseado na disponibilidade
+                        let statusClass, statusIcon, mensagemStatus;
+                        if (jaSelecionado) {
+                            statusClass = 'text-warning';
+                            statusIcon = 'fa-exclamation-triangle';
+                            mensagemStatus = 'Já selecionado';
+                        } else if (militar.status_disponibilidade === 'disponivel') {
+                            statusClass = 'text-success';
+                            statusIcon = 'fa-check-circle';
+                            mensagemStatus = 'Disponível';
+                        } else if (militar.status_disponibilidade === 'indisponivel_p1') {
+                            statusClass = 'text-warning';
+                            statusIcon = 'fa-exclamation-triangle';
+                            mensagemStatus = 'Indisponível para P1';
+                        } else if (militar.status_disponibilidade === 'indisponivel_p2') {
+                            statusClass = 'text-warning';
+                            statusIcon = 'fa-exclamation-triangle';
+                            mensagemStatus = 'Indisponível para P2';
+                        } else if (militar.status_disponibilidade === 'indisponivel_p3') {
+                            statusClass = 'text-warning';
+                            statusIcon = 'fa-exclamation-triangle';
+                            mensagemStatus = 'Indisponível para P3';
+                        } else if (militar.status_disponibilidade === 'indisponivel_p4') {
+                            statusClass = 'text-danger';
+                            statusIcon = 'fa-ban';
+                            mensagemStatus = 'Indisponível para P4';
+                        } else {
+                            statusClass = 'text-success';
+                            statusIcon = 'fa-check-circle';
+                            mensagemStatus = 'Disponível';
+                        }
+                        
+                        // Preparar informações das planejadas do dia
+                        let planejadasInfo = '';
+                        if (militar.planejadas_dia && militar.planejadas_dia.length > 0) {
+                            planejadasInfo = '<div class="small text-muted mt-1">';
+                            planejadasInfo += '<i class="fas fa-calendar-check me-1"></i>';
+                            planejadasInfo += '<strong>Planejadas do dia:</strong><br>';
+                            militar.planejadas_dia.forEach(planejada => {
+                                planejadasInfo += `• ${planejada.nome} (${planejada.tipo}) - ${planejada.hora_inicio} às ${planejada.hora_termino} - ${planejada.cidade}<br>`;
+                            });
+                            planejadasInfo += '</div>';
+                        }
+                        
+                        // Determinar tipos permitidos baseado no status de disponibilidade
+                        let tiposPermitidos = '';
+                        if (militar.status_disponibilidade === 'disponivel') {
+                            tiposPermitidos = '<span class="badge bg-success">P1, P2, P3, P4</span>';
+                        } else if (militar.status_disponibilidade === 'indisponivel_p1') {
+                            tiposPermitidos = '<span class="badge bg-warning">P2, P3, P4</span>';
+                        } else if (militar.status_disponibilidade === 'indisponivel_p2') {
+                            tiposPermitidos = '<span class="badge bg-warning">P3, P4</span>';
+                        } else if (militar.status_disponibilidade === 'indisponivel_p3') {
+                            tiposPermitidos = '<span class="badge bg-warning">P4</span>';
+                        } else if (militar.status_disponibilidade === 'indisponivel_p4') {
+                            tiposPermitidos = '<span class="badge bg-danger">Nenhum</span>';
+                        } else {
+                            tiposPermitidos = '<span class="badge bg-success">P1, P2, P3, P4</span>';
+                        }
+                        
+                        html += `
+                            <tr>
+                                    <td class="text-center">
+                                        <input type="checkbox" class="form-check-input militar-checkbox" 
+                                               value="${militar.id}" 
+                                               ${jaSelecionado || militar.status_disponibilidade === 'indisponivel_p4' ? 'disabled' : ''}>
+                                    </td>
+                                    <td>
+                                        <div>${militar.nome_completo}</div>
+                                        ${planejadasInfo}
+                                    </td>
+                                    <td>${militar.posto_graduacao_display || militar.posto_graduacao}</td>
+                                    <td>
+                                        <div>${militar.lotacao || 'Não informado'}</div>
+                                        ${militar.lotacao_nivel ? '<small class="text-muted">' + militar.lotacao_nivel + '</small>' : ''}
+                                    </td>
+                                    <td>${militar.cpf || ''}</td>
+                                <td>
+                                    <span class="${statusClass}">
+                                        <i class="fas ${statusIcon} me-1"></i>
+                                        ${mensagemStatus}
+                                    </span>
+                                </td>
+                                <td>${tiposPermitidos}</td>
+                            </tr>
+                        `;
+                    });
+                    tbody.innerHTML = html;
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar militares disponíveis:', error);
+                // Fallback: mostrar mensagem de erro
+                const tbody = document.getElementById('listaMilitares');
+                const totalBadge = document.getElementById('total-disponiveis');
+                
+                if (tbody) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="text-center py-4">
+                                <div class="text-danger">
+                                    <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                                    <p>Erro ao carregar militares</p>
+                                    <small>Verifique sua conexão e tente novamente</small>
+                                    <br><small class="text-muted">Erro: ${error.message}</small>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }
+                if (totalBadge) {
+                    totalBadge.textContent = '0';
+                }
+            });
+    }
+    
+    function adicionarMilitaresSelecionados() {
+        // Verificar se pode editar militares
+        {% if not pode_editar_militares %}
+        mostrarToastErro('Você não tem permissão para editar militares desta operação. Apenas o fiscal pode editar antes da assinatura, ou superusuários após a assinatura.');
+        return;
+        {% endif %}
+        
+        const checkboxes = document.querySelectorAll('.militar-checkbox:checked');
+        
+        if (checkboxes.length === 0) {
+            mostrarModalValidacao('Selecione pelo menos um militar para adicionar.');
+            return;
+        }
+        
+        // Verificar se algum militar selecionado não é elegível para o tipo de planejada
+        let militaresIndisponiveis = [];
+        checkboxes.forEach(checkbox => {
+            const row = checkbox.closest('tr');
+            const statusSpan = row.querySelector('span');
+            if (statusSpan && statusSpan.textContent.includes('Indisponível para')) {
+                const nomeMilitar = row.cells[1].textContent;
+                const motivo = statusSpan.textContent.replace(/Indisponível para P[1-4] - /, '');
+                militaresIndisponiveis.push(`${nomeMilitar}: ${motivo}`);
+            }
+        });
+        
+        if (militaresIndisponiveis.length > 0) {
+            let regras = '';
+            if (statusSpan && statusSpan.textContent.includes('P1')) {
+                regras = 'REGRAS P1:\n• Deve ter sido escalado em turno de 6h de SERVIÇO NORMAL antes\n• Deve ter folgado 6h após o serviço normal';
+            } else if (statusSpan && statusSpan.textContent.includes('P2')) {
+                regras = 'REGRAS P2:\n• Deve ter folgado pelo menos 12h após qualquer serviço normal';
+            } else if (statusSpan && statusSpan.textContent.includes('P3')) {
+                regras = 'REGRAS P3:\n• Deve ter folgado pelo menos 18h após qualquer serviço normal';
+            } else if (statusSpan && statusSpan.textContent.includes('P4')) {
+                regras = 'REGRAS P4:\n• Deve ter sido escalado em turno de 24h de SERVIÇO NORMAL antes\n• Deve ter folgado 24h após o serviço normal\n• Após uma P4, só pode entrar em nova P4 após ser escalado novamente em turno de 24h de serviço normal';
+            }
+            
+            mostrarModalValidacao(`Os seguintes militares não podem participar da planejada:\n\n${militaresIndisponiveis.join('\n\n')}\n\n${regras}\n\nRemova-os da seleção e tente novamente.`);
+            return;
+        }
+        
+        if (!isEditMode || !planejadaId) {
+            // Modo criação: adicionar ao array local
+            adicionarMilitaresSelecionadosCriacao(checkboxes);
+        } else {
+            // Modo edição: usar API
+            adicionarMilitaresSelecionadosEdicao(checkboxes);
+        }
+    }
+    
+    function adicionarMilitaresSelecionadosCriacao(checkboxes) {
+        // Verificar se pode editar militares
+        {% if not pode_editar_militares %}
+        mostrarToastErro('Você não tem permissão para editar militares desta operação. Apenas o fiscal pode editar antes da assinatura, ou superusuários após a assinatura.');
+        return;
+        {% endif %}
+        
+        const militaresIds = Array.from(checkboxes).map(cb => cb.value);
+        let adicionados = 0;
+        
+        // VALIDAÇÃO: Verificar se não excede o limite de bombeiros
+        const numeroBombeiros = parseInt(document.getElementById('policiais').value) || 1;
+        const quantidadeAtual = militaresSelecionados.length;
+        const quantidadeNova = quantidadeAtual + militaresIds.length;
+        
+        if (quantidadeNova > numeroBombeiros) {
+            mostrarModalValidacao(`Não é possível adicionar ${militaresIds.length} bombeiro${militaresIds.length > 1 ? 's' : ''}. A operação permite apenas ${numeroBombeiros} e já possui ${quantidadeAtual}. Remova ${quantidadeAtual > 1 ? 'alguns' : 'o'} ou aumente o número.`);
+            return;
+        }
+        
+        // Buscar dados dos militares selecionados
+        militaresIds.forEach(militarId => {
+            // Simular busca de dados do militar (em um caso real, você faria uma requisição)
+            const checkbox = Array.from(checkboxes).find(cb => cb.value === militarId);
+            const row = checkbox.closest('tr');
+            const nome = row.cells[1].textContent;
+            const posto = row.cells[2].textContent;
+            
+            const militar = {
+                id: parseInt(militarId),
+                nome_completo: nome,
+                posto_graduacao_display: posto
+            };
+            
+            // Verificar se já não está selecionado
+            if (!militaresSelecionados.some(m => m.id === militar.id)) {
+                militaresSelecionados.push(militar);
+                adicionados++;
+            }
+        });
+        
+        if (adicionados > 0) {
+            atualizarInterfaceMilitares();
+            carregarMilitaresDisponiveis(document.getElementById('filtroMilitares').value);
+            
+            // Fechar o modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalSelecionarMilitares'));
+            if (modal) {
+                modal.hide();
+            }
+            
+            // Militar adicionado com sucesso
+            adicionados++;
+        } else {
+            // Nenhum militar novo adicionado
+        }
+    }
+    
+    function adicionarMilitaresSelecionadosEdicao(checkboxes) {
+        // Verificar se pode editar militares
+        {% if not pode_editar_militares %}
+        mostrarToastErro('Você não tem permissão para editar militares desta operação. Apenas o fiscal pode editar antes da assinatura, ou superusuários após a assinatura.');
+        return;
+        {% endif %}
+        
+        const militaresIds = Array.from(checkboxes).map(cb => cb.value);
+        let adicionados = 0;
+        let erros = 0;
+        
+        // VALIDAÇÃO: Verificar se não excede o limite de bombeiros
+        const numeroBombeiros = parseInt(document.getElementById('policiais').value) || 1;
+        const quantidadeAtual = document.getElementById('total-escalados').textContent;
+        const quantidadeNova = parseInt(quantidadeAtual) + militaresIds.length;
+        
+        if (quantidadeNova > numeroBombeiros) {
+            mostrarModalValidacao(`Não é possível adicionar ${militaresIds.length} bombeiro${militaresIds.length > 1 ? 's' : ''}. A operação permite apenas ${numeroBombeiros} e já possui ${quantidadeAtual}. Remova ${quantidadeAtual > 1 ? 'alguns' : 'o'} ou aumente o número.`);
+            return;
+        }
+        
+        militaresIds.forEach(militarId => {
+            const formData = new FormData();
+            formData.append('militar_id', militarId);
+            
+            fetch(`/militares/operacoes-planejadas/${planejadaId}/api/adicionar-militar/`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    adicionados++;
+                    
+                    // Atualizar valores se disponível
+                    if (data.valores_atualizados) {
+                        atualizarValoresPlanejada(data.valores_atualizados);
+                    }
+                } else {
+                    erros++;
+                    console.error('Erro ao adicionar militar:', data);
+                    // Mostrar toast com erro real
+                    if (data.message) {
+                        mostrarToastErro(data.message);
+                    } else {
+                        // Mensagem padrão baseada no tipo de erro
+                        let mensagemErro = 'Erro ao adicionar militar';
+                        if (data.tipo_erro === 'limite_mensal_planejadas') {
+                            mensagemErro = 'Limite mensal de planejadas ultrapassado!';
+                        } else if (data.tipo_erro === 'erro_validacao_limite') {
+                            mensagemErro = 'Erro ao validar limite de planejadas';
+                        }
+                        mostrarToastErro(mensagemErro);
+                    }
+                }
+                
+                // Se é o último, atualizar a interface
+                if (adicionados + erros === militaresIds.length) {
+                    if (adicionados > 0) {
+                        carregarMilitaresEscalados();
+                        carregarMilitaresDisponiveis(document.getElementById('filtroMilitares').value);
+                        
+                        // Fechar o modal
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('modalSelecionarMilitares'));
+                        if (modal) {
+                            modal.hide();
+                        }
+                    }
+                    
+                    if (erros > 0) {
+                        // Alguns erros encontrados - já mostrado no toast acima
+                    } else {
+                        // Todos os militares adicionados com sucesso
+                    }
+                }
+            })
+            .catch(error => {
+                erros++;
+                console.error('Erro ao adicionar militar:', error);
+            });
+        });
+    }
+    
+    function removerMilitar(militarId) {
+        // Verificar se pode editar militares
+        {% if not pode_editar_militares %}
+        mostrarToastErro('Você não tem permissão para editar militares desta operação. Apenas o fiscal pode editar antes da assinatura, ou superusuários após a assinatura.');
+        return;
+        {% endif %}
+        
+        // Armazenar ID do militar para usar no modal
+        window.militarIdParaRemover = militarId;
+        
+        // Buscar nome do militar para exibir no modal
+        const militar = militaresSelecionados.find(m => m.id === parseInt(militarId));
+        const nomeMilitar = militar ? militar.nome_completo : 'este militar';
+        
+        // Atualizar conteúdo do modal
+        document.getElementById('modalConfirmarRemocaoNome').textContent = nomeMilitar;
+        
+        // Abrir modal de confirmação
+        const modal = new bootstrap.Modal(document.getElementById('modalConfirmarRemocao'));
+        modal.show();
+    }
+    
+    function confirmarRemocaoMilitar() {
+        const militarId = window.militarIdParaRemover;
+        
+        if (!isEditMode || !planejadaId) {
+            // Modo criação: remover do array local
+            removerMilitarLocal(militarId);
+        } else {
+            // Modo edição: usar API
+            removerMilitarEdicao(militarId);
+        }
+        
+        // Fechar modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('modalConfirmarRemocao'));
+        if (modal) {
+            modal.hide();
+        }
+    }
+    
+    // Função para atualizar valores da planejada após adição/remoção de militares
+    function atualizarValoresPlanejada(valores) {
+        console.log('Atualizando valores:', valores);
+        
+        // Atualizar valor total
+        const valorTotalInput = document.getElementById('valor_total');
+        if (valorTotalInput) {
+            valorTotalInput.value = valores.valor_total.toFixed(2);
+            formatCurrency(valorTotalInput);
+            console.log('Valor total atualizado para:', valorTotalInput.value);
+        } else {
+            console.log('Elemento valor_total não encontrado');
+        }
+        
+        // Atualizar saldo
+        const saldoInput = document.getElementById('saldo');
+        if (saldoInput) {
+            saldoInput.value = valores.saldo.toFixed(2);
+            formatCurrency(saldoInput);
+            console.log('Saldo atualizado para:', saldoInput.value);
+        } else {
+            console.log('Elemento saldo não encontrado');
+        }
+        
+        // Atualizar quantidade de policiais
+        const policiaisInput = document.getElementById('policiais');
+        if (policiaisInput) {
+            policiaisInput.value = valores.quantidade_militares;
+            console.log('Policiais atualizado para:', policiaisInput.value);
+        } else {
+            console.log('Elemento policiais não encontrado');
+        }
+        
+        // Atualizar contador de militares escalados
+        const totalEscaladosElement = document.getElementById('total-escalados');
+        if (totalEscaladosElement) {
+            totalEscaladosElement.textContent = valores.quantidade_militares;
+            console.log('Total escalados atualizado para:', totalEscaladosElement.textContent);
+        } else {
+            console.log('Elemento total-escalados não encontrado');
+        }
+        
+        console.log('Valores atualizados com sucesso');
+    }
+    
+    // Definir funções globalmente para serem acessíveis via onclick
+    window.removerMilitar = removerMilitar;
+    window.confirmarRemocaoMilitar = confirmarRemocaoMilitar;
+    
+    function removerMilitarLocal(militarId) {
+        // Verificar se pode editar militares
+        {% if not pode_editar_militares %}
+        mostrarToastErro('Você não tem permissão para editar militares desta operação. Apenas o fiscal pode editar antes da assinatura, ou superusuários após a assinatura.');
+        return;
+        {% endif %}
+        
+        const militarRemovido = militaresSelecionados.find(m => m.id === parseInt(militarId));
+        militaresSelecionados = militaresSelecionados.filter(m => m.id !== parseInt(militarId));
+        atualizarInterfaceMilitares();
+        carregarMilitaresDisponiveis(document.getElementById('filtroMilitares').value);
+        
+        // Militar removido com sucesso
+        if (militarRemovido) {
+            // Militar removido
+        }
+    }
+    
+    
+    function removerMilitarEdicao(militarId) {
+        // Verificar se pode editar militares
+        {% if not pode_editar_militares %}
+        mostrarToastErro('Você não tem permissão para editar militares desta operação. Apenas o fiscal pode editar antes da assinatura, ou superusuários após a assinatura.');
+        return;
+        {% endif %}
+        
+        const formData = new FormData();
+        formData.append('militar_id', militarId);
+        
+        fetch(`/militares/operacoes-planejadas/${planejadaId}/api/remover-militar/`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                carregarMilitaresEscalados();
+                carregarMilitaresDisponiveis(document.getElementById('filtroMilitares').value);
+                
+                // Atualizar valores se disponível
+                if (data.valores_atualizados) {
+                    atualizarValoresPlanejada(data.valores_atualizados);
+                }
+                
+                alert(data.message);
+            } else {
+                alert('Erro: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao remover militar:', error);
+            alert('Erro ao remover militar.');
+        });
+    }
+    
+    function atualizarCamposHiddenMilitares() {
+        const container = document.getElementById('militares-selecionados-hidden');
+        container.innerHTML = ''; // Limpar campos existentes
+        
+        // Adicionar campos hidden para cada militar selecionado
+        militaresSelecionados.forEach(militar => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'militares_selecionados';
+            input.value = militar.id;
+            container.appendChild(input);
+        });
+    }
+    
+    // Interceptar envio do formulário para verificar impedimentos
+    if (planejadaForm) {
+        planejadaForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const submitButton = this.querySelector('button[type="submit"]');
+        const originalText = submitButton.innerHTML;
+        
+        // Mostrar loading
+        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Salvando...';
+        submitButton.disabled = true;
+        
+        fetch(this.action || window.location.href, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            // Verificar se a resposta é JSON
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                return response.json();
+            } else {
+                // Se não for JSON, assumir redirecionamento
+                throw new Error('Resposta não é JSON');
+            }
+        })
+        .then(data => {
+            if (data.success === false && data.impedimentos) {
+                // Mostrar toast de erro com impedimentos
+                let mensagemErro = data.message || 'Operação não pode ser realizada';
+                if (data.impedimentos && data.impedimentos.length > 0) {
+                    mensagemErro += ': ' + data.impedimentos[0].titulo;
+                }
+                mostrarToastErro(mensagemErro);
+            } else if (data.success === false && data.message) {
+                // Mostrar toast com mensagem de erro real
+                mostrarToastErro(data.message);
+            } else if (data.success === false && data.tipo_erro) {
+                // Mostrar mensagem baseada no tipo de erro
+                let mensagemErro = 'Erro ao processar operação';
+                if (data.tipo_erro === 'limite_mensal_planejadas') {
+                    mensagemErro = 'Limite mensal de planejadas ultrapassado!';
+                } else if (data.tipo_erro === 'conflito_militares') {
+                    mensagemErro = data.message || 'Conflito com militares selecionados';
+                } else if (data.tipo_erro === 'erro_validacao_limite') {
+                    mensagemErro = 'Erro ao validar limite de planejadas';
+                }
+                mostrarToastErro(mensagemErro);
+            } else if (data.success === true) {
+                // Sucesso - mostrar toast e redirecionar
+                const mensagemSucesso = data.message || 'Operação realizada com sucesso!';
+                mostrarToastSucesso(mensagemSucesso, '/militares/operacoes-planejadas/');
+            } else {
+                // Resposta inesperada
+                mostrarToastErro('Resposta inesperada do servidor');
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            mostrarToastErro('Erro de conexão. Tente novamente.');
+        })
+        .finally(() => {
+            // Restaurar botão
+            submitButton.innerHTML = originalText;
+            submitButton.disabled = false;
+        });
+    });
+    }
+    
+    function mostrarModalImpedimentos(impedimentos) {
+        // Verificar se já existe uma instância do modal
+        let modal = bootstrap.Modal.getInstance(document.getElementById('modalImpedimentos'));
+        
+        // Se não existir, criar nova instância
+        if (!modal) {
+            modal = new bootstrap.Modal(document.getElementById('modalImpedimentos'));
+        }
+        
+        const listaImpedimentos = document.getElementById('listaImpedimentos');
+        
+        // Limpar lista anterior
+        listaImpedimentos.innerHTML = '';
+        
+        // Adicionar cada impedimento
+        impedimentos.forEach(impedimento => {
+            const impedimentoDiv = document.createElement('div');
+            impedimentoDiv.className = 'card mb-3 border-danger';
+            impedimentoDiv.innerHTML = `
+                <div class="card-header bg-danger text-white">
+                    <h6 class="mb-0">
+                        <i class="${impedimento.icone} me-2"></i>${impedimento.titulo}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0 text-muted">${impedimento.descricao.replace(/\n/g, '<br>')}</p>
+                </div>
+            `;
+            listaImpedimentos.appendChild(impedimentoDiv);
+        });
+        
+        // Mostrar modal
+        modal.show();
+    }
+});
+</script>
+
+<style>
+    .form-label {
+        font-weight: 600;
+        color: #495057;
+    }
+    
+    .form-control:focus,
+    .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+    }
+    
+    .input-group-text {
+        background-color: #e9ecef;
+        border-color: #ced4da;
+        font-weight: 600;
+    }
+    
+    .card-header {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .btn-success {
+        background-color: #198754;
+        border-color: #198754;
+    }
+    
+    .btn-success:hover {
+        background-color: #157347;
+        border-color: #146c43;
+    }
+    
+    /* Estilos para o modal */
+    .modal-overlay {
+        animation: fadeIn 0.3s ease-in-out;
+    }
+    
+    .modal-content {
+        animation: slideIn 0.3s ease-in-out;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    @keyframes slideIn {
+        from { 
+            opacity: 0;
+            transform: translateY(-50px) scale(0.9);
+        }
+        to { 
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+</style>
+
+<script>
+function fecharModal() {
+    // Fechar o modal e redirecionar para a lista
+    window.location.href = "{% url 'militares:planejadas_list' %}";
+}
+
+// Fechar modal ao clicar no overlay
+document.addEventListener('DOMContentLoaded', function() {
+    const modalOverlay = document.getElementById('modal-overlay');
+    if (modalOverlay) {
+        modalOverlay.addEventListener('click', function(e) {
+    if (e.target === this) {
+        fecharModal();
+            }
+        });
+    }
+});
+
+// Função para carregar status de tempo
+function carregarStatusTempo() {
+    // Só executar se há uma planejada existente
+    {% if planejada %}
+        // Usar uma API específica para obter o status de tempo em JSON
+        fetch(`/militares/operacoes-planejadas/{{ planejada.id }}/api/status-tempo/`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status_tempo) {
+                    const statusDiv = document.getElementById('status-tempo');
+                    const mensagemSpan = document.getElementById('status-mensagem');
+                    
+                    if (statusDiv && mensagemSpan) {
+                        // Atualizar classe do alerta baseado na cor
+                        statusDiv.className = `alert alert-${data.status_tempo.cor}`;
+                        
+                        // Atualizar mensagem
+                        mensagemSpan.textContent = data.status_tempo.mensagem;
+                        
+                        // Adicionar ícone baseado na cor
+                        let icon = 'fas fa-info-circle';
+                        if (data.status_tempo.cor === 'success') {
+                            icon = 'fas fa-check-circle';
+                        } else if (data.status_tempo.cor === 'warning') {
+                            icon = 'fas fa-exclamation-triangle';
+                        } else if (data.status_tempo.cor === 'danger') {
+                            icon = 'fas fa-times-circle';
+                        }
+                        
+                        statusDiv.innerHTML = `<i class="${icon} me-2"></i><span id="status-mensagem">${data.status_tempo.mensagem}</span>`;
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar status de tempo:', error);
+                const mensagemSpan = document.getElementById('status-mensagem');
+                if (mensagemSpan) {
+                    mensagemSpan.textContent = 'Erro ao carregar status de tempo';
+                }
+            });
+    {% endif %}
+}
+
+// Fechar modal com tecla ESC
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        fecharModal();
+    }
+});
+
+// Prevenir scroll do body quando modal estiver aberto
+document.addEventListener('DOMContentLoaded', function() {
+    if (document.body) {
+document.body.style.overflow = 'hidden';
+    }
+
+// Restaurar scroll quando modal for fechado
+window.addEventListener('beforeunload', function() {
+        if (document.body) {
+    document.body.style.overflow = 'auto';
+        }
+    });
+});
+
+// Interceptar submit do formulário para melhor UX
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('planejadaForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+    // Adicionar indicador de carregamento
+    const submitBtn = this.querySelector('button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Salvando...';
+        submitBtn.disabled = true;
+            }
+        });
+    }
+});
+
+// Verificar se há mensagens de sucesso e fechar modal
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicialização removida - não mais necessária
+    
+    const form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            // Validação silenciosa do campo link_pdf_nota
+        });
+    }
+});
+
+// Função para mostrar/esconder botão de visualizar nota (removida - não mais necessária)
+
+// Função para colar link PDF
+async function colarLinkPDF() {
+    const campoNota = document.getElementById('numero_nota');
+    const campoLink = document.getElementById('link_pdf_nota');
+    
+    if (!campoNota || !campoLink) {
+        console.error('Campos necessários não encontrados');
+        return;
+    }
+    
+    // Tentar ler da área de transferência
+    try {
+        const textoClipboard = await navigator.clipboard.readText();
+        
+        if (textoClipboard && textoClipboard.trim() !== '') {
+            // Se conseguiu ler, processar imediatamente
+            processarLinkPDF(textoClipboard);
+            return;
+        }
+    } catch (err) {
+        // Ignorar erro de permissão (é tratado pelo fallback)
+        if (err.name !== 'NotAllowedError') {
+            console.debug('Erro ao ler clipboard:', err);
+        }
+    }
+    
+    // Se não conseguiu ler automaticamente, mostrar modal para colar
+    mostrarModalColarLink();
+}
+
+// Modal para colar link
+function mostrarModalColarLink() {
+    // Criar modal se não existir
+    let modal = document.getElementById('modal-colar-link');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'modal-colar-link';
+        modal.className = 'modal fade';
+        modal.style.zIndex = '10001'; // Acima do modal da planejada (z-index 10000)
+        modal.innerHTML = `
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title">
+                            <i class="fas fa-paste me-2"></i>Colar Link da Nota
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Cole aqui o link do PDF da nota:</p>
+                        <div class="input-group mb-3">
+                            <input type="text" class="form-control" id="input-link-colar" 
+                                   placeholder="http://localhost:8000/militares/notas/.../gerar-pdf/">
+                        </div>
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Pressione Ctrl+V para colar o link que você copiou
+                        </small>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-1"></i>Cancelar
+                        </button>
+                        <button type="button" class="btn btn-success" onclick="confirmarColarLink()">
+                            <i class="fas fa-check me-1"></i>Processar Link
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    // Aplicar z-index ao backdrop também
+    setTimeout(function() {
+        const backdrop = document.querySelector('.modal-backdrop');
+        if (backdrop) {
+            backdrop.style.zIndex = '10000'; // Abaixo do modal de colar link
+        }
+    }, 100);
+    
+    // Limpar input
+    const inputLink = document.getElementById('input-link-colar');
+    if (inputLink) {
+        inputLink.value = '';
+        inputLink.focus();
+    }
+    
+    // Mostrar modal
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+    
+    // Garantir que o modal fique por cima
+    setTimeout(function() {
+        modal.style.zIndex = '10001';
+        modal.style.display = 'block';
+        
+        const backdrop = document.querySelectorAll('.modal-backdrop');
+        if (backdrop.length > 0) {
+            // Backdrop mais recente (último) deve ficar abaixo do modal
+            backdrop[backdrop.length - 1].style.zIndex = '10000';
+        }
+    }, 100);
+    
+    // Focar no input quando modal abrir
+    modal.addEventListener('shown.bs.modal', function() {
+        const input = document.getElementById('input-link-colar');
+        if (input) {
+            input.focus();
+            input.select();
+        }
+    });
+}
+
+// Confirmar colar link
+function confirmarColarLink() {
+    const inputLink = document.getElementById('input-link-colar');
+    if (!inputLink) {
+        return;
+    }
+    
+    const link = inputLink.value.trim();
+    if (!link) {
+        mostrarModalValidacao('Por favor, cole o link no campo.');
+        return;
+    }
+    
+    // Fechar modal
+    const modal = document.getElementById('modal-colar-link');
+    const bsModal = bootstrap.Modal.getInstance(modal);
+    if (bsModal) {
+        bsModal.hide();
+    }
+    
+    // Processar link
+    processarLinkPDF(link);
+}
+
+// Função para processar o link PDF
+function processarLinkPDF(link) {
+    if (!link || link.trim() === '') {
+        if (typeof mostrarModalValidacao === 'function') {
+        mostrarModalValidacao('Nenhum link encontrado na área de transferência.');
+        } else {
+            alert('Nenhum link encontrado na área de transferência.');
+        }
+        return;
+    }
+    
+    // Verificar se é um link válido do sistema
+    const regexPDF = /\/militares\/notas\/(\d+)\/gerar-pdf\//;
+    const match = link.match(regexPDF);
+    
+    if (match) {
+        const notaId = match[1];
+        // Buscar informações da nota
+        fetch(`/militares/api/buscar-nota-por-id/${notaId}/`)
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                } else {
+                    throw new Error('Nota não encontrada');
+                }
+            })
+            .then(data => {
+                if (data.numero) {
+                    // Preencher o campo com o número da nota
+                    document.getElementById('numero_nota').value = data.numero;
+                    
+                    // Salvar o link do PDF em um campo oculto
+                    const linkPDF = window.location.origin + `/militares/notas/${notaId}/gerar-pdf/`;
+                    document.getElementById('link_pdf_nota').value = linkPDF;
+                    
+                    // Mostrar o link do PDF na interface com informações adicionais
+                    mostrarLinkPDF(linkPDF, data.numero, data);
+                    
+                    if (typeof mostrarModalValidacao === 'function') {
+                    mostrarModalValidacao(`Link colado com sucesso! Nota: ${data.numero}`);
+                } else {
+                        alert(`Link colado com sucesso! Nota: ${data.numero}`);
+                    }
+                } else {
+                    if (typeof mostrarModalValidacao === 'function') {
+                    mostrarModalValidacao('Erro ao obter informações da nota.');
+                    } else {
+                        alert('Erro ao obter informações da nota.');
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                let mensagem = 'Erro ao processar link. Verifique se o link é válido.';
+                
+                // Tratamento específico para erro de conexão
+                if (error.message.includes('Failed to fetch') || error.message.includes('ERR_CONNECTION_REFUSED')) {
+                    mensagem = 'Erro de conexão com o servidor. Verifique se o servidor está rodando. O link foi salvo no campo para processamento posterior.';
+                }
+                
+                if (typeof mostrarModalValidacao === 'function') {
+                    mostrarModalValidacao(mensagem);
+                } else {
+                    alert(mensagem);
+                }
+            });
+    } else {
+        // Tentar extrair número da nota de outros formatos
+        const numeroExtraido = extrairNumeroNota(link);
+        if (numeroExtraido) {
+            document.getElementById('numero_nota').value = numeroExtraido;
+            if (typeof mostrarModalValidacao === 'function') {
+            mostrarModalValidacao(`Número extraído: ${numeroExtraido}`);
+        } else {
+                alert(`Número extraído: ${numeroExtraido}`);
+            }
+        } else {
+            if (typeof mostrarModalValidacao === 'function') {
+            mostrarModalValidacao('Link não reconhecido. Certifique-se de que é um link válido do PDF da nota.');
+            } else {
+                alert('Link não reconhecido. Certifique-se de que é um link válido do PDF da nota.');
+            }
+        }
+    }
+}
+
+// Função para extrair número da nota de diferentes formatos
+function extrairNumeroNota(link) {
+    // Tentar diferentes padrões
+    const padroes = [
+        /nota[^\/]*\/(\d+)/i,
+        /numero[^\/]*\/(\d+)/i,
+        /(\d{3}\/\d{4})/,
+        /(\d{2}\/\d{4})/,
+        /(\d{1}\/\d{4})/
+    ];
+    
+    for (const padrao of padroes) {
+        const match = link.match(padrao);
+        if (match) {
+            return match[1];
+        }
+    }
+    
+    return null;
+}
+
+// Função para mostrar o link do PDF na interface
+function mostrarLinkPDF(linkPDF, numeroNota, dadosNota = null) {
+    // Verificar se já existe um elemento de link
+    let linkElement = document.getElementById('link-pdf-display');
+    
+    if (!linkElement) {
+        // Criar o elemento se não existir
+        linkElement = document.createElement('div');
+        linkElement.id = 'link-pdf-display';
+        linkElement.className = 'col-12 mt-3';
+        
+        // Inserir após o campo de número da nota
+        const numeroNotaField = document.getElementById('numero_nota').closest('.col-md-6');
+        numeroNotaField.parentNode.insertBefore(linkElement, numeroNotaField.nextSibling);
+    }
+    
+    // Preparar informações adicionais
+    let infoAdicional = '';
+    if (dadosNota) {
+        if (dadosNota.titulo) {
+            infoAdicional += `<br><small class="text-muted"><strong>Título:</strong> ${dadosNota.titulo}</small>`;
+        }
+        if (dadosNota.status) {
+            infoAdicional += `<br><small class="text-muted"><strong>Status:</strong> ${dadosNota.status}</small>`;
+        }
+        if (dadosNota.criado_por) {
+            infoAdicional += `<br><small class="text-muted"><strong>Criado por:</strong> ${dadosNota.criado_por}</small>`;
+        }
+        if (dadosNota.data_criacao) {
+            const dataCriacao = new Date(dadosNota.data_criacao).toLocaleDateString('pt-BR');
+            infoAdicional += `<br><small class="text-muted"><strong>Data de criação:</strong> ${dataCriacao}</small>`;
+        }
+    }
+    
+    // Atualizar o conteúdo
+    linkElement.innerHTML = `
+        <div class="alert alert-info">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <i class="fas fa-file-pdf me-2"></i>
+                    <strong>Nota Vinculada:</strong> ${numeroNota}
+                    <br><small class="text-muted">Link salvo automaticamente</small>
+                    ${infoAdicional}
+                </div>
+                <a href="${linkPDF}" target="_blank" class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-external-link-alt me-1"></i>
+                    Abrir PDF
+                </a>
+            </div>
+        </div>
+    `;
+}
+
+// Função para visualizar nota (removida - não mais necessária)
+</script>
+
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Validação (fora do modal principal) -->
+<div id="modal-validacao" class="modal fade" tabindex="-1" aria-hidden="true" style="z-index: 10000;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Validação de Quantidade
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-users fa-2x text-warning"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h6 class="mb-1">Quantidade de Bombeiros</h6>
+                        <p class="text-muted mb-0" id="modal-validacao-mensagem">Mensagem de validação</p>
+                    </div>
+                </div>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Dica:</strong> A quantidade de militares inseridos deve ser exatamente igual ao número de bombeiros informado.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Entendi
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Garantir que o card do link da nota fique fixo */
+.card.border-info {
+    position: relative !important;
+    z-index: 1 !important;
+    float: none !important;
+    clear: both !important;
+}
+
+/* Evitar que outros elementos afetem o posicionamento */
+.card.border-info .card-body {
+    position: relative !important;
+    z-index: 1 !important;
+}
+
+/* Garantir que o botão dentro do card também fique fixo */
+.card.border-info .btn {
+    position: relative !important;
+    z-index: 2 !important;
+}
+</style>
+
+{% endblock %}

@@ -1,0 +1,295 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load militares_extras %}
+
+{% block title %}Licenças Especiais - Lista{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-certificate me-2 text-warning"></i>Licenças Especiais
+                    </h2>
+                    <p class="text-muted mb-0">Gerenciar licenças especiais decorrentes de decênios trabalhados</p>
+                </div>
+                <div>
+                    {% if menu_permissions.BOTAO_LICENCA_ESPECIAL_NOVO or user.is_superuser %}
+                    <a href="{% url 'militares:licenca_especial_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Nova Licença
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Estatísticas -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-list me-2"></i>Total
+                            </h6>
+                            <h4 class="mb-0 mt-2">{{ total_licencas }}</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-calendar me-2"></i>Planejadas
+                            </h6>
+                            <h4 class="mb-0 mt-2">{{ total_planejadas }}</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-dark">
+                        <div class="card-body">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-umbrella-beach me-2"></i>Usufruindo
+                            </h6>
+                            <h4 class="mb-0 mt-2">{{ total_gozando }}</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-check-circle me-2"></i>Usufruídas
+                            </h6>
+                            <h4 class="mb-0 mt-2">{{ total_gozadas }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">
+                                <i class="fas fa-user me-2"></i>Nome
+                            </label>
+                            <input type="text" class="form-control" name="filtro_nome" 
+                                   value="{{ filtro_nome|default:'' }}" placeholder="Digite o nome do militar">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">
+                                <i class="fas fa-id-card me-2"></i>CPF
+                            </label>
+                            <input type="text" class="form-control" name="filtro_cpf" 
+                                   value="{{ filtro_cpf|default:'' }}" placeholder="Digite o CPF">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="PLANEJADA" {% if filtro_status == 'PLANEJADA' %}selected{% endif %}>Planejada</option>
+                                <option value="GOZANDO" {% if filtro_status == 'GOZANDO' %}selected{% endif %}>Usufruindo</option>
+                                <option value="GOZADA" {% if filtro_status == 'GOZADA' %}selected{% endif %}>Usufruída</option>
+                                <option value="CANCELADA" {% if filtro_status == 'CANCELADA' %}selected{% endif %}>Cancelada</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Decênio</label>
+                            <select name="decenio" class="form-select">
+                                <option value="">Todos</option>
+                                {% for i in "123456789"|make_list %}
+                                    <option value="{{ i }}" {% if filtro_decenio == i %}selected{% endif %}>{{ i }}º Decênio</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                            {% if filtro_nome or filtro_cpf or filtro_status or filtro_decenio %}
+                            <a href="{% url 'militares:licenca_especial_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Lista de Licenças Especiais -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Lista de Licenças Especiais
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if licencas %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Militar</th>
+                                        <th>CPF</th>
+                                        <th>Decênio</th>
+                                        <th>Período do Decênio</th>
+                                        <th>Período da Licença</th>
+                                        <th>Duração</th>
+                                        <th>Status</th>
+                                        <th>Plano/Documento</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for licenca in licencas %}
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                {% if licenca.militar.foto %}
+                                                    <img src="{{ licenca.militar.foto.url }}" alt="Foto" class="rounded me-2" style="width: 40px; height: 40px; object-fit: cover;">
+                                                {% endif %}
+                                                <div>
+                                                    <strong>{{ licenca.militar.nome_completo }}</strong><br>
+                                                    <small class="text-muted">{{ licenca.militar.get_posto_graduacao_display|posto_com_bm }}</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <small>{{ licenca.militar.cpf|default:"-" }}</small>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">{{ licenca.decenio }}º Decênio</span>
+                                        </td>
+                                        <td>
+                                            {% if licenca.periodo_decenio != "-" %}
+                                            <div class="card border-primary shadow-sm mb-0" style="max-width: 250px;">
+                                                <div class="card-body p-2">
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="me-2">
+                                                            <i class="fas fa-calendar-check text-primary"></i>
+                                                        </div>
+                                                        <div class="flex-grow-1">
+                                                            <small class="text-muted d-block">Período do {{ licenca.decenio }}º Decênio:</small>
+                                                            <strong class="text-primary">{{ licenca.periodo_decenio }}</strong>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% else %}
+                                            <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <small>
+                                                <strong class="text-primary">{{ licenca.data_inicio|date:"d/m/Y" }}</strong> a 
+                                                <strong class="text-primary">{{ licenca.data_fim|date:"d/m/Y"|default:"-" }}</strong>
+                                            </small>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">{{ licenca.quantidade_meses }} mês{{ licenca.quantidade_meses|pluralize:"es" }}</span>
+                                        </td>
+                                        <td>
+                                            {% if licenca.status == 'PLANEJADA' %}
+                                                <span class="badge bg-info">{{ licenca.get_status_display }}</span>
+                                            {% elif licenca.status == 'GOZANDO' %}
+                                                <span class="badge bg-warning text-dark">{{ licenca.get_status_display }}</span>
+                                            {% elif licenca.status == 'GOZADA' %}
+                                                <span class="badge bg-success">{{ licenca.get_status_display }}</span>
+                                            {% elif licenca.status == 'CANCELADA' %}
+                                                <span class="badge bg-danger">{{ licenca.get_status_display }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if licenca.plano %}
+                                                <small>
+                                                    <strong class="text-primary">
+                                                        <i class="fas fa-calendar-check me-1"></i>{{ licenca.plano.titulo }}
+                                                    </strong>
+                                                    {% if licenca.documento_referencia or licenca.numero_documento %}
+                                                        <br>
+                                                        {% if licenca.documento_referencia %}
+                                                            <span class="text-muted">{{ licenca.documento_referencia }}</span>
+                                                        {% endif %}
+                                                        {% if licenca.numero_documento %}
+                                                            {% if licenca.documento_referencia %}<br>{% endif %}
+                                                            <span class="text-muted">{{ licenca.numero_documento }}</span>
+                                                        {% endif %}
+                                                    {% endif %}
+                                                </small>
+                                            {% elif licenca.documento_referencia or licenca.numero_documento %}
+                                                <small>
+                                                    {% if licenca.documento_referencia %}
+                                                        <strong>{{ licenca.documento_referencia }}</strong>
+                                                    {% endif %}
+                                                    {% if licenca.numero_documento %}
+                                                        {% if licenca.documento_referencia %}<br>{% endif %}{{ licenca.numero_documento }}
+                                                    {% endif %}
+                                                </small>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <a href="{% url 'militares:licenca_especial_detail' licenca.pk %}" class="btn btn-outline-info" title="Visualizar">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                {% if menu_permissions.BOTAO_LICENCA_ESPECIAL_EDITAR or user.is_superuser %}
+                                                <a href="{% url 'militares:licenca_especial_update' licenca.pk %}" class="btn btn-outline-primary" title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                {% endif %}
+                                                {% if menu_permissions.BOTAO_LICENCA_ESPECIAL_EXCLUIR or user.is_superuser %}
+                                                <a href="{% url 'militares:licenca_especial_delete' licenca.pk %}" class="btn btn-outline-danger" title="Excluir">
+                                                    <i class="fas fa-trash"></i>
+                                                </a>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if is_paginated %}
+                        <nav aria-label="Navegação de páginas" class="mt-3">
+                            <ul class="pagination justify-content-center">
+                                {% if page_obj.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a>
+                                    </li>
+                                {% endif %}
+                                <li class="page-item active">
+                                    <span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+                                </li>
+                                {% if page_obj.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">Próxima</a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info text-center">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Nenhuma licença especial encontrada.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

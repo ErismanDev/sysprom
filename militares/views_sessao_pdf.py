@@ -273,7 +273,7 @@ def sessao_gerar_pdf_completo(request, pk):
         ('WORDWRAP', (1, 0), (1, -1), True),  # Permitir quebra de palavras
     ]))
     story.append(info_table)
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 40))
 
     # Presentes
     story.append(Paragraph("PRESENTES", style_heading))
@@ -312,14 +312,14 @@ def sessao_gerar_pdf_completo(request, pk):
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ('LEFTPADDING', (0, 0), (-1, -1), 3),
             ('RIGHTPADDING', (0, 0), (-1, -1), 3),
-            ('TOPPADDING', (0, 0), (-1, -1), 2),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+            ('TOPPADDING', (0, 0), (-1, -1), 1),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
         ]))
         story.append(presenca_table)
     else:
         story.append(Paragraph("Nenhuma presença registrada.", style_normal))
     
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 40))
 
     # Verificar se a pauta é sobre aprovação de quadros de acesso
     
@@ -366,7 +366,7 @@ def sessao_gerar_pdf_completo(request, pk):
         if documento_origem.descricao:
             story.append(Paragraph(f"<b>Descrição:</b> {documento_origem.descricao}", style_normal))
         story.append(Paragraph(f"<b>Data de Upload:</b> {documento_origem.data_upload.strftime('%d/%m/%Y %H:%M')}", style_normal))
-        story.append(Spacer(1, 20))
+        story.append(Spacer(1, 40))
 
 
 
@@ -454,7 +454,8 @@ def sessao_gerar_pdf_completo(request, pk):
     output_buffer.seek(0)
 
     # Criar nome único para o arquivo
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    from django.utils import timezone
+    timestamp = timezone.localtime(timezone.now()).strftime("%Y%m%d_%H%M%S")
     filename = f'documentacao_completa_sessao_{sessao.numero}_{timestamp}.pdf'
     
     # Salvar arquivo temporário
@@ -556,12 +557,12 @@ def gerar_pdf_voto_original(voto):
         ('ALIGN', (0, 0), (0, -1), 'LEFT'),
         ('ALIGN', (1, 0), (1, -1), 'LEFT'),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
         ('LEFTPADDING', (0, 0), (-1, -1), 0),
         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
     ]))
     story.append(info_table)
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 40))
 
     # Voto proferido (espaçamento 1,15 e justificado)
     if voto.voto_proferido:
@@ -570,7 +571,7 @@ def gerar_pdf_voto_original(voto):
         # Criar estilo com espaçamento 1,15 e justificado
         style_voto = ParagraphStyle('voto', parent=styles['Normal'], leading=15, alignment=4)
         story.append(Paragraph(voto.voto_proferido, style_voto))
-        story.append(Spacer(1, 20))
+        story.append(Spacer(1, 40))
 
     # Assinatura Eletrônica (padrão dos quadros)
     if voto.assinado and voto.data_assinatura:
@@ -595,14 +596,13 @@ def gerar_pdf_voto_original(voto):
         
         texto_assinatura = f"Documento assinado eletronicamente por {nome_assinante} - {funcao}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
         
-        # Adicionar logo do CBMEPI
-        logo_path = os.path.join(settings.STATIC_ROOT, 'logo_cbmepi.png')
-        if not os.path.exists(logo_path):
-            logo_path = os.path.join(settings.STATICFILES_DIRS[0], 'logo_cbmepi.png') if settings.STATICFILES_DIRS else os.path.join(settings.BASE_DIR, 'static', 'logo_cbmepi.png')
+        # Adicionar logo da assinatura eletrônica
+        from .utils import obter_caminho_assinatura_eletronica
+        logo_path = obter_caminho_assinatura_eletronica()
         
         # Tabela das assinaturas: Logo + Texto de assinatura
         assinatura_data = [
-            [Image(logo_path, width=1.5*cm, height=1.5*cm), Paragraph(texto_assinatura, style_small)]
+                            [Image(logo_path, width=3.0*cm, height=2.0*cm), Paragraph(texto_assinatura, style_small)]
         ]
         
         assinatura_table = Table(assinatura_data, colWidths=[2*cm, 14*cm])
@@ -610,14 +610,16 @@ def gerar_pdf_voto_original(voto):
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # Logo centralizado
             ('ALIGN', (1, 0), (1, 0), 'LEFT'),    # Texto alinhado à esquerda
-            ('LEFTPADDING', (0, 0), (-1, -1), 2),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-            ('TOPPADDING', (0, 0), (-1, -1), 2),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('BOX', (0, 0), (-1, -1), 1, colors.grey),  # Borda do retângulo
         ]))
         
         story.append(assinatura_table)
-        story.append(Spacer(1, 20))
+        story.append(Spacer(1, 10))  # Espaçamento após assinatura
+        story.append(Spacer(1, 40))
 
     # Rodapé com QR Code (padrão dos quadros)
     # Gerar URL de autenticação
@@ -647,10 +649,10 @@ def gerar_pdf_voto_original(voto):
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # QR centralizado
         ('ALIGN', (1, 0), (1, 0), 'LEFT'),    # Texto alinhado à esquerda
-        ('LEFTPADDING', (0, 0), (-1, -1), 2),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LEFTPADDING', (0, 0), (-1, -1), 1),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 1),
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
     ]))
     
     story.append(rodape_table)
@@ -789,7 +791,7 @@ def gerar_pdf_ata_original(ata):
         texto_simples = unescape(texto_simples)
         story.append(Paragraph(texto_simples, style_html))
     
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 40))
     
     # Data da sessão centralizada após o conteúdo (sistema automático)
     if ata.sessao.data_sessao:
@@ -851,8 +853,7 @@ def gerar_pdf_ata_original(ata):
             story.append(Spacer(1, 10))
     
     # Rodapé com Assinaturas Eletrônicas e QR Code
-    story.append(Spacer(1, 20))
-    story.append(HRFlowable(width="100%", thickness=1, spaceAfter=10, spaceBefore=10, color=colors.grey))
+    story.append(Spacer(1, 40))
     
     # Buscar todas as assinaturas válidas da ata (da mais recente para a mais antiga)
     assinaturas_eletronicas = ata.assinaturas.filter(assinado_por__isnull=False).order_by('-data_assinatura')
@@ -892,14 +893,13 @@ def gerar_pdf_ata_original(ata):
             
             texto_assinatura = f"Documento assinado eletronicamente por {nome_posto_quadro} - {funcao_atual}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
             
-            # Adicionar logo do CBMEPI
-            logo_path = os.path.join(settings.STATIC_ROOT, 'logo_cbmepi.png')
-            if not os.path.exists(logo_path):
-                logo_path = os.path.join(settings.STATICFILES_DIRS[0], 'logo_cbmepi.png') if settings.STATICFILES_DIRS else os.path.join(settings.BASE_DIR, 'static', 'logo_cbmepi.png')
+            # Adicionar logo da assinatura eletrônica
+            from .utils import obter_caminho_assinatura_eletronica
+            logo_path = obter_caminho_assinatura_eletronica()
             
             # Tabela das assinaturas: Logo + Texto de assinatura
             assinatura_data = [
-                [Image(logo_path, width=1.5*cm, height=1.5*cm), Paragraph(texto_assinatura, style_small)]
+                [Image(logo_path, width=3.0*cm, height=2.0*cm), Paragraph(texto_assinatura, style_small)]
             ]
             
             assinatura_table = Table(assinatura_data, colWidths=[2*cm, 14*cm])
@@ -907,19 +907,15 @@ def gerar_pdf_ata_original(ata):
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # Logo centralizado
                 ('ALIGN', (1, 0), (1, 0), 'LEFT'),    # Texto alinhado à esquerda
-                ('LEFTPADDING', (0, 0), (-1, -1), 2),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-                ('TOPPADDING', (0, 0), (-1, -1), 2),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+                ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('BOX', (0, 0), (-1, -1), 1, colors.grey),  # Borda do retângulo
             ]))
             
             story.append(assinatura_table)
-            
-            # Adicionar linha separadora entre assinaturas (exceto na última)
-            if i < len(assinaturas_eletronicas) - 1:
-                story.append(Spacer(1, 8))
-                story.append(HRFlowable(width="100%", thickness=0.5, spaceAfter=8, spaceBefore=8, color=colors.lightgrey))
-                story.append(Spacer(1, 8))
+            story.append(Spacer(1, 10))  # Espaçamento entre assinaturas
     else:
         # Se não houver assinaturas eletrônicas, mostrar apenas documento gerado pelo usuário logado
         from django.utils import timezone
@@ -931,7 +927,7 @@ def gerar_pdf_ata_original(ata):
         story.append(Paragraph(texto_geracao, style_small))
     
     # QR Code para conferência de veracidade
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 40))
     story.append(HRFlowable(width="100%", thickness=1, spaceAfter=10, spaceBefore=10, color=colors.grey))
     
     # Gerar PDF

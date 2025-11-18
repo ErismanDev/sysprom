@@ -1,0 +1,164 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Confirmar Exclusão{% endblock %}
+
+{% block extra_css %}
+<style>
+    .confirm-container {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    
+    .confirm-header {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 15px 15px 0 0;
+        text-align: center;
+    }
+    
+    .confirm-body {
+        background: white;
+        padding: 30px;
+        border-radius: 0 0 15px 15px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .publicacao-preview {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin: 20px 0;
+    }
+    
+    .btn-custom {
+        padding: 12px 25px;
+        border-radius: 8px;
+        font-weight: 600;
+        margin: 5px;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-danger {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        border: none;
+    }
+    
+    .btn-secondary {
+        background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        border: none;
+    }
+    
+    .btn-custom:hover {
+        transform: translateY(-2px);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="confirm-container">
+        <div class="confirm-header">
+            <h2 class="mb-0">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Confirmar Exclusão
+            </h2>
+            <p class="mb-0 mt-2">Tem certeza que deseja excluir esta publicação?</p>
+        </div>
+        
+        <div class="confirm-body">
+            <div class="alert alert-danger d-flex align-items-center" role="alert">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <div>
+                    <strong>Atenção!</strong> Esta ação não pode ser desfeita. A publicação será permanentemente removida do sistema.
+                </div>
+            </div>
+            
+            {% if publicacao.tipo == 'BOLETIM_OSTENSIVO' %}
+                {% load militares_extras %}
+                {% get_notas_boletim publicacao.numero as notas_boletim %}
+                {% if notas_boletim %}
+                    <div class="alert alert-info d-flex align-items-start" role="alert">
+                        <i class="fas fa-info-circle me-2 mt-1"></i>
+                        <div>
+                            <strong>Notas no Boletim:</strong> Este boletim contém {{ notas_boletim|length }} nota(s) que serão devolvidas para edição:
+                            <ul class="mb-0 mt-2">
+                                {% for nota in notas_boletim %}
+                                    <li><strong>{{ nota.numero }}</strong> - {{ nota.titulo }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                {% endif %}
+            {% endif %}
+            
+            <div class="publicacao-preview">
+                <h5 class="mb-3">{{ publicacao.titulo }}</h5>
+                <p class="text-muted mb-2">
+                    <strong>{{ publicacao.numero }}</strong> • 
+                    {{ publicacao.get_tipo_display }} • 
+                    {{ publicacao.get_status_display }} • 
+                    Criado em {{ publicacao.data_criacao|date:"d/m/Y H:i" }}
+                </p>
+                <div class="conteudo-preview">
+                    {{ publicacao.conteudo|truncatewords:30 }}
+                </div>
+            </div>
+            
+            <form method="post">
+                {% csrf_token %}
+                <div class="d-flex justify-content-between">
+                    {% if publicacao.tipo == 'NOTA' %}
+                        <a href="{% url 'militares:notas_list' %}" class="btn btn-secondary btn-custom">
+                    {% elif publicacao.tipo == 'BOLETIM_OSTENSIVO' %}
+                        <a href="{% url 'militares:boletins_ostensivos_list' %}" class="btn btn-secondary btn-custom">
+                    {% elif publicacao.tipo == 'BOLETIM_RESERVADO' %}
+                        <a href="{% url 'militares:boletins_reservados_list' %}" class="btn btn-secondary btn-custom">
+                    {% elif publicacao.tipo == 'BOLETIM_ESPECIAL' %}
+                        <a href="{% url 'militares:boletins_especiais_list' %}" class="btn btn-secondary btn-custom">
+                    {% elif publicacao.tipo == 'AVISO' %}
+                        <a href="{% url 'militares:avisos_list' %}" class="btn btn-secondary btn-custom">
+                    {% elif publicacao.tipo == 'ORDEM_SERVICO' %}
+                        <a href="{% url 'militares:ordens_servico_list' %}" class="btn btn-secondary btn-custom">
+                    {% else %}
+                        <a href="{% url 'militares:notas_list' %}" class="btn btn-secondary btn-custom">
+                    {% endif %}
+                        <i class="fas fa-arrow-left me-2"></i>
+                        Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-danger btn-custom">
+                        <i class="fas fa-trash me-2"></i>
+                        Sim, Excluir
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        $('.confirm-container').addClass('fade-in');
+    });
+</script>
+
+<style>
+    .fade-in {
+        animation: fadeInUp 0.6s ease-out;
+    }
+    
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+{% endblock %}

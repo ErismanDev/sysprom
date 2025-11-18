@@ -1,0 +1,953 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load militares_extras %}
+{% load almoxarifado_filters %}
+
+{% block title %}Almoxarifado - Requisições{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="mb-4">
+                <h2 class="mb-0">
+                    <i class="fas fa-hand-holding me-2 text-info"></i>Requisições de Almoxarifado
+                </h2>
+                <p class="text-muted mb-0">Requisições de materiais entre Organizações Militares</p>
+            </div>
+            
+            <!-- Cards de Estatísticas -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-list fa-2x mb-2 text-primary"></i>
+                            <h4 class="mb-1">{{ total_requisicoes|default:0 }}</h4>
+                            <p class="mb-0">Total</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-clock fa-2x mb-2 text-warning"></i>
+                            <h4 class="mb-1">{{ requisicoes_pendentes|default:0 }}</h4>
+                            <p class="mb-0">Pendentes</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-check-circle fa-2x mb-2 text-success"></i>
+                            <h4 class="mb-1">{{ requisicoes_atendidas|default:0 }}</h4>
+                            <p class="mb-0">Atendidas</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-times-circle fa-2x mb-2 text-danger"></i>
+                            <h4 class="mb-1">{{ requisicoes_negadas|default:0 }}</h4>
+                            <p class="mb-0">Negadas</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Pesquisa</label>
+                            <input type="text" name="search" class="form-control" 
+                                   value="{{ search|default:'' }}" placeholder="Código, descrição...">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="PENDENTE" {% if status == 'PENDENTE' %}selected{% endif %}>Pendente</option>
+                                <option value="APROVADA" {% if status == 'APROVADA' %}selected{% endif %}>Aprovada</option>
+                                <option value="NEGADA" {% if status == 'NEGADA' %}selected{% endif %}>Negada</option>
+                                <option value="ATENDIDA" {% if status == 'ATENDIDA' %}selected{% endif %}>Atendida</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Tipo</label>
+                            <select name="tipo" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="enviadas" {% if tipo == 'enviadas' %}selected{% endif %}>Enviadas</option>
+                                <option value="recebidas" {% if tipo == 'recebidas' %}selected{% endif %}>Recebidas</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Item</label>
+                            <select name="item" class="form-select">
+                                <option value="">Todos</option>
+                                {% for item in itens %}
+                                    <option value="{{ item.pk }}" {% if item.pk|stringformat:"s" == item_id|stringformat:"s" %}selected{% endif %}>
+                                        {{ item.codigo }} - {{ item.descricao|truncatewords:3 }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                            <a href="{% url 'militares:requisicao_almoxarifado_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Limpar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Lista de Requisições -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Lista de Requisições
+                    </h6>
+                    <div>
+                        {% if pode_criar or user.is_superuser %}
+                        <button type="button" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#criarRequisicaoModal">
+                            <i class="fas fa-plus me-2"></i>Nova Requisição
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if requisicoes %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Nº Requisição</th>
+                                        <th>Data</th>
+                                        <th>OM Requisitante</th>
+                                        <th>OM Requisitada</th>
+                                        <th>Produtos</th>
+                                        <th>Quantidade</th>
+                                        <th>Status</th>
+                                        <th>Assinaturas</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for requisicao in requisicoes %}
+                                        <tr>
+                                            <td>
+                                                <strong>#{{ requisicao.pk }}</strong>
+                                            </td>
+                                            <td>{{ requisicao.data_requisicao|date:"d/m/Y" }}</td>
+                                            <td>
+                                                <small>{{ requisicao.get_om_requisitante }}</small>
+                                            </td>
+                                            <td>
+                                                <small>{{ requisicao.get_om_requisitada }}</small>
+                                            </td>
+                                            <td>
+                                                {% if requisicao.produtos_requisicao.exists %}
+                                                    {% with produtos=requisicao.produtos_requisicao.all total_produtos=requisicao.produtos_requisicao.count %}
+                                                        {% for produto_requisicao in produtos %}
+                                                            {% if forloop.first %}
+                                                                <div>
+                                                                    <strong>{{ produto_requisicao.produto.get_codigo_limpo }}</strong><br>
+                                                                    <small class="text-muted">{{ produto_requisicao.produto.descricao|truncatewords:5 }}</small>
+                                                                </div>
+                                                                {% if total_produtos > 1 %}
+                                                                    <div class="mt-1">
+                                                                        <span class="badge bg-secondary" 
+                                                                              data-bs-toggle="tooltip" 
+                                                                              data-bs-placement="top" 
+                                                                              data-bs-html="true"
+                                                                              title="<strong>Outros produtos:</strong><br>{% for prod in produtos %}{% if not forloop.first %}{{ prod.produto.get_codigo_limpo }} - {{ prod.produto.descricao|truncatewords:3 }} ({{ prod.quantidade|formatar_quantidade_unidade:prod.produto.unidade_medida }})<br>{% endif %}{% endfor %}">
+                                                                            +{{ total_produtos|add:"-1" }} mais
+                                                                        </span>
+                                                                    </div>
+                                                                {% endif %}
+                                                            {% endif %}
+                                                        {% endfor %}
+                                                    {% endwith %}
+                                                {% elif requisicao.produto %}
+                                                    <strong>{{ requisicao.produto.codigo }}</strong><br>
+                                                    <small class="text-muted">{{ requisicao.produto.descricao|truncatewords:5 }}</small>
+                                                {% else %}
+                                                    <span class="text-muted">Sem produtos</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if requisicao.produtos_requisicao.exists %}
+                                                    {% with produtos=requisicao.produtos_requisicao.all total_produtos=requisicao.produtos_requisicao.count %}
+                                                        {% for produto_requisicao in produtos %}
+                                                            {% if forloop.first %}
+                                                                <div>
+                                                                    <strong>{{ produto_requisicao.quantidade|formatar_quantidade_unidade:produto_requisicao.produto.unidade_medida }}</strong>
+                                                                </div>
+                                                                {% if total_produtos > 1 %}
+                                                                    <div class="mt-1">
+                                                                        <span class="badge bg-secondary" 
+                                                                              data-bs-toggle="tooltip" 
+                                                                              data-bs-placement="top" 
+                                                                              data-bs-html="true"
+                                                                              title="<strong>Quantidades dos outros produtos:</strong><br>{% for prod in produtos %}{% if not forloop.first %}{{ prod.quantidade|formatar_quantidade_unidade:prod.produto.unidade_medida }}<br>{% endif %}{% endfor %}">
+                                                                            +{{ total_produtos|add:"-1" }} mais
+                                                                        </span>
+                                                                    </div>
+                                                                {% endif %}
+                                                            {% endif %}
+                                                        {% endfor %}
+                                                    {% endwith %}
+                                                {% elif requisicao.produto %}
+                                                    <strong>{{ requisicao.quantidade|formatar_quantidade_unidade:requisicao.produto.unidade_medida }}</strong>
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if requisicao.status == 'PENDENTE' %}
+                                                    <span class="badge bg-warning">{{ requisicao.get_status_display }}</span>
+                                                {% elif requisicao.status == 'APROVADA' %}
+                                                    <span class="badge bg-info">{{ requisicao.get_status_display }}</span>
+                                                {% elif requisicao.status == 'ATENDIDA' %}
+                                                    <span class="badge bg-success">{{ requisicao.get_status_display }}</span>
+                                                {% elif requisicao.status == 'NEGADA' %}
+                                                    <span class="badge bg-danger">{{ requisicao.get_status_display }}</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">{{ requisicao.get_status_display }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="small">
+                                                    {% for assinatura in requisicao.assinaturas.all %}
+                                                        <div class="mb-1">
+                                                            <i class="fas fa-signature text-primary"></i>
+                                                            <strong>{{ assinatura.get_tipo_assinatura_display }}:</strong>
+                                                            {% if assinatura.militar %}
+                                                                {{ assinatura.militar.nome_completo }}
+                                                            {% else %}
+                                                                {{ assinatura.assinado_por.get_full_name|default:assinatura.assinado_por.username }}
+                                                            {% endif %}
+                                                            <small class="text-muted">({{ assinatura.data_assinatura|date:"d/m/Y H:i" }})</small>
+                                                        </div>
+                                                    {% empty %}
+                                                        <span class="text-muted">Nenhuma assinatura</span>
+                                                    {% endfor %}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    <!-- Botão Visualizar -->
+                                                    <button type="button" 
+                                                            class="btn btn-sm btn-outline-info btn-ver-requisicao" 
+                                                            data-requisicao-id="{{ requisicao.pk }}"
+                                                            title="Ver Detalhes">
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                                    
+                                                    <!-- Botões de Aprovar/Negar (apenas para requisições pendentes) -->
+                                                    {% if requisicao.status == 'PENDENTE' %}
+                                                        {% if requisicoes_pode_aprovar|lookup:requisicao.pk %}
+                                                            <button type="button" 
+                                                                    class="btn btn-sm btn-success btn-aprovar-requisicao" 
+                                                                    data-requisicao-id="{{ requisicao.pk }}"
+                                                                    title="Aprovar">
+                                                                <i class="fas fa-check"></i>
+                                                            </button>
+                                                            <button type="button" 
+                                                                    class="btn btn-sm btn-danger btn-negar-requisicao" 
+                                                                    data-requisicao-id="{{ requisicao.pk }}"
+                                                                    title="Negar">
+                                                                <i class="fas fa-times"></i>
+                                                            </button>
+                                                        {% endif %}
+                                                        
+                                                        <!-- Botão Editar -->
+                                                        {% if requisicoes_pode_editar|lookup:requisicao.pk %}
+                                                            <button type="button" 
+                                                                    class="btn btn-sm btn-outline-warning btn-editar-requisicao" 
+                                                                    data-requisicao-id="{{ requisicao.pk }}"
+                                                                    title="Editar">
+                                                                <i class="fas fa-edit"></i>
+                                                            </button>
+                                                        {% endif %}
+                                                        
+                                                        <!-- Botão Excluir -->
+                                                        {% if requisicoes_pode_excluir|lookup:requisicao.pk %}
+                                                            <button type="button" 
+                                                                    class="btn btn-sm btn-outline-danger btn-excluir-requisicao" 
+                                                                    data-requisicao-id="{{ requisicao.pk }}"
+                                                                    title="Excluir">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        {% endif %}
+                                                    {% endif %}
+                                                    
+                                                    <!-- Botão Ver Transferência (quando aprovada) -->
+                                                    {% if requisicao.transferencia_criada %}
+                                                        <a href="{% url 'militares:saida_almoxarifado_list' %}?search={{ requisicao.transferencia_criada.pk }}" 
+                                                           class="btn btn-sm btn-outline-primary"
+                                                           title="Ver Transferência">
+                                                            <i class="fas fa-exchange-alt"></i>
+                                                        </a>
+                                                    {% endif %}
+                                                
+                                                    <!-- Botão Confirmar Recebimento (quando atendida e não confirmada) -->
+                                                    {% if requisicao.status == 'ATENDIDA' and not requisicao.data_confirmacao_recebimento %}
+                                                        {% if requisicoes_pode_confirmar|lookup:requisicao.pk %}
+                                                            <button type="button" 
+                                                                    class="btn btn-sm btn-success btn-confirmar-recebimento" 
+                                                                    data-requisicao-id="{{ requisicao.pk }}"
+                                                                    title="Confirmar Recebimento">
+                                                                <i class="fas fa-check-double"></i>
+                                                            </button>
+                                                        {% endif %}
+                                                    {% elif requisicao.data_confirmacao_recebimento %}
+                                                        <span class="badge bg-success" title="Recebimento confirmado em {{ requisicao.data_confirmacao_recebimento|date:"d/m/Y H:i" }}">
+                                                            <i class="fas fa-check-circle"></i> Confirmado
+                                                        </span>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% empty %}
+                                        <tr>
+                                            <td colspan="8" class="text-center text-muted py-4">
+                                                <i class="fas fa-inbox fa-2x mb-2"></i>
+                                                <p class="mb-0">Nenhuma requisição encontrada</p>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if is_paginated %}
+                            <nav aria-label="Paginação">
+                                <ul class="pagination justify-content-center mt-4">
+                                    {% if page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if tipo %}&tipo={{ tipo }}{% endif %}{% if item_id %}&item={{ item_id }}{% endif %}">
+                                                <i class="fas fa-angle-double-left"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if tipo %}&tipo={{ tipo }}{% endif %}{% if item_id %}&item={{ item_id }}{% endif %}">
+                                                <i class="fas fa-angle-left"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                    
+                                    <li class="page-item disabled">
+                                        <span class="page-link">
+                                            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                                        </span>
+                                    </li>
+                                    
+                                    {% if page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if tipo %}&tipo={{ tipo }}{% endif %}{% if item_id %}&item={{ item_id }}{% endif %}">
+                                                <i class="fas fa-angle-right"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if tipo %}&tipo={{ tipo }}{% endif %}{% if item_id %}&item={{ item_id }}{% endif %}">
+                                                <i class="fas fa-angle-double-right"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Nenhuma requisição encontrada.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Criar Requisição -->
+<div class="modal fade" id="criarRequisicaoModal" tabindex="-1" aria-labelledby="criarRequisicaoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="criarRequisicaoModalContent">
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-info" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Aprovar Requisição -->
+<div class="modal fade" id="aprovarRequisicaoModal" tabindex="-1" aria-labelledby="aprovarRequisicaoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="aprovarRequisicaoModalLabel">
+                    <i class="fas fa-check me-2"></i>Aprovar Requisição
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formAprovarRequisicao" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Uma transferência será criada automaticamente ao aprovar esta requisição.
+                    </div>
+                    <div class="mb-3">
+                        <label for="observacoes_aprovacao" class="form-label">Observações da Assinatura (opcional)</label>
+                        <textarea class="form-control" id="observacoes_aprovacao" name="observacoes" rows="3" placeholder="Observações sobre a aprovação..."></textarea>
+                        <small class="form-text text-muted">Estas observações serão incluídas na assinatura de aprovação.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check me-2"></i>Aprovar Requisição
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Negar Requisição -->
+<div class="modal fade" id="negarRequisicaoModal" tabindex="-1" aria-labelledby="negarRequisicaoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="negarRequisicaoModalLabel">
+                    <i class="fas fa-times me-2"></i>Negar Requisição
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formNegarRequisicao" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="motivo_negacao" class="form-label">Motivo da Negação <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="motivo_negacao" name="motivo_negacao" rows="4" required placeholder="Informe o motivo da negação..."></textarea>
+                        <small class="form-text text-muted">Este motivo será incluído na assinatura de negação.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="observacoes_negacao" class="form-label">Observações Adicionais (opcional)</label>
+                        <textarea class="form-control" id="observacoes_negacao" name="observacoes" rows="3" placeholder="Observações adicionais sobre a negação..."></textarea>
+                        <small class="form-text text-muted">Estas observações serão incluídas na assinatura de negação.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-times me-2"></i>Negar Requisição
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Função auxiliar para limpar backdrop e estilos do modal
+    function limparBackdrop() {
+        const backdrops = document.querySelectorAll('.modal-backdrop');
+        backdrops.forEach(backdrop => backdrop.remove());
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+    }
+    
+    // Listener global para quando qualquer modal for fechado
+    document.addEventListener('hidden.bs.modal', function(e) {
+        setTimeout(limparBackdrop, 100);
+    });
+    
+    // Carregar formulário de criação
+    const criarModal = document.getElementById('criarRequisicaoModal');
+    if (criarModal) {
+        criarModal.addEventListener('show.bs.modal', function() {
+            limparBackdrop();
+            fetch('{% url "militares:requisicao_almoxarifado_create" %}', {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success' && data.html) {
+                    const modalContent = document.getElementById('criarRequisicaoModalContent');
+                    modalContent.innerHTML = data.html;
+                    
+                    setTimeout(function() {
+                        const scripts = modalContent.querySelectorAll('script');
+                        scripts.forEach(function(oldScript) {
+                            try {
+                                if (oldScript.hasAttribute('data-executed')) {
+                                    return;
+                                }
+                                
+                                const newScript = document.createElement('script');
+                                
+                                if (oldScript.attributes && oldScript.attributes.length > 0) {
+                                    for (let i = 0; i < oldScript.attributes.length; i++) {
+                                        const attr = oldScript.attributes[i];
+                                        if (attr.name !== 'data-executed') {
+                                            newScript.setAttribute(attr.name, attr.value);
+                                        }
+                                    }
+                                }
+                                
+                                const scriptContent = oldScript.textContent || oldScript.innerHTML || '';
+                                if (scriptContent.trim()) {
+                                    newScript.textContent = scriptContent;
+                                }
+                                
+                                oldScript.setAttribute('data-executed', 'true');
+                                
+                                if (oldScript.parentNode) {
+                                    oldScript.parentNode.replaceChild(newScript, oldScript);
+                                }
+                            } catch (error) {
+                                console.error('Erro ao re-executar script:', error);
+                            }
+                        });
+                    }, 150);
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar formulário:', error);
+            });
+        });
+    }
+    
+    // Aprovar requisição
+    document.querySelectorAll('.btn-aprovar-requisicao').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const requisicaoId = this.dataset.requisicaoId;
+            const modal = new bootstrap.Modal(document.getElementById('aprovarRequisicaoModal'));
+            document.getElementById('formAprovarRequisicao').action = `/militares/almoxarifado/requisicoes/${requisicaoId}/aprovar/`;
+            document.getElementById('observacoes_aprovacao').value = '';
+            modal.show();
+        });
+    });
+    
+    // Submeter aprovação
+    const formAprovar = document.getElementById('formAprovarRequisicao');
+    if (formAprovar) {
+        formAprovar.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Aprovando...';
+            
+            fetch(this.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(async response => {
+                const text = await response.text();
+                const contentType = response.headers.get('content-type');
+                let data;
+                
+                try {
+                    if (contentType && contentType.includes('application/json')) {
+                        data = JSON.parse(text);
+                    } else {
+                        try {
+                            data = JSON.parse(text);
+                        } catch (e) {
+                            data = {
+                                status: 'error',
+                                message: `Erro ${response.status}: ${response.statusText}. Resposta: ${text.substring(0, 200)}`
+                            };
+                        }
+                    }
+                } catch (e) {
+                    console.error('Erro ao parsear resposta:', e);
+                    data = {
+                        status: 'error',
+                        message: `Erro ao processar resposta do servidor (Status: ${response.status}).`
+                    };
+                }
+                
+                if (!response.ok) {
+                    throw new Error(data.message || `Erro ${response.status}: ${response.statusText}`);
+                }
+                
+                return data;
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('aprovarRequisicaoModal'));
+                    if (modal) modal.hide();
+                    
+                    setTimeout(() => {
+                        limparBackdrop();
+                        location.reload();
+                    }, 200);
+                } else {
+                    let errorMsg = data.message || 'Erro ao aprovar requisição';
+                    if (data.trace) {
+                        console.error('Traceback completo:', data.trace);
+                    }
+                    alert('Erro: ' + errorMsg);
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao aprovar:', error);
+                alert('Erro ao aprovar requisição. Verifique o console (F12) para mais detalhes.');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            });
+        });
+    }
+    
+    // Negar requisição
+    document.querySelectorAll('.btn-negar-requisicao').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const requisicaoId = this.dataset.requisicaoId;
+            const modal = new bootstrap.Modal(document.getElementById('negarRequisicaoModal'));
+            document.getElementById('formNegarRequisicao').action = `/militares/almoxarifado/requisicoes/${requisicaoId}/negar/`;
+            document.getElementById('motivo_negacao').value = '';
+            document.getElementById('observacoes_negacao').value = '';
+            modal.show();
+        });
+    });
+    
+    // Submeter negação
+    const formNegar = document.getElementById('formNegarRequisicao');
+    if (formNegar) {
+        formNegar.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Negando...';
+            
+            fetch(this.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('negarRequisicaoModal'));
+                    modal.hide();
+                    location.reload();
+                } else {
+                    alert('Erro: ' + data.message);
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao negar:', error);
+                alert('Erro ao negar requisição. Tente novamente.');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            });
+        });
+    }
+    
+    // Confirmar recebimento
+    document.querySelectorAll('.btn-confirmar-recebimento').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const requisicaoId = this.dataset.requisicaoId;
+            
+            if (!confirm('Tem certeza que deseja confirmar o recebimento desta requisição?')) {
+                return;
+            }
+            
+            const submitBtn = this;
+            const originalHTML = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            
+            fetch(`/militares/almoxarifado/requisicoes/${requisicaoId}/confirmar-recebimento/`, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    if (typeof showGlobalSuccess === 'function') {
+                        showGlobalSuccess(data.message);
+                    } else {
+                        alert(data.message);
+                    }
+                    location.reload();
+                } else {
+                    if (typeof showGlobalError === 'function') {
+                        showGlobalError(data.message || 'Erro ao confirmar recebimento');
+                    } else {
+                        alert('Erro: ' + (data.message || 'Erro ao confirmar recebimento'));
+                    }
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalHTML;
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao confirmar recebimento:', error);
+                if (typeof showGlobalError === 'function') {
+                    showGlobalError('Erro ao confirmar recebimento. Tente novamente.');
+                } else {
+                    alert('Erro ao confirmar recebimento. Tente novamente.');
+                }
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalHTML;
+            });
+        });
+    });
+    
+    // Visualizar requisição
+    document.querySelectorAll('.btn-ver-requisicao').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const requisicaoId = this.dataset.requisicaoId;
+            
+            let modalElement = document.getElementById('verRequisicaoModal');
+            if (!modalElement) {
+                modalElement = document.createElement('div');
+                modalElement.className = 'modal fade';
+                modalElement.id = 'verRequisicaoModal';
+                modalElement.setAttribute('tabindex', '-1');
+                modalElement.setAttribute('aria-labelledby', 'verRequisicaoModalLabel');
+                modalElement.setAttribute('aria-hidden', 'true');
+                modalElement.innerHTML = '<div class="modal-dialog modal-xl"><div class="modal-content" id="verRequisicaoModalContent"></div></div>';
+                document.body.appendChild(modalElement);
+            }
+            
+            const modalContent = document.getElementById('verRequisicaoModalContent');
+            modalContent.innerHTML = '<div class="text-center p-5"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-3">Carregando...</p></div>';
+            
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+            
+            fetch(`/militares/almoxarifado/requisicoes/${requisicaoId}/`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    modalContent.innerHTML = data.html;
+                } else {
+                    modalContent.innerHTML = `<div class="modal-body"><div class="alert alert-danger">Erro: ${data.message || 'Não foi possível carregar os detalhes'}</div></div>`;
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar detalhes:', error);
+                modalContent.innerHTML = '<div class="modal-body"><div class="alert alert-danger">Erro ao carregar os detalhes da requisição.</div></div>';
+            });
+        });
+    });
+    
+    // Editar requisição - reescrito de forma mais simples e robusta
+    document.querySelectorAll('.btn-editar-requisicao').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const requisicaoId = this.dataset.requisicaoId;
+            if (!requisicaoId) {
+                alert('ID da requisição não encontrado');
+                return;
+            }
+            
+            console.log('Iniciando edição da requisição:', requisicaoId);
+            
+            // Limpar backdrops existentes
+            limparBackdrop();
+            
+            // Obter elementos do modal
+            const modalElement = document.getElementById('criarRequisicaoModal');
+            const modalContent = document.getElementById('criarRequisicaoModalContent');
+            
+            if (!modalElement) {
+                alert('Modal não encontrado');
+                return;
+            }
+            
+            if (!modalContent) {
+                alert('Conteúdo do modal não encontrado');
+                return;
+            }
+            
+            // Mostrar loading
+            modalContent.innerHTML = '<div class="modal-body text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Carregando...</span></div><p class="mt-3">Carregando formulário de edição...</p></div>';
+            
+            // Criar instância do modal
+            const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+            
+            // Mostrar modal imediatamente com loading
+            modal.show();
+            
+            // Fazer requisição
+            fetch(`/militares/almoxarifado/requisicoes/${requisicaoId}/editar/`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => {
+                console.log('Resposta recebida, status:', response.status);
+                const contentType = response.headers.get('content-type') || '';
+                
+                if (contentType.includes('application/json')) {
+                    return response.json();
+                } else {
+                    return response.text().then(text => {
+                        console.error('Resposta não é JSON:', text.substring(0, 500));
+                        throw new Error('Resposta do servidor não é JSON');
+                    });
+                }
+            })
+            .then(data => {
+                console.log('Dados recebidos:', { status: data.status, hasHtml: !!data.html });
+                
+                if (data.status === 'success' && data.html) {
+                    // Inserir HTML
+                    modalContent.innerHTML = data.html;
+                    
+                    // Processar scripts de forma segura
+                    setTimeout(() => {
+                        try {
+                            const scripts = modalContent.querySelectorAll('script');
+                            scripts.forEach((oldScript, index) => {
+                                try {
+                                    const newScript = document.createElement('script');
+                                    
+                                    // Copiar atributos
+                                    if (oldScript.src) {
+                                        newScript.src = oldScript.src;
+                                    }
+                                    if (oldScript.type) {
+                                        newScript.type = oldScript.type;
+                                    }
+                                    
+                                    // Copiar conteúdo
+                                    if (oldScript.textContent) {
+                                        newScript.textContent = oldScript.textContent;
+                                    } else if (oldScript.innerHTML) {
+                                        newScript.innerHTML = oldScript.innerHTML;
+                                    }
+                                    
+                                    // Substituir script antigo
+                                    oldScript.parentNode.replaceChild(newScript, oldScript);
+                                } catch (scriptErr) {
+                                    console.warn(`Erro ao processar script ${index}:`, scriptErr);
+                                }
+                            });
+                            
+                            console.log('Formulário carregado com sucesso');
+                        } catch (processErr) {
+                            console.error('Erro ao processar scripts:', processErr);
+                        }
+                    }, 50);
+                    
+                } else if (data.status === 'error') {
+                    modalContent.innerHTML = `
+                        <div class="modal-body">
+                            <div class="alert alert-danger">
+                                <h5>Erro ao carregar formulário</h5>
+                                <p>${data.message || 'Erro desconhecido'}</p>
+                                ${data.trace ? '<details><summary>Detalhes técnicos</summary><pre>' + data.trace + '</pre></details>' : ''}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    modalContent.innerHTML = `
+                        <div class="modal-body">
+                            <div class="alert alert-warning">
+                                <h5>Resposta inesperada</h5>
+                                <p>O servidor retornou uma resposta inesperada.</p>
+                            </div>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Erro na requisição:', error);
+                modalContent.innerHTML = `
+                    <div class="modal-body">
+                        <div class="alert alert-danger">
+                            <h5>Erro ao carregar formulário</h5>
+                            <p>${error.message || 'Erro desconhecido'}</p>
+                            <p class="small text-muted">Verifique o console para mais detalhes.</p>
+                        </div>
+                    </div>
+                `;
+            });
+        });
+    });
+    
+    // Excluir requisição
+    document.querySelectorAll('.btn-excluir-requisicao').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const requisicaoId = this.dataset.requisicaoId;
+            if (confirm('Tem certeza que deseja excluir esta requisição? Esta ação não pode ser desfeita.')) {
+                fetch(`/militares/almoxarifado/requisicoes/${requisicaoId}/excluir/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        location.reload();
+                    } else {
+                        alert('Erro: ' + (data.message || 'Não foi possível excluir a requisição.'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro:', error);
+                    alert('Erro ao excluir requisição. Verifique o console (F12) para mais detalhes.');
+                });
+            }
+        });
+    });
+    
+    // Inicializar tooltips do Bootstrap
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,1067 @@
+{% load static %}
+{% load nota_filters %}
+{% load militares_extras %}
+<!-- Conteúdo do Modal de Visualização de Nota -->
+<div class="nota-modal-content">
+    <!-- Cabeçalho Oficial -->
+    <div class="cabecalho-oficial">
+        <h1>ESTADO DO PIAUÍ</h1>
+        <h2>CORPO DE BOMBEIROS MILITAR</h2>
+        
+        <!-- Usar origem da publicação expandida (igual à coluna Origem da listagem) -->
+        {% if nota.origem_publicacao %}
+            <h3>{{ nota.origem_publicacao|expandir_origem_simples|safe }}</h3>
+        {% else %}
+            <!-- Cabeçalho padrão se não houver origem (não deveria acontecer) -->
+            <h3>QUARTEL DO COMANDO GERAL</h3>
+            <h4>AJUDÂNCIA GERAL</h4>
+        {% endif %}
+        
+        <hr>
+    </div>
+    
+    <!-- Botões de Ação -->
+    <div class="mt-4 text-end">
+        <div class="btn-group" role="group">
+            {% comment %} Verificar se é operador de planejadas {% endcomment %}
+            {% if not user.is_superuser %}
+                {% load permissoes_tags %}
+                {% with funcao_usuario=user|obter_funcao_militar_ativa %}
+                    {% if funcao_usuario and funcao_usuario.funcao_militar.publicacao == 'OPERADOR_PLANEJADAS' %}
+                        {% comment %} Operador de planejadas - apenas botão de imprimir {% endcomment %}
+                        <button type="button" class="btn btn-primary" id="btnImprimir" data-nota-id="{{ nota.id }}" title="Imprimir Nota" onclick="
+                            console.log('DEBUG: Botão imprimir clicado!');
+                            const notaId = {{ nota.id }};
+                            const url = '/militares/notas/' + notaId + '/gerar-pdf/?v=' + Date.now();
+                            console.log('DEBUG: Abrindo PDF com URL:', url);
+                            window.open(url, '_blank');
+                        ">
+                            <i class="fas fa-print me-2"></i>Imprimir
+                        </button>
+                    {% else %}
+                        {% comment %} Outros usuários - mostrar botões completos {% endcomment %}
+                        <button type="button" class="btn btn-primary" id="btnImprimir" data-nota-id="{{ nota.id }}" title="Imprimir Nota" onclick="
+                            console.log('DEBUG: Botão imprimir clicado!');
+                            const notaId = {{ nota.id }};
+                            const url = '/militares/notas/' + notaId + '/gerar-pdf/?v=' + Date.now();
+                            console.log('DEBUG: Abrindo PDF com URL:', url);
+                            window.open(url, '_blank');
+                        ">
+                            <i class="fas fa-print me-2"></i>Imprimir
+                        </button>
+                        <button type="button" class="btn btn-warning" id="btnDevolver" data-nota-id="{{ nota.id }}" title="Devolver Nota" onclick="
+                            console.log('DEBUG: Botão devolver clicado!');
+                            const notaId = {{ nota.id }};
+                            
+                            // Criar modal de devolução
+                            const modalHtml = `
+                                <div class='modal fade' id='modalDevolverNota' tabindex='-1' aria-labelledby='modalDevolverNotaLabel' aria-hidden='true'>
+                                    <div class='modal-dialog modal-dialog-centered' style='max-width: 500px;'>
+                                        <div class='modal-content'>
+                                            <div class='modal-header bg-warning text-dark'>
+                                                <h5 class='modal-title' id='modalDevolverNotaLabel'>
+                                                    <i class='fas fa-undo me-2'></i>Devolver Nota
+                                                </h5>
+                                                <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
+                                            </div>
+                                            <div class='modal-body'>
+                                                <div class='alert alert-warning'>
+                                                    <i class='fas fa-exclamation-triangle me-2'></i>
+                                                    <strong>Atenção:</strong> Esta ação irá devolver a nota para rascunho, removendo todas as assinaturas eletrônicas.
+                                                </div>
+                                                <div class='mb-3'>
+                                                    <label for='motivoDevolucao' class='form-label'>
+                                                        <strong>Motivo da Devolução:</strong>
+                                                    </label>
+                                                    <textarea class='form-control' id='motivoDevolucao' rows='4' 
+                                                        placeholder='Digite o motivo da devolução da nota...' required></textarea>
+                                                </div>
+                                            </div>
+                                            <div class='modal-footer'>
+                                                <button type='button' class='btn btn-secondary' data-bs-dismiss='modal'>
+                                                    <i class='fas fa-times me-2'></i>Cancelar
+                                                </button>
+                                                <button type='button' class='btn btn-warning' id='btnConfirmarDevolucao' data-nota-id='${notaId}'>
+                                                    <i class='fas fa-undo me-2'></i>Devolver Nota
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                            
+                            // Remover modal existente se houver
+                            const modalExistente = document.getElementById('modalDevolverNota');
+                            if (modalExistente) {
+                                modalExistente.remove();
+                            }
+                            
+                            // Adicionar modal ao body
+                            document.body.insertAdjacentHTML('beforeend', modalHtml);
+                            
+                            // Configurar evento do botão de confirmação
+                            const btnConfirmar = document.getElementById('btnConfirmarDevolucao');
+                            if (btnConfirmar) {
+                                btnConfirmar.addEventListener('click', function() {
+                                    const motivo = document.getElementById('motivoDevolucao').value.trim();
+                                    
+                                    if (!motivo) {
+                                        alert('Motivo é obrigatório!');
+                                        return;
+                                    }
+                                    
+                                    // Fazer requisição AJAX
+                                    const csrfToken = window.csrfToken || document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+                                    
+                                    if (!csrfToken) {
+                                        alert('Erro: Token CSRF não encontrado.');
+                                        return;
+                                    }
+                                    
+                                    // Desabilitar botão para evitar duplo clique
+                                    this.disabled = true;
+                                    this.innerHTML = '<i class=\'fas fa-spinner fa-spin me-2\'></i>Devolvendo...';
+                                    
+                                    fetch('/militares/notas/' + notaId + '/devolver/', {
+                                        method: 'POST',
+                                        headers: {
+                                            'X-CSRFToken': csrfToken,
+                                            'X-Requested-With': 'XMLHttpRequest',
+                                            'Content-Type': 'application/x-www-form-urlencoded',
+                                        },
+                                        body: 'motivo_devolucao=' + encodeURIComponent(motivo)
+                                    })
+                                    .then(response => response.json())
+                                    .then(data => {
+                                        if (data.success) {
+                                            // Fechar modal
+                                            const modal = bootstrap.Modal.getInstance(document.getElementById('modalDevolverNota'));
+                                            if (modal) {
+                                                modal.hide();
+                                            }
+                                            alert(data.message);
+                                            location.reload();
+                                        } else {
+                                            alert('Erro: ' + data.error);
+                                            // Reabilitar botão
+                                            this.disabled = false;
+                                            this.innerHTML = '<i class=\'fas fa-undo me-2\'></i>Devolver Nota';
+                                        }
+                                    })
+                                    .catch(error => {
+                                        console.error('Erro:', error);
+                                        alert('Erro ao devolver nota: ' + error.message);
+                                        // Reabilitar botão
+                                        this.disabled = false;
+                                        this.innerHTML = '<i class=\'fas fa-undo me-2\'></i>Devolver Nota';
+                                    });
+                                });
+                            }
+                            
+                            // Mostrar o modal
+                            const modalElement = document.getElementById('modalDevolverNota');
+                            const modal = new bootstrap.Modal(modalElement);
+                            modal.show();
+                        ">
+                            <i class="fas fa-undo me-2"></i>Devolver
+                        </button>
+                        <button type="button" class="btn btn-secondary" id="btnArquivar" data-nota-id="{{ nota.id }}" title="Arquivar Nota" onclick="
+                            console.log('DEBUG: Botão arquivar clicado!');
+                            const notaId = {{ nota.id }};
+                            
+                            // Criar modal de arquivamento
+                            const modalHtml = `
+                                <div class='modal fade' id='modalArquivarNota' tabindex='-1' aria-labelledby='modalArquivarNotaLabel' aria-hidden='true'>
+                                    <div class='modal-dialog modal-dialog-centered' style='max-width: 500px;'>
+                                        <div class='modal-content'>
+                                            <div class='modal-header bg-secondary text-white'>
+                                                <h5 class='modal-title' id='modalArquivarNotaLabel'>
+                                                    <i class='fas fa-archive me-2'></i>Arquivar Nota
+                                                </h5>
+                                                <button type='button' class='btn-close btn-close-white' data-bs-dismiss='modal' aria-label='Close'></button>
+                                            </div>
+                                            <div class='modal-body'>
+                                                <div class='alert alert-info'>
+                                                    <i class='fas fa-info-circle me-2'></i>
+                                                    <strong>Informação:</strong> Esta ação irá arquivar a nota, tornando-a inativa no sistema.
+                                                </div>
+                                                <div class='mb-3'>
+                                                    <label for='motivoArquivamento' class='form-label'>
+                                                        <strong>Motivo do Arquivamento:</strong>
+                                                    </label>
+                                                    <textarea class='form-control' id='motivoArquivamento' rows='4' 
+                                                        placeholder='Digite o motivo do arquivamento da nota...' required></textarea>
+                                                </div>
+                                            </div>
+                                            <div class='modal-footer'>
+                                                <button type='button' class='btn btn-secondary' data-bs-dismiss='modal'>
+                                                    <i class='fas fa-times me-2'></i>Cancelar
+                                                </button>
+                                                <button type='button' class='btn btn-secondary' id='btnConfirmarArquivamento' data-nota-id='${notaId}'>
+                                                    <i class='fas fa-archive me-2'></i>Arquivar Nota
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                            
+                            // Remover modal existente se houver
+                            const modalExistente = document.getElementById('modalArquivarNota');
+                            if (modalExistente) {
+                                modalExistente.remove();
+                            }
+                            
+                            // Adicionar modal ao body
+                            document.body.insertAdjacentHTML('beforeend', modalHtml);
+                            
+                            // Configurar evento do botão de confirmação
+                            const btnConfirmar = document.getElementById('btnConfirmarArquivamento');
+                            if (btnConfirmar) {
+                                btnConfirmar.addEventListener('click', function() {
+                                    const motivo = document.getElementById('motivoArquivamento').value.trim();
+                                    
+                                    if (!motivo) {
+                                        alert('Motivo é obrigatório!');
+                                        return;
+                                    }
+                                    
+                                    // Fazer requisição AJAX
+                                    const csrfToken = window.csrfToken || document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+                                    
+                                    if (!csrfToken) {
+                                        alert('Erro: Token CSRF não encontrado.');
+                                        return;
+                                    }
+                                    
+                                    // Desabilitar botão para evitar duplo clique
+                                    this.disabled = true;
+                                    this.innerHTML = '<i class=\'fas fa-spinner fa-spin me-2\'></i>Arquivando...';
+                                    
+                                    fetch('/militares/notas/' + notaId + '/arquivar/', {
+                                        method: 'POST',
+                                        headers: {
+                                            'X-CSRFToken': csrfToken,
+                                            'X-Requested-With': 'XMLHttpRequest',
+                                            'Content-Type': 'application/x-www-form-urlencoded',
+                                        },
+                                        body: 'motivo_arquivamento=' + encodeURIComponent(motivo)
+                                    })
+                                    .then(response => response.json())
+                                    .then(data => {
+                                        if (data.success) {
+                                            // Fechar modal
+                                            const modal = bootstrap.Modal.getInstance(document.getElementById('modalArquivarNota'));
+                                            if (modal) {
+                                                modal.hide();
+                                            }
+                                            alert(data.message);
+                                            location.reload();
+                                        } else {
+                                            alert('Erro: ' + data.error);
+                                            // Reabilitar botão
+                                            this.disabled = false;
+                                            this.innerHTML = '<i class=\'fas fa-archive me-2\'></i>Arquivar Nota';
+                                        }
+                                    })
+                                    .catch(error => {
+                                        console.error('Erro:', error);
+                                        alert('Erro ao arquivar nota: ' + error.message);
+                                        // Reabilitar botão
+                                        this.disabled = false;
+                                        this.innerHTML = '<i class=\'fas fa-archive me-2\'></i>Arquivar Nota';
+                                    });
+                                });
+                            }
+                            
+                            // Mostrar o modal
+                            const modalElement = document.getElementById('modalArquivarNota');
+                            const modal = new bootstrap.Modal(modalElement);
+                            modal.show();
+                        ">
+                            <i class="fas fa-archive me-2"></i>Arquivar
+                        </button>
+                    {% endif %}
+                {% endwith %}
+            {% else %}
+                {% comment %} Superusuário - mostrar botões completos {% endcomment %}
+                <button type="button" class="btn btn-primary" id="btnImprimir" data-nota-id="{{ nota.id }}" title="Imprimir Nota" onclick="
+                    console.log('DEBUG: Botão imprimir clicado!');
+                    const notaId = {{ nota.id }};
+                    const url = '/militares/notas/' + notaId + '/gerar-pdf/?v=' + Date.now();
+                    console.log('DEBUG: Abrindo PDF com URL:', url);
+                    window.open(url, '_blank');
+                ">
+                    <i class="fas fa-print me-2"></i>Imprimir
+                </button>
+                <button type="button" class="btn btn-warning" id="btnDevolver" data-nota-id="{{ nota.id }}" title="Devolver Nota" onclick="
+                    console.log('DEBUG: Botão devolver clicado!');
+                    const notaId = {{ nota.id }};
+                    
+                    // Criar modal de devolução
+                    const modalHtml = `
+                        <div class='modal fade' id='modalDevolverNota' tabindex='-1' aria-labelledby='modalDevolverNotaLabel' aria-hidden='true'>
+                            <div class='modal-dialog modal-dialog-centered' style='max-width: 500px;'>
+                                <div class='modal-content'>
+                                    <div class='modal-header bg-warning text-dark'>
+                                        <h5 class='modal-title' id='modalDevolverNotaLabel'>
+                                            <i class='fas fa-undo me-2'></i>Devolver Nota
+                                        </h5>
+                                        <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
+                                    </div>
+                                    <div class='modal-body'>
+                                        <div class='alert alert-warning'>
+                                            <i class='fas fa-exclamation-triangle me-2'></i>
+                                            <strong>Atenção:</strong> Esta ação irá devolver a nota para rascunho, removendo todas as assinaturas eletrônicas.
+                                        </div>
+                                        <div class='mb-3'>
+                                            <label for='motivoDevolucao' class='form-label'>
+                                                <strong>Motivo da Devolução:</strong>
+                                            </label>
+                                            <textarea class='form-control' id='motivoDevolucao' rows='4' 
+                                                placeholder='Digite o motivo da devolução da nota...' required></textarea>
+                                        </div>
+                                    </div>
+                                    <div class='modal-footer'>
+                                        <button type='button' class='btn btn-secondary' data-bs-dismiss='modal'>
+                                            <i class='fas fa-times me-2'></i>Cancelar
+                                        </button>
+                                        <button type='button' class='btn btn-warning' id='btnConfirmarDevolucao' data-nota-id='${notaId}'>
+                                            <i class='fas fa-undo me-2'></i>Devolver Nota
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Remover modal existente se houver
+                    const modalExistente = document.getElementById('modalDevolverNota');
+                    if (modalExistente) {
+                        modalExistente.remove();
+                    }
+                    
+                    // Adicionar modal ao body
+                    document.body.insertAdjacentHTML('beforeend', modalHtml);
+                    
+                    // Configurar evento do botão de confirmação
+                    const btnConfirmar = document.getElementById('btnConfirmarDevolucao');
+                    if (btnConfirmar) {
+                        btnConfirmar.addEventListener('click', function() {
+                            const motivo = document.getElementById('motivoDevolucao').value.trim();
+                            
+                            if (!motivo) {
+                                alert('Motivo é obrigatório!');
+                                return;
+                            }
+                            
+                            // Fazer requisição AJAX
+                            const csrfToken = window.csrfToken || document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+                            
+                            if (!csrfToken) {
+                                alert('Erro: Token CSRF não encontrado.');
+                                return;
+                            }
+                            
+                            // Desabilitar botão para evitar duplo clique
+                            this.disabled = true;
+                            this.innerHTML = '<i class=\'fas fa-spinner fa-spin me-2\'></i>Devolvendo...';
+                            
+                            fetch('/militares/notas/' + notaId + '/devolver/', {
+                                method: 'POST',
+                                headers: {
+                                    'X-CSRFToken': csrfToken,
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'Content-Type': 'application/x-www-form-urlencoded',
+                                },
+                                body: 'motivo_devolucao=' + encodeURIComponent(motivo)
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    // Fechar modal
+                                    const modal = bootstrap.Modal.getInstance(document.getElementById('modalDevolverNota'));
+                                    if (modal) {
+                                        modal.hide();
+                                    }
+                                    alert(data.message);
+                                    location.reload();
+                                } else {
+                                    alert('Erro: ' + data.error);
+                                    // Reabilitar botão
+                                    this.disabled = false;
+                                    this.innerHTML = '<i class=\'fas fa-undo me-2\'></i>Devolver Nota';
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Erro:', error);
+                                alert('Erro ao devolver nota: ' + error.message);
+                                // Reabilitar botão
+                                this.disabled = false;
+                                this.innerHTML = '<i class=\'fas fa-undo me-2\'></i>Devolver Nota';
+                            });
+                        });
+                    }
+                    
+                    // Mostrar o modal
+                    const modalElement = document.getElementById('modalDevolverNota');
+                    const modal = new bootstrap.Modal(modalElement);
+                    modal.show();
+                ">
+                    <i class="fas fa-undo me-2"></i>Devolver
+                </button>
+                <button type="button" class="btn btn-secondary" id="btnArquivar" data-nota-id="{{ nota.id }}" title="Arquivar Nota" onclick="
+                    console.log('DEBUG: Botão arquivar clicado!');
+                    const notaId = {{ nota.id }};
+                    
+                    // Criar modal de arquivamento
+                    const modalHtml = `
+                        <div class='modal fade' id='modalArquivarNota' tabindex='-1' aria-labelledby='modalArquivarNotaLabel' aria-hidden='true'>
+                            <div class='modal-dialog modal-dialog-centered' style='max-width: 500px;'>
+                                <div class='modal-content'>
+                                    <div class='modal-header bg-secondary text-white'>
+                                        <h5 class='modal-title' id='modalArquivarNotaLabel'>
+                                            <i class='fas fa-archive me-2'></i>Arquivar Nota
+                                        </h5>
+                                        <button type='button' class='btn-close btn-close-white' data-bs-dismiss='modal' aria-label='Close'></button>
+                                    </div>
+                                    <div class='modal-body'>
+                                        <div class='alert alert-info'>
+                                            <i class='fas fa-info-circle me-2'></i>
+                                            <strong>Informação:</strong> Esta ação irá arquivar a nota, tornando-a inativa no sistema.
+                                        </div>
+                                        <div class='mb-3'>
+                                            <label for='motivoArquivamento' class='form-label'>
+                                                <strong>Motivo do Arquivamento:</strong>
+                                            </label>
+                                            <textarea class='form-control' id='motivoArquivamento' rows='4' 
+                                                placeholder='Digite o motivo do arquivamento da nota...' required></textarea>
+                                        </div>
+                                    </div>
+                                    <div class='modal-footer'>
+                                        <button type='button' class='btn btn-secondary' data-bs-dismiss='modal'>
+                                            <i class='fas fa-times me-2'></i>Cancelar
+                                        </button>
+                                        <button type='button' class='btn btn-secondary' id='btnConfirmarArquivamento' data-nota-id='${notaId}'>
+                                            <i class='fas fa-archive me-2'></i>Arquivar Nota
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Remover modal existente se houver
+                    const modalExistente = document.getElementById('modalArquivarNota');
+                    if (modalExistente) {
+                        modalExistente.remove();
+                    }
+                    
+                    // Adicionar modal ao body
+                    document.body.insertAdjacentHTML('beforeend', modalHtml);
+                    
+                    // Configurar evento do botão de confirmação
+                    const btnConfirmar = document.getElementById('btnConfirmarArquivamento');
+                    if (btnConfirmar) {
+                        btnConfirmar.addEventListener('click', function() {
+                            const motivo = document.getElementById('motivoArquivamento').value.trim();
+                            
+                            if (!motivo) {
+                                alert('Motivo é obrigatório!');
+                                return;
+                            }
+                            
+                            // Fazer requisição AJAX
+                            const csrfToken = window.csrfToken || document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+                            
+                            if (!csrfToken) {
+                                alert('Erro: Token CSRF não encontrado.');
+                                return;
+                            }
+                            
+                            // Desabilitar botão para evitar duplo clique
+                            this.disabled = true;
+                            this.innerHTML = '<i class=\'fas fa-spinner fa-spin me-2\'></i>Arquivando...';
+                            
+                            fetch('/militares/notas/' + notaId + '/arquivar/', {
+                                method: 'POST',
+                                headers: {
+                                    'X-CSRFToken': csrfToken,
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'Content-Type': 'application/x-www-form-urlencoded',
+                                },
+                                body: 'motivo_arquivamento=' + encodeURIComponent(motivo)
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    // Fechar modal
+                                    const modal = bootstrap.Modal.getInstance(document.getElementById('modalArquivarNota'));
+                                    if (modal) {
+                                        modal.hide();
+                                    }
+                                    alert(data.message);
+                                    location.reload();
+                                } else {
+                                    alert('Erro: ' + data.error);
+                                    // Reabilitar botão
+                                    this.disabled = false;
+                                    this.innerHTML = '<i class=\'fas fa-archive me-2\'></i>Arquivar Nota';
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Erro:', error);
+                                alert('Erro ao arquivar nota: ' + error.message);
+                                // Reabilitar botão
+                                this.disabled = false;
+                                this.innerHTML = '<i class=\'fas fa-archive me-2\'></i>Arquivar Nota';
+                            });
+                        });
+                    }
+                    
+                    // Mostrar o modal
+                    const modalElement = document.getElementById('modalArquivarNota');
+                    const modal = new bootstrap.Modal(modalElement);
+                    modal.show();
+                ">
+                    <i class="fas fa-archive me-2"></i>Arquivar
+                </button>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Título da Nota -->
+    <div class="nota-titulo-principal">
+        <h1>NOTA Nº {{ nota.numero }}</h1>
+        <h2>{{ nota.titulo }}</h2>
+    </div>
+    
+    <!-- Conteúdo da Nota -->
+    <div class="conteudo-section">
+        <div class="conteudo-text">
+            {{ nota.conteudo|safe }}
+        </div>
+    </div>
+    
+    <!-- Cidade, UF e Data da Primeira Assinatura -->
+    {% if assinaturas %}
+        {% with primeira_assinatura=assinaturas|dictsort:"data_assinatura"|first %}
+        <div class="mt-5" style="text-align: center; margin: 30px 0;">
+            <p style="font-size: 14px; color: #666; margin-bottom: 5px;">
+                Teresina - PI, {{ primeira_assinatura.data_assinatura|date:"d" }} de 
+                {% if primeira_assinatura.data_assinatura.month == 1 %}janeiro
+                {% elif primeira_assinatura.data_assinatura.month == 2 %}fevereiro
+                {% elif primeira_assinatura.data_assinatura.month == 3 %}março
+                {% elif primeira_assinatura.data_assinatura.month == 4 %}abril
+                {% elif primeira_assinatura.data_assinatura.month == 5 %}maio
+                {% elif primeira_assinatura.data_assinatura.month == 6 %}junho
+                {% elif primeira_assinatura.data_assinatura.month == 7 %}julho
+                {% elif primeira_assinatura.data_assinatura.month == 8 %}agosto
+                {% elif primeira_assinatura.data_assinatura.month == 9 %}setembro
+                {% elif primeira_assinatura.data_assinatura.month == 10 %}outubro
+                {% elif primeira_assinatura.data_assinatura.month == 11 %}novembro
+                {% elif primeira_assinatura.data_assinatura.month == 12 %}dezembro
+                {% endif %} de {{ primeira_assinatura.data_assinatura|date:"Y" }}.
+            </p>
+        </div>
+        {% endwith %}
+    {% endif %}
+
+    <!-- Assinaturas Físicas (Local de Assinatura) -->
+    {% if assinaturas %}
+        <div class="mt-5">
+            {% for assinatura in assinaturas %}
+            <div style="text-align: center; margin-bottom: 20px;">
+                {% if assinatura.assinado_por.militar %}
+                    <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">
+                        {{ assinatura.assinado_por.militar|nome_completo_militar }}
+                    </div>
+                    <div style="font-size: 12px; color: #888; margin-bottom: 3px;">
+                        {{ assinatura.funcao_assinatura|default:"Função não registrada" }}
+                    </div>
+                    <div style="font-size: 10px; font-weight: bold; color: #666;">
+                        {{ assinatura.get_tipo_assinatura_display }}
+                    </div>
+                {% else %}
+                    <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">
+                        {{ assinatura.assinado_por.get_full_name|default:assinatura.assinado_por.username }}
+                    </div>
+                    <div style="font-size: 12px; color: #888; margin-bottom: 3px;">
+                        {{ assinatura.funcao_assinatura|default:"Função não registrada" }}
+                    </div>
+                    <div style="font-size: 10px; font-weight: bold; color: #666;">
+                        {{ assinatura.get_tipo_assinatura_display }}
+                    </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- Anexos da Nota -->
+    {% if nota.anexos.exists %}
+        <div class="mt-5">
+            <h5 class="mb-3">
+                <i class="fas fa-paperclip me-2"></i>Anexos da Nota
+            </h5>
+            <div class="row">
+                {% for anexo in nota.anexos.all %}
+                <div class="col-md-6 mb-3">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body p-3">
+                            <div class="d-flex align-items-center">
+                                <div class="me-3">
+                                    <div class="bg-danger bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                        <i class="{{ anexo.icone_tipo }} text-danger"></i>
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h6 class="card-title mb-1 text-truncate" title="{{ anexo.nome_original }}">
+                                        {{ anexo.nome_original }}
+                                    </h6>
+                                    <small class="text-muted">
+                                        <i class="fas fa-weight-hanging me-1"></i>{{ anexo.tamanho }}
+                                        <span class="mx-2">•</span>
+                                        <i class="fas fa-calendar me-1"></i>{{ anexo.data_upload|date:"d/m/Y H:i" }}
+                                    </small>
+                                    {% if anexo.descricao %}
+                                    <br><small class="text-info"><i class="fas fa-comment me-1"></i>{{ anexo.descricao }}</small>
+                                    {% endif %}
+                                    <br><small class="text-secondary"><i class="fas fa-user me-1"></i>Enviado por: {{ anexo.upload_por.get_full_name|default:anexo.upload_por.username }}</small>
+                                </div>
+                                <div class="ms-2">
+                                    <a href="{{ anexo.arquivo.url }}" target="_blank" class="btn btn-outline-primary btn-sm" title="Visualizar">
+                                        <i class="fas fa-eye me-1"></i>Visualizar
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Assinaturas Eletrônicas -->
+    {% if assinaturas %}
+        <div class="mt-5">
+            {% for assinatura in assinaturas %}
+            <div style="display: flex; align-items: flex-start; border: 1px solid #888; border-radius: 6px; margin-bottom: 10px; background: #fafafa;">
+                <div style="padding: 8px;">
+                    <img src="{% static 'assinasyspro.png' %}" width="100" height="70" alt="Logo AssinaSysPro" style="background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                </div>
+                <div style="flex-grow: 1;">
+                    <div style="padding: 8px; font-size: 15px; text-align: justify; display: flex; align-items: center; justify-content: space-between;">
+                        <div style="flex-grow: 1;">
+                            Documento assinado eletronicamente por <b>{% if assinatura.assinado_por.militar %}{{ assinatura.assinado_por.militar|nome_completo_militar }}{% else %}{{ assinatura.assinado_por.get_full_name|default:assinatura.assinado_por.username }}{% endif %}</b> <b>- {{ assinatura.funcao_assinatura|default:"Função não registrada" }}</b>, em {{ assinatura.data_assinatura|date:"d/m/Y" }}, às {{ assinatura.data_assinatura|date:"H:i" }}, conforme horário oficial de Brasília, com fundamento na Portaria XXX/2025 Gab. Cmdo. Geral/CBMEPI de XX de XXXXX de 2025.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="mt-5">
+            <p class="text-muted">Nenhuma assinatura eletrônica registrada.</p>
+        </div>
+    {% endif %}
+    
+    <!-- Informações da Nota (discretas no final) -->
+    <div class="nota-info-discreta">
+        <div class="info-discreta-item">
+            <span class="info-label">Número:</span>
+            <span class="info-value">{{ nota.numero }}</span>
+        </div>
+        <div class="info-discreta-item">
+            <span class="info-label">Criado em:</span>
+            <span class="info-value">{{ nota.data_criacao|date:"d/m/Y H:i"|default:"-" }}</span>
+        </div>
+        {% if nota.data_atualizacao and nota.data_atualizacao != nota.data_criacao %}
+        <div class="info-discreta-item">
+            <span class="info-label">Editado em:</span>
+            <span class="info-value">{{ nota.data_atualizacao|date:"d/m/Y H:i" }}</span>
+        </div>
+        {% endif %}
+        {% if nota.data_publicacao %}
+        <div class="info-discreta-item">
+            <span class="info-label">Publicado em:</span>
+            <span class="info-value">{{ nota.data_publicacao|date:"d/m/Y H:i" }}</span>
+        </div>
+        {% endif %}
+        <div class="info-discreta-item">
+            <span class="info-label">Status:</span>
+            <span class="status-badge-discreto status-{{ nota.status|lower }}">
+                {{ nota.get_status_display }}
+            </span>
+        </div>
+        <div class="info-discreta-item">
+            <span class="info-label">Responsável:</span>
+            <span class="info-value">{{ nota.criado_por.get_full_name|default:"Sistema Automático" }}</span>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Estilos específicos para o modal de notas */
+.nota-modal-content {
+    padding: 20px;
+    background: #f8f9fa;
+    min-height: 100%;
+}
+
+.cabecalho-oficial {
+    text-align: center;
+    margin-bottom: 30px;
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.cabecalho-oficial h1 {
+    font-size: 14px;
+    font-weight: bold;
+    margin: 0 0 5px 0;
+    color: #333;
+    display: block;
+    line-height: 1.2;
+}
+
+.cabecalho-oficial h2 {
+    font-size: 14px;
+    font-weight: bold;
+    margin: 0 0 5px 0;
+    color: #333;
+    display: block;
+    line-height: 1.2;
+}
+
+.cabecalho-oficial h3 {
+    font-size: 14px;
+    font-weight: bold;
+    margin: 0 0 5px 0;
+    color: #333;
+    display: block;
+    line-height: 1.2;
+}
+
+.cabecalho-oficial h4 {
+    font-size: 14px;
+    font-weight: bold;
+    margin: 0 0 5px 0;
+    color: #333;
+    display: block;
+    line-height: 1.2;
+}
+
+.cabecalho-oficial h5 {
+    font-size: 14px;
+    font-weight: bold;
+    margin: 0 0 5px 0;
+    color: #333;
+    display: block;
+    line-height: 1.2;
+}
+
+.cabecalho-oficial h6 {
+    font-size: 14px;
+    font-weight: bold;
+    margin: 0 0 5px 0;
+    color: #333;
+    display: block;
+    line-height: 1.2;
+}
+
+.cabecalho-oficial hr {
+    border-top: 2px solid #333;
+    margin: 20px 0;
+}
+
+.nota-titulo-principal {
+    text-align: center;
+    margin: 30px 0;
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.nota-titulo-principal h1 {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 10px;
+    border-bottom: 3px solid #3498db;
+    padding-bottom: 10px;
+}
+
+.nota-titulo-principal h2 {
+    font-size: 1.2rem;
+    color: #666;
+    margin: 0;
+}
+
+    .nota-info-discreta {
+        background: #f8f9fa;
+        padding: 15px 20px;
+        border-radius: 8px;
+        margin-top: 20px;
+        border-top: 1px solid #dee2e6;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+
+
+.info-discreta-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.info-label {
+    font-weight: 500;
+    color: #6c757d;
+}
+
+.info-value {
+    color: #495057;
+}
+
+.status-badge-discreto {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-badge-discreto.status-publicada {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-badge-discreto.status-rascunho {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status-badge-discreto.status-aprovada {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+.conteudo-section {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.conteudo-text {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: #444;
+}
+
+.conteudo-text p {
+    margin-bottom: 1rem;
+    text-align: justify;
+}
+
+.conteudo-text h1, .conteudo-text h2, .conteudo-text h3, 
+.conteudo-text h4, .conteudo-text h5, .conteudo-text h6 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.conteudo-text h1 { font-size: 1.5rem; }
+.conteudo-text h2 { font-size: 1.3rem; }
+.conteudo-text h3 { font-size: 1.2rem; }
+.conteudo-text h4 { font-size: 1.1rem; }
+.conteudo-text h5 { font-size: 1rem; }
+.conteudo-text h6 { font-size: 0.9rem; }
+
+.conteudo-text ul, .conteudo-text ol {
+    margin-bottom: 1rem;
+    padding-left: 2rem;
+}
+
+.conteudo-text li {
+    margin-bottom: 0.5rem;
+}
+
+.conteudo-text blockquote {
+    border-left: 4px solid #3498db;
+    margin: 1rem 0;
+    padding: 1rem;
+    background: #f8f9fa;
+    font-style: italic;
+    border-radius: 0 8px 8px 0;
+}
+
+.conteudo-text table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.conteudo-text th, .conteudo-text td {
+    border: 1px solid #ddd;
+    padding: 12px;
+    text-align: left;
+}
+
+.conteudo-text th {
+    background-color: #3498db;
+    color: white;
+    font-weight: bold;
+}
+
+.conteudo-text tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+.conteudo-text strong, .conteudo-text b {
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.conteudo-text em, .conteudo-text i {
+    font-style: italic;
+}
+
+.conteudo-text u {
+    text-decoration: underline;
+}
+
+.conteudo-text img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin: 1rem 0;
+}
+
+.conteudo-text a {
+    color: #3498db;
+    text-decoration: none;
+}
+
+.conteudo-text a:hover {
+    text-decoration: underline;
+}
+
+.assinaturas-section {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.assinaturas-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #27ae60;
+    padding-bottom: 8px;
+}
+
+.signature-item {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    transition: all 0.3s ease;
+}
+
+.signature-item:hover {
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.signature-name {
+    font-weight: bold;
+    color: #2c3e50;
+    font-size: 1.1rem;
+    margin-bottom: 5px;
+}
+
+.signature-role {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 5px;
+}
+
+.signature-status {
+    color: #28a745;
+    font-size: 0.8rem;
+    font-style: italic;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.status-publicada {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-rascunho {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status-aprovada {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+@media (max-width: 768px) {
+    .nota-titulo-principal h1 {
+        font-size: 1.4rem;
+    }
+    
+    .nota-info-discreta {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        padding: 12px 15px;
+    }
+    
+    .info-discreta-item {
+        justify-content: space-between;
+        padding: 2px 0;
+    }
+}
+
+@media (max-width: 480px) {
+    .nota-info-discreta {
+        font-size: 0.8rem;
+        padding: 10px 12px;
+    }
+    
+    .info-discreta-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+    }
+}
+</style>

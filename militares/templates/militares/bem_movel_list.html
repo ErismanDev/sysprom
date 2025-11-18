@@ -1,0 +1,488 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Bens Móveis - Lista{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-box me-2 text-primary"></i>Bens Móveis
+                    </h2>
+                    <p class="text-muted mb-0">Gerenciar cadastro e tombamento de bens móveis do CBMEPI</p>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#criarBemMovelModal">
+                        <i class="fas fa-plus me-2"></i>Novo Bem Móvel
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Cards de Estatísticas -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-box fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_bens }}</h4>
+                            <p class="mb-0">Total de Bens</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card success">
+                        <div class="card-body text-center">
+                            <i class="fas fa-check-circle fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ bens_em_uso }}</h4>
+                            <p class="mb-0">Em Uso</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card info">
+                        <div class="card-body text-center">
+                            <i class="fas fa-info-circle fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ bens_disponiveis }}</h4>
+                            <p class="mb-0">Disponíveis</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card warning">
+                        <div class="card-body text-center">
+                            <i class="fas fa-wrench fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ bens_manutencao }}</h4>
+                            <p class="mb-0">Em Manutenção</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Pesquisa</label>
+                            <input type="text" name="search" class="form-control" 
+                                   value="{{ search }}" placeholder="Nº tombamento, descrição, marca...">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Categoria</label>
+                            <select name="categoria" class="form-select">
+                                <option value="">Todas</option>
+                                {% for cat_val, cat_nome in categorias %}
+                                    <option value="{{ cat_val }}" {% if categoria == cat_val %}selected{% endif %}>
+                                        {{ cat_nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Situação</label>
+                            <select name="situacao" class="form-select">
+                                <option value="">Todas</option>
+                                {% for sit_val, sit_nome in situacoes %}
+                                    <option value="{{ sit_val }}" {% if situacao == sit_val %}selected{% endif %}>
+                                        {{ sit_nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Ativo</label>
+                            <select name="ativo" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="1" {% if ativo == '1' %}selected{% endif %}>Sim</option>
+                                <option value="0" {% if ativo == '0' %}selected{% endif %}>Não</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                            <a href="{% url 'militares:bem_movel_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Limpar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Lista de Bens Móveis -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Lista de Bens Móveis
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if bens_moveis %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Nº Tombamento</th>
+                                        <th>Descrição</th>
+                                        <th>Categoria</th>
+                                        <th>Marca/Modelo</th>
+                                        <th>Situação</th>
+                                        <th>Organização</th>
+                                        <th>Responsável</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for bem in bens_moveis %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ bem.numero_tombamento }}</strong>
+                                                {% if not bem.ativo %}
+                                                    <span class="badge bg-secondary ms-1">Inativo</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ bem.descricao|truncatewords:10 }}</td>
+                                            <td>{{ bem.get_categoria_display }}</td>
+                                            <td>
+                                                {% if bem.marca or bem.modelo %}
+                                                    {{ bem.marca|default:"" }} {{ bem.modelo|default:"" }}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-{{ bem.get_situacao_display_color }}">
+                                                    {{ bem.get_situacao_display }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span data-bs-toggle="tooltip" 
+                                                      data-bs-placement="top" 
+                                                      title="{{ bem.get_organizacao }}">
+                                                    {% if bem.sub_unidade %}
+                                                        {{ bem.sub_unidade.nome }}
+                                                    {% elif bem.unidade %}
+                                                        {{ bem.unidade.nome }}
+                                                    {% elif bem.grande_comando %}
+                                                        {{ bem.grande_comando.nome }}
+                                                    {% elif bem.orgao %}
+                                                        {{ bem.orgao.nome }}
+                                                    {% else %}
+                                                        <span class="text-muted">Não definido</span>
+                                                    {% endif %}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                {% if bem.responsavel_atual %}
+                                                    {{ bem.responsavel_atual.nome_completo }}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <a href="{% url 'militares:bem_movel_detail' bem.pk %}" 
+                                                   class="btn btn-sm btn-info" title="Visualizar">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                <button type="button" 
+                                                        class="btn btn-sm btn-primary btn-editar-bem" 
+                                                        data-bem-id="{{ bem.pk }}"
+                                                        title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button type="button" 
+                                                        class="btn btn-sm btn-danger btn-excluir-bem" 
+                                                        data-bem-id="{{ bem.pk }}"
+                                                        data-bem-nome="{{ bem.numero_tombamento }}"
+                                                        title="Excluir">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if is_paginated %}
+                            <nav aria-label="Paginação">
+                                <ul class="pagination justify-content-center mt-4">
+                                    {% if page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}{% if categoria %}&categoria={{ categoria }}{% endif %}{% if situacao %}&situacao={{ situacao }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">
+                                                <i class="fas fa-angle-double-left"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if categoria %}&categoria={{ categoria }}{% endif %}{% if situacao %}&situacao={{ situacao }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">
+                                                <i class="fas fa-angle-left"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                    
+                                    <li class="page-item disabled">
+                                        <span class="page-link">
+                                            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                                        </span>
+                                    </li>
+                                    
+                                    {% if page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if categoria %}&categoria={{ categoria }}{% endif %}{% if situacao %}&situacao={{ situacao }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">
+                                                <i class="fas fa-angle-right"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if categoria %}&categoria={{ categoria }}{% endif %}{% if situacao %}&situacao={{ situacao }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">
+                                                <i class="fas fa-angle-double-right"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Nenhum bem móvel encontrado.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Criar Bem Móvel -->
+<div class="modal fade" id="criarBemMovelModal" tabindex="-1" aria-labelledby="criarBemMovelModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="criarBemMovelModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Editar Bem Móvel -->
+<div class="modal fade" id="editarBemMovelModal" tabindex="-1" aria-labelledby="editarBemMovelModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="editarBemMovelModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Excluir Bem Móvel -->
+<div class="modal fade" id="excluirBemMovelModal" tabindex="-1" aria-labelledby="excluirBemMovelModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" id="excluirBemMovelModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-danger" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Modal de Criar
+    const criarBemMovelModal = document.getElementById('criarBemMovelModal');
+    const criarBemMovelModalContent = document.getElementById('criarBemMovelModalContent');
+    
+    if (criarBemMovelModal && criarBemMovelModalContent) {
+        criarBemMovelModal.addEventListener('show.bs.modal', function(event) {
+            criarBemMovelModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            fetch('{% url "militares:bem_movel_create" %}', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.html) {
+                    criarBemMovelModalContent.innerHTML = data.html;
+                    
+                    // Re-executar scripts
+                    setTimeout(function() {
+                        const scripts = criarBemMovelModalContent.querySelectorAll('script');
+                        scripts.forEach(function(oldScript) {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(attr => {
+                                newScript.setAttribute(attr.name, attr.value);
+                            });
+                            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                            oldScript.parentNode.replaceChild(newScript, oldScript);
+                        });
+                    }, 100);
+                } else {
+                    criarBemMovelModalContent.innerHTML = `
+                        <div class="modal-body">
+                            <div class="alert alert-danger">Erro ao carregar formulário.</div>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                criarBemMovelModalContent.innerHTML = `
+                    <div class="modal-body">
+                        <div class="alert alert-danger">Erro ao carregar formulário.</div>
+                    </div>
+                `;
+            });
+        });
+    }
+    
+    // Modal de Editar
+    const editarBemMovelModal = document.getElementById('editarBemMovelModal');
+    const editarBemMovelModalContent = document.getElementById('editarBemMovelModalContent');
+    
+    document.querySelectorAll('.btn-editar-bem').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const bemId = this.getAttribute('data-bem-id');
+            
+            editarBemMovelModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            const modal = new bootstrap.Modal(editarBemMovelModal);
+            modal.show();
+            
+            fetch(`/militares/bens-moveis/${bemId}/editar/`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.html) {
+                    editarBemMovelModalContent.innerHTML = data.html;
+                    
+                    setTimeout(function() {
+                        const scripts = editarBemMovelModalContent.querySelectorAll('script');
+                        scripts.forEach(function(oldScript) {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(attr => {
+                                newScript.setAttribute(attr.name, attr.value);
+                            });
+                            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                            oldScript.parentNode.replaceChild(newScript, oldScript);
+                        });
+                    }, 100);
+                } else {
+                    editarBemMovelModalContent.innerHTML = `
+                        <div class="modal-body">
+                            <div class="alert alert-danger">Erro ao carregar formulário.</div>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                editarBemMovelModalContent.innerHTML = `
+                    <div class="modal-body">
+                        <div class="alert alert-danger">Erro ao carregar formulário.</div>
+                    </div>
+                `;
+            });
+        });
+    });
+    
+    // Modal de Excluir
+    const excluirBemMovelModal = document.getElementById('excluirBemMovelModal');
+    const excluirBemMovelModalContent = document.getElementById('excluirBemMovelModalContent');
+    
+    document.querySelectorAll('.btn-excluir-bem').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const bemId = this.getAttribute('data-bem-id');
+            const bemNome = this.getAttribute('data-bem-nome');
+            
+            excluirBemMovelModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-danger" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando...</p>
+                </div>
+            `;
+            
+            const modal = new bootstrap.Modal(excluirBemMovelModal);
+            modal.show();
+            
+            fetch(`/militares/bens-moveis/${bemId}/excluir/`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.html) {
+                    excluirBemMovelModalContent.innerHTML = data.html;
+                } else {
+                    excluirBemMovelModalContent.innerHTML = `
+                        <div class="modal-body">
+                            <div class="alert alert-danger">Erro ao carregar confirmação.</div>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                excluirBemMovelModalContent.innerHTML = `
+                    <div class="modal-body">
+                        <div class="alert alert-danger">Erro ao carregar confirmação.</div>
+                    </div>
+                `;
+            });
+        });
+    });
+});
+</script>
+{% endblock %}
+

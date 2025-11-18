@@ -24,7 +24,7 @@ def gerar_pdf_almanaque_direct(almanaque, request=None):
     
     # Buscar todos os militares ativos (excluindo NVRR)
     from .models import Militar
-    militares_ativos = Militar.objects.filter(situacao='AT').exclude(quadro='NVRR')
+    militares_ativos = Militar.objects.filter(classificacao='ATIVO').exclude(quadro='NVRR')
     
     # Separar oficiais e praças
     oficiais = [m for m in militares_ativos if m.is_oficial()]
@@ -260,28 +260,26 @@ def gerar_pdf_almanaque_direct(almanaque, request=None):
             texto_assinatura = f"Documento assinado eletronicamente por {nome_completo} - {funcao}, em {data_assinatura}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
             
             # Tabela das assinaturas: Logo + Texto de assinatura
+            from .utils import obter_caminho_assinatura_eletronica
+            logo_assinatura_path = obter_caminho_assinatura_eletronica()
             assinatura_data = [
-                [Image(logo_path, width=1.5*cm, height=1.5*cm), Paragraph(texto_assinatura, style_small)]
+                [Image(logo_assinatura_path, width=3.0*cm, height=2.0*cm), Paragraph(texto_assinatura, style_small)]
             ]
             
-            assinatura_table = Table(assinatura_data, colWidths=[2*cm, 14*cm])
+            assinatura_table = Table(assinatura_data, colWidths=[3*cm, 13*cm])
             assinatura_table.setStyle(TableStyle([
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # Logo centralizado
                 ('ALIGN', (1, 0), (1, 0), 'LEFT'),    # Texto alinhado à esquerda
-                ('LEFTPADDING', (0, 0), (-1, -1), 2),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-                ('TOPPADDING', (0, 0), (-1, -1), 2),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+                                     ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                     ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+                     ('TOPPADDING', (0, 0), (-1, -1), 6),
+                     ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                     ('BOX', (0, 0), (-1, -1), 1, colors.grey),  # Borda do retângulo
             ]))
             
             story.append(assinatura_table)
-            
-            # Adicionar linha separadora entre assinaturas (exceto na última)
-            if i < len(assinaturas_eletronicas) - 1:
-                story.append(Spacer(1, 13))
-                story.append(HRFlowable(width="100%", thickness=0.5, spaceAfter=13, spaceBefore=13, color=colors.lightgrey))
-                story.append(Spacer(1, 13))
+            story.append(Spacer(1, 10))  # Espaçamento entre assinaturas
         
         # Se não houver assinaturas, mostrar mensagem
         if not assinaturas_ordenadas.exists() and not assinaturas_eletronicas.exists():
@@ -328,7 +326,7 @@ def gerar_pdf_almanaque_direct_old(tipo):
     
     # Buscar todos os militares ativos (excluindo NVRR)
     from .models import Militar
-    militares_ativos = Militar.objects.filter(situacao='AT').exclude(quadro='NVRR')
+    militares_ativos = Militar.objects.filter(classificacao='ATIVO').exclude(quadro='NVRR')
     
     # Separar oficiais e praças
     oficiais = [m for m in militares_ativos if m.is_oficial()]

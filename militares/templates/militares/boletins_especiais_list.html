@@ -1,0 +1,1349 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Boletins Especiais{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+
+<!-- Toast Container -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;">
+    <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <i id="toast-icon" class="fas fa-info-circle text-primary me-2"></i>
+            <strong class="me-auto" id="toast-title">Notificação</strong>
+            <small class="text-muted" id="toast-time">agora</small>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body" id="toast-message">
+            Mensagem do toast
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="card-title mb-0">
+                        <i class="fas fa-gem text-purple"></i>
+                        Boletins Especiais
+                    </h3>
+                    <div class="btn-group">
+                        {% if 'PUBLICACOES_CRIAR' in menu_permissions or user.is_superuser %}
+                        <button type="button" class="btn btn-purple" data-bs-toggle="modal" data-bs-target="#criarBoletimEspecialModal">
+                            <i class="fas fa-plus"></i>
+                            Novo Boletim Especial
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if publicacoes %}
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead class="thead-dark">
+                                    <tr>
+                                        <th>edição</th>
+                                        <th>dia</th>
+                                        <th>qtd. notas</th>
+                                        <th>situação</th>
+                                        <th>publicado</th>
+                                        <th>disponibilizado</th>
+                                        <th>Editor Chefe</th>
+                                        <th>Editor Adj/SubCmd</th>
+                                        <th>Editor Geral/CmdGeral</th>
+                                        <th>controles</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for publicacao in publicacoes %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ publicacao.numero }}</strong>
+                                        </td>
+                                        <td>{{ publicacao.data_criacao|date:"d/m/Y" }}</td>
+                                        <td>
+                                            {{ publicacao.notas_incluidas.count }}
+                                        </td>
+                                        <td>
+                                            {% if publicacao.data_disponibilizacao %}
+                                                <span class="text-success fw-bold">DISPONIBILIZADO</span>
+                                            {% else %}
+                                                <span class="text-danger fw-bold">AGUARDANDO</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {{ publicacao.data_criacao|date:"d-m-Y H:i:s" }}
+                                        </td>
+                                        <td>
+                                            {% if publicacao.data_disponibilizacao %}
+                                                {{ publicacao.data_disponibilizacao|date:"d-m-Y H:i:s" }}
+                                            {% else %}
+                                                <span class="text-danger fw-bold">AGUARDANDO</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center">
+                                            <!-- Editor Chefe -->
+                                            {% if publicacao.tem_assinatura_editor_chefe %}
+                                                <i class="fas fa-check-circle text-success" title="Assinado como Editor Chefe"></i>
+                                            {% else %}
+                                                <button class="btn btn-sm btn-outline-success" 
+                                                        onclick="assinarEditorChefe({{ publicacao.pk }})"
+                                                        title="Assinar como Editor Chefe">
+                                                    <i class="fas fa-signature"></i>
+                                                </button>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center">
+                                            <!-- Editor Adj/SubCmd -->
+                                            {% if publicacao.tem_assinatura_editor_adjunto %}
+                                                <i class="fas fa-check-circle text-success" title="Assinado como Editor Adjunto"></i>
+                                            {% else %}
+                                                <button class="btn btn-sm btn-outline-warning" 
+                                                        onclick="assinarEditorAdjunto({{ publicacao.pk }})"
+                                                        title="Assinar como Editor Adjunto">
+                                                    <i class="fas fa-signature"></i>
+                                                </button>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center">
+                                            <!-- Editor Geral/CmdGeral -->
+                                            {% if publicacao.tem_assinatura_editor_geral %}
+                                                <i class="fas fa-check-circle text-success" title="Assinado como Editor Geral"></i>
+                                            {% else %}
+                                                <button class="btn btn-sm btn-outline-info" 
+                                                        onclick="assinarEditorGeral({{ publicacao.pk }})"
+                                                        title="Assinar como Editor Geral">
+                                                    <i class="fas fa-signature"></i>
+                                                </button>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="btn-group" role="group">
+                                                <button type="button" 
+                                                        class="btn btn-sm btn-outline-info" 
+                                                        title="Visualizar"
+                                                        onclick="abrirModalVisualizar({{ publicacao.pk }}, '{{ publicacao.titulo|escapejs }}', '{{ publicacao.numero }}', '{{ publicacao.data_publicacao|date:"d/m/Y" }}', '{{ publicacao.get_status_display|escapejs }}', '{{ publicacao.topicos|default:""|escapejs }}')">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <a href="{% url 'militares:boletim_especial_gerar_pdf' publicacao.pk %}" 
+                                                   class="btn btn-sm btn-outline-danger" 
+                                                   title="Gerar PDF"
+                                                   target="_blank">
+                                                    <i class="fas fa-file-pdf"></i>
+                                                </a>
+                                                {% if not publicacao.data_disponibilizacao %}
+                                                <form method="post" action="{% url 'militares:disponibilizar_boletim_especial' publicacao.pk %}" class="d-inline">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="btn btn-sm btn-outline-success" 
+                                                            title="Disponibilizar" 
+                                                            onclick="return confirm('Deseja disponibilizar este boletim?')">
+                                                        <i class="fas fa-share"></i>
+                                                    </button>
+                                                </form>
+                                                {% if user.is_superuser %}
+                                                    {% if publicacao.data_disponibilizacao %}
+                                                        <form method="post" action="{% url 'militares:retornar_boletim_especial' publicacao.pk %}" class="d-inline">
+                                                            {% csrf_token %}
+                                                            <button type="submit" class="btn btn-sm btn-outline-warning" 
+                                                                    title="Retornar para Aguardando" 
+                                                                    onclick="return confirm('Deseja retornar este boletim para aguardando?')">
+                                                                <i class="fas fa-undo"></i>
+                                                    </button>
+                                                </form>
+                                                    {% endif %}
+                                                    <form method="post" action="{% url 'militares:deletar_boletim_especial' publicacao.pk %}" class="d-inline">
+                                                        {% csrf_token %}
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger" 
+                                                                title="Deletar Boletim" 
+                                                                onclick="return confirm('ATENÇÃO: Esta ação não pode ser desfeita! Deseja realmente deletar este boletim?')">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </form>
+                                                {% endif %}
+                                                {% endif %}
+                                                {% if publicacao.can_edit %}
+                                                <a href="{% url 'militares:publicacao_edit' publicacao.pk %}" 
+                                                   class="btn btn-sm btn-outline-secondary" title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if is_paginated %}
+                        <nav aria-label="Paginação dos Boletins Especiais">
+                            <ul class="pagination justify-content-center">
+                                {% if page_obj.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page=1">&laquo; Primeira</a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a>
+                                    </li>
+                                {% endif %}
+                                
+                                <li class="page-item active">
+                                    <span class="page-link">
+                                        Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                                    </span>
+                                </li>
+                                
+                                {% if page_obj.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">Próxima</a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Última &raquo;</a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-gem fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Nenhum boletim especial encontrado</h5>
+                            <p class="text-muted">Clique em "Novo Boletim Especial" para criar o primeiro boletim.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Rodapé com logo Sysgabom -->
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12 text-center">
+            <div class="card">
+                <div class="card-body py-3">
+                    <img src="{% static 'sysgabomlogo.png' %}" alt="Sysgabom" style="height: 40px;" class="me-3">
+                    <span class="text-muted small">Sistema de Gestão de Boletins e Militares - CBMEPI</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Cores específicas para boletim especial */
+.text-purple {
+    color: #6f42c1 !important;
+}
+
+.btn-purple {
+    background-color: #6f42c1;
+    border-color: #6f42c1;
+    color: white;
+}
+
+.btn-purple:hover {
+    background-color: #5a2d91;
+    border-color: #5a2d91;
+    color: white;
+}
+
+.btn-purple:focus {
+    background-color: #5a2d91;
+    border-color: #5a2d91;
+    color: white;
+    box-shadow: 0 0 0 0.2rem rgba(111, 66, 193, 0.25);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Função para mostrar toast
+function mostrarToast(titulo, mensagem, tipo = 'info') {
+    const toast = document.getElementById('toast');
+    const toastIcon = document.getElementById('toast-icon');
+    const toastTitle = document.getElementById('toast-title');
+    const toastMessage = document.getElementById('toast-message');
+    const toastTime = document.getElementById('toast-time');
+    
+    // Definir ícone e cor baseado no tipo
+    const iconClasses = {
+        'success': 'fas fa-check-circle text-success',
+        'error': 'fas fa-exclamation-triangle text-danger',
+        'warning': 'fas fa-exclamation-circle text-warning',
+        'info': 'fas fa-info-circle text-primary'
+    };
+    
+    toastIcon.className = iconClasses[tipo] || iconClasses['info'];
+    toastTitle.textContent = titulo;
+    toastMessage.textContent = mensagem;
+    toastTime.textContent = 'agora';
+    
+    // Mostrar toast
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+}
+
+// Função para assinar como Editor Chefe
+function assinarEditorChefe(boletimId) {
+    console.log('DEBUG: assinarEditorChefe chamada com ID:', boletimId);
+    // Buscar dados do boletim via AJAX
+    fetch(`/militares/boletins-especiais/${boletimId}/dados-assinatura/`, {
+        credentials: 'same-origin',
+            headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('DEBUG: Resposta da API para Editor Chefe:', data);
+            if (data.success) {
+                // Preencher informações do boletim no modal
+                const boletimIdElement = document.getElementById('boletimIdEditorChefe');
+                const boletimNumeroElement = document.getElementById('boletimNumeroEditorChefe');
+                const boletimTituloElement = document.getElementById('boletimTituloEditorChefe');
+                const boletimCriadoPorElement = document.getElementById('boletimCriadoPorEditorChefe');
+                const statusElement = document.getElementById('boletimStatusEditorChefe');
+                const funcaoSelect = document.getElementById('funcao_assinatura_modal_editor_chefe');
+                const observacoesElement = document.getElementById('observacoes_modal_editor_chefe');
+                
+                if (boletimIdElement) boletimIdElement.value = boletimId;
+                if (boletimNumeroElement) boletimNumeroElement.textContent = data.boletim.numero || '-';
+                if (boletimTituloElement) boletimTituloElement.textContent = data.boletim.titulo || '-';
+                if (boletimCriadoPorElement) boletimCriadoPorElement.textContent = data.boletim.criado_por || '-';
+                
+                // Atualizar status com badge
+                if (statusElement) {
+                    const statusClass = getStatusBadgeClassBoletim(data.boletim.status);
+                    statusElement.className = `badge ${statusClass}`;
+                    statusElement.textContent = data.boletim.status_display || '-';
+                }
+                
+                // Preencher opções de função
+                if (funcaoSelect) {
+                    funcaoSelect.innerHTML = '<option value="">Selecione uma função...</option>';
+                    console.log('DEBUG: Funções disponíveis:', data.funcoes_usuario);
+                    data.funcoes_usuario.forEach(funcao => {
+                        const option = document.createElement('option');
+                        option.value = funcao.id;
+                        option.textContent = funcao.nome;
+                        funcaoSelect.appendChild(option);
+                    });
+                }
+                
+                // Limpar campos do formulário
+                if (observacoesElement) observacoesElement.value = '';
+                
+                // Mostrar modal
+                const modalElement = document.getElementById('modalAssinarEditorChefe');
+                console.log('DEBUG: Modal Editor Chefe encontrado:', modalElement);
+                if (modalElement) {
+                    const modal = new bootstrap.Modal(modalElement);
+                    console.log('DEBUG: Abrindo modal Editor Chefe');
+                    modal.show();
+            } else {
+                    console.error('DEBUG: Modal Editor Chefe não encontrado!');
+                }
+            } else {
+                mostrarToast('Erro', 'Erro ao carregar dados do boletim: ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            mostrarToast('Erro', 'Erro ao carregar dados do boletim. Tente novamente.', 'error');
+        });
+}
+
+// Função para assinar como Editor Adjunto
+function assinarEditorAdjunto(boletimId) {
+    console.log('DEBUG: assinarEditorAdjunto chamada com ID:', boletimId);
+    // Buscar dados do boletim via AJAX
+    fetch(`/militares/boletins-especiais/${boletimId}/dados-assinatura/`, {
+        credentials: 'same-origin',
+            headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('DEBUG: Resposta da API para Editor Adjunto:', data);
+            if (data.success) {
+                // Preencher informações do boletim no modal
+                const boletimIdElement = document.getElementById('boletimIdEditorAdjunto');
+                const boletimNumeroElement = document.getElementById('boletimNumeroEditorAdjunto');
+                const boletimTituloElement = document.getElementById('boletimTituloEditorAdjunto');
+                const boletimCriadoPorElement = document.getElementById('boletimCriadoPorEditorAdjunto');
+                const statusElement = document.getElementById('boletimStatusEditorAdjunto');
+                const funcaoSelect = document.getElementById('funcao_assinatura_modal_editor_adjunto');
+                const observacoesElement = document.getElementById('observacoes_modal_editor_adjunto');
+                
+                if (boletimIdElement) boletimIdElement.value = boletimId;
+                if (boletimNumeroElement) boletimNumeroElement.textContent = data.boletim.numero || '-';
+                if (boletimTituloElement) boletimTituloElement.textContent = data.boletim.titulo || '-';
+                if (boletimCriadoPorElement) boletimCriadoPorElement.textContent = data.boletim.criado_por || '-';
+                
+                // Atualizar status com badge
+                if (statusElement) {
+                    const statusClass = getStatusBadgeClassBoletim(data.boletim.status);
+                    statusElement.className = `badge ${statusClass}`;
+                    statusElement.textContent = data.boletim.status_display || '-';
+                }
+                
+                // Preencher opções de função
+                if (funcaoSelect) {
+                    funcaoSelect.innerHTML = '<option value="">Selecione uma função...</option>';
+                    data.funcoes_usuario.forEach(funcao => {
+                        const option = document.createElement('option');
+                        option.value = funcao.id;
+                        option.textContent = funcao.nome;
+                        funcaoSelect.appendChild(option);
+                    });
+                }
+                
+                // Limpar campos do formulário
+                if (observacoesElement) observacoesElement.value = '';
+                
+                // Mostrar modal
+                const modalElement = document.getElementById('modalAssinarEditorAdjunto');
+                if (modalElement) {
+                    const modal = new bootstrap.Modal(modalElement);
+                    modal.show();
+                }
+            } else {
+                mostrarToast('Erro', 'Erro ao carregar dados do boletim: ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            mostrarToast('Erro', 'Erro ao carregar dados do boletim. Tente novamente.', 'error');
+        });
+}
+
+// Função para assinar como Editor Geral
+function assinarEditorGeral(boletimId) {
+    console.log('DEBUG: assinarEditorGeral chamada com ID:', boletimId);
+    // Buscar dados do boletim via AJAX
+    fetch(`/militares/boletins-especiais/${boletimId}/dados-assinatura/`, {
+        credentials: 'same-origin',
+            headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('DEBUG: Resposta da API para Editor Geral:', data);
+            if (data.success) {
+                // Preencher informações do boletim no modal
+                const boletimIdElement = document.getElementById('boletimIdEditorGeral');
+                const boletimNumeroElement = document.getElementById('boletimNumeroEditorGeral');
+                const boletimTituloElement = document.getElementById('boletimTituloEditorGeral');
+                const boletimCriadoPorElement = document.getElementById('boletimCriadoPorEditorGeral');
+                const statusElement = document.getElementById('boletimStatusEditorGeral');
+                const funcaoSelect = document.getElementById('funcao_assinatura_modal_editor_geral');
+                const observacoesElement = document.getElementById('observacoes_modal_editor_geral');
+                
+                if (boletimIdElement) boletimIdElement.value = boletimId;
+                if (boletimNumeroElement) boletimNumeroElement.textContent = data.boletim.numero || '-';
+                if (boletimTituloElement) boletimTituloElement.textContent = data.boletim.titulo || '-';
+                if (boletimCriadoPorElement) boletimCriadoPorElement.textContent = data.boletim.criado_por || '-';
+                
+                // Atualizar status com badge
+                if (statusElement) {
+                    const statusClass = getStatusBadgeClassBoletim(data.boletim.status);
+                    statusElement.className = `badge ${statusClass}`;
+                    statusElement.textContent = data.boletim.status_display || '-';
+                }
+                
+                // Preencher opções de função
+                if (funcaoSelect) {
+                    funcaoSelect.innerHTML = '<option value="">Selecione uma função...</option>';
+                    data.funcoes_usuario.forEach(funcao => {
+                        const option = document.createElement('option');
+                        option.value = funcao.id;
+                        option.textContent = funcao.nome;
+                        funcaoSelect.appendChild(option);
+                    });
+                }
+                
+                // Limpar campos do formulário
+                if (observacoesElement) observacoesElement.value = '';
+                
+                // Mostrar modal
+                const modalElement = document.getElementById('modalAssinarEditorGeral');
+                if (modalElement) {
+                    const modal = new bootstrap.Modal(modalElement);
+                    modal.show();
+                }
+            } else {
+                mostrarToast('Erro', 'Erro ao carregar dados do boletim: ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            mostrarToast('Erro', 'Erro ao carregar dados do boletim. Tente novamente.', 'error');
+        });
+}
+
+// Função auxiliar para obter classe CSS do badge de status
+function getStatusBadgeClassBoletim(status) {
+    switch(status) {
+        case 'RASCUNHO': return 'bg-secondary';
+        case 'REVISADA': return 'bg-warning';
+        case 'APROVADA': return 'bg-info';
+        case 'EDITADA': return 'bg-success';
+        case 'PUBLICADA': return 'bg-primary';
+        case 'DISPONIBILIZADO': return 'bg-success';
+        default: return 'bg-secondary';
+    }
+}
+
+// Variáveis globais para controle do modal
+let boletimAtualId = null;
+let boletimDisponibilizado = false;
+
+// Função para abrir modal de visualização do boletim
+window.abrirModalVisualizar = function(boletimId, titulo, numero, data, status, topicos) {
+    // Definir o ID do boletim atual para uso nas funções de ação
+    boletimAtualId = boletimId;
+    
+    // Verificar se o boletim está disponibilizado
+    boletimDisponibilizado = status === 'DISPONIBILIZADO';
+    
+    // Preencher dados básicos
+    document.getElementById('modalTitulo').textContent = `EDIÇÃO Nº ${numero}`;
+    document.getElementById('modalTituloBoletim').textContent = titulo;
+    document.getElementById('modalNumero').textContent = numero;
+    document.getElementById('modalDataPublicacao').textContent = data;
+    document.getElementById('modalStatus').textContent = status;
+    document.getElementById('modalStatusBadge').textContent = status;
+    document.getElementById('modalResponsavel').textContent = 'Sistema Automático';
+    
+    // Mostrar/ocultar tópicos
+    const topicosSection = document.getElementById('modalTopicosSection');
+    const topicosDiv = document.getElementById('modalTopicos');
+    
+    if (topicos && topicos.trim() !== '') {
+        topicosDiv.textContent = topicos;
+        topicosSection.style.display = 'block';
+    } else {
+        topicosSection.style.display = 'none';
+    }
+    
+    // Carregar notas via AJAX
+    carregarNotasModal(boletimId);
+    
+    // Carregar assinaturas via AJAX
+    console.log('🔍 Chamando carregarAssinaturasModal para boletim:', boletimId);
+    carregarAssinaturasModal(boletimId);
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('visualizarBoletimModal'));
+    modal.show();
+};
+
+// Função para carregar assinaturas no modal
+window.carregarAssinaturasModal = function(boletimId) {
+    const assinaturasDiv = document.getElementById('modalAssinaturas');
+    assinaturasDiv.innerHTML = '<div class="text-center text-muted" style="padding: 20px;"><i class="fas fa-spinner fa-spin me-2"></i>Carregando assinaturas...</div>';
+    
+    fetch(`/militares/boletins-especiais/${boletimId}/dados-assinatura/`)
+        .then(response => response.json())
+        .then(data => {
+            console.log('Assinaturas recebidas:', data); // Debug
+            console.log('Quantidade de assinaturas:', data.assinaturas ? data.assinaturas.length : 0);
+            if (data.assinaturas && data.assinaturas.length > 0) {
+                // Gerar HTML das assinaturas no estilo dos quadros de acesso
+                let assinaturasHtml = '<div class="mt-3">';
+                
+                // Ordenar assinaturas: Editor Geral, Editor Adjunto, Editor Chefe
+                // Primeiro por hierarquia, depois físicas antes das eletrônicas
+                const assinaturasOrdenadas = data.assinaturas.sort((a, b) => {
+                    const ordemHierarquica = {
+                        'EDITOR_GERAL': 1,
+                        'EDITOR_ADJUNTO': 2,
+                        'EDITOR_CHEFE': 3
+                    };
+                    
+                    const ordemA = ordemHierarquica[a.tipo_assinatura] || 999;
+                    const ordemB = ordemHierarquica[b.tipo_assinatura] || 999;
+                    
+                    // Se for a mesma hierarquia, ordenar por tipo de mídia (física primeiro)
+                    if (ordemA === ordemB) {
+                        if (a.tipo_midia === 'FISICA' && b.tipo_midia === 'ELETRONICA') return -1;
+                        if (a.tipo_midia === 'ELETRONICA' && b.tipo_midia === 'FISICA') return 1;
+                        return 0;
+                    }
+                    
+                    return ordemA - ordemB;
+                });
+                
+                console.log('Assinaturas ordenadas:', assinaturasOrdenadas);
+                
+                // Mostrar todas as assinaturas no formato eletrônico (igual às notas)
+                assinaturasOrdenadas.forEach((assinatura, index) => {
+                    console.log(`Assinatura ${index + 1}:`, assinatura);
+                    
+                    // Formatar data e hora no padrão brasileiro (igual às notas)
+                    const dataFormatada = new Date(assinatura.data_assinatura).toLocaleDateString('pt-BR');
+                    const horaFormatada = new Date(assinatura.data_assinatura).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'});
+                    
+                    console.log(`Data formatada: ${dataFormatada}, Hora formatada: ${horaFormatada}`);
+                    
+                    // Formato eletrônico para todas as assinaturas (igual às notas)
+                    assinaturasHtml += `
+                        <div style="display: flex; align-items: flex-start; border: 1px solid #888; border-radius: 6px; margin-bottom: 10px; background: #fafafa;">
+                            <div style="padding: 8px;">
+                                <img src="/static/assinasyspro.png" width="100" height="70" alt="Logo AssinaSysPro" style="background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                        </div>
+                            <div style="flex-grow: 1;">
+                                <div style="padding: 8px; font-size: 15px; text-align: justify; display: flex; align-items: center; justify-content: space-between;">
+                                    <div style="flex-grow: 1;">
+                                        Documento assinado eletronicamente por <b>${assinatura.assinado_por}</b> <b>- ${assinatura.funcao_assinatura || "Função não registrada"}</b>, em ${dataFormatada}, às ${horaFormatada}, conforme horário oficial de Brasília, com fundamento na Portaria XXX/2025 Gab. Cmdo. Geral/CBMEPI de XX de XXXXX de 2025.
+                                        </div>
+                                    </div>
+                                ${assinatura.observacoes && assinatura.observacoes !== '-' ?
+                                    `<div style="padding: 0 8px 8px 8px; font-size: 14px; color: #666; font-style: italic;">
+                                        <strong>Observações:</strong> ${assinatura.observacoes}
+                                    </div>` : ''
+                                }
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                assinaturasHtml += '</div>';
+                assinaturasDiv.innerHTML = assinaturasHtml;
+            } else {
+                assinaturasDiv.innerHTML = '<div class="text-center text-muted" style="padding: 20px;"><i class="fas fa-info-circle me-2"></i>Nenhuma assinatura encontrada</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao carregar assinaturas:', error);
+            assinaturasDiv.innerHTML = '<div class="text-center text-danger" style="padding: 20px;"><i class="fas fa-exclamation-triangle me-2"></i>Erro ao carregar assinaturas</div>';
+        });
+};
+
+// Função para carregar notas no modal
+window.carregarNotasModal = function(boletimId) {
+    const notasDiv = document.getElementById('modalNotas');
+    notasDiv.innerHTML = '<div class="text-center text-muted" style="padding: 20px;"><i class="fas fa-spinner fa-spin me-2"></i>Carregando notas...</div>';
+    
+    fetch(`/militares/ajax/notas-incluidas-boletim-especial/${boletimId}/`)
+        .then(response => response.json())
+        .then(data => {
+            console.log('Dados recebidos:', data); // Debug
+            if (data.notas && data.notas.length > 0) {
+                // Definir ordem padrão dos tópicos conforme sistema
+                const ordemTopicos = [
+                    '1ª PARTE - SERVIÇOS DIÁRIOS',
+                    '2ª PARTE - INSTRUÇÃO',
+                    '3ª PARTE',
+                    '4ª PARTE'
+                ];
+                
+                // Definir subtópicos para cada parte
+                const subtopicos = {
+                    '3ª PARTE': ['3ª PARTE - ASSUNTOS GERAIS', '3ª PARTE - ADMINISTRATIVOS'],
+                    '4ª PARTE': ['4ª PARTE - JUSTIÇA', '4ª PARTE - DISCIPLINA']
+                };
+                
+                // Agrupar notas por tópico
+                const notasPorTopico = {};
+                data.notas.forEach(nota => {
+                    // Limpar e normalizar o tópico
+                    let topico = (nota.topicos || '').trim();
+                    if (!topico || topico === '') {
+                        topico = '1ª PARTE - SERVIÇOS DIÁRIOS'; // Padrão para primeira parte
+                    }
+                    
+                    if (!notasPorTopico[topico]) {
+                        notasPorTopico[topico] = [];
+                    }
+                    notasPorTopico[topico].push(nota);
+                });
+                
+                let html = '';
+                
+                // Exibir cada tópico na ordem correta (sempre, mesmo sem notas)
+                ordemTopicos.forEach(topico => {
+                    let totalNotas = 0;
+                    let temNotas = false;
+                    
+                    // Calcular total de notas para esta parte
+                    if (subtopicos[topico]) {
+                        // Para partes com subtópicos (3ª e 4ª)
+                        subtopicos[topico].forEach(subtopico => {
+                            const notasDoSubtopico = notasPorTopico[subtopico] || [];
+                            totalNotas += notasDoSubtopico.length;
+                            if (notasDoSubtopico.length > 0) temNotas = true;
+                        });
+                    } else {
+                        // Para partes sem subtópicos (1ª e 2ª)
+                        const notasDoTopico = notasPorTopico[topico] || [];
+                        totalNotas = notasDoTopico.length;
+                        if (notasDoTopico.length > 0) temNotas = true;
+                    }
+                    
+                    // Cabeçalho da parte
+                    html += `
+                        <div class="parte-section mb-4" style="border: 1px solid #dee2e6; border-radius: 8px; overflow: hidden;">
+                            <div class="parte-header" style="background: linear-gradient(135deg, #6f42c1 0%, #5a2d91 100%); color: white; padding: 12px 15px; font-weight: bold;">
+                                <i class="fas fa-gem me-2"></i>${topico} ${totalNotas > 0 ? `(${totalNotas} nota${totalNotas > 1 ? 's' : ''})` : '(Sem notas)'}
+                            </div>
+                            <div class="parte-content" style="padding: 15px; background: white;">
+                    `;
+                    
+                    if (subtopicos[topico]) {
+                        // Para partes com subtópicos
+                        subtopicos[topico].forEach(subtopico => {
+                            const notasDoSubtopico = notasPorTopico[subtopico] || [];
+                            
+                            if (notasDoSubtopico.length > 0) {
+                                html += `<h6 class="text-muted mb-3" style="font-size: 0.9rem; font-weight: 600;">${subtopico}</h6>`;
+                                
+                                notasDoSubtopico.forEach(nota => {
+                                    html += `
+                                        <div class="nota-item mb-3 p-3" style="border: 1px solid #e9ecef; border-radius: 6px; background: #f8f9fa;">
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <h6 class="mb-1 text-primary" style="font-size: 0.95rem; font-weight: 600;">
+                                                    <i class="fas fa-file-alt me-1"></i>Nota Nº ${nota.numero}
+                                                </h6>
+                                                <span class="badge bg-secondary" style="font-size: 0.75rem;">${nota.status}</span>
+                                            </div>
+                                            <h6 class="mb-2" style="font-size: 0.9rem; font-weight: 500; color: #2c3e50;">${nota.titulo}</h6>
+                                            <div class="nota-conteudo" style="color: #444; line-height: 1.4; white-space: pre-line; font-size: 0.85rem; margin-bottom: 1rem;">${nota.conteudo || 'Sem conteúdo'}</div>
+                                            <div class="mt-1 pt-1 border-top text-center">
+                                                <small class="text-muted" style="font-size: 0.7rem;">(Transcrição da nota ${nota.titulo || 'NOTA'} de Nº ${nota.numero} com origem ${nota.origem_publicacao || 'Sistema'}, datada de ${nota.data_publicacao || 'N/A'}.)</small>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-calendar me-1"></i>${new Date(nota.data_publicacao).toLocaleDateString('pt-BR')}
+                                                </small>
+                                                <small class="text-muted">
+                                                    <i class="fas fa-user me-1"></i>${nota.criado_por_nome || 'Sistema'}
+                                                </small>
+                                            </div>
+                                        </div>
+                                    `;
+                                });
+                            }
+                        });
+                        
+                        // Se não tem notas em nenhum subtópico, mostrar mensagem
+                        if (!temNotas) {
+                            html += '<div class="text-center text-muted py-3"><i class="fas fa-info-circle me-2"></i>Nenhuma nota incluída nesta parte</div>';
+                        }
+                    } else {
+                        // Para partes sem subtópicos
+                        const notasDoTopico = notasPorTopico[topico] || [];
+                        
+                        if (notasDoTopico.length > 0) {
+                            notasDoTopico.forEach(nota => {
+                                html += `
+                                    <div class="nota-item mb-3 p-3" style="border: 1px solid #e9ecef; border-radius: 6px; background: #f8f9fa;">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <h6 class="mb-1 text-primary" style="font-size: 0.95rem; font-weight: 600;">
+                                                <i class="fas fa-file-alt me-1"></i>Nota Nº ${nota.numero}
+                                            </h6>
+                                            <span class="badge bg-secondary" style="font-size: 0.75rem;">${nota.status}</span>
+                                        </div>
+                                        <h6 class="mb-2" style="font-size: 0.9rem; font-weight: 500; color: #2c3e50;">${nota.titulo}</h6>
+                                        <div class="nota-conteudo" style="color: #444; line-height: 1.4; white-space: pre-line; font-size: 0.85rem; margin-bottom: 1rem;">${nota.conteudo || 'Sem conteúdo'}</div>
+                                        <div class="mt-1 pt-1 border-top text-center">
+                                            <small class="text-muted" style="font-size: 0.7rem;">(Transcrição da nota ${nota.titulo || 'NOTA'} de Nº ${nota.numero} com origem ${nota.origem_publicacao || 'Sistema'}, datada de ${nota.data_publicacao || 'N/A'}.)</small>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <small class="text-muted">
+                                                <i class="fas fa-calendar me-1"></i>${new Date(nota.data_publicacao).toLocaleDateString('pt-BR')}
+                                            </small>
+                                            <small class="text-muted">
+                                                <i class="fas fa-user me-1"></i>${nota.criado_por_nome || 'Sistema'}
+                                            </small>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                        } else {
+                            html += '<div class="text-center text-muted py-3"><i class="fas fa-info-circle me-2"></i>Nenhuma nota incluída nesta parte</div>';
+                        }
+                    }
+                    
+                    html += '</div></div>';
+                });
+                
+                notasDiv.innerHTML = html;
+            } else {
+                notasDiv.innerHTML = '<div class="text-center text-muted" style="padding: 20px;"><i class="fas fa-info-circle me-2"></i>Nenhuma nota incluída no boletim</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao carregar notas:', error);
+            notasDiv.innerHTML = '<div class="text-center text-danger" style="padding: 20px;"><i class="fas fa-exclamation-triangle me-2"></i>Erro ao carregar notas</div>';
+        });
+};
+
+// Função para fechar modal do boletim
+function fecharModalBoletim() {
+    const modal = document.getElementById('visualizarBoletimModal');
+    if (modal) {
+        const bsModal = bootstrap.Modal.getInstance(modal);
+        if (bsModal) {
+            bsModal.hide();
+        }
+    }
+}
+
+// Event listeners para os botões de confirmação
+document.addEventListener('DOMContentLoaded', function() {
+    // Editor Chefe
+    const btnConfirmarEditorChefe = document.getElementById('btnConfirmarAssinaturaEditorChefe');
+    if (btnConfirmarEditorChefe) {
+        btnConfirmarEditorChefe.addEventListener('click', function() {
+        const boletimId = document.getElementById('boletimIdEditorChefe').value;
+        const funcaoId = document.getElementById('funcao_assinatura_modal_editor_chefe').value;
+        const observacoes = document.getElementById('observacoes_modal_editor_chefe').value;
+        
+        if (!funcaoId) {
+            mostrarToast('Erro', 'Selecione uma função para assinatura', 'error');
+            return;
+        }
+        
+        // Enviar assinatura
+        fetch(`/militares/boletins-especiais/${boletimId}/assinar/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                funcao_id: funcaoId,
+                tipo_assinatura: 'EDITOR_CHEFE',
+                observacoes: observacoes
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarToast('Sucesso', data.message, 'success');
+                // Fechar modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('modalAssinarEditorChefe'));
+                modal.hide();
+                // Recarregar página após um pequeno delay
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                mostrarToast('Erro', data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            mostrarToast('Erro', 'Erro ao assinar boletim', 'error');
+        });
+        });
+    }
+
+    // Editor Adjunto
+    const btnConfirmarEditorAdjunto = document.getElementById('btnConfirmarAssinaturaEditorAdjunto');
+    if (btnConfirmarEditorAdjunto) {
+        btnConfirmarEditorAdjunto.addEventListener('click', function() {
+        const boletimId = document.getElementById('boletimIdEditorAdjunto').value;
+        const funcaoId = document.getElementById('funcao_assinatura_modal_editor_adjunto').value;
+        const observacoes = document.getElementById('observacoes_modal_editor_adjunto').value;
+        
+        if (!funcaoId) {
+            mostrarToast('Erro', 'Selecione uma função para assinatura', 'error');
+            return;
+        }
+        
+        // Enviar assinatura
+        fetch(`/militares/boletins-especiais/${boletimId}/assinar/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                funcao_id: funcaoId,
+                tipo_assinatura: 'EDITOR_ADJUNTO',
+                observacoes: observacoes
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarToast('Sucesso', data.message, 'success');
+                // Fechar modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('modalAssinarEditorAdjunto'));
+                modal.hide();
+                // Recarregar página após um pequeno delay
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                mostrarToast('Erro', data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            mostrarToast('Erro', 'Erro ao assinar boletim', 'error');
+        });
+        });
+    }
+
+    // Editor Geral
+    const btnConfirmarEditorGeral = document.getElementById('btnConfirmarAssinaturaEditorGeral');
+    if (btnConfirmarEditorGeral) {
+        btnConfirmarEditorGeral.addEventListener('click', function() {
+        const boletimId = document.getElementById('boletimIdEditorGeral').value;
+        const funcaoId = document.getElementById('funcao_assinatura_modal_editor_geral').value;
+        const observacoes = document.getElementById('observacoes_modal_editor_geral').value;
+        
+        if (!funcaoId) {
+            mostrarToast('Erro', 'Selecione uma função para assinatura', 'error');
+            return;
+        }
+        
+        // Enviar assinatura
+        fetch(`/militares/boletins-especiais/${boletimId}/assinar/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                funcao_id: funcaoId,
+                tipo_assinatura: 'EDITOR_GERAL',
+                observacoes: observacoes
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarToast('Sucesso', data.message, 'success');
+                // Fechar modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('modalAssinarEditorGeral'));
+                modal.hide();
+                // Recarregar página após um pequeno delay
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                mostrarToast('Erro', data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            mostrarToast('Erro', 'Erro ao assinar boletim', 'error');
+        });
+        });
+    }
+});
+</script>
+
+<!-- Modal para Criar Boletim Especial -->
+<div class="modal fade" id="criarBoletimEspecialModal" tabindex="-1" aria-labelledby="criarBoletimEspecialModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="criarBoletimEspecialModalLabel">
+                    <i class="fas fa-gem text-primary"></i>
+                    Criar Boletim Especial
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formCriarBoletimEspecial" method="post" action="{% url 'militares:boletins_especiais_create' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Boletim Especial será criado automaticamente com:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li>Número sequencial do ano atual</li>
+                            <li>Data de hoje</li>
+                            <li>Estrutura completa das 4 partes já organizadas</li>
+                            <li>Notas serão inseridas automaticamente na parte correta</li>
+                            <li><strong>Limitação:</strong> Apenas 1 Boletim Especial por dia</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="text-center">
+                        <i class="fas fa-gem fa-3x text-primary mb-3"></i>
+                        <h5>Confirmar criação do Boletim Especial?</h5>
+                        <p class="text-muted">O Boletim Especial será criado e você poderá gerenciar as notas posteriormente.</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i>
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-plus"></i>
+                        Criar Boletim Especial
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Visualização de Boletim Especial -->
+<div class="modal fade" id="visualizarBoletimModal" tabindex="-1" aria-labelledby="visualizarBoletimModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl" style="max-width: 75%; margin: 0 auto; height: 100vh; display: flex; align-items: center;">
+        <div class="modal-content" style="height: 90vh; border-radius: 15px; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+            <div class="modal-header bg-primary text-white" style="border: none; border-radius: 15px 15px 0 0;">
+                <div class="d-flex align-items-center">
+                    <div class="rounded-circle bg-white p-2 me-3" style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <img src="/static/logo_cbmepi.png" alt="CBMEPI" style="max-height: 35px; max-width: 35px; object-fit: contain;" onerror="this.innerHTML='<i class=&quot;fas fa-shield-alt&quot; style=&quot;font-size: 24px; color: #dc3545;&quot;></i>'">
+                    </div>
+                    <h5 class="modal-title mb-0" id="visualizarBoletimModalLabel">
+                        <i class="fas fa-gem me-2"></i>
+                        <span id="modalTitulo">Visualizar Boletim Especial</span>
+                    </h5>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" style="padding: 0; background: white; height: calc(90vh - 60px); overflow-y: auto;">
+                <div class="boletim-content" style="padding: 20px;">
+                    <!-- Botões de Ação -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-success btn-sm" onclick="window.print()">
+                                <i class="fas fa-download me-1"></i>Baixar PDF
+                            </button>
+                            <button class="btn btn-primary btn-sm">
+                                <i class="fas fa-check me-1"></i>Disponibilizar Boletim
+                            </button>
+                        </div>
+                        <div>
+                            <span class="badge bg-warning text-dark" id="modalStatusBadge">AGUARDANDO</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Cabeçalho Oficial -->
+                    <div class="cabecalho-oficial" style="text-align: center; margin-bottom: 20px; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6;">
+                        <h1 class="mb-1" style="font-size: 12px; font-weight: bold; color: #333;">ESTADO DO PIAUÍ</h1>
+                        <h2 class="mb-1" style="font-size: 12px; font-weight: bold; color: #333;">CORPO DE BOMBEIROS MILITAR</h2>
+                        <h3 class="mb-1" style="font-size: 12px; font-weight: bold; color: #333;">QUARTEL DO COMANDO GERAL</h3>
+                        <h4 class="mb-1" style="font-size: 12px; font-weight: bold; color: #333;">AJUDÂNCIA GERAL</h4>
+                        <h5 class="mb-1" style="font-size: 12px; font-weight: bold; color: #333;" id="modalUnidade">-</h5>
+                        <h6 class="mb-0" style="font-size: 12px; font-weight: bold; color: #333;" id="modalSubunidade">-</h6>
+                        <hr style="border-top: 2px solid #333; margin: 15px 0;">
+                    </div>
+                    
+                    <!-- Informações do Boletim -->
+                    <div class="boletim-info" style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #dee2e6;">
+                        <h4 class="text-center mb-3" id="modalTituloBoletim" style="color: #2c3e50; font-weight: bold;"></h4>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <small class="text-muted">Responsável pelo boletim:</small><br>
+                                <span id="modalResponsavel">-</span>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">Boletim publicado em:</small><br>
+                                <span id="modalDataPublicacao">-</span>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <small class="text-muted">Número:</small><br>
+                                <strong id="modalNumero">-</strong>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">Status:</small><br>
+                                <span id="modalStatus">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Tópicos do Boletim -->
+                    <div id="modalTopicosSection" class="topicos-section" style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #dee2e6; display: none;">
+                        <h6 class="text-primary mb-2" style="font-weight: bold;">
+                            <i class="fas fa-list me-1"></i>Tópicos
+                        </h6>
+                        <div class="topicos-content" id="modalTopicos" style="font-size: 0.9rem; line-height: 1.5; color: #444; white-space: pre-line;">-</div>
+                    </div>
+                    
+                          <!-- Notas Incluídas -->
+                          <div class="notas-section" style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6;">
+                              <h6 class="text-success mb-3" style="font-weight: bold;">
+                                  <i class="fas fa-file-alt me-1"></i>Notas Incluídas
+                              </h6>
+                              <div id="modalNotas">
+                                  <div class="text-center text-muted" style="padding: 20px;">
+                                      <i class="fas fa-spinner fa-spin me-2"></i>Carregando notas...
+                                  </div>
+                              </div>
+                          </div>
+                          
+                          <!-- Assinaturas -->
+                          <div class="assinaturas-section" style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6; margin-top: 15px;">
+                              <h6 class="text-primary mb-3" style="font-weight: bold;">
+                                  <i class="fas fa-signature me-1"></i>Assinaturas
+                              </h6>
+                              <div id="modalAssinaturas">
+                                  <div class="text-center text-muted" style="padding: 20px;">
+                                      <i class="fas fa-spinner fa-spin me-2"></i>Carregando assinaturas...
+                                  </div>
+                              </div>
+                          </div>
+                </div>
+            </div>
+            
+            <!-- Rodapé com logo Sysgabom -->
+            <div class="modal-footer bg-light d-flex align-items-center" style="padding: 15px 30px; border-top: 1px solid #dee2e6; border-radius: 0 0 15px 15px;">
+                <img src="/static/sysgabomlogo.png" alt="Sysgabom" style="max-height: 50px; max-width: 200px; object-fit: contain;" onerror="this.innerHTML='<i class=&quot;fas fa-cogs&quot; style=&quot;font-size: 32px; color: #6c757d;&quot;></i> <span style=&quot;font-size: 14px; color: #6c757d; margin-left: 8px;&quot;>Sysgabom</span>'">
+                <div class="ms-auto text-muted small">
+                    <i class="fas fa-shield-alt me-1"></i>
+                    Sistema de Gestão Administrativa do Corpo de Bombeiros Militar do Estado do Piauí
+        </div>
+    </div>
+</div>
+    </div>
+</div>
+<!-- Modal de Assinatura como Editor Chefe -->
+<div class="modal fade" id="modalAssinarEditorChefe" tabindex="-1" aria-labelledby="modalAssinarEditorChefeLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-info text-white border-0">
+                <h5 class="modal-title" id="modalAssinarEditorChefeLabel">
+                    <i class="fas fa-signature me-2"></i>
+                    Assinar Boletim Especial como Editor Chefe
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Informações do Boletim -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-muted mb-3">Informações do Boletim</h6>
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p class="mb-2"><strong>Número:</strong> <span id="boletimNumeroEditorChefe">-</span></p>
+                                        <p class="mb-2"><strong>Título:</strong> <span id="boletimTituloEditorChefe">-</span></p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p class="mb-2"><strong>Status:</strong> <span id="boletimStatusEditorChefe" class="badge">-</span></p>
+                                        <p class="mb-2"><strong>Criado por:</strong> <span id="boletimCriadoPorEditorChefe">-</span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Formulário de Assinatura -->
+                <form id="formAssinaturaEditorChefe">
+                    {% csrf_token %}
+                    <input type="hidden" id="boletimIdEditorChefe" name="boletim_id">
+                    
+                    <!-- Campo para selecionar função -->
+                    <div class="mb-3">
+                        <label for="funcao_assinatura_modal_editor_chefe" class="form-label"><strong>Função para Assinatura *</strong></label>
+                        <select class="form-select" id="funcao_assinatura_modal_editor_chefe" name="funcao_assinatura" required>
+                            <option value="">Selecione uma função...</option>
+                        </select>
+                        <div class="form-text">Selecione a função que será exibida na assinatura do boletim.</div>
+                    </div>
+                    
+                    <!-- Assinatura Eletrônica -->
+                    <div class="mb-3">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Assinatura Eletrônica:</strong> Será gerada automaticamente com base nos dados do sistema.
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="observacoes_modal_editor_chefe" class="form-label">Observações (opcional)</label>
+                        <textarea name="observacoes" id="observacoes_modal_editor_chefe" class="form-control" rows="3" placeholder="Observações sobre a assinatura..."></textarea>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Atenção:</strong> Esta assinatura será registrada permanentemente no sistema. Certifique-se de que todas as informações estão corretas antes de confirmar.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-info" id="btnConfirmarAssinaturaEditorChefe">
+                    <i class="fas fa-signature me-1"></i>
+                    Confirmar Assinatura
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Assinatura como Editor Adjunto -->
+<div class="modal fade" id="modalAssinarEditorAdjunto" tabindex="-1" aria-labelledby="modalAssinarEditorAdjuntoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-success text-white border-0">
+                <h5 class="modal-title" id="modalAssinarEditorAdjuntoLabel">
+                    <i class="fas fa-signature me-2"></i>
+                    Assinar Boletim Especial como Editor Adjunto
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Informações do Boletim -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-muted mb-3">Informações do Boletim</h6>
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p class="mb-2"><strong>Número:</strong> <span id="boletimNumeroEditorAdjunto">-</span></p>
+                                        <p class="mb-2"><strong>Título:</strong> <span id="boletimTituloEditorAdjunto">-</span></p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p class="mb-2"><strong>Status:</strong> <span id="boletimStatusEditorAdjunto" class="badge">-</span></p>
+                                        <p class="mb-2"><strong>Criado por:</strong> <span id="boletimCriadoPorEditorAdjunto">-</span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Formulário de Assinatura -->
+                <form id="formAssinaturaEditorAdjunto">
+                    {% csrf_token %}
+                    <input type="hidden" id="boletimIdEditorAdjunto" name="boletim_id">
+                    
+                    <!-- Campo para selecionar função -->
+                    <div class="mb-3">
+                        <label for="funcao_assinatura_modal_editor_adjunto" class="form-label"><strong>Função para Assinatura *</strong></label>
+                        <select class="form-select" id="funcao_assinatura_modal_editor_adjunto" name="funcao_assinatura" required>
+                            <option value="">Selecione uma função...</option>
+                        </select>
+                        <div class="form-text">Selecione a função que será exibida na assinatura do boletim.</div>
+                    </div>
+                    
+                    <!-- Assinatura Eletrônica -->
+                    <div class="mb-3">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Assinatura Eletrônica:</strong> Será gerada automaticamente com base nos dados do sistema.
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="observacoes_modal_editor_adjunto" class="form-label">Observações (opcional)</label>
+                        <textarea name="observacoes" id="observacoes_modal_editor_adjunto" class="form-control" rows="3" placeholder="Observações sobre a assinatura..."></textarea>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Atenção:</strong> Esta assinatura será registrada permanentemente no sistema. Certifique-se de que todas as informações estão corretas antes de confirmar.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-success" id="btnConfirmarAssinaturaEditorAdjunto">
+                    <i class="fas fa-signature me-1"></i>
+                    Confirmar Assinatura
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Assinatura como Editor Geral -->
+<div class="modal fade" id="modalAssinarEditorGeral" tabindex="-1" aria-labelledby="modalAssinarEditorGeralLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-warning text-dark border-0">
+                <h5 class="modal-title" id="modalAssinarEditorGeralLabel">
+                    <i class="fas fa-signature me-2"></i>
+                    Assinar Boletim Especial como Editor Geral
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Informações do Boletim -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-muted mb-3">Informações do Boletim</h6>
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p class="mb-2"><strong>Número:</strong> <span id="boletimNumeroEditorGeral">-</span></p>
+                                        <p class="mb-2"><strong>Título:</strong> <span id="boletimTituloEditorGeral">-</span></p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p class="mb-2"><strong>Status:</strong> <span id="boletimStatusEditorGeral" class="badge">-</span></p>
+                                        <p class="mb-2"><strong>Criado por:</strong> <span id="boletimCriadoPorEditorGeral">-</span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Formulário de Assinatura -->
+                <form id="formAssinaturaEditorGeral">
+                    {% csrf_token %}
+                    <input type="hidden" id="boletimIdEditorGeral" name="boletim_id">
+                    
+                    <!-- Campo para selecionar função -->
+                    <div class="mb-3">
+                        <label for="funcao_assinatura_modal_editor_geral" class="form-label"><strong>Função para Assinatura *</strong></label>
+                        <select class="form-select" id="funcao_assinatura_modal_editor_geral" name="funcao_assinatura" required>
+                            <option value="">Selecione uma função...</option>
+                        </select>
+                        <div class="form-text">Selecione a função que será exibida na assinatura do boletim.</div>
+                    </div>
+                    
+                    <!-- Assinatura Eletrônica -->
+                    <div class="mb-3">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Assinatura Eletrônica:</strong> Será gerada automaticamente com base nos dados do sistema.
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="observacoes_modal_editor_geral" class="form-label">Observações (opcional)</label>
+                        <textarea name="observacoes" id="observacoes_modal_editor_geral" class="form-control" rows="3" placeholder="Observações sobre a assinatura..."></textarea>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Atenção:</strong> Esta assinatura será registrada permanentemente no sistema. Certifique-se de que todas as informações estão corretas antes de confirmar.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-warning" id="btnConfirmarAssinaturaEditorGeral">                                                           
+                    <i class="fas fa-signature me-1"></i>
+                    Confirmar Assinatura
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,355 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load money_filters %}
+
+{% block title %}Controle de Combustível - Abastecimentos de Equipamentos{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-gas-pump me-2 text-primary"></i>Controle de Combustível - Equipamentos
+                    </h2>
+                    <p class="text-muted mb-0">Gerenciar abastecimentos de equipamentos operacionais</p>
+                </div>
+                <div>
+                    {% if 'EQUIPAMENTOS_OPERACIONAIS_CRIAR' in menu_permissions or user.is_superuser %}
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#abastecimentoModal" onclick="abrirModalAbastecimento()">
+                        <i class="fas fa-plus me-2"></i>Novo Abastecimento
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Cards de Estatísticas -->
+            <div class="row mb-4">
+                <div class="col-md-2">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-list fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_abastecimentos }}</h4>
+                            <p class="mb-0">Total de Abastecimentos</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card stats-card info">
+                        <div class="card-body text-center">
+                            <i class="fas fa-gas-pump fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_litros|floatformat:0 }}</h4>
+                            <p class="mb-0">Total de Litros</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card stats-card success">
+                        <div class="card-body text-center">
+                            <i class="fas fa-dollar-sign fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_valor_combustivel|currency_br }}</h4>
+                            <p class="mb-0"><small>Total Combustível</small></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card stats-card" style="background-color: #17a2b8; color: white;">
+                        <div class="card-body text-center">
+                            <i class="fas fa-flask fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_valor_aditivo|currency_br }}</h4>
+                            <p class="mb-0"><small>Total Aditivos</small></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card stats-card warning">
+                        <div class="card-body text-center">
+                            <i class="fas fa-chart-line fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ media_valor_litro|currency_br }}</h4>
+                            <p class="mb-0">Média por Litro</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card stats-card" style="background-color: #28a745; color: white;">
+                        <div class="card-body text-center">
+                            <i class="fas fa-receipt fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_valor_nota|currency_br }}</h4>
+                            <p class="mb-0">Total Geral</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Pesquisa</label>
+                            <input type="text" name="search" class="form-control" 
+                                   value="{{ search }}" placeholder="Código, posto, observações...">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Equipamento</label>
+                            <select name="equipamento" class="form-select">
+                                <option value="">Todos</option>
+                                {% for equipamento in equipamentos %}
+                                    <option value="{{ equipamento.id }}" {% if equipamento_id == equipamento.id|stringformat:"s" %}selected{% endif %}>
+                                        {{ equipamento.codigo }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Tipo de Combustível</label>
+                            <select name="tipo_combustivel" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="GASOLINA" {% if tipo_combustivel == 'GASOLINA' %}selected{% endif %}>Gasolina</option>
+                                <option value="DIESEL" {% if tipo_combustivel == 'DIESEL' %}selected{% endif %}>Diesel</option>
+                                <option value="ETANOL" {% if tipo_combustivel == 'ETANOL' %}selected{% endif %}>Etanol</option>
+                                <option value="FLEX" {% if tipo_combustivel == 'FLEX' %}selected{% endif %}>Flex</option>
+                                <option value="GNV" {% if tipo_combustivel == 'GNV' %}selected{% endif %}>GNV</option>
+                                <option value="ELETRICO" {% if tipo_combustivel == 'ELETRICO' %}selected{% endif %}>Elétrico</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Data Início</label>
+                            <input type="date" name="data_inicio" class="form-control" value="{{ data_inicio }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Data Fim</label>
+                            <input type="date" name="data_fim" class="form-control" value="{{ data_fim }}">
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label">Ativo</label>
+                            <select name="ativo" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="1" {% if ativo == '1' %}selected{% endif %}>Sim</option>
+                                <option value="0" {% if ativo == '0' %}selected{% endif %}>Não</option>
+                            </select>
+                        </div>
+                        <div class="col-md-12 d-flex align-items-end gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                            <a href="{% url 'militares:equipamento_abastecimento_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Limpar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Lista de Abastecimentos -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Lista de Abastecimentos
+                    </h6>
+                    <div>
+                        {% if 'EQUIPAMENTOS_OPERACIONAIS_CRIAR' in menu_permissions or user.is_superuser %}
+                        <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#abastecimentoModal" onclick="abrirModalAbastecimento()">
+                            <i class="fas fa-plus me-2"></i>Novo Abastecimento
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if abastecimentos %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Data/Hora</th>
+                                        <th>Equipamento</th>
+                                        <th>Quantidade (L)</th>
+                                        <th>Valor/Litro</th>
+                                        <th>Valor Total</th>
+                                        <th>Horas de Uso</th>
+                                        <th>Tipo</th>
+                                        <th>Posto/Fornecedor</th>
+                                        <th>Responsável</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for abastecimento in abastecimentos %}
+                                        <tr>
+                                            <td>{{ abastecimento.data_abastecimento|date:"d/m/Y H:i" }}</td>
+                                            <td>
+                                                <a href="{% url 'militares:equipamento_operacional_detail' abastecimento.equipamento.pk %}">
+                                                    {{ abastecimento.equipamento.codigo }}
+                                                </a>
+                                            </td>
+                                            <td>{{ abastecimento.quantidade_litros|floatformat:2 }}</td>
+                                            <td>{{ abastecimento.valor_litro|currency_br }}</td>
+                                            <td class="fw-bold text-success">{{ abastecimento.valor_total|currency_br }}</td>
+                                            <td>{{ abastecimento.horas_uso_abastecimento|floatformat:2 }}h</td>
+                                            <td>
+                                                <span class="badge bg-info">{{ abastecimento.get_tipo_combustivel_display }}</span>
+                                            </td>
+                                            <td>{{ abastecimento.posto_fornecedor|default:"-" }}</td>
+                                            <td>
+                                                {% if abastecimento.responsavel %}
+                                                    {{ abastecimento.responsavel.get_posto_graduacao_display }} {{ abastecimento.responsavel.nome_completo }}
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    {% if 'EQUIPAMENTOS_OPERACIONAIS_VISUALIZAR' in menu_permissions or user.is_superuser %}
+                                                    <button type="button" class="btn btn-sm btn-outline-info" 
+                                                            onclick="abrirModalDetalhesAbastecimento({{ abastecimento.pk }})" title="Ver detalhes">
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                                    {% endif %}
+                                                    {% if 'EQUIPAMENTOS_OPERACIONAIS_EDITAR' in menu_permissions or user.is_superuser %}
+                                                    <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                            onclick="abrirModalEditarAbastecimento({{ abastecimento.pk }})" title="Editar">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    {% endif %}
+                                                    {% if 'EQUIPAMENTOS_OPERACIONAIS_EXCLUIR' in menu_permissions or user.is_superuser %}
+                                                    <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                            onclick="abrirModalExcluirAbastecimento({{ abastecimento.pk }})" title="Excluir">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if abastecimentos.has_other_pages %}
+                            <nav aria-label="Paginação">
+                                <ul class="pagination justify-content-center">
+                                    {% if abastecimentos.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}{% if equipamento_id %}&equipamento={{ equipamento_id }}{% endif %}{% if tipo_combustivel %}&tipo_combustivel={{ tipo_combustivel }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">Primeira</a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ abastecimentos.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if equipamento_id %}&equipamento={{ equipamento_id }}{% endif %}{% if tipo_combustivel %}&tipo_combustivel={{ tipo_combustivel }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">Anterior</a>
+                                        </li>
+                                    {% endif %}
+                                    
+                                    <li class="page-item active">
+                                        <span class="page-link">
+                                            Página {{ abastecimentos.number }} de {{ abastecimentos.paginator.num_pages }}
+                                        </span>
+                                    </li>
+                                    
+                                    {% if abastecimentos.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ abastecimentos.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if equipamento_id %}&equipamento={{ equipamento_id }}{% endif %}{% if tipo_combustivel %}&tipo_combustivel={{ tipo_combustivel }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">Próxima</a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ abastecimentos.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if equipamento_id %}&equipamento={{ equipamento_id }}{% endif %}{% if tipo_combustivel %}&tipo_combustivel={{ tipo_combustivel }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">Última</a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>Nenhum abastecimento encontrado.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Abastecimento -->
+<div class="modal fade" id="abastecimentoModal" tabindex="-1" aria-labelledby="abastecimentoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="abastecimentoModalLabel">Novo Abastecimento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="abastecimentoModalBody">
+                <!-- Conteúdo carregado via AJAX -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Detalhes -->
+<div class="modal fade" id="detalhesAbastecimentoModal" tabindex="-1" aria-labelledby="detalhesAbastecimentoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="detalhesAbastecimentoModalLabel">Detalhes do Abastecimento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="detalhesAbastecimentoModalBody">
+                <!-- Conteúdo carregado via AJAX -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Excluir -->
+<div class="modal fade" id="excluirAbastecimentoModal" tabindex="-1" aria-labelledby="excluirAbastecimentoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="excluirAbastecimentoModalLabel">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="excluirAbastecimentoModalBody">
+                <!-- Conteúdo carregado via AJAX -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function abrirModalAbastecimento() {
+    $('#abastecimentoModalBody').load('{% url "militares:equipamento_abastecimento_create" %}');
+}
+
+function abrirModalEditarAbastecimento(pk) {
+    $('#abastecimentoModalLabel').text('Editar Abastecimento');
+    $('#abastecimentoModalBody').load('{% url "militares:equipamento_abastecimento_update" 0 %}'.replace('0', pk));
+    $('#abastecimentoModal').modal('show');
+}
+
+function abrirModalDetalhesAbastecimento(pk) {
+    $('#detalhesAbastecimentoModalBody').load('{% url "militares:equipamento_abastecimento_detail" 0 %}'.replace('0', pk));
+    $('#detalhesAbastecimentoModal').modal('show');
+}
+
+function abrirModalExcluirAbastecimento(pk) {
+    $('#excluirAbastecimentoModalBody').load('{% url "militares:equipamento_abastecimento_delete" 0 %}'.replace('0', pk));
+    $('#excluirAbastecimentoModal').modal('show');
+}
+
+// Fechar modal e recarregar página após sucesso
+$('#abastecimentoModal').on('hidden.bs.modal', function () {
+    $('#abastecimentoModalLabel').text('Novo Abastecimento');
+});
+
+$('#detalhesAbastecimentoModal').on('hidden.bs.modal', function () {
+    $('#detalhesAbastecimentoModalBody').empty();
+});
+
+$('#excluirAbastecimentoModal').on('hidden.bs.modal', function () {
+    $('#excluirAbastecimentoModalBody').empty();
+});
+</script>
+{% endblock %}
+

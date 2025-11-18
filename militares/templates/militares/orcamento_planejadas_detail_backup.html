@@ -1,0 +1,227 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load money_filters %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Cabeçalho -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">{{ page_title }}</h1>
+                    <p class="text-muted mb-0">Detalhes do orçamento e distribuições</p>
+                </div>
+                <div>
+                    <a href="{% url 'militares:orcamento_planejadas_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Voltar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Informações do Orçamento -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>Informações do Orçamento
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="text-center p-3 border rounded">
+                                <i class="fas fa-calendar fa-2x text-primary mb-2"></i>
+                                <h4 class="text-primary">{{ orcamento.mes_nome }}/{{ orcamento.ano }}</h4>
+                                <p class="text-muted mb-0">Período</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3 border rounded">
+                                <i class="fas fa-dollar-sign fa-2x text-success mb-2"></i>
+                                <h4 class="text-success">{{ orcamento.valor_total_formatado }}</h4>
+                                <p class="text-muted mb-0">Valor Total</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3 border rounded">
+                                <i class="fas fa-chart-pie fa-2x text-info mb-2"></i>
+                                <h4 class="text-info">{{ distribuicoes.count }}</h4>
+                                <p class="text-muted mb-0">Distribuições</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3 border rounded">
+                                <i class="fas fa-percentage fa-2x text-warning mb-2"></i>
+                                <h4 class="text-warning">{{ percentual_distribuido|floatformat:1 }}%</h4>
+                                <p class="text-muted mb-0">Distribuído</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resumo das Distribuições -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>Resumo Financeiro
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <p class="mb-2">
+                                <strong>Valor Total:</strong><br>
+                                <span class="text-success">{{ orcamento.valor_total_formatado }}</span>
+                            </p>
+                        </div>
+                        <div class="col-6">
+                            <p class="mb-2">
+                                <strong>Valor Distribuído:</strong><br>
+                                <span class="text-info">R$ {{ total_distribuido|floatformat:2 }}</span>
+                            </p>
+                        </div>
+                        <div class="col-6">
+                            <p class="mb-2">
+                                <strong>Valor Restante:</strong><br>
+                                <span class="text-{% if valor_restante > 0 %}warning{% else %}success{% endif %}">
+                                    R$ {{ valor_restante|floatformat:2 }}
+                                </span>
+                            </p>
+                        </div>
+                        <div class="col-6">
+                            <p class="mb-2">
+                                <strong>Percentual:</strong><br>
+                                <span class="text-primary">{{ percentual_distribuido|floatformat:1 }}%</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cogs me-2"></i>Ações
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'militares:gerenciar_distribuicoes' orcamento.id %}" 
+                           class="btn btn-primary">
+                            <i class="fas fa-cogs me-2"></i>Gerenciar Distribuições
+                        </a>
+                        <a href="{% url 'militares:orcamento_planejadas_edit' orcamento.id %}" 
+                           class="btn btn-warning">
+                            <i class="fas fa-edit me-2"></i>Editar Orçamento
+                        </a>
+                        <a href="{% url 'militares:distribuicao_planejadas_list' orcamento.id %}" 
+                           class="btn btn-info">
+                            <i class="fas fa-list me-2"></i>Ver Todas as Distribuições
+                        </a>
+                        <a href="{% url 'militares:configurar_rateio_organizacoes' orcamento.id %}" 
+                           class="btn btn-secondary">
+                            <i class="fas fa-calculator me-2"></i>Configurar Rateio por Organização
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de Distribuições -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>Distribuições do Orçamento
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if distribuicoes %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th class="fw-bold text-primary">Instância</th>
+                                        <th class="fw-bold text-primary">Tipo</th>
+                                        <th class="fw-bold text-primary">Valor</th>
+                                        <th class="fw-bold text-primary">Percentual</th>
+                                        <th class="fw-bold text-primary">Observações</th>
+                                        <th class="fw-bold text-primary">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for distribuicao in distribuicoes %}
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex flex-column">
+                                                <strong class="text-primary">{{ distribuicao.get_instancia_nome }}</strong>
+                                                <small class="text-muted">
+                                                    <i class="fas fa-tag me-1"></i>{{ distribuicao.get_instancia_tipo }}
+                                                </small>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">{{ distribuicao.get_instancia_tipo }}</span>
+                                        </td>
+                                        <td>
+                                            <span class="fw-bold text-success">{{ distribuicao.valor_planejadas|money_br }}</span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-primary">{{ distribuicao.percentual_formatado }}</span>
+                                        </td>
+                                        <td>
+                                            {% if distribuicao.observacoes %}
+                                                <small class="text-muted">{{ distribuicao.observacoes|truncatechars:30 }}</small>
+                                            {% else %}
+                                                <small class="text-muted">-</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <a href="{% url 'militares:distribuicao_planejadas_edit' distribuicao.id %}" 
+                                                   class="btn btn-outline-primary" title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <a href="{% url 'militares:distribuicao_planejadas_delete' distribuicao.id %}" 
+                                                   class="btn btn-outline-danger" title="Excluir"
+                                                   onclick="return confirm('Tem certeza que deseja excluir esta distribuição?')">
+                                                    <i class="fas fa-trash"></i>
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-chart-pie fa-3x mb-3" style="opacity: 0.3;"></i>
+                            <h4>Nenhuma distribuição cadastrada</h4>
+                            <p class="mb-3">Comece criando uma distribuição para este orçamento</p>
+                            <a href="{% url 'militares:distribuicao_planejadas_create' orcamento.id %}" class="btn btn-success">
+                                <i class="fas fa-plus me-2"></i>Nova Distribuição
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

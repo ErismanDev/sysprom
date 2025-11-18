@@ -1,0 +1,423 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Limpar Logs Antigos - SysProm{% endblock %}
+
+{% block extra_css %}
+<style>
+    .cleanup-header {
+        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+        color: white;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+    }
+    
+    .warning-card {
+        border-left: 4px solid #ffc107;
+        background: #fff3cd;
+    }
+    
+    .danger-card {
+        border-left: 4px solid #dc3545;
+        background: #f8d7da;
+    }
+    
+    .success-card {
+        border-left: 4px solid #28a745;
+        background: #d4edda;
+    }
+    
+    .log-preview {
+        max-height: 300px;
+        overflow-y: auto;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 15px;
+    }
+    
+    .log-item {
+        padding: 8px 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .log-item:last-child {
+        border-bottom: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Cabeçalho -->
+    <div class="cleanup-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="h3 mb-2">
+                    <i class="fas fa-broom"></i>
+                    Limpar Logs Antigos
+                </h1>
+                <p class="mb-0">Remover logs antigos para otimizar o desempenho do sistema</p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <a href="{% url 'militares:logs_sistema_list' %}" class="btn btn-light">
+                    <i class="fas fa-arrow-left"></i> Voltar aos Logs
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estatísticas de Limpeza -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card stats-card h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-white-50 text-uppercase mb-1">
+                                Total de Logs
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-white">{{ total_logs }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clipboard-list fa-2x text-white-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Logs Antigos (30+ dias)
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ logs_antigos }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clock fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-danger h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                Logs Muito Antigos (90+ dias)
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ logs_muito_antigos }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Espaço Economizado
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ espaco_economizado }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-hdd fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if mensagem %}
+    <div class="alert alert-{{ tipo_mensagem }} alert-dismissible fade show" role="alert">
+        <i class="fas fa-{% if tipo_mensagem == 'success' %}check-circle{% elif tipo_mensagem == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %}"></i>
+        {{ mensagem }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <!-- Configurações de Limpeza -->
+        <div class="col-lg-6">
+            <div class="card warning-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cog"></i> Configurações de Limpeza
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="dias_limpeza" class="form-label">
+                                <strong>Dias para considerar como "antigo":</strong>
+                            </label>
+                            <select name="dias_limpeza" id="dias_limpeza" class="form-select">
+                                <option value="30" {% if dias_limpeza == 30 %}selected{% endif %}>30 dias</option>
+                                <option value="60" {% if dias_limpeza == 60 %}selected{% endif %}>60 dias</option>
+                                <option value="90" {% if dias_limpeza == 90 %}selected{% endif %}>90 dias</option>
+                                <option value="180" {% if dias_limpeza == 180 %}selected{% endif %}>180 dias</option>
+                                <option value="365" {% if dias_limpeza == 365 %}selected{% endif %}>1 ano</option>
+                            </select>
+                            <div class="form-text">
+                                Logs mais antigos que este período serão removidos.
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="nivel_limpeza" class="form-label">
+                                <strong>Nível mínimo para preservar:</strong>
+                            </label>
+                            <select name="nivel_limpeza" id="nivel_limpeza" class="form-select">
+                                <option value="INFO" {% if nivel_limpeza == 'INFO' %}selected{% endif %}>INFO - Remover apenas INFO</option>
+                                <option value="WARNING" {% if nivel_limpeza == 'WARNING' %}selected{% endif %}>WARNING - Preservar WARNING+</option>
+                                <option value="ERROR" {% if nivel_limpeza == 'ERROR' %}selected{% endif %}>ERROR - Preservar ERROR+</option>
+                                <option value="CRITICAL" {% if nivel_limpeza == 'CRITICAL' %}selected{% endif %}>CRITICAL - Preservar apenas CRITICAL</option>
+                                <option value="ALL" {% if nivel_limpeza == 'ALL' %}selected{% endif %}>ALL - Remover todos os níveis</option>
+                            </select>
+                            <div class="form-text">
+                                Logs com nível igual ou superior serão preservados.
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="preservar_processados" 
+                                       id="preservar_processados" {% if preservar_processados %}checked{% endif %}>
+                                <label class="form-check-label" for="preservar_processados">
+                                    <strong>Preservar logs processados</strong>
+                                </label>
+                                <div class="form-text">
+                                    Logs marcados como processados não serão removidos.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="preservar_notificados" 
+                                       id="preservar_notificados" {% if preservar_notificados %}checked{% endif %}>
+                                <label class="form-check-label" for="preservar_notificados">
+                                    <strong>Preservar logs notificados</strong>
+                                </label>
+                                <div class="form-text">
+                                    Logs marcados como notificados não serão removidos.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="modo_simulacao" 
+                                       id="modo_simulacao" {% if modo_simulacao %}checked{% endif %}>
+                                <label class="form-check-label" for="modo_simulacao">
+                                    <strong>Modo simulação</strong>
+                                </label>
+                                <div class="form-text">
+                                    Apenas simular a limpeza sem remover logs (recomendado para teste).
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" name="acao" value="simular" class="btn btn-warning">
+                                <i class="fas fa-eye"></i> Simular Limpeza
+                            </button>
+                            <button type="submit" name="acao" value="executar" class="btn btn-danger"
+                                    onclick="return confirm('ATENÇÃO: Esta ação irá remover permanentemente os logs antigos. Tem certeza que deseja continuar?')">
+                                <i class="fas fa-trash"></i> Executar Limpeza
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resultados da Simulação/Limpeza -->
+        <div class="col-lg-6">
+            {% if resultado_limpeza %}
+            <div class="card {% if modo_simulacao %}warning-card{% else %}success-card{% endif %} mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-{% if modo_simulacao %}eye{% else %}check-circle{% endif %}"></i>
+                        {% if modo_simulacao %}Simulação de Limpeza{% else %}Limpeza Executada{% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <strong>Logs que seriam removidos:</strong>
+                            <div class="h4 text-{% if modo_simulacao %}warning{% else %}success{% endif %}">
+                                {{ resultado_limpeza.logs_removidos }}
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <strong>Logs preservados:</strong>
+                            <div class="h4 text-info">{{ resultado_limpeza.logs_preservados }}</div>
+                        </div>
+                    </div>
+                    
+                    {% if resultado_limpeza.espaco_liberado %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-hdd"></i>
+                        <strong>Espaço que seria liberado:</strong> {{ resultado_limpeza.espaco_liberado }}
+                    </div>
+                    {% endif %}
+                    
+                    {% if resultado_limpeza.logs_por_nivel %}
+                    <h6>Logs por nível:</h6>
+                    <div class="row">
+                        {% for nivel, quantidade in resultado_limpeza.logs_por_nivel.items %}
+                        <div class="col-6 mb-2">
+                            <span class="badge bg-secondary">{{ nivel }}:</span>
+                            <span class="text-muted">{{ quantidade }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    {% if resultado_limpeza.logs_por_modulo %}
+                    <h6 class="mt-3">Logs por módulo:</h6>
+                    <div class="row">
+                        {% for modulo, quantidade in resultado_limpeza.logs_por_modulo.items %}
+                        <div class="col-6 mb-2">
+                            <span class="badge bg-info">{{ modulo }}:</span>
+                            <span class="text-muted">{{ quantidade }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Logs que serão removidos (amostra) -->
+            {% if logs_para_remover %}
+            <div class="card danger-card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list"></i> Amostra dos Logs que Serão Removidos
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="log-preview">
+                        {% for log in logs_para_remover %}
+                        <div class="log-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <small class="text-muted">{{ log.timestamp|date:"d/m/Y H:i" }}</small>
+                                    <br>
+                                    <span class="badge bg-{{ log.get_nivel_color }}">{{ log.get_nivel_display }}</span>
+                                    <span class="badge bg-secondary">{{ log.get_modulo_display }}</span>
+                                    <br>
+                                    <small>{{ log.get_descricao_resumida }}</small>
+                                </div>
+                                <div class="ms-2">
+                                    {% if log.usuario %}
+                                        <small class="text-muted">{{ log.usuario.username }}</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if total_para_remover > 10 %}
+                    <div class="text-center mt-2">
+                        <small class="text-muted">
+                            Mostrando 10 de {{ total_para_remover }} logs
+                        </small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Informações Importantes -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle"></i> Informações Importantes
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-exclamation-triangle text-warning"></i> Atenção:</h6>
+                            <ul class="small">
+                                <li>A limpeza de logs é <strong>irreversível</strong></li>
+                                <li>Logs removidos não podem ser recuperados</li>
+                                <li>Recomenda-se fazer backup antes da limpeza</li>
+                                <li>Use o modo simulação primeiro para verificar</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-lightbulb text-info"></i> Recomendações:</h6>
+                            <ul class="small">
+                                <li>Mantenha logs de erro por pelo menos 90 dias</li>
+                                <li>Logs críticos devem ser preservados sempre</li>
+                                <li>Configure limpeza automática regular</li>
+                                <li>Monitore o espaço em disco regularmente</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-update statistics when changing days
+    document.getElementById('dias_limpeza').addEventListener('change', function() {
+        // You could add AJAX here to update statistics without page reload
+        console.log('Dias de limpeza alterados para:', this.value);
+    });
+    
+    // Confirm before executing cleanup
+    document.querySelector('button[value="executar"]').addEventListener('click', function(e) {
+        if (!confirm('ATENÇÃO: Esta ação irá remover permanentemente os logs antigos. Esta ação não pode ser desfeita. Tem certeza que deseja continuar?')) {
+            e.preventDefault();
+        }
+    });
+    
+    // Toggle simulation mode
+    document.getElementById('modo_simulacao').addEventListener('change', function() {
+        const executarBtn = document.querySelector('button[value="executar"]');
+        if (this.checked) {
+            executarBtn.disabled = true;
+            executarBtn.title = 'Desabilite o modo simulação para executar a limpeza';
+        } else {
+            executarBtn.disabled = false;
+            executarBtn.title = '';
+        }
+    });
+</script>
+{% endblock %} 

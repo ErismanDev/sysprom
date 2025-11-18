@@ -29,6 +29,8 @@ urlpatterns = [
     path("", views.home_view, name="home"),
     path('ckeditor/', include('django_ckeditor_5.urls')),
     path('teste-modal/', views.teste_modal_view, name='teste_modal'),
+    path('api/funcoes-usuario/', views.api_funcoes_usuario, name='api_funcoes_usuario'),
+    # path('captcha/', include('captcha.urls')),  # Temporariamente comentado
 ]
 
 # Configuração para servir arquivos de media e static em desenvolvimento

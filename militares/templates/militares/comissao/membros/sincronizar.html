@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-sync-alt"></i>
+                        Sincronizar Membros da Comissão
+                    </h3>
+                    <div class="card-tools">
+                        <a href="{% url 'militares:membro_comissao_list' comissao.pk %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Voltar
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h5>Informações da Comissão</h5>
+                            <p><strong>Nome:</strong> {{ comissao.nome }}</p>
+                            <p><strong>Tipo:</strong> {{ comissao.get_tipo_display }}</p>
+                            <p><strong>Status:</strong> 
+                                <span class="badge bg-{% if comissao.status == 'ATIVA' %}success{% elif comissao.status == 'INATIVA' %}secondary{% else %}warning{% endif %}">
+                                    {{ comissao.get_status_display }}
+                                </span>
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Funções Disponíveis</h5>
+                            {% if funcoes %}
+                                <ul class="list-unstyled">
+                                    {% for funcao in funcoes %}
+                                        <li><i class="fas fa-check text-success"></i> {{ funcao.nome }}</li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p class="text-muted">Nenhuma função específica encontrada para {{ comissao.get_tipo_display }}.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-12">
+                            <h5>Usuários com Funções Compatíveis</h5>
+                            {% if usuarios_com_funcoes %}
+                                <div class="table-responsive">
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Usuário</th>
+                                                <th>Militar</th>
+                                                <th>Função</th>
+                                                <th>Posto</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for usuario_funcao in usuarios_com_funcoes %}
+                                                <tr>
+                                                    <td>{{ usuario_funcao.usuario.get_full_name|default:usuario_funcao.usuario.username }}</td>
+                                                    <td>{{ usuario_funcao.usuario.militar.nome_completo }}</td>
+                                                    <td>{{ usuario_funcao.funcao_militar.nome }}</td>
+                                                    <td>{{ usuario_funcao.usuario.militar.get_posto_graduacao_display }}</td>
+                                                    <td>
+                                                        <span class="badge bg-success">Ativo</span>
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i>
+                                    <strong>Como funciona:</strong> A sincronização irá criar ou atualizar os membros da comissão 
+                                    baseado nas funções militares ativas dos usuários. Cada usuário com uma função específica 
+                                    para {{ comissao.get_tipo_display }} será automaticamente adicionado como membro da comissão.
+                                </div>
+                                
+                                <form method="post" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-sync-alt"></i> Sincronizar Membros
+                                    </button>
+                                </form>
+                            {% else %}
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    <strong>Nenhum usuário encontrado!</strong> Não há usuários com funções específicas para 
+                                    {{ comissao.get_tipo_display }}. Verifique se as funções foram criadas e atribuídas aos usuários.
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <a href="{% url 'militares:funcoes_militares_list' %}" class="btn btn-outline-primary">
+                                        <i class="fas fa-cog"></i> Gerenciar Funções Militares
+                                    </a>
+                                    <a href="{% url 'militares:militar_list' %}" class="btn btn-outline-secondary">
+                                        <i class="fas fa-users"></i> Gerenciar Militares
+                                    </a>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

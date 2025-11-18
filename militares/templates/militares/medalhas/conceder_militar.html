@@ -1,0 +1,864 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+.autocomplete-results {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    background: white;
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1000;
+}
+
+.militar-item {
+    padding: 10px 15px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.militar-item:hover {
+    background-color: #f8f9fa;
+    border-left: 3px solid #007bff;
+}
+
+.militar-item:last-child {
+    border-bottom: none;
+}
+
+.militar-item.active {
+    background-color: #007bff !important;
+    color: white !important;
+    border-left: 3px solid #0056b3;
+}
+
+.militar-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.militar-detalhes {
+    flex: 1;
+}
+
+.militar-nome {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 2px;
+}
+
+.militar-posto {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 2px;
+}
+
+.militar-lado {
+    text-align: right;
+    min-width: 80px;
+}
+
+.militar-matricula {
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 3px;
+}
+
+.militar-situacao {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-weight: 500;
+}
+
+.badge-ativo {
+    background-color: #28a745;
+    color: white;
+}
+
+.badge-inativo {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+.no-results {
+    padding: 20px;
+    text-align: center;
+    color: #666;
+    font-style: italic;
+}
+
+.no-results.text-danger {
+    color: #dc3545;
+}
+
+.search-field {
+    position: relative;
+}
+
+.search-field .form-control {
+    padding-right: 40px;
+}
+
+.search-field .search-icon {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    pointer-events: none;
+}
+
+.loading-spinner {
+    color: #007bff;
+}
+
+/* Estilos para mensagens de erro */
+.error-details {
+    margin: 15px 0;
+}
+
+.error-item {
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-left: 4px solid #dc3545;
+    border-radius: 4px;
+}
+
+.error-item strong {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 14px;
+}
+
+.error-message {
+    color: #721c24;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin: 5px 0;
+    font-size: 13px;
+}
+
+.alert-heading {
+    color: #721c24;
+    font-weight: 600;
+}
+
+.alert.alert-danger {
+    border-left: 5px solid #dc3545;
+}
+
+.alert.alert-success {
+    border-left: 5px solid #28a745;
+}
+
+.alert.alert-warning {
+    border-left: 5px solid #ffc107;
+}
+
+.alert.alert-info {
+    border-left: 5px solid #17a2b8;
+}
+
+/* Campo com erro */
+.field-error {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+}
+
+.field-error:focus {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+}
+
+/* Mensagem de erro abaixo do campo */
+.field-error-message {
+    color: #dc3545;
+    font-size: 12px;
+    margin-top: 5px;
+    display: block;
+}
+</style>
+
+<div class="container mt-4">
+    <h4>Outorga de Medalha{% if militar_fixo %} - {{ militar_fixo.get_posto_graduacao_display }} {{ militar_fixo.nome_completo }}{% endif %}</h4>
+    
+    <form method="post">
+        {% csrf_token %}
+        <div class="card">
+            <div class="card-body">
+                {% if form.errors %}
+                    <div class="alert alert-danger">
+                        <h6 class="alert-heading">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Formulário com Erros</strong>
+                        </h6>
+                        <hr>
+                        <div class="error-details">
+                            {% for field, errors in form.errors.items %}
+                                <div class="error-item mb-2">
+                                    <strong class="text-danger">
+                                        {% if field == 'militar' %}
+                                            Militar:
+                                        {% elif field == 'medalha' %}
+                                            Medalha:
+                                        {% elif field == 'data_concessao' %}
+                                            Data da Concessão:
+                                        {% elif field == 'documento_tipo' %}
+                                            Tipo de Documento:
+                                        {% elif field == 'portaria_numero' %}
+                                            Número da Portaria:
+                                        {% elif field == 'portaria_data' %}
+                                            Data da Portaria:
+                                        {% elif field == 'indicado_por_nome' %}
+                                            Nome de Quem Indicou:
+                                        {% elif field == 'indicado_por_funcao' %}
+                                            Função de Quem Indicou:
+                                        {% elif field == 'orgao_externo' %}
+                                            Órgão Externo:
+                                        {% elif field == 'observacoes' %}
+                                            Observações:
+                                        {% else %}
+                                            {{ field|title }}:
+                                        {% endif %}
+                                    </strong>
+                                    {% for error in errors %}
+                                        <div class="error-message">
+                                            {% if error == 'This field is required.' %}
+                                                Este campo é obrigatório.
+                                            {% elif error == 'Enter a valid date.' %}
+                                                Digite uma data válida.
+                                            {% elif error == 'Enter a valid email address.' %}
+                                                Digite um endereço de e-mail válido.
+                                            {% elif error == 'Enter a valid URL.' %}
+                                                Digite uma URL válida.
+                                            {% elif error == 'Enter a valid integer.' %}
+                                                Digite um número inteiro válido.
+                                            {% elif error == 'Enter a valid number.' %}
+                                                Digite um número válido.
+                                            {% elif error == 'Ensure this value is less than or equal to 999999999.' %}
+                                                O valor deve ser menor ou igual a 999.999.999.
+                                            {% elif error == 'Ensure this value is greater than or equal to 0.' %}
+                                                O valor deve ser maior ou igual a 0.
+                                            {% elif 'Este militar já foi agraciado com esta medalha' in error %}
+                                                <i class="fas fa-info-circle me-1"></i>{{ error }}
+                                            {% else %}
+                                                {{ error }}
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                        <hr>
+                        <small class="text-muted">
+                            <i class="fas fa-lightbulb me-1"></i>
+                            <strong>Dica:</strong> Verifique os campos marcados com asterisco (*) e corrija os erros acima.
+                        </small>
+                    </div>
+                {% endif %}
+                
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {% if message.tags == 'error' %}
+                                <i class="fas fa-exclamation-circle me-2"></i>
+                            {% elif message.tags == 'success' %}
+                                <i class="fas fa-check-circle me-2"></i>
+                            {% elif message.tags == 'warning' %}
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                            {% elif message.tags == 'info' %}
+                                <i class="fas fa-info-circle me-2"></i>
+                            {% endif %}
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+                
+                {% if veio_dos_elegiveis %}
+                    <div class="alert alert-success">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Medalha de Tempo de Serviço</strong><br>
+                        Os campos "Indicado por" e "Função de quem indicou" são <strong>opcionais</strong> para medalhas de elegibilidade.
+                        Esta é uma medalha automática baseada no tempo de serviço.
+                    </div>
+                {% endif %}
+                {% if medalha_predefinida %}
+                    <div class="alert alert-info">
+                        Medalha: <strong>{{ medalha_predefinida.nome }}</strong>
+                        <input type="hidden" name="medalha" value="{{ medalha_predefinida.id }}">
+                    </div>
+                    {% if militar_fixo %}
+                        <div class="alert alert-secondary">
+                            Militar: <strong>{{ militar_fixo.get_posto_graduacao_display }} {{ militar_fixo.nome_completo }}</strong>
+                            <input type="hidden" name="militar" value="{{ militar_fixo.id }}">
+                        </div>
+                    {% else %}
+                        <div class="col-md-6">
+                            <label for="buscaMilitar" class="form-label">Militar <span class="text-danger">*</span></label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="buscaMilitar" 
+                                   placeholder="Digite pelo menos 2 caracteres para buscar militares..." 
+                                   autocomplete="off"
+                                   required>
+                            <small class="form-text text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Digite pelo menos 2 caracteres para buscar militares
+                            </small>
+                            <input type="hidden" name="militar" id="militarId" value="{% if form.instance.militar_id %}{{ form.instance.militar_id }}{% endif %}">
+                            <div id="resultadosBusca" class="autocomplete-results" style="display: none;"></div>
+                            {% if form.errors.militar %}
+                                <div class="field-error-message">
+                                    <i class="fas fa-exclamation-circle me-1"></i>
+                                    {% for error in form.errors.militar %}
+                                        {% if error == 'This field is required.' %}
+                                            Militar é obrigatório.
+                                        {% else %}
+                                            {{ error }}
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                    {% if not medalha_predefinida or medalha_predefinida.tipo != 'TEMPO_SERVICO' %}
+                        <div class="mb-2">
+                            {{ form.orgao_externo.label_tag }}
+                            {{ form.orgao_externo }}
+                        </div>
+                    {% endif %}
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            {{ form.data_concessao.label_tag }}
+                            {{ form.data_concessao }}
+                            {% if form.errors.data_concessao %}
+                                <div class="field-error-message">
+                                    <i class="fas fa-exclamation-circle me-1"></i>
+                                    {% for error in form.errors.data_concessao %}
+                                        {% if error == 'This field is required.' %}
+                                            Data da concessão é obrigatória.
+                                        {% elif error == 'Enter a valid date.' %}
+                                            Digite uma data válida.
+                                        {% else %}
+                                            {{ error }}
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-3">
+                            {{ form.documento_tipo.label_tag }}
+                            {{ form.documento_tipo }}
+                            {% if form.errors.documento_tipo %}
+                                <div class="field-error-message">
+                                    <i class="fas fa-exclamation-circle me-1"></i>
+                                    {% for error in form.errors.documento_tipo %}
+                                        {% if error == 'This field is required.' %}
+                                            Tipo de documento é obrigatório.
+                                        {% else %}
+                                            {{ error }}
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-3">
+                            {{ form.portaria_numero.label_tag }}
+                            {{ form.portaria_numero }}
+                            {% if form.errors.portaria_numero %}
+                                <div class="field-error-message">
+                                    <i class="fas fa-exclamation-circle me-1"></i>
+                                    {% for error in form.errors.portaria_numero %}
+                                        {% if error == 'This field is required.' %}
+                                            Número da portaria é obrigatório.
+                                        {% else %}
+                                            {{ error }}
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-3">
+                            {{ form.portaria_data.label_tag }}
+                            {{ form.portaria_data }}
+                            {% if form.errors.portaria_data %}
+                                <div class="field-error-message">
+                                    <i class="fas fa-exclamation-circle me-1"></i>
+                                    {% for error in form.errors.portaria_data %}
+                                        {% if error == 'This field is required.' %}
+                                            Data da portaria é obrigatória.
+                                        {% elif error == 'Enter a valid date.' %}
+                                            Digite uma data válida.
+                                        {% else %}
+                                            {{ error }}
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row g-2 mt-2">
+                        {% if veio_dos_elegiveis %}
+                            <div class="col-md-6">
+                                {{ form.indicado_por_nome.label_tag }}
+                                {{ form.indicado_por_nome }}
+                                <small class="text-muted">Campo opcional para medalhas de elegibilidade</small>
+                            </div>
+                            <div class="col-md-6">
+                                {{ form.indicado_por_funcao.label_tag }}
+                                {{ form.indicado_por_funcao }}
+                                <small class="text-muted">Campo opcional para medalhas de elegibilidade</small>
+                            </div>
+                        {% else %}
+                            <div class="col-md-6">{{ form.indicado_por_nome.label_tag }}{{ form.indicado_por_nome }}</div>
+                            <div class="col-md-6">{{ form.indicado_por_funcao.label_tag }}{{ form.indicado_por_funcao }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="mt-2">{{ form.observacoes.label_tag }}{{ form.observacoes }}</div>
+                {% else %}
+                    {% if militar_fixo %}
+                        <div class="alert alert-secondary">
+                            Militar: <strong>{{ militar_fixo.get_posto_graduacao_display }} {{ militar_fixo.nome_completo }}</strong>
+                            <input type="hidden" name="militar" value="{{ militar_fixo.id }}">
+                        </div>
+                    {% else %}
+                        <div class="col-md-6">
+                            <label for="buscaMilitar" class="form-label">Militar <span class="text-danger">*</span></label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="buscaMilitar" 
+                                   placeholder="Digite pelo menos 2 caracteres para buscar militares..." 
+                                   autocomplete="off"
+                                   required>
+                            <small class="form-text text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Digite pelo menos 2 caracteres para buscar militares
+                            </small>
+                            <input type="hidden" name="militar" id="militarId" value="{% if form.instance.militar_id %}{{ form.instance.militar_id }}{% endif %}">
+                            <div id="resultadosBusca" class="autocomplete-results" style="display: none;"></div>
+                            {% if form.errors.militar %}
+                                <div class="field-error-message">
+                                    <i class="fas fa-exclamation-circle me-1"></i>
+                                    {% for error in form.errors.militar %}
+                                        {% if error == 'This field is required.' %}
+                                            Militar é obrigatório.
+                                        {% else %}
+                                            {{ error }}
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                    <div class="mb-2">
+                        {{ form.medalha.label_tag }}
+                        {{ form.medalha }}
+                        {% if form.errors.medalha %}
+                            <div class="field-error-message">
+                                <i class="fas fa-exclamation-circle me-1"></i>
+                                {% for error in form.errors.medalha %}
+                                    {% if error == 'This field is required.' %}
+                                        Medalha é obrigatória.
+                                    {% else %}
+                                        {{ error }}
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="mb-2">
+                        {{ form.medalha_nome.label_tag }}
+                        {{ form.medalha_nome }}
+                        {% if form.errors.medalha_nome %}
+                            <div class="field-error-message">
+                                <i class="fas fa-exclamation-circle me-1"></i>
+                                {% for error in form.errors.medalha_nome %}
+                                    {% if error == 'This field is required.' %}
+                                        Nome da medalha é obrigatório.
+                                    {% else %}
+                                        {{ error }}
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% if not medalha_predefinida or medalha_predefinida.tipo != 'TEMPO_SERVICO' %}
+                        <div class="mb-2">{{ form.orgao_externo.label_tag }}{{ form.orgao_externo }}</div>
+                    {% endif %}
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            {{ form.data_concessao.label_tag }}
+                            {{ form.data_concessao }}
+                            {% if form.errors.data_concessao %}
+                                <div class="field-error-message">
+                                    <i class="fas fa-exclamation-circle me-1"></i>
+                                    {% for error in form.errors.data_concessao %}
+                                        {% if error == 'This field is required.' %}
+                                            Data da concessão é obrigatória.
+                                        {% elif error == 'Enter a valid date.' %}
+                                            Digite uma data válida.
+                                        {% else %}
+                                            {{ error }}
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-3">
+                            {{ form.documento_tipo.label_tag }}
+                            {{ form.documento_tipo }}
+                            {% if form.errors.documento_tipo %}
+                                <div class="field-error-message">
+                                    <i class="fas fa-exclamation-circle me-1"></i>
+                                    {% for error in form.errors.documento_tipo %}
+                                        {% if error == 'This field is required.' %}
+                                            Tipo de documento é obrigatório.
+                                        {% else %}
+                                            {{ error }}
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-3">
+                            {{ form.portaria_numero.label_tag }}
+                            {{ form.portaria_numero }}
+                            {% if form.errors.portaria_numero %}
+                                <div class="field-error-message">
+                                    <i class="fas fa-exclamation-circle me-1"></i>
+                                    {% for error in form.errors.portaria_numero %}
+                                        {% if error == 'This field is required.' %}
+                                            Número da portaria é obrigatório.
+                                        {% else %}
+                                            {{ error }}
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-3">
+                            {{ form.portaria_data.label_tag }}
+                            {{ form.portaria_data }}
+                            {% if form.errors.portaria_data %}
+                                <div class="field-error-message">
+                                    <i class="fas fa-exclamation-circle me-1"></i>
+                                    {% for error in form.errors.portaria_data %}
+                                        {% if error == 'This field is required.' %}
+                                            Data da portaria é obrigatória.
+                                        {% elif error == 'Enter a valid date.' %}
+                                            Digite uma data válida.
+                                        {% else %}
+                                            {{ error }}
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row g-2 mt-2">
+                        {% if veio_dos_elegiveis %}
+                            <div class="col-md-6">
+                                {{ form.indicado_por_nome.label_tag }}
+                                {{ form.indicado_por_nome }}
+                                <small class="text-muted">Campo opcional para medalhas de elegibilidade</small>
+                            </div>
+                            <div class="col-md-6">
+                                {{ form.indicado_por_funcao.label_tag }}
+                                {{ form.indicado_por_funcao }}
+                                <small class="text-muted">Campo opcional para medalhas de elegibilidade</small>
+                            </div>
+                        {% else %}
+                            <div class="col-md-6">{{ form.indicado_por_nome.label_tag }}{{ form.indicado_por_nome }}</div>
+                            <div class="col-md-6">{{ form.indicado_por_funcao.label_tag }}{{ form.indicado_por_funcao }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="mt-2">{{ form.observacoes.label_tag }}{{ form.observacoes }}</div>
+                {% endif %}
+                
+                <!-- Sistema de Assinatura Eletrônica -->
+                <div class="mt-4">
+                    <h5 class="mb-3">
+                        <i class="fas fa-signature me-2"></i>
+                        Assinatura Eletrônica
+                    </h5>
+                    
+                    <!-- Informação sobre assinatura -->
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Assinatura Eletrônica:</strong> Após salvar a concessão, você poderá assiná-la eletronicamente através da lista de concessões.
+                    </div>
+                </div>
+                
+                <button class="btn btn-success" type="submit">Salvar</button>
+                <a href="{% url 'militares:concessoes_list' %}" class="btn btn-secondary">Cancelar</a>
+            </div>
+        </div>
+    </form>
+    
+
+    
+    <div class="mt-3">
+        <a href="{% url 'militares:elegiveis_tempo_servico' %}">Ver elegíveis a Tempo de Serviço</a>
+    </div>
+</div>
+
+<script>
+// Função para buscar militares via AJAX
+async function buscarMilitares(query) {
+    try {
+        // Mostrar indicador de carregamento
+        const resultadosDiv = document.getElementById('resultadosBusca');
+        resultadosDiv.innerHTML = '<div class="no-results"><i class="fas fa-spinner fa-spin me-2"></i>Buscando...</div>';
+        resultadosDiv.style.display = 'block';
+        
+        const response = await fetch(`{% url 'militares:buscar_militares_api' %}?q=${encodeURIComponent(query)}`);
+        if (response.ok) {
+            const data = await response.json();
+            return data.militares || [];
+        }
+    } catch (error) {
+        console.error('Erro ao buscar militares:', error);
+        // Mostrar mensagem de erro
+        const resultadosDiv = document.getElementById('resultadosBusca');
+        resultadosDiv.innerHTML = '<div class="no-results text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Erro na busca</div>';
+        resultadosDiv.style.display = 'block';
+    }
+    return [];
+}
+
+// Função para mostrar resultados da busca
+function mostrarResultadosBusca(militaresResultado) {
+    const resultadosDiv = document.getElementById('resultadosBusca');
+    
+    if (militaresResultado.length === 0) {
+        resultadosDiv.innerHTML = '<div class="no-results">Nenhum militar encontrado</div>';
+        resultadosDiv.style.display = 'block';
+        return;
+    }
+    
+    let html = '';
+    militaresResultado.forEach(militar => {
+        const situacaoClass = militar.classificacao === 'ATIVO' ? 'badge-ativo' : 'badge-inativo';
+        
+        html += `
+            <div class="militar-item" 
+                 data-id="${militar.id}" 
+                 data-nome="${militar.nome_completo}"
+                 data-matricula="${militar.matricula}">
+                <div class="militar-info">
+                    <div class="militar-detalhes">
+                        <div class="militar-nome">${militar.nome_completo}</div>
+                        <div class="militar-posto">${militar.posto_display} - ${militar.quadro_display}</div>
+                    </div>
+                    <div class="militar-lado">
+                        <div class="militar-matricula">${militar.matricula}</div>
+                        <span class="militar-situacao ${situacaoClass}">${militar.situacao_display}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    resultadosDiv.innerHTML = html;
+    resultadosDiv.style.display = 'block';
+    
+    // Adicionar eventos de hover e clique
+    const itens = resultadosDiv.querySelectorAll('.militar-item');
+    itens.forEach(item => {
+        item.addEventListener('mouseenter', function() {
+            // Remover classe active de todos os itens
+            itens.forEach(i => i.classList.remove('active'));
+            // Adicionar classe active ao item atual
+            this.classList.add('active');
+        });
+        
+        item.addEventListener('click', function() {
+            const id = this.dataset.id;
+            const nome = this.dataset.nome;
+            const matricula = this.dataset.matricula;
+            
+            document.getElementById('militarId').value = id;
+            document.getElementById('buscaMilitar').value = `${nome} (${matricula})`;
+            resultadosDiv.style.display = 'none';
+        });
+    });
+}
+
+// Função para buscar militares em tempo real
+let timeoutBusca;
+async function realizarBusca() {
+    const query = document.getElementById('buscaMilitar').value.trim();
+    
+    if (query.length < 2) {
+        document.getElementById('resultadosBusca').style.display = 'none';
+        return;
+    }
+    
+    clearTimeout(timeoutBusca);
+    timeoutBusca = setTimeout(async () => {
+        const militares = await buscarMilitares(query);
+        mostrarResultadosBusca(militares);
+    }, 300);
+}
+
+// Eventos
+document.addEventListener('DOMContentLoaded', function() {
+    const buscaInput = document.getElementById('buscaMilitar');
+    const resultadosDiv = document.getElementById('resultadosBusca');
+    const form = document.querySelector('form');
+    
+    // Carregar dados iniciais se estiver editando
+    function carregarDadosIniciais() {
+        // Verificar se há dados iniciais do militar (edição)
+        const militarId = document.getElementById('militarId').value;
+        const buscaInput = document.getElementById('buscaMilitar');
+        
+        if (militarId && militarId.trim() !== '') {
+            // Se há ID do militar, buscar os dados para exibir
+            fetch(`{% url 'militares:militar_info_completa_ajax' %}?militar_id=${militarId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.militar) {
+                        const militar = data.militar;
+                        // Preencher o campo de busca com os dados do militar
+                        buscaInput.value = `${militar.nome_completo} (${militar.matricula})`;
+                        // Garantir que o ID esteja correto
+                        document.getElementById('militarId').value = militar.id;
+                        console.log('✅ Dados do militar carregados:', militar);
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ Erro ao carregar dados do militar:', error);
+                });
+        }
+    }
+    
+    // Executar carregamento de dados iniciais
+    carregarDadosIniciais();
+    
+    if (buscaInput) {
+        // Busca em tempo real
+        buscaInput.addEventListener('input', realizarBusca);
+        
+        // Fechar resultados ao clicar fora
+        document.addEventListener('click', function(e) {
+            if (!buscaInput.contains(e.target) && !resultadosDiv.contains(e.target)) {
+                resultadosDiv.style.display = 'none';
+            }
+        });
+        
+        // Foco no campo de busca
+        buscaInput.addEventListener('focus', function() {
+            if (this.value.trim().length >= 2) {
+                realizarBusca();
+            }
+        });
+        
+        // Navegação com teclado
+        buscaInput.addEventListener('keydown', function(e) {
+            const resultados = resultadosDiv.querySelectorAll('.militar-item');
+            const resultadoAtivo = resultadosDiv.querySelector('.militar-item.active');
+            
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (resultados.length > 0) {
+                    if (resultadoAtivo) {
+                        resultadoAtivo.classList.remove('active');
+                        const proximo = resultadoAtivo.nextElementSibling;
+                        if (proximo) {
+                            proximo.classList.add('active');
+                        } else {
+                            resultados[0].classList.add('active');
+                        }
+                    } else {
+                        resultados[0].classList.add('active');
+                    }
+                }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (resultados.length > 0) {
+                    if (resultadoAtivo) {
+                        resultadoAtivo.classList.remove('active');
+                        const anterior = resultadoAtivo.previousElementSibling;
+                        if (anterior) {
+                            anterior.classList.add('active');
+                        } else {
+                            const ultimo = resultados[resultados.length - 1];
+                            ultimo.classList.add('active');
+                        }
+                    } else {
+                        const ultimo = resultados[resultados.length - 1];
+                        ultimo.classList.add('active');
+                    }
+                }
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (resultadoAtivo) {
+                    const id = resultadoAtivo.dataset.id;
+                    const nome = resultadoAtivo.dataset.nome;
+                    const matricula = resultadoAtivo.dataset.matricula;
+                    
+                    document.getElementById('militarId').value = id;
+                    document.getElementById('buscaMilitar').value = `${nome} (${matricula})`;
+                    resultadosDiv.style.display = 'none';
+                }
+            } else if (e.key === 'Escape') {
+                resultadosDiv.style.display = 'none';
+            }
+        });
+    }
+    
+    // Validação do formulário
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const militarId = document.getElementById('militarId').value;
+            const buscaInput = document.getElementById('buscaMilitar');
+            
+            if (!militarId && buscaInput) {
+                e.preventDefault();
+                alert('Por favor, selecione um militar da lista.');
+                buscaInput.focus();
+                return false;
+            }
+        });
+        
+        // Destacar campos com erro
+        const errorFields = form.querySelectorAll('.field-error-message');
+        errorFields.forEach(errorField => {
+            const fieldInput = errorField.previousElementSibling;
+            if (fieldInput && fieldInput.tagName === 'INPUT' || fieldInput.tagName === 'SELECT' || fieldInput.tagName === 'TEXTAREA') {
+                fieldInput.classList.add('field-error');
+                
+                // Remover classe de erro quando o usuário começar a digitar
+                fieldInput.addEventListener('input', function() {
+                    this.classList.remove('field-error');
+                    const errorMsg = this.parentNode.querySelector('.field-error-message');
+                    if (errorMsg) {
+                        errorMsg.style.display = 'none';
+                    }
+                });
+                
+                // Para campos select, remover erro quando mudar seleção
+                if (fieldInput.tagName === 'SELECT') {
+                    fieldInput.addEventListener('change', function() {
+                        this.classList.remove('field-error');
+                        const errorMsg = this.parentNode.querySelector('.field-error-message');
+                        if (errorMsg) {
+                            errorMsg.style.display = 'none';
+                        }
+                    });
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

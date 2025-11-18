@@ -1,0 +1,523 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load nota_filters %}
+
+{% block title %}Planos de Férias - Lista{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-umbrella-beach me-2 text-info"></i>Planos de Férias
+                    </h2>
+                    <p class="text-muted mb-0">Gerenciar planos de férias</p>
+                </div>
+                <div>
+                    {% if menu_permissions.BOTAO_PLANO_FERIAS_NOVO or user.is_superuser %}
+                    <a href="{% url 'militares:plano_ferias_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Novo Plano
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">
+                                <i class="fas fa-calendar me-2"></i>Ano de Referência
+                            </label>
+                            <select name="ano_referencia" class="form-select">
+                                <option value="">Todos os anos</option>
+                                {% for ano in anos_referencia_disponiveis %}
+                                    <option value="{{ ano }}" {% if filtro_ano_referencia == ano|stringformat:"s" %}selected{% endif %}>{{ ano }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">
+                                <i class="fas fa-calendar-check me-2"></i>Ano do Plano
+                            </label>
+                            <select name="ano_plano" class="form-select">
+                                <option value="">Todos os anos</option>
+                                {% for ano in anos_plano_disponiveis %}
+                                    <option value="{{ ano }}" {% if filtro_ano_plano == ano|stringformat:"s" %}selected{% endif %}>{{ ano }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="RASCUNHO" {% if filtro_status == 'RASCUNHO' %}selected{% endif %}>Rascunho</option>
+                                <option value="EM_APROVACAO" {% if filtro_status == 'EM_APROVACAO' %}selected{% endif %}>Em Aprovação</option>
+                                <option value="APROVADO" {% if filtro_status == 'APROVADO' %}selected{% endif %}>Aprovado</option>
+                                <option value="PUBLICADO" {% if filtro_status == 'PUBLICADO' %}selected{% endif %}>Publicado</option>
+                                <option value="CANCELADO" {% if filtro_status == 'CANCELADO' %}selected{% endif %}>Cancelado</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                            <a href="{% url 'militares:ferias_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Limpar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Lista de Planos de Férias -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Lista de Planos de Férias
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if planos %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Título</th>
+                                        <th>Ano de Referência</th>
+                                        <th>Ano do Plano</th>
+                                        <th>Status</th>
+                                        <th>Documento de Aprovação</th>
+                                        <th>Total de Férias</th>
+                                        <th>Estatísticas</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for plano in planos %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ plano.titulo|default:"Plano de Férias" }}</strong>
+                                            {% if plano.descricao %}
+                                            <br><small class="text-muted">{{ plano.descricao|truncatechars:80 }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-primary fs-6">{{ plano.ano_referencia }}</span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info fs-6">{{ plano.ano_plano }}</span>
+                                        </td>
+                                        <td>
+                                            {% if plano.status == 'RASCUNHO' %}
+                                                <span class="badge bg-secondary">{{ plano.get_status_display }}</span>
+                                            {% elif plano.status == 'EM_APROVACAO' %}
+                                                <span class="badge bg-warning text-dark">{{ plano.get_status_display }}</span>
+                                            {% elif plano.status == 'APROVADO' %}
+                                                <span class="badge bg-success">{{ plano.get_status_display }}</span>
+                                            {% elif plano.status == 'PUBLICADO' %}
+                                                <span class="badge bg-primary">{{ plano.get_status_display }}</span>
+                                            {% elif plano.status == 'CANCELADO' %}
+                                                <span class="badge bg-danger">{{ plano.get_status_display }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if plano.documento_referencia or plano.numero_documento %}
+                                                <small>
+                                                    {% if plano.documento_referencia %}
+                                                        <strong>{{ plano.documento_referencia }}</strong>
+                                                    {% endif %}
+                                                    {% if plano.numero_documento %}
+                                                        {% if plano.documento_referencia %}<br>{% endif %}{{ plano.numero_documento }}
+                                                    {% endif %}
+                                                </small>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-primary">{{ plano.total_ferias }}</span>
+                                        </td>
+                                        <td>
+                                            <small class="d-block">
+                                                <span class="badge bg-info">📅 {{ plano.ferias_planejadas }} planejadas</span>
+                                                <span class="badge bg-warning">🏖️ {{ plano.ferias_gozando }} usufruindo</span>
+                                                <span class="badge bg-success">✅ {{ plano.ferias_gozadas }} usufruídas</span>
+                                                <span class="badge bg-secondary">🔄 {{ plano.ferias_reprogramadas }} reprogramadas</span>
+                                            </small>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                {% if 'AFASTAMENTOS_VISUALIZAR' in menu_permissions or user.is_superuser %}
+                                                <a href="{% url 'militares:plano_ferias_detail' plano.pk %}" class="btn btn-outline-info" title="Visualizar">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                
+                                                <button type="button" class="btn btn-success" title="Gerar PDF" data-bs-toggle="modal" data-bs-target="#modalGerarPDF{{ plano.pk }}" data-plano-ano-ref="{{ plano.ano_referencia }}" data-plano-ano="{{ plano.ano_plano }}">
+                                                    <i class="fas fa-file-pdf"></i>
+                                                </button>
+                                                {% endif %}
+                                                
+                                                {% if user.is_superuser %}
+                                                    <!-- Botão Editar sempre visível para superusuários -->
+                                                    <a href="{% url 'militares:plano_ferias_update' plano.pk %}" class="btn btn-outline-primary" title="Editar">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                    
+                                                    {% if plano.status != 'APROVADO' and plano.status != 'PUBLICADO' and plano.status != 'CANCELADO' %}
+                                                        {% with homologacao_info=planos_homologacao|lookup:plano.pk %}
+                                                        {% if homologacao_info.todas_homologadas %}
+                                                        <button type="button" class="btn btn-success btn-aprovar-plano" title="Aprovar Plano" data-bs-toggle="modal" data-bs-target="#modalAprovarPlano{{ plano.pk }}" data-plano-id="{{ plano.pk }}">
+                                                            <i class="fas fa-check-circle"></i>
+                                                        </button>
+                                                        {% else %}
+                                                        <button type="button" class="btn btn-success btn-aprovar-plano" title="Aprovar Plano - {{ homologacao_info.ferias_nao_homologadas }} de {{ homologacao_info.total_ferias }} férias ainda não homologadas" data-bs-toggle="modal" data-bs-target="#modalAprovarPlano{{ plano.pk }}" data-plano-id="{{ plano.pk }}" disabled style="opacity: 0.6;">
+                                                            <i class="fas fa-check-circle"></i>
+                                                        </button>
+                                                        <span class="badge bg-warning text-dark ms-1" title="{{ homologacao_info.ferias_nao_homologadas }} férias não homologadas de {{ homologacao_info.total_ferias }} total">
+                                                            {{ homologacao_info.ferias_homologadas }}/{{ homologacao_info.total_ferias }}
+                                                        </span>
+                                                        {% endif %}
+                                                        {% endwith %}
+                                                    {% endif %}
+                                                {% elif 'AFASTAMENTOS_EDITAR' in menu_permissions %}
+                                                    {% if plano.status != 'APROVADO' and plano.status != 'PUBLICADO' %}
+                                                        <a href="{% url 'militares:plano_ferias_update' plano.pk %}" class="btn btn-outline-primary" title="Editar">
+                                                            <i class="fas fa-edit"></i>
+                                                        </a>
+                                                    {% endif %}
+                                                    
+                                                    {% if plano.status != 'APROVADO' and plano.status != 'PUBLICADO' and plano.status != 'CANCELADO' %}
+                                                        {% with homologacao_info=planos_homologacao|lookup:plano.pk %}
+                                                        {% if homologacao_info.todas_homologadas %}
+                                                        <button type="button" class="btn btn-success btn-aprovar-plano" title="Aprovar Plano" data-bs-toggle="modal" data-bs-target="#modalAprovarPlano{{ plano.pk }}" data-plano-id="{{ plano.pk }}">
+                                                            <i class="fas fa-check-circle"></i>
+                                                        </button>
+                                                        {% else %}
+                                                        <button type="button" class="btn btn-success btn-aprovar-plano" title="Aprovar Plano - {{ homologacao_info.ferias_nao_homologadas }} de {{ homologacao_info.total_ferias }} férias ainda não homologadas" data-bs-toggle="modal" data-bs-target="#modalAprovarPlano{{ plano.pk }}" data-plano-id="{{ plano.pk }}" disabled style="opacity: 0.6;">
+                                                            <i class="fas fa-check-circle"></i>
+                                                        </button>
+                                                        <span class="badge bg-warning text-dark ms-1" title="{{ homologacao_info.ferias_nao_homologadas }} férias não homologadas de {{ homologacao_info.total_ferias }} total">
+                                                            {{ homologacao_info.ferias_homologadas }}/{{ homologacao_info.total_ferias }}
+                                                        </span>
+                                                        {% endif %}
+                                                        {% endwith %}
+                                                    {% endif %}
+                                                {% endif %}
+                                                
+                                                {% if 'AFASTAMENTOS_EXCLUIR' in menu_permissions or user.is_superuser %}
+                                                    {% if plano.status != 'CANCELADO' %}
+                                                        <a href="{% url 'militares:plano_ferias_delete' plano.pk %}" class="btn btn-outline-danger" title="Excluir">
+                                                            <i class="fas fa-trash"></i>
+                                                        </a>
+                                                    {% endif %}
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if is_paginated %}
+                        <nav aria-label="Navegação de páginas">
+                            <ul class="pagination justify-content-center">
+                                {% if page_obj.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a>
+                                    </li>
+                                {% endif %}
+                                <li class="page-item active">
+                                    <span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+                                </li>
+                                {% if page_obj.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">Próxima</a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info text-center">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Nenhum plano de férias encontrado.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modais Gerar PDF -->
+{% for plano in planos %}
+<div class="modal fade" id="modalGerarPDF{{ plano.pk }}" tabindex="-1" aria-labelledby="modalGerarPDF{{ plano.pk }}Label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="modalGerarPDF{{ plano.pk }}Label">
+                    <i class="fas fa-file-pdf me-2"></i>Gerar PDF - {{ plano.titulo|default:"Plano de Férias" }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <form method="get" action="{% url 'militares:ferias_list_pdf' %}" target="_blank">
+                <input type="hidden" name="ano_referencia" value="{{ plano.ano_referencia }}">
+                <input type="hidden" name="ano_plano" value="{{ plano.ano_plano }}">
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Plano:</strong> {{ plano.titulo|default:"Plano de Férias" }}<br>
+                        <strong>Ano de Referência:</strong> {{ plano.ano_referencia }} | 
+                        <strong>Ano do Plano:</strong> {{ plano.ano_plano }}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="pdf_mes_{{ plano.pk }}" class="form-label">
+                            <i class="fas fa-calendar-alt me-2"></i>Mês
+                        </label>
+                        <select name="mes" id="pdf_mes_{{ plano.pk }}" class="form-select">
+                            <option value="">Todos os meses</option>
+                            {% for mes in meses_disponiveis %}
+                                <option value="{{ mes.valor }}">{{ mes.nome }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="form-text text-muted">Filtrar férias por mês específico</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="pdf_om_{{ plano.pk }}" class="form-label">
+                            <i class="fas fa-building me-2"></i>Organização Militar (OM)
+                        </label>
+                        <select name="om" id="pdf_om_{{ plano.pk }}" class="form-select">
+                            {% for valor, nome in oms_disponiveis %}
+                                <option value="{{ valor }}">{{ nome }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="form-text text-muted">Filtrar férias por Organização Militar</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-file-pdf me-2"></i>Gerar PDF
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Modais de Aprovação -->
+{% for plano in planos %}
+{% if plano.status != 'APROVADO' and plano.status != 'PUBLICADO' and plano.status != 'CANCELADO' %}
+<!-- Modal Aprovar Plano {{ plano.pk }} -->
+<div class="modal fade" id="modalAprovarPlano{{ plano.pk }}" tabindex="-1" aria-labelledby="modalAprovarPlano{{ plano.pk }}Label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="modalAprovarPlano{{ plano.pk }}Label">
+                    <i class="fas fa-check-circle me-2"></i>Aprovar Plano de Férias
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <form method="post" action="{% url 'militares:plano_ferias_aprovar' plano.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    {% with homologacao_info=planos_homologacao|lookup:plano.pk %}
+                    {% if homologacao_info %}
+                    {% if not homologacao_info.todas_homologadas %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Atenção!</strong> Não é possível aprovar o plano! 
+                        <strong>{{ homologacao_info.ferias_nao_homologadas }}</strong> de <strong>{{ homologacao_info.total_ferias }}</strong> férias ainda não foram homologadas.
+                        <br><small>Por favor, homologue todas as férias antes de aprovar o plano.</small>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>Pronto para aprovar!</strong> Todas as <strong>{{ homologacao_info.total_ferias }}</strong> férias estão homologadas.
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                    {% endwith %}
+                    
+                    <div class="mb-3">
+                        <p><strong>Plano:</strong> {{ plano.titulo }}</p>
+                        <p><strong>Ano de Referência:</strong> {{ plano.ano_referencia }}</p>
+                        <p><strong>Ano do Plano:</strong> {{ plano.ano_plano }}</p>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="mb-3">
+                        <label for="documento_referencia_{{ plano.pk }}" class="form-label">
+                            Documento de Referência <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" class="form-control" id="documento_referencia_{{ plano.pk }}" name="documento_referencia" 
+                               placeholder="Ex: Portaria, Decreto, etc." required>
+                        <small class="form-text text-muted">Tipo do documento que aprova o plano</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="numero_documento_{{ plano.pk }}" class="form-label">
+                            Documento de Publicação <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" class="form-control" id="numero_documento_{{ plano.pk }}" name="numero_documento" 
+                               placeholder="Ex: DOE n° 001/2025 de 25/01/2025" required>
+                        <small class="form-text text-muted">Documento completo de publicação (ex: DOE n° 001/2025 de 25/01/2025)</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    {% with homologacao_info=planos_homologacao|lookup:plano.pk %}
+                    {% if homologacao_info and homologacao_info.todas_homologadas %}
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check-circle me-2"></i>Aprovar Plano
+                    </button>
+                    {% else %}
+                    <button type="submit" class="btn btn-success" disabled>
+                        <i class="fas fa-check-circle me-2"></i>Aprovar Plano (Bloqueado)
+                    </button>
+                    {% endif %}
+                    {% endwith %}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Template de planos de férias carregado');
+    
+    // Fallback para botões de aprovar plano se Bootstrap modal não funcionar
+    const botoesAprovar = document.querySelectorAll('.btn-aprovar-plano');
+    botoesAprovar.forEach(function(botao) {
+        botao.addEventListener('click', function(e) {
+            const planoId = this.getAttribute('data-plano-id');
+            const modalId = '#modalAprovarPlano' + planoId;
+            const modal = document.querySelector(modalId);
+            
+            if (modal) {
+                // Tentar abrir com Bootstrap 5
+                if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    const bsModal = new bootstrap.Modal(modal);
+                    bsModal.show();
+                } else if (typeof $ !== 'undefined' && $.fn.modal) {
+                    // Fallback para Bootstrap 4/jQuery
+                    $(modal).modal('show');
+                } else {
+                    // Fallback manual
+                    modal.style.display = 'block';
+                    modal.classList.add('show');
+                    document.body.classList.add('modal-open');
+                    
+                    // Adicionar backdrop
+                    const backdrop = document.createElement('div');
+                    backdrop.className = 'modal-backdrop fade show';
+                    backdrop.id = 'modalBackdrop' + planoId;
+                    document.body.appendChild(backdrop);
+                    
+                    // Fechar modal ao clicar no backdrop ou no botão de fechar
+                    backdrop.addEventListener('click', function() {
+                        modal.style.display = 'none';
+                        modal.classList.remove('show');
+                        document.body.classList.remove('modal-open');
+                        document.body.removeChild(backdrop);
+                    });
+                    
+                    const closeButtons = modal.querySelectorAll('[data-bs-dismiss="modal"], .btn-close');
+                    closeButtons.forEach(function(btn) {
+                        btn.addEventListener('click', function() {
+                            modal.style.display = 'none';
+                            modal.classList.remove('show');
+                            document.body.classList.remove('modal-open');
+                            if (document.getElementById('modalBackdrop' + planoId)) {
+                                document.body.removeChild(backdrop);
+                            }
+                        });
+                    });
+                }
+            } else {
+                console.error('Modal não encontrado:', modalId);
+                alert('Modal de aprovação não encontrado. Por favor, recarregue a página.');
+            }
+        });
+    });
+    
+    // Garantir que os botões de Gerar PDF funcionem
+    const botoesGerarPDF = document.querySelectorAll('button[data-bs-target^="#modalGerarPDF"]');
+    botoesGerarPDF.forEach(function(botao) {
+        botao.addEventListener('click', function(e) {
+            const modalId = this.getAttribute('data-bs-target');
+            const modal = document.querySelector(modalId);
+            
+            if (modal) {
+                // Tentar abrir com Bootstrap 5
+                if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    const bsModal = new bootstrap.Modal(modal);
+                    bsModal.show();
+                } else if (typeof $ !== 'undefined' && $.fn.modal) {
+                    // Fallback para Bootstrap 4/jQuery
+                    $(modal).modal('show');
+                } else {
+                    // Fallback manual
+                    modal.style.display = 'block';
+                    modal.classList.add('show');
+                    document.body.classList.add('modal-open');
+                    
+                    // Adicionar backdrop
+                    const backdrop = document.createElement('div');
+                    backdrop.className = 'modal-backdrop fade show';
+                    backdrop.id = 'modalBackdropPDF';
+                    document.body.appendChild(backdrop);
+                    
+                    // Fechar modal ao clicar no backdrop ou no botão de fechar
+                    backdrop.addEventListener('click', function() {
+                        modal.style.display = 'none';
+                        modal.classList.remove('show');
+                        document.body.classList.remove('modal-open');
+                        if (document.getElementById('modalBackdropPDF')) {
+                            document.body.removeChild(backdrop);
+                        }
+                    });
+                    
+                    const closeButtons = modal.querySelectorAll('[data-bs-dismiss="modal"], .btn-close');
+                    closeButtons.forEach(function(btn) {
+                        btn.addEventListener('click', function() {
+                            modal.style.display = 'none';
+                            modal.classList.remove('show');
+                            document.body.classList.remove('modal-open');
+                            if (document.getElementById('modalBackdropPDF')) {
+                                document.body.removeChild(backdrop);
+                            }
+                        });
+                    });
+                }
+            } else {
+                console.error('Modal não encontrado:', modalId);
+                alert('Modal de geração de PDF não encontrado. Por favor, recarregue a página.');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
+

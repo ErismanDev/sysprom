@@ -1,0 +1,775 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load almoxarifado_filters %}
+
+{% block title %}Almoxarifado - Entradas{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-arrow-down me-2 text-success"></i>Entradas de Almoxarifado
+                    </h2>
+                    <p class="text-muted mb-0">Registros de entrada de materiais no almoxarifado</p>
+                </div>
+                <div>
+                    {% if pode_criar or user.is_superuser %}
+                    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#criarEntradaModal">
+                        <i class="fas fa-plus me-2"></i>Nova Entrada
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Cards de Estatísticas -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-arrow-down fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_entradas }}</h4>
+                            <p class="mb-0">Total de Entradas</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card stats-card info">
+                        <div class="card-body text-center">
+                            <i class="fas fa-calendar fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ entradas_mes }}</h4>
+                            <p class="mb-0">Entradas Este Mês</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Pesquisa</label>
+                            <input type="text" name="search" class="form-control" 
+                                   value="{{ search }}" placeholder="Código, descrição, fornecedor...">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Tipo de Entrada</label>
+                            <select name="tipo_entrada" class="form-select">
+                                <option value="">Todos</option>
+                                {% for tipo_val, tipo_nome in tipos %}
+                                    <option value="{{ tipo_val }}" {% if tipo_entrada == tipo_val %}selected{% endif %}>
+                                        {{ tipo_nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Item</label>
+                            <select name="item" class="form-select">
+                                <option value="">Todos</option>
+                                {% for item in itens %}
+                                    <option value="{{ item.pk }}" {% if item_id and item.pk|stringformat:"s" == item_id %}selected{% endif %}>
+                                        {{ item.codigo }} - {{ item.descricao|truncatewords:3 }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-5 d-flex align-items-end gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                            <a href="{% url 'militares:entrada_almoxarifado_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Limpar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Lista de Entradas -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Lista de Entradas
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if entradas %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Data</th>
+                                        <th>Produtos</th>
+                                        <th>Tipo</th>
+                                        <th>Quantidade</th>
+                                        <th>OM (Origem/Destino)</th>
+                                        <th>Responsável</th>
+                                        <th>Criado por</th>
+                                        <th>Observações</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for entrada in entradas %}
+                                        <tr>
+                                            <td>{{ entrada.data_entrada|date:"d/m/Y" }}</td>
+                                            <td>
+                                                {% if entrada.produtos_entrada.exists %}
+                                                    {% for produto_entrada in entrada.produtos_entrada.all|slice:":1" %}
+                                                        <span data-bs-toggle="tooltip" 
+                                                              data-bs-placement="top" 
+                                                              data-bs-html="true"
+                                                              title="<div class='text-start'><strong>Produtos da Entrada:</strong><ul class='mb-0 mt-2'>{% for pe in entrada.produtos_entrada.all %}<li>{{ pe.produto.codigo }} - {{ pe.produto.descricao }} (Qtd: {{ pe.quantidade }} {{ pe.produto.get_unidade_medida_display }})</li>{% endfor %}</ul></div>">
+                                                            <strong>{{ produto_entrada.produto.codigo }}</strong><br>
+                                                            <small class="text-muted">{{ produto_entrada.produto.descricao|truncatewords:5 }}</small>
+                                                            {% if entrada.produtos_entrada.count > 1 %}
+                                                                <br><small class="text-info">+ {{ entrada.produtos_entrada.count|add:"-1" }} produto(s)</small>
+                                                            {% endif %}
+                                                        </span>
+                                                    {% endfor %}
+                                                {% elif entrada.produto %}
+                                                    <strong>{{ entrada.produto.codigo }}</strong><br>
+                                                    <small class="text-muted">{{ entrada.produto.descricao|truncatewords:5 }}</small>
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <span class="badge {% if entrada.tipo_entrada == 'TRANSFERENCIA' %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                                                    {{ entrada.get_tipo_entrada_display }}
+                                                </span>
+                                                {% if entrada.tipo_entrada == 'TRANSFERENCIA' %}
+                                                    {% if entrada.get_origem_formatada and entrada.get_origem_formatada != "Não definido" %}
+                                                        <br><small class="text-muted">De: {{ entrada.get_origem_formatada }}</small>
+                                                    {% endif %}
+                                                    {% if entrada.get_destino_formatada and entrada.get_destino_formatada != "Não definido" %}
+                                                        <br><small class="text-muted">Para: {{ entrada.get_destino_formatada }}</small>
+                                                    {% endif %}
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if entrada.produtos_entrada.exists %}
+                                                    {% for produto_entrada in entrada.produtos_entrada.all|slice:":1" %}
+                                                        <strong>{{ entrada.get_total_quantidade|formatar_quantidade_unidade:produto_entrada.produto.unidade_medida }}</strong>
+                                                    {% endfor %}
+                                                {% elif entrada.produto %}
+                                                    <strong>{{ entrada.get_total_quantidade|formatar_quantidade_unidade:entrada.produto.unidade_medida }}</strong>
+                                                {% else %}
+                                                    <strong>{{ entrada.get_total_quantidade }}</strong>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if entrada.tipo_entrada == 'TRANSFERENCIA' %}
+                                                    {% if entrada.get_destino_formatada and entrada.get_destino_formatada != "Não definido" %}
+                                                        <small class="text-success fw-bold">
+                                                            <i class="fas fa-arrow-right me-1"></i>Para: {{ entrada.get_destino_formatada }}
+                                                        </small>
+                                                        {% if entrada.get_origem_formatada and entrada.get_origem_formatada != "Não definido" %}
+                                                            <br><small class="text-warning">
+                                                                <i class="fas fa-arrow-left me-1"></i>De: {{ entrada.get_origem_formatada }}
+                                                            </small>
+                                                        {% endif %}
+                                                    {% elif entrada.get_origem_formatada and entrada.get_origem_formatada != "Não definido" %}
+                                                        <small class="text-warning">
+                                                            <i class="fas fa-arrow-left me-1"></i>De: {{ entrada.get_origem_formatada }}
+                                                        </small>
+                                                    {% else %}
+                                                        <span class="text-muted">-</span>
+                                                    {% endif %}
+                                                {% else %}
+                                                    {% if entrada.get_destino_formatada and entrada.get_destino_formatada != "Não definido" %}
+                                                        <small class="text-success fw-bold">
+                                                            <i class="fas fa-map-marker-alt me-1"></i>{{ entrada.get_destino_formatada }}
+                                                        </small>
+                                                    {% elif entrada.get_origem_formatada and entrada.get_origem_formatada != "Não definido" %}
+                                                        <small class="text-info fw-bold">
+                                                            <i class="fas fa-map-marker-alt me-1"></i>{{ entrada.get_origem_formatada }}
+                                                        </small>
+                                                    {% elif entrada.produtos_entrada.exists %}
+                                                        {% for produto_entrada in entrada.produtos_entrada.all|slice:":1" %}
+                                                            {% if produto_entrada.produto.sub_unidade %}
+                                                                <small class="text-success fw-bold">
+                                                                    <i class="fas fa-map-marker-alt me-1"></i>{{ produto_entrada.produto.sub_unidade }}
+                                                                </small>
+                                                            {% elif produto_entrada.produto.unidade %}
+                                                                <small class="text-success fw-bold">
+                                                                    <i class="fas fa-map-marker-alt me-1"></i>{{ produto_entrada.produto.unidade }}
+                                                                </small>
+                                                            {% elif produto_entrada.produto.grande_comando %}
+                                                                <small class="text-success fw-bold">
+                                                                    <i class="fas fa-map-marker-alt me-1"></i>{{ produto_entrada.produto.grande_comando }}
+                                                                </small>
+                                                            {% elif produto_entrada.produto.orgao %}
+                                                                <small class="text-success fw-bold">
+                                                                    <i class="fas fa-map-marker-alt me-1"></i>{{ produto_entrada.produto.orgao }}
+                                                                </small>
+                                                            {% else %}
+                                                                <span class="text-muted">-</span>
+                                                            {% endif %}
+                                                        {% endfor %}
+                                                    {% elif entrada.produto %}
+                                                        {% if entrada.produto.sub_unidade %}
+                                                            <small class="text-success fw-bold">
+                                                                <i class="fas fa-map-marker-alt me-1"></i>{{ entrada.produto.sub_unidade }}
+                                                            </small>
+                                                        {% elif entrada.produto.unidade %}
+                                                            <small class="text-success fw-bold">
+                                                                <i class="fas fa-map-marker-alt me-1"></i>{{ entrada.produto.unidade }}
+                                                            </small>
+                                                        {% elif entrada.produto.grande_comando %}
+                                                            <small class="text-success fw-bold">
+                                                                <i class="fas fa-map-marker-alt me-1"></i>{{ entrada.produto.grande_comando }}
+                                                            </small>
+                                                        {% elif entrada.produto.orgao %}
+                                                            <small class="text-success fw-bold">
+                                                                <i class="fas fa-map-marker-alt me-1"></i>{{ entrada.produto.orgao }}
+                                                            </small>
+                                                        {% else %}
+                                                            <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    {% else %}
+                                                        <span class="text-muted">-</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if entrada.responsavel %}
+                                                    <small>{{ entrada.responsavel.nome_completo }}</small>
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if entrada.criado_por %}
+                                                    <small>{{ entrada.criado_por.get_full_name|default:entrada.criado_por.username }}</small>
+                                                    <br>
+                                                    <small class="text-muted">{{ entrada.data_criacao|date:"d/m/Y H:i" }}</small>
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if entrada.observacoes %}
+                                                    <small class="text-muted" title="{{ entrada.observacoes }}">
+                                                        {{ entrada.observacoes|truncatewords:5 }}
+                                                    </small>
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    <button type="button" 
+                                                            class="btn btn-sm btn-info btn-ver-entrada" 
+                                                            data-entrada-id="{{ entrada.pk }}"
+                                                            title="Visualizar">
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                                    <a href="{% url 'militares:entrada_almoxarifado_pdf' entrada.pk %}" 
+                                                       class="btn btn-sm btn-danger" 
+                                                       target="_blank"
+                                                       title="Gerar PDF">
+                                                        <i class="fas fa-file-pdf"></i>
+                                                    </a>
+                                                    {% if entrada.pode_editar %}
+                                                        {% if pode_editar or user.is_superuser %}
+                                                        <button type="button" 
+                                                                class="btn btn-sm btn-primary btn-editar-entrada" 
+                                                                data-entrada-id="{{ entrada.pk }}"
+                                                                title="Editar">
+                                                            <i class="fas fa-edit"></i>
+                                                        </button>
+                                                        {% endif %}
+                                                    {% endif %}
+                                                    {% if entrada.pode_excluir %}
+                                                        {% if pode_excluir or user.is_superuser %}
+                                                        <button type="button" 
+                                                                class="btn btn-sm btn-danger btn-excluir-entrada" 
+                                                                data-entrada-id="{{ entrada.pk }}"
+                                                                title="Excluir">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                        {% endif %}
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if is_paginated %}
+                            <nav aria-label="Paginação">
+                                <ul class="pagination justify-content-center mt-4">
+                                    {% if page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}{% if tipo_entrada %}&tipo_entrada={{ tipo_entrada }}{% endif %}{% if item %}&item={{ item }}{% endif %}">
+                                                <i class="fas fa-angle-double-left"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if tipo_entrada %}&tipo_entrada={{ tipo_entrada }}{% endif %}{% if item %}&item={{ item }}{% endif %}">
+                                                <i class="fas fa-angle-left"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                    
+                                    <li class="page-item disabled">
+                                        <span class="page-link">
+                                            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                                        </span>
+                                    </li>
+                                    
+                                    <!-- Seletor de Página -->
+                                    {% if page_obj.paginator.num_pages > 1 %}
+                                    <li class="page-item">
+                                        <div class="input-group" style="width: 120px; margin: 0 5px;">
+                                            <input type="number" 
+                                                   class="form-control form-control-sm page-selector" 
+                                                   min="1" 
+                                                   max="{{ page_obj.paginator.num_pages }}" 
+                                                   value="{{ page_obj.number }}"
+                                                   style="text-align: center;">
+                                            <button class="btn btn-sm btn-outline-secondary go-to-page-btn" type="button">
+                                                <i class="fas fa-arrow-right"></i>
+                                            </button>
+                                        </div>
+                                    </li>
+                                    {% endif %}
+                                    
+                                    {% if page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if tipo_entrada %}&tipo_entrada={{ tipo_entrada }}{% endif %}{% if item %}&item={{ item }}{% endif %}">
+                                                <i class="fas fa-angle-right"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if tipo_entrada %}&tipo_entrada={{ tipo_entrada }}{% endif %}{% if item %}&item={{ item }}{% endif %}">
+                                                <i class="fas fa-angle-double-right"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Nenhuma entrada encontrada.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Criar Entrada -->
+<div class="modal fade" id="criarEntradaModal" tabindex="-1" aria-labelledby="criarEntradaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="criarEntradaModalContent">
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-success" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Editar Entrada -->
+<div class="modal fade" id="editarEntradaModal" tabindex="-1" aria-labelledby="editarEntradaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="editarEntradaModalContent">
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-success" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Visualizar Entrada -->
+<div class="modal fade" id="verEntradaModal" tabindex="-1" aria-labelledby="verEntradaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="verEntradaModalContent">
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-info" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando detalhes...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Excluir Entrada -->
+<div class="modal fade" id="excluirEntradaModal" tabindex="-1" aria-labelledby="excluirEntradaModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" id="excluirEntradaModalContent">
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-danger" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Modal de Criar
+    const criarEntradaModal = document.getElementById('criarEntradaModal');
+    const criarEntradaModalContent = document.getElementById('criarEntradaModalContent');
+    
+    if (criarEntradaModal && criarEntradaModalContent) {
+        criarEntradaModal.addEventListener('show.bs.modal', function(event) {
+            criarEntradaModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-success" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            fetch('{% url "militares:entrada_almoxarifado_create" %}', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.html) {
+                    criarEntradaModalContent.innerHTML = data.html;
+                    setTimeout(function() {
+                        const scripts = criarEntradaModalContent.querySelectorAll('script');
+                        scripts.forEach(function(oldScript) {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(attr => {
+                                newScript.setAttribute(attr.name, attr.value);
+                            });
+                            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                            oldScript.parentNode.replaceChild(newScript, oldScript);
+                        });
+                    }, 100);
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                criarEntradaModalContent.innerHTML = `
+                    <div class="modal-body">
+                        <div class="alert alert-danger">Erro ao carregar formulário.</div>
+                    </div>
+                `;
+            });
+        });
+    }
+    
+    // Modal de Visualizar
+    document.querySelectorAll('.btn-ver-entrada').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const entradaId = this.getAttribute('data-entrada-id');
+            const verEntradaModalContent = document.getElementById('verEntradaModalContent');
+            
+            verEntradaModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-info" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando detalhes...</p>
+                </div>
+            `;
+            
+            const modal = new bootstrap.Modal(document.getElementById('verEntradaModal'));
+            modal.show();
+            
+            fetch(`/militares/almoxarifado/entradas/${entradaId}/`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.html) {
+                    verEntradaModalContent.innerHTML = data.html;
+                    setTimeout(function() {
+                        const scripts = verEntradaModalContent.querySelectorAll('script');
+                        scripts.forEach(function(oldScript) {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(attr => {
+                                newScript.setAttribute(attr.name, attr.value);
+                            });
+                            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                            oldScript.parentNode.replaceChild(newScript, oldScript);
+                        });
+                    }, 100);
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                verEntradaModalContent.innerHTML = `
+                    <div class="modal-body">
+                        <div class="alert alert-danger">Erro ao carregar detalhes.</div>
+                    </div>
+                `;
+            });
+        });
+    });
+    
+    // Modal de Editar
+    document.querySelectorAll('.btn-editar-entrada').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const entradaId = this.getAttribute('data-entrada-id');
+            const editarEntradaModalContent = document.getElementById('editarEntradaModalContent');
+            
+            editarEntradaModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-success" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            const modal = new bootstrap.Modal(document.getElementById('editarEntradaModal'));
+            modal.show();
+            
+            fetch(`/militares/almoxarifado/entradas/${entradaId}/editar/`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.html) {
+                    editarEntradaModalContent.innerHTML = data.html;
+                    
+                    // Preservar quantidades imediatamente após inserir HTML
+                    setTimeout(function() {
+                        // Debug: verificar HTML renderizado
+                        const quantidadeInputs = editarEntradaModalContent.querySelectorAll('.quantidade-item');
+                        console.log('Quantidade de inputs encontrados:', quantidadeInputs.length);
+                        
+                        // Função para converter vírgula para ponto
+                        function converterParaFormatoNumerico(valor) {
+                            if (!valor) return null;
+                            const valorString = String(valor).trim();
+                            const valorConvertido = valorString.replace(',', '.');
+                            const numero = parseFloat(valorConvertido);
+                            if (isNaN(numero)) return null;
+                            return numero;
+                        }
+                        
+                        quantidadeInputs.forEach((input, index) => {
+                            const valorAtual = input.value;
+                            let dataOriginal = input.getAttribute('data-quantidade-original');
+                            
+                            console.log(`Input ${index}:`, {
+                                value: valorAtual,
+                                dataOriginal: dataOriginal,
+                                outerHTML: input.outerHTML.substring(0, 200)
+                            });
+                            
+                            // Se houver valor atual mas não houver data-quantidade-original, salvar
+                            if (valorAtual && !dataOriginal) {
+                                input.setAttribute('data-quantidade-original', valorAtual);
+                                console.log(`Salvando data-quantidade-original para input ${index}:`, valorAtual);
+                            }
+                            // Se não houver valor atual mas houver data-quantidade-original, restaurar
+                            else if (!valorAtual && dataOriginal) {
+                                // Converter vírgula para ponto se necessário
+                                const valorNumerico = converterParaFormatoNumerico(dataOriginal);
+                                if (valorNumerico !== null) {
+                                    input.value = valorNumerico;
+                                    // Atualizar data-quantidade-original com o valor numérico
+                                    input.setAttribute('data-quantidade-original', valorNumerico);
+                                    console.log(`Restaurando valor para input ${index}:`, valorNumerico);
+                                } else {
+                                    console.warn(`Não foi possível converter valor para input ${index}:`, dataOriginal);
+                                }
+                            }
+                        });
+                        
+                        // Executar scripts
+                        const scripts = editarEntradaModalContent.querySelectorAll('script');
+                        scripts.forEach(function(oldScript) {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(attr => {
+                                newScript.setAttribute(attr.name, attr.value);
+                            });
+                            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                            oldScript.parentNode.replaceChild(newScript, oldScript);
+                        });
+                        
+                        // Após scripts executarem, verificar novamente as quantidades
+                        setTimeout(function() {
+                            console.log('Verificando quantidades após scripts executarem...');
+                            
+                            // Função para converter vírgula para ponto
+                            function converterParaFormatoNumerico(valor) {
+                                if (!valor) return null;
+                                const valorString = String(valor).trim();
+                                const valorConvertido = valorString.replace(',', '.');
+                                const numero = parseFloat(valorConvertido);
+                                if (isNaN(numero)) return null;
+                                return numero;
+                            }
+                            
+                            quantidadeInputs.forEach((input, index) => {
+                                const valorAtual = input.value;
+                                let dataOriginal = input.getAttribute('data-quantidade-original');
+                                
+                                console.log(`Input ${index} após scripts:`, {
+                                    value: valorAtual,
+                                    dataOriginal: dataOriginal
+                                });
+                                
+                                if (!valorAtual && dataOriginal) {
+                                    // Converter vírgula para ponto se necessário
+                                    const valorNumerico = converterParaFormatoNumerico(dataOriginal);
+                                    if (valorNumerico !== null) {
+                                        input.value = valorNumerico;
+                                        // Atualizar data-quantidade-original com o valor numérico
+                                        input.setAttribute('data-quantidade-original', valorNumerico);
+                                        console.log(`Restaurando valor após scripts para input ${index}:`, valorNumerico);
+                                    } else {
+                                        console.warn(`Não foi possível converter valor após scripts para input ${index}:`, dataOriginal);
+                                    }
+                                }
+                            });
+                        }, 200);
+                    }, 50);
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                editarEntradaModalContent.innerHTML = `
+                    <div class="modal-body">
+                        <div class="alert alert-danger">Erro ao carregar formulário.</div>
+                    </div>
+                `;
+            });
+        });
+    });
+    
+    // Modal de Excluir
+    document.querySelectorAll('.btn-excluir-entrada').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const entradaId = this.getAttribute('data-entrada-id');
+            const excluirEntradaModalContent = document.getElementById('excluirEntradaModalContent');
+            
+            excluirEntradaModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-danger" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando...</p>
+                </div>
+            `;
+            
+            const modal = new bootstrap.Modal(document.getElementById('excluirEntradaModal'));
+            modal.show();
+            
+            fetch(`/militares/almoxarifado/entradas/${entradaId}/excluir/`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.html) {
+                    excluirEntradaModalContent.innerHTML = data.html;
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                excluirEntradaModalContent.innerHTML = `
+                    <div class="modal-body">
+                        <div class="alert alert-danger">Erro ao carregar confirmação.</div>
+                    </div>
+                `;
+            });
+        });
+    });
+});
+
+// Inicializar tooltips do Bootstrap - aguardar carregamento completo
+function inicializarTooltips() {
+    if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    } else {
+        // Tentar novamente após um pequeno delay se Bootstrap não estiver disponível
+        setTimeout(inicializarTooltips, 100);
+    }
+}
+
+// Aguardar DOM e Bootstrap estarem prontos
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', inicializarTooltips);
+} else {
+    // DOM já está pronto, aguardar um pouco para garantir que Bootstrap está carregado
+    setTimeout(inicializarTooltips, 100);
+}
+</script>
+
+<script>
+// Seletor de Página
+document.addEventListener('DOMContentLoaded', function() {
+    const pageSelectors = document.querySelectorAll('.page-selector');
+    const goToPageBtns = document.querySelectorAll('.go-to-page-btn');
+    
+    pageSelectors.forEach((selector, index) => {
+        const btn = goToPageBtns[index];
+        
+        // Ir para página ao clicar no botão
+        btn.addEventListener('click', function() {
+            const page = parseInt(selector.value);
+            const maxPage = parseInt(selector.max);
+            if (page >= 1 && page <= maxPage) {
+                const urlParams = new URLSearchParams(window.location.search);
+                urlParams.set('page', page);
+                window.location.href = '?' + urlParams.toString();
+            }
+        });
+        
+        // Ir para página ao pressionar Enter
+        selector.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const page = parseInt(selector.value);
+                const maxPage = parseInt(selector.max);
+                if (page >= 1 && page <= maxPage) {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    urlParams.set('page', page);
+                    window.location.href = '?' + urlParams.toString();
+                }
+            }
+        });
+    });
+});
+</script>
+
+{% endblock %}
+

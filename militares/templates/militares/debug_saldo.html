@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Debug - Teste de Saldo{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-bug me-2"></i>Debug - Teste de Validação de Saldo
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="debugForm">
+                        {% csrf_token %}
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="origem" class="form-label">Origem</label>
+                                <input type="text" class="form-control" id="origem" name="origem" placeholder="Ex: CBM-PI" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="valor_total" class="form-label">Valor Total</label>
+                                <input type="number" class="form-control" id="valor_total" name="valor_total" step="0.01" placeholder="1000.00" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-play me-2"></i>Testar Validação
+                        </button>
+                    </form>
+                    
+                    <div id="resultado" class="mt-4" style="display: none;">
+                        <h6>Resultado:</h6>
+                        <div id="resultadoContent"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('debugForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    fetch('/militares/debug/testar-saldo/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('resultado').style.display = 'block';
+        document.getElementById('resultadoContent').innerHTML = `
+            <div class="alert alert-info">
+                <strong>Origem:</strong> ${data.origem}<br>
+                <strong>Valor Total:</strong> R$ ${parseFloat(data.valor_total).toFixed(2)}<br>
+                <strong>Sucesso:</strong> ${data.resultado.sucesso ? 'Sim' : 'Não'}<br>
+                <strong>Saldo Disponível:</strong> R$ ${parseFloat(data.resultado.saldo_disponivel).toFixed(2)}<br>
+                <strong>Mensagem:</strong> ${data.resultado.mensagem}
+            </div>
+        `;
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        document.getElementById('resultado').style.display = 'block';
+        document.getElementById('resultadoContent').innerHTML = `
+            <div class="alert alert-danger">
+                Erro ao testar validação: ${error.message}
+            </div>
+        `;
+    });
+});
+</script>
+{% endblock %}

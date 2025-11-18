@@ -1,0 +1,706 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if object %}Editar{% else %}Novo{% endif %} Abastecimento{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-gas-pump me-2 text-primary"></i>
+                        {% if object %}Editar Abastecimento{% else %}Novo Abastecimento{% endif %}
+                    </h2>
+                    <p class="text-muted mb-0">
+                        {% if object %}Editando abastecimento da viatura {{ object.viatura.placa }}{% else %}Registrar novo abastecimento{% endif %}
+                    </p>
+                </div>
+                <div>
+                    <a href="{% url 'militares:abastecimento_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Voltar
+                    </a>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-10">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-info-circle me-2"></i>Informações do Abastecimento
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <form method="post" id="abastecimentoForm">
+                                {% csrf_token %}
+                                
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.viatura.id_for_label }}" class="form-label">
+                                            Viatura <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.viatura }}
+                                        {% if form.viatura.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.viatura.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.data_abastecimento.id_for_label }}" class="form-label">
+                                            Data e Hora do Abastecimento <span class="text-danger">*</span>
+                                        </label>
+                                        <input type="datetime-local" 
+                                               name="data_abastecimento" 
+                                               id="id_data_abastecimento" 
+                                               class="form-control"
+                                               value="{% if object and object.data_abastecimento %}{{ object.data_abastecimento|date:'Y-m-d\TH:i' }}{% else %}{{ '' }}{% endif %}"
+                                               required>
+                                        {% if form.data_abastecimento.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.data_abastecimento.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ form.km_abastecimento.id_for_label }}" class="form-label">
+                                            KM no Abastecimento <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.km_abastecimento }}
+                                        {% if form.km_abastecimento.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.km_abastecimento.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ form.tipo_combustivel.id_for_label }}" class="form-label">
+                                            Tipo de Combustível <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.tipo_combustivel }}
+                                        {% if form.tipo_combustivel.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.tipo_combustivel.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ form.quantidade_litros.id_for_label }}" class="form-label">
+                                            Quantidade (Litros) <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.quantidade_litros }}
+                                        {% if form.quantidade_litros.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.quantidade_litros.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ form.valor_litro.id_for_label }}" class="form-label">
+                                            Valor por Litro (R$) <span class="text-danger">*</span>
+                                        </label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">R$</span>
+                                            <input type="text" 
+                                                   name="valor_litro" 
+                                                   id="id_valor_litro" 
+                                                   class="form-control" 
+                                                   value=""
+                                                   placeholder="0,00"
+                                                   autocomplete="off">
+                                        </div>
+                                        {% if form.valor_litro.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.valor_litro.errors }}</div>
+                                        {% endif %}
+                                        <small class="form-text text-muted">Digite o valor - formatação automática em R$</small>
+                                    </div>
+                                    
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ form.valor_total.id_for_label }}" class="form-label">
+                                            Valor Total (R$)
+                                        </label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">R$</span>
+                                            <input type="text" 
+                                                   name="valor_total" 
+                                                   id="id_valor_total" 
+                                                   class="form-control" 
+                                                   readonly
+                                                   value=""
+                                                   placeholder="Calculado automaticamente">
+                                        </div>
+                                        {% if form.valor_total.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.valor_total.errors }}</div>
+                                        {% endif %}
+                                        <small class="form-text text-muted">Calculado automaticamente</small>
+                                    </div>
+                                    
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ form.posto_fornecedor.id_for_label }}" class="form-label">
+                                            Posto/Fornecedor
+                                        </label>
+                                        {{ form.posto_fornecedor }}
+                                        {% if form.posto_fornecedor.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.posto_fornecedor.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-4 mb-3">
+                                        <div class="form-check mt-4">
+                                            {{ form.com_aditivos }}
+                                            <label class="form-check-label" for="{{ form.com_aditivos.id_for_label }}">
+                                                <i class="fas fa-flask me-1 text-info"></i>Com Aditivos
+                                            </label>
+                                        </div>
+                                        <small class="form-text text-muted">Marque se foram comprados também aditivos para o combustível</small>
+                                    </div>
+                                    
+                                    <!-- Campos de Aditivo (aparecem quando "Com Aditivos" está marcado) -->
+                                    <div id="camposAditivo" style="display: none;" class="col-12">
+                                        <div class="card border-info mb-3">
+                                            <div class="card-header bg-info text-white">
+                                                <h6 class="card-title mb-0">
+                                                    <i class="fas fa-flask me-2"></i>Informações do Aditivo
+                                                </h6>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="row">
+                                                    <div class="col-md-6 mb-3">
+                                                        <label for="{{ form.tipo_aditivo.id_for_label }}" class="form-label">
+                                                            Tipo de Aditivo
+                                                        </label>
+                                                        {{ form.tipo_aditivo }}
+                                                        {% if form.tipo_aditivo.errors %}
+                                                            <div class="invalid-feedback d-block">{{ form.tipo_aditivo.errors }}</div>
+                                                        {% endif %}
+                                                    </div>
+                                                    
+                                                    <div class="col-md-3 mb-3">
+                                                        <label for="{{ form.quantidade_aditivo.id_for_label }}" class="form-label">
+                                                            Quantidade
+                                                        </label>
+                                                        {{ form.quantidade_aditivo }}
+                                                        {% if form.quantidade_aditivo.errors %}
+                                                            <div class="invalid-feedback d-block">{{ form.quantidade_aditivo.errors }}</div>
+                                                        {% endif %}
+                                                    </div>
+                                                    
+                                                    <div class="col-md-3 mb-3">
+                                                        <label for="{{ form.valor_unitario_aditivo.id_for_label }}" class="form-label">
+                                                            Valor Unitário (R$)
+                                                        </label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text">R$</span>
+                                                            {{ form.valor_unitario_aditivo }}
+                                                        </div>
+                                                        {% if form.valor_unitario_aditivo.errors %}
+                                                            <div class="invalid-feedback d-block">{{ form.valor_unitario_aditivo.errors }}</div>
+                                                        {% endif %}
+                                                    </div>
+                                                    
+                                                    <div class="col-md-4 mb-3">
+                                                        <label for="{{ form.valor_total_aditivo.id_for_label }}" class="form-label">
+                                                            Valor Total do Aditivo (R$)
+                                                        </label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text">R$</span>
+                                                            {{ form.valor_total_aditivo }}
+                                                        </div>
+                                                        {% if form.valor_total_aditivo.errors %}
+                                                            <div class="invalid-feedback d-block">{{ form.valor_total_aditivo.errors }}</div>
+                                                        {% endif %}
+                                                        <small class="form-text text-muted">Calculado automaticamente</small>
+                                                    </div>
+                                                    
+                                                    <div class="col-md-4 mb-3">
+                                                        <label for="{{ form.valor_total_nota.id_for_label }}" class="form-label">
+                                                            <strong>Valor Total da Nota (R$)</strong>
+                                                        </label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text">R$</span>
+                                                            {{ form.valor_total_nota }}
+                                                        </div>
+                                                        {% if form.valor_total_nota.errors %}
+                                                            <div class="invalid-feedback d-block">{{ form.valor_total_nota.errors }}</div>
+                                                        {% endif %}
+                                                        <small class="form-text text-muted"><strong>Combustível + Aditivos</strong></small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ form.responsavel.id_for_label }}" class="form-label">
+                                            Responsável pelo Abastecimento
+                                        </label>
+                                        {{ form.responsavel }}
+                                        {% if form.responsavel.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.responsavel.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-6 mb-3">
+                                        <div class="form-check mt-4">
+                                            {{ form.ativo }}
+                                            <label class="form-check-label" for="{{ form.ativo.id_for_label }}">
+                                                Ativo
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-12 mb-3">
+                                        <label for="{{ form.observacoes.id_for_label }}" class="form-label">
+                                            Observações
+                                        </label>
+                                        {{ form.observacoes }}
+                                        {% if form.observacoes.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.observacoes.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="d-flex justify-content-end gap-2 mt-4">
+                                    <a href="{% url 'militares:abastecimento_list' %}" class="btn btn-secondary">
+                                        <i class="fas fa-times me-2"></i>Cancelar
+                                    </a>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save me-2"></i>Salvar
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Função para formatar número como moeda BRL (preserva a vírgula decimal)
+    function formatarMoedaBRL(valor) {
+        if (!valor || valor === '') return '';
+        
+        let numeroString = valor.toString().trim();
+        
+        // Se já tem vírgula, tratar como formato brasileiro
+        if (numeroString.includes(',')) {
+            // Remover pontos (separadores de milhar) e manter vírgula como decimal
+            let partes = numeroString.split(',');
+            let parteInteira = partes[0].replace(/\./g, '').replace(/[^\d]/g, '') || '0';
+            let parteDecimal = partes[1] ? partes[1].replace(/[^\d]/g, '').substring(0, 2) : '';
+            
+            // Formatar parte inteira com pontos de milhar
+            parteInteira = parteInteira.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            
+            // Completar parte decimal com zeros se necessário
+            while (parteDecimal.length < 2) {
+                parteDecimal += '0';
+            }
+            
+            return parteInteira + ',' + parteDecimal;
+        } else {
+            // Se não tem vírgula, retornar como está (não adicionar decimais automaticamente)
+            // Apenas limpar caracteres inválidos e adicionar pontos de milhar se necessário
+            numeroString = numeroString.replace(/[^\d]/g, '');
+            if (numeroString === '') return '';
+            
+            // Formatar com pontos de milhar, mas sem adicionar decimais
+            numeroString = numeroString.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            return numeroString;
+        }
+    }
+    
+    // Função para obter valor numérico limpo
+    function obterValorNumerico(valor) {
+        if (!valor || valor === '') return '';
+        let numero = valor.toString().replace(/\./g, '').replace(',', '.');
+        numero = numero.replace(/[^\d.]/g, '');
+        return numero;
+    }
+    
+    // Calcular valor total automaticamente
+    function calcularValorTotal() {
+        const quantidadeInput = document.getElementById('id_quantidade_litros');
+        const valorLitroInput = document.getElementById('id_valor_litro');
+        const valorTotalInput = document.getElementById('id_valor_total');
+        
+        if (quantidadeInput && valorLitroInput && valorTotalInput) {
+            const quantidade = parseFloat(quantidadeInput.value) || 0;
+            const valorLitro = parseFloat(obterValorNumerico(valorLitroInput.value)) || 0;
+            
+            if (quantidade > 0 && valorLitro > 0) {
+                const valorTotal = quantidade * valorLitro;
+                // Formatar no padrão brasileiro: parte inteira com pontos de milhar + vírgula + 2 decimais
+                let valorTotalStr = valorTotal.toFixed(2);
+                let partes = valorTotalStr.split('.');
+                let parteInteira = partes[0];
+                let parteDecimal = partes[1] || '00';
+                
+                // Adicionar pontos de milhar na parte inteira
+                parteInteira = parteInteira.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                
+                valorTotalInput.value = parteInteira + ',' + parteDecimal;
+            } else {
+                valorTotalInput.value = '';
+            }
+            
+            // Recalcular valor total da nota quando valor do combustível mudar
+            calcularValorTotalNota();
+        }
+    }
+    
+    // Event listeners para cálculo automático
+    const quantidadeInput = document.getElementById('id_quantidade_litros');
+    const valorLitroInput = document.getElementById('id_valor_litro');
+    
+    if (quantidadeInput) {
+        quantidadeInput.addEventListener('input', calcularValorTotal);
+        quantidadeInput.addEventListener('change', calcularValorTotal);
+    }
+    
+    if (valorLitroInput) {
+        // Garantir que o campo seja editável e comece vazio
+        valorLitroInput.readOnly = false;
+        valorLitroInput.disabled = false;
+        
+        // Carregar valor inicial apenas na edição
+        {% if object and object.valor_litro %}
+        const valorInicial = parseFloat('{{ object.valor_litro }}');
+        if (!isNaN(valorInicial) && valorInicial > 0) {
+            valorLitroInput.value = formatarMoedaBRL(valorInicial.toString());
+        }
+        {% else %}
+        valorLitroInput.value = '';
+        {% endif %}
+        
+        valorLitroInput.addEventListener('input', function(e) {
+            // Permitir entrada livre, apenas limpar caracteres inválidos
+            let valor = e.target.value;
+            // Remover apenas caracteres não numéricos, exceto vírgula (não permitir pontos durante digitação)
+            let valorLimpo = valor.replace(/[^\d,]/g, '');
+            
+            // Garantir apenas uma vírgula como separador decimal
+            let partes = valorLimpo.split(',');
+            if (partes.length > 2) {
+                // Manter apenas a primeira vírgula
+                valorLimpo = partes[0] + ',' + partes.slice(1).join('');
+            }
+            // Garantir máximo de 2 casas decimais
+            if (partes.length === 2 && partes[1].length > 2) {
+                valorLimpo = partes[0] + ',' + partes[1].substring(0, 2);
+            }
+            
+            if (valorLimpo !== valor) {
+                let cursorPos = e.target.selectionStart;
+                e.target.value = valorLimpo;
+                setTimeout(() => {
+                    let newCursorPos = Math.max(0, cursorPos - (valor.length - valorLimpo.length));
+                    e.target.setSelectionRange(newCursorPos, newCursorPos);
+                }, 0);
+            }
+        });
+        
+        // Formatar apenas no blur para preservar o que o usuário digita
+        valorLitroInput.addEventListener('blur', function(e) {
+            let valor = e.target.value.trim();
+            if (!valor || valor === '') {
+                e.target.value = '';
+                calcularValorTotal();
+                return;
+            }
+            
+            // Se já tem vírgula, preservar formato brasileiro EXATAMENTE como digitado
+            if (valor.includes(',')) {
+                let partes = valor.split(',');
+                // Parte inteira: remover tudo exceto números
+                let parteInteira = partes[0].replace(/[^\d]/g, '') || '0';
+                // Parte decimal: apenas números, máximo 2 dígitos
+                let parteDecimal = partes[1] ? partes[1].replace(/[^\d]/g, '').substring(0, 2) : '';
+                
+                // Completar decimais com zeros APENAS se necessário (não forçar)
+                while (parteDecimal.length < 2 && parteDecimal.length > 0) {
+                    parteDecimal += '0';
+                }
+                // Se não tinha decimal, adicionar ',00'
+                if (parteDecimal === '') {
+                    parteDecimal = '00';
+                }
+                
+                // Adicionar pontos de milhar APENAS na parte inteira (se tiver mais de 3 dígitos)
+                parteInteira = parteInteira.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                
+                e.target.value = parteInteira + ',' + parteDecimal;
+            } else {
+                // Se não tem vírgula e tem números, pode ser inteiro - adicionar ',00'
+                let numeroLimpo = valor.replace(/[^\d]/g, '');
+                if (numeroLimpo !== '') {
+                    // Adicionar pontos de milhar se necessário
+                    numeroLimpo = numeroLimpo.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                    e.target.value = numeroLimpo + ',00';
+                } else {
+                    e.target.value = '';
+                }
+            }
+            
+            calcularValorTotal();
+        });
+        
+        valorLitroInput.addEventListener('change', calcularValorTotal);
+    }
+    
+    // Atualizar KM quando selecionar viatura
+    const viaturaSelect = document.getElementById('id_viatura');
+    if (viaturaSelect) {
+        viaturaSelect.addEventListener('change', function() {
+            const viaturaId = this.value;
+            if (viaturaId) {
+                // Buscar KM atual da viatura via AJAX (se necessário)
+                // Por enquanto, deixar manual
+            }
+        });
+    }
+    
+    // Formatar valor total inicial se houver (na edição)
+    const valorTotalInput = document.getElementById('id_valor_total');
+    if (valorTotalInput) {
+        {% if object and object.valor_total %}
+        const valorTotalInicial = parseFloat('{{ object.valor_total }}');
+        if (!isNaN(valorTotalInicial) && valorTotalInicial > 0) {
+            let valorTotalStr = valorTotalInicial.toFixed(2);
+            let partes = valorTotalStr.split('.');
+            let parteInteira = partes[0];
+            let parteDecimal = partes[1] || '00';
+            parteInteira = parteInteira.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            valorTotalInput.value = parteInteira + ',' + parteDecimal;
+        }
+        {% endif %}
+    }
+    
+    // Preparar valores para envio
+    const form = document.getElementById('abastecimentoForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const valorLitro = document.getElementById('id_valor_litro');
+            const valorTotal = document.getElementById('id_valor_total');
+            
+            if (valorLitro && valorLitro.value) {
+                valorLitro.value = obterValorNumerico(valorLitro.value);
+            }
+            
+            if (valorTotal && valorTotal.value) {
+                valorTotal.value = obterValorNumerico(valorTotal.value);
+            }
+        });
+    }
+    
+    // Preencher data e hora automaticamente se não estiver editando
+    const dataAbastecimentoInput = document.getElementById('id_data_abastecimento');
+    if (dataAbastecimentoInput) {
+        {% if object and object.data_abastecimento %}
+        // Edição: usar a data/hora existente
+        const dataObj = '{{ object.data_abastecimento|date:"Y-m-d\TH:i" }}';
+        if (dataObj && dataObj !== '' && dataObj !== 'None') {
+            dataAbastecimentoInput.value = dataObj;
+        }
+        {% else %}
+        // Novo registro: usar data/hora atual
+        const now = new Date();
+        // Ajustar para timezone local e formatar para datetime-local
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const datetimeLocal = `${year}-${month}-${day}T${hours}:${minutes}`;
+        dataAbastecimentoInput.value = datetimeLocal;
+        {% endif %}
+    }
+    
+    // Calcular valor total inicial se houver valores
+    calcularValorTotal();
+    
+    // === FUNCIONALIDADES DE ADITIVOS ===
+    
+    // Função para mostrar/ocultar campos de aditivo
+    function toggleCamposAditivo() {
+        const comAditivosCheckbox = document.getElementById('id_com_aditivos');
+        const camposAditivo = document.getElementById('camposAditivo');
+        
+        if (comAditivosCheckbox && camposAditivo) {
+            if (comAditivosCheckbox.checked) {
+                camposAditivo.style.display = 'block';
+            } else {
+                camposAditivo.style.display = 'none';
+                // Limpar campos quando desmarcar
+                document.getElementById('id_tipo_aditivo').value = '';
+                document.getElementById('id_quantidade_aditivo').value = '';
+                document.getElementById('id_valor_unitario_aditivo').value = '';
+                document.getElementById('id_valor_total_aditivo').value = '';
+                calcularValorTotalNota();
+            }
+        }
+    }
+    
+    // Função para calcular valor total do aditivo
+    function calcularValorTotalAditivo() {
+        const quantidadeInput = document.getElementById('id_quantidade_aditivo');
+        const valorUnitarioInput = document.getElementById('id_valor_unitario_aditivo');
+        const valorTotalAditivoInput = document.getElementById('id_valor_total_aditivo');
+        
+        if (quantidadeInput && valorUnitarioInput && valorTotalAditivoInput) {
+            const quantidade = parseFloat(quantidadeInput.value) || 0;
+            const valorUnitario = parseFloat(obterValorNumerico(valorUnitarioInput.value)) || 0;
+            
+            if (quantidade > 0 && valorUnitario > 0) {
+                const valorTotal = quantidade * valorUnitario;
+                // Formatar no padrão brasileiro
+                let valorTotalStr = valorTotal.toFixed(2);
+                let partes = valorTotalStr.split('.');
+                let parteInteira = partes[0];
+                let parteDecimal = partes[1] || '00';
+                parteInteira = parteInteira.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                valorTotalAditivoInput.value = parteInteira + ',' + parteDecimal;
+            } else {
+                valorTotalAditivoInput.value = '';
+            }
+            
+            calcularValorTotalNota();
+        }
+    }
+    
+    // Função para calcular valor total da nota (combustível + aditivos)
+    function calcularValorTotalNota() {
+        const valorTotalCombustivelInput = document.getElementById('id_valor_total');
+        const valorTotalAditivoInput = document.getElementById('id_valor_total_aditivo');
+        const valorTotalNotaInput = document.getElementById('id_valor_total_nota');
+        
+        if (valorTotalCombustivelInput && valorTotalNotaInput) {
+            const valorCombustivel = parseFloat(obterValorNumerico(valorTotalCombustivelInput.value)) || 0;
+            const valorAditivo = valorTotalAditivoInput ? (parseFloat(obterValorNumerico(valorTotalAditivoInput.value)) || 0) : 0;
+            
+            const valorTotal = valorCombustivel + valorAditivo;
+            
+            if (valorTotal > 0) {
+                // Formatar no padrão brasileiro
+                let valorTotalStr = valorTotal.toFixed(2);
+                let partes = valorTotalStr.split('.');
+                let parteInteira = partes[0];
+                let parteDecimal = partes[1] || '00';
+                parteInteira = parteInteira.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                valorTotalNotaInput.value = parteInteira + ',' + parteDecimal;
+            } else {
+                valorTotalNotaInput.value = '';
+            }
+        }
+    }
+    
+    // Event listeners para aditivos
+    const comAditivosCheckbox = document.getElementById('id_com_aditivos');
+    if (comAditivosCheckbox) {
+        comAditivosCheckbox.addEventListener('change', toggleCamposAditivo);
+        toggleCamposAditivo(); // Inicializar estado
+    }
+    
+    const quantidadeAditivoInput = document.getElementById('id_quantidade_aditivo');
+    if (quantidadeAditivoInput) {
+        quantidadeAditivoInput.addEventListener('input', calcularValorTotalAditivo);
+        quantidadeAditivoInput.addEventListener('change', calcularValorTotalAditivo);
+    }
+    
+    const valorUnitarioAditivoInput = document.getElementById('id_valor_unitario_aditivo');
+    if (valorUnitarioAditivoInput) {
+        // Formatação de moeda (similar ao valor_litro)
+        valorUnitarioAditivoInput.addEventListener('input', function(e) {
+            let valor = e.target.value;
+            let valorLimpo = valor.replace(/[^\d,]/g, '');
+            let partes = valorLimpo.split(',');
+            if (partes.length > 2) {
+                valorLimpo = partes[0] + ',' + partes.slice(1).join('');
+            }
+            if (partes.length === 2 && partes[1].length > 2) {
+                valorLimpo = partes[0] + ',' + partes[1].substring(0, 2);
+            }
+            if (valorLimpo !== valor) {
+                let cursorPos = e.target.selectionStart;
+                e.target.value = valorLimpo;
+                setTimeout(() => {
+                    let newCursorPos = Math.max(0, cursorPos - (valor.length - valorLimpo.length));
+                    e.target.setSelectionRange(newCursorPos, newCursorPos);
+                }, 0);
+            }
+            calcularValorTotalAditivo();
+        });
+        
+        valorUnitarioAditivoInput.addEventListener('blur', function(e) {
+            let valor = e.target.value.trim();
+            if (!valor || valor === '') {
+                e.target.value = '';
+                calcularValorTotalAditivo();
+                return;
+            }
+            
+            if (valor.includes(',')) {
+                let partes = valor.split(',');
+                let parteInteira = partes[0].replace(/[^\d]/g, '') || '0';
+                let parteDecimal = partes[1] ? partes[1].replace(/[^\d]/g, '').substring(0, 2) : '';
+                
+                while (parteDecimal.length < 2 && parteDecimal.length > 0) {
+                    parteDecimal += '0';
+                }
+                if (parteDecimal === '') {
+                    parteDecimal = '00';
+                }
+                
+                parteInteira = parteInteira.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                e.target.value = parteInteira + ',' + parteDecimal;
+            } else {
+                let numeroLimpo = valor.replace(/[^\d]/g, '');
+                if (numeroLimpo !== '') {
+                    numeroLimpo = numeroLimpo.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                    e.target.value = numeroLimpo + ',00';
+                } else {
+                    e.target.value = '';
+                }
+            }
+            
+            calcularValorTotalAditivo();
+        });
+        
+        valorUnitarioAditivoInput.addEventListener('change', calcularValorTotalAditivo);
+    }
+    
+    // Recalcular valor total da nota quando valor total do combustível mudar
+    const valorTotalCombustivelInput = document.getElementById('id_valor_total');
+    if (valorTotalCombustivelInput) {
+        valorTotalCombustivelInput.addEventListener('input', calcularValorTotalNota);
+        valorTotalCombustivelInput.addEventListener('change', calcularValorTotalNota);
+    }
+    
+    // Preparar valores de aditivo para envio
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const valorUnitarioAditivo = document.getElementById('id_valor_unitario_aditivo');
+            const valorTotalAditivo = document.getElementById('id_valor_total_aditivo');
+            const valorTotalNota = document.getElementById('id_valor_total_nota');
+            
+            if (valorUnitarioAditivo && valorUnitarioAditivo.value) {
+                valorUnitarioAditivo.value = obterValorNumerico(valorUnitarioAditivo.value);
+            }
+            
+            if (valorTotalAditivo && valorTotalAditivo.value) {
+                valorTotalAditivo.value = obterValorNumerico(valorTotalAditivo.value);
+            }
+            
+            if (valorTotalNota && valorTotalNota.value) {
+                valorTotalNota.value = obterValorNumerico(valorTotalNota.value);
+            }
+        });
+    }
+    
+    // Inicializar cálculos
+    calcularValorTotalAditivo();
+    calcularValorTotalNota();
+});
+</script>
+{% endblock %}
+

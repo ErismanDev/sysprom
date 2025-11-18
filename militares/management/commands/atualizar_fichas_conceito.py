@@ -26,7 +26,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        self.stdout.write(self.style.SUCCESS('🔄 Iniciando atualização automática de fichas de conceito...'))
+        self.stdout.write(self.style.SUCCESS('[INICIANDO] Atualização automática de fichas de conceito...'))
         
         if options['forcar']:
             self.atualizar_todas_fichas()
@@ -70,7 +70,7 @@ class Command(BaseCommand):
         data_limite = timezone.now().date() - timedelta(days=30)
         militares_recentes = Militar.objects.filter(
             data_promocao_atual__gte=data_limite,
-            situacao='AT'
+            classificacao='ATIVO'
         )
         
         self.stdout.write(f'   Encontrados {militares_recentes.count()} militares promovidos recentemente')

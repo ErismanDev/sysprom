@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Modelos de Notas{% endblock %}
+
+{% block extra_css %}
+<style>
+    .modelo-card {
+        transition: transform 0.2s;
+    }
+    .modelo-card:hover {
+        transform: translateY(-2px);
+    }
+    .badge-padrao {
+        font-size: 0.75em;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Cabeçalho -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2><i class="fas fa-file-alt text-primary me-2"></i>Modelos de Notas</h2>
+                    <p class="text-muted mb-0">Gerencie modelos de notas para facilitar a criação de publicações</p>
+                </div>
+                <div>
+                    <a href="{% url 'militares:modelo_nota_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Novo Modelo
+                    </a>
+                </div>
+            </div>
+
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-4">
+                            <label for="busca" class="form-label">Buscar</label>
+                            <input type="text" class="form-control" id="busca" name="busca" 
+                                   value="{{ filtros.busca }}" placeholder="Nome ou descrição do modelo">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="tipo_publicacao" class="form-label">Tipo de Publicação</label>
+                            <select class="form-select" id="tipo_publicacao" name="tipo_publicacao">
+                                <option value="">Todos os tipos</option>
+                                {% for value, label in tipos_publicacao %}
+                                    <option value="{{ value }}" {% if filtros.tipo_publicacao == value %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-outline-primary me-2">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                            <a href="{% url 'militares:modelos_notas_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Limpar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Lista de Modelos -->
+            {% if modelos %}
+                <div class="row">
+                    {% for modelo in modelos %}
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="card modelo-card h-100">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h5 class="card-title mb-0">
+                                        <i class="fas fa-file-alt text-primary me-2"></i>
+                                        {{ modelo.nome }}
+                                    </h5>
+                                    {% if modelo.padrao %}
+                                        <span class="badge bg-warning badge-padrao">Padrão</span>
+                                    {% endif %}
+                                </div>
+                                
+                                {% if modelo.descricao %}
+                                    <p class="card-text text-muted small">{{ modelo.descricao|truncatechars:100 }}</p>
+                                {% endif %}
+                                
+                                <div class="text-muted small mb-3">
+                                    <div><i class="fas fa-user me-1"></i> {{ modelo.get_autor_display }}</div>
+                                    <div><i class="fas fa-calendar me-1"></i> {{ modelo.data_criacao|date:"d/m/Y H:i" }}</div>
+                                    <div><i class="fas fa-tag me-1"></i> {{ modelo.get_tipo_publicacao_display }}</div>
+                                </div>
+                                
+                                <!-- Preview do conteúdo -->
+                                <div class="border rounded p-2 bg-light" style="max-height: 100px; overflow: hidden;">
+                                    <small class="text-muted">{{ modelo.conteudo|striptags|truncatechars:150 }}</small>
+                                </div>
+                            </div>
+                            
+                            <div class="card-footer">
+                                <div class="btn-group w-100" role="group">
+                                    <a href="{% url 'militares:modelo_nota_detail' modelo.pk %}" 
+                                       class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-eye me-1"></i>Ver
+                                    </a>
+                                    
+                                    {% if user.is_superuser or modelo.criado_por == user %}
+                                        <a href="{% url 'militares:modelo_nota_edit' modelo.pk %}" 
+                                           class="btn btn-sm btn-outline-warning">
+                                            <i class="fas fa-edit me-1"></i>Editar
+                                        </a>
+                                        
+                                        <a href="{% url 'militares:modelo_nota_delete' modelo.pk %}" 
+                                           class="btn btn-sm btn-outline-danger"
+                                           onclick="return confirm('Tem certeza que deseja excluir este modelo?')">
+                                            <i class="fas fa-trash me-1"></i>Excluir
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Paginação -->
+                {% if modelos.has_other_pages %}
+                <nav aria-label="Paginação de modelos">
+                    <ul class="pagination justify-content-center">
+                        {% if modelos.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1{% if filtros.busca %}&busca={{ filtros.busca }}{% endif %}{% if filtros.tipo_publicacao %}&tipo_publicacao={{ filtros.tipo_publicacao }}{% endif %}">
+                                    <i class="fas fa-angle-double-left"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ modelos.previous_page_number }}{% if filtros.busca %}&busca={{ filtros.busca }}{% endif %}{% if filtros.tipo_publicacao %}&tipo_publicacao={{ filtros.tipo_publicacao }}{% endif %}">
+                                    <i class="fas fa-angle-left"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+
+                        <li class="page-item active">
+                            <span class="page-link">
+                                Página {{ modelos.number }} de {{ modelos.paginator.num_pages }}
+                            </span>
+                        </li>
+
+                        {% if modelos.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ modelos.next_page_number }}{% if filtros.busca %}&busca={{ filtros.busca }}{% endif %}{% if filtros.tipo_publicacao %}&tipo_publicacao={{ filtros.tipo_publicacao }}{% endif %}">
+                                    <i class="fas fa-angle-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ modelos.paginator.num_pages }}{% if filtros.busca %}&busca={{ filtros.busca }}{% endif %}{% if filtros.tipo_publicacao %}&tipo_publicacao={{ filtros.tipo_publicacao }}{% endif %}">
+                                    <i class="fas fa-angle-double-right"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+
+            {% else %}
+                <!-- Estado vazio -->
+                <div class="text-center py-5">
+                    <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
+                    <h4 class="text-muted">Nenhum modelo encontrado</h4>
+                    <p class="text-muted">
+                        {% if filtros.busca or filtros.tipo_publicacao %}
+                            Nenhum modelo corresponde aos filtros aplicados.
+                        {% else %}
+                            Comece criando seu primeiro modelo de nota.
+                        {% endif %}
+                    </p>
+                    <a href="{% url 'militares:modelo_nota_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Criar Primeiro Modelo
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-submit do formulário de filtros quando o select muda
+    document.getElementById('tipo_publicacao').addEventListener('change', function() {
+        this.form.submit();
+    });
+</script>
+{% endblock %}

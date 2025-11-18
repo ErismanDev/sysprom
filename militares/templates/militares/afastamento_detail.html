@@ -1,0 +1,382 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Afastamento: {{ object.militar.nome_guerra }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-ban me-2 text-warning"></i>Detalhes do Afastamento
+                    </h2>
+                    <p class="text-muted mb-0">{{ object.militar.get_posto_graduacao_display }} {{ object.militar.nome_guerra }}</p>
+                </div>
+                <div>
+                    <a href="{% url 'militares:afastamento_list' %}" class="btn btn-outline-secondary me-2">
+                        <i class="fas fa-arrow-left me-2"></i>Voltar para Lista
+                    </a>
+                    {% if menu_permissions.BOTAO_AFASTAMENTO_EDITAR and pode_crud_pdf %}
+                    <a href="{% url 'militares:afastamento_update' object.pk %}" class="btn btn-primary me-2">
+                        <i class="fas fa-edit me-2"></i>Editar
+                    </a>
+                    {% endif %}
+                    {% if menu_permissions.BOTAO_AFASTAMENTO_EXCLUIR and pode_crud_pdf %}
+                    <button type="button" class="btn btn-danger" 
+                            data-bs-toggle="modal" data-bs-target="#excluirAfastamentoModal"
+                            data-afastamento-id="{{ object.pk }}"
+                            data-afastamento-url="{% url 'militares:afastamento_delete' object.pk %}">
+                        <i class="fas fa-trash me-2"></i>Excluir
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header bg-warning text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-info-circle me-2"></i>Informações do Afastamento
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <strong>Militar:</strong><br>
+                                    <div class="d-flex align-items-center mt-2">
+                                        {% if object.militar.foto %}
+                                            <img src="{{ object.militar.foto.url }}" alt="Foto" class="rounded me-2" style="width: 60px; height: 60px; object-fit: cover;">
+                                        {% else %}
+                                            <div class="bg-light rounded d-flex align-items-center justify-content-center me-2" style="width: 60px; height: 60px;">
+                                                <i class="fas fa-user text-muted"></i>
+                                            </div>
+                                        {% endif %}
+                                        <div>
+                                            {{ object.militar.get_posto_graduacao_display }}<br>
+                                            <small class="text-muted">{{ object.militar.nome_guerra }}</small><br>
+                                            <small class="text-muted">Matrícula: {{ object.militar.matricula }}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Status:</strong><br>
+                                    {% if object.status == 'ATIVO' %}
+                                        <span class="badge bg-success mt-2" style="font-size: 1rem;">{{ object.status_display }}</span>
+                                    {% elif object.status == 'ENCERRADO' %}
+                                        <span class="badge bg-secondary mt-2" style="font-size: 1rem;">{{ object.status_display }}</span>
+                                    {% elif object.status == 'CANCELADO' %}
+                                        <span class="badge bg-danger mt-2" style="font-size: 1rem;">{{ object.status_display }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <hr>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <strong>Situação:</strong><br>
+                                    <span class="text-primary">{{ object.get_tipo_afastamento_display }}</span>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <strong>Data de Início:</strong><br>
+                                    {{ object.data_inicio|date:"d/m/Y" }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <strong>Data de Fim Prevista:</strong><br>
+                                    {% if object.data_fim_prevista %}
+                                        {{ object.data_fim_prevista|date:"d/m/Y" }}
+                                    {% else %}
+                                        <span class="text-muted">Não informada</span>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <strong>Data de Fim Real:</strong><br>
+                                    {% if object.data_fim_real %}
+                                        {{ object.data_fim_real|date:"d/m/Y" }}
+                                    {% else %}
+                                        <span class="text-muted">Não informada</span>
+                                    {% endif %}
+                                </div>
+                            <div class="col-md-12 mb-3">
+                                <strong>Duração:</strong><br>
+                                <span class="fw-bold text-primary">{{ object.duracao_formatada }}</span>
+                                <span class="badge bg-info ms-2">{{ dias_afastamento }} dias</span>
+                            </div>
+                            </div>
+                            
+                            <hr>
+                            
+                            <div class="mb-3">
+                                <strong>Motivo do Afastamento:</strong><br>
+                                <div class="bg-light p-3 rounded mt-2">
+                                    {{ object.motivo|linebreaks }}
+                                </div>
+                            </div>
+                            
+                            {% if object.observacoes %}
+                            <div class="mb-3">
+                                <strong>Observações:</strong><br>
+                                <div class="bg-light p-3 rounded mt-2">
+                                    {{ object.observacoes|linebreaks }}
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            {% if object.documento_referencia or object.numero_documento %}
+                            <hr>
+                            <div class="row">
+                                {% if object.documento_referencia %}
+                                <div class="col-md-6 mb-3">
+                                    <strong>Documento de Referência:</strong><br>
+                                    {{ object.documento_referencia }}
+                                </div>
+                                {% endif %}
+                                {% if object.numero_documento %}
+                                <div class="col-md-6 mb-3">
+                                    <strong>Número do Documento:</strong><br>
+                                    {{ object.numero_documento }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-history me-2"></i>Informações do Sistema
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-2">
+                                <strong>Cadastrado por:</strong><br>
+                                {% if object.cadastrado_por %}
+                                    {{ object.cadastrado_por.get_full_name|default:object.cadastrado_por.username }}
+                                {% else %}
+                                    <span class="text-muted">Não informado</span>
+                                {% endif %}
+                            </p>
+                            <p class="mb-2">
+                                <strong>Data de Cadastro:</strong><br>
+                                {{ object.data_cadastro|date:"d/m/Y H:i" }}
+                            </p>
+                            <p class="mb-0">
+                                <strong>Última Atualização:</strong><br>
+                                {{ object.data_atualizacao|date:"d/m/Y H:i" }}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-user me-2"></i>Ações Rápidas
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <a href="{% url 'militares:militar_detail' object.militar.pk %}" class="btn btn-outline-primary btn-sm w-100 mb-2">
+                                <i class="fas fa-user me-2"></i>Ver Ficha do Militar
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <!-- Em detalhes apenas listagem de documentos; upload desabilitado aqui. -->
+                </div>
+            </div>
+            
+            <!-- Seção de Documentos -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-file-alt me-2"></i>Documentos Anexados
+                                <span class="badge bg-secondary ms-2">
+                                    {% if documentos %}{{ documentos|length }}{% else %}{{ afastamento.documentos.count }}{% endif %}
+                                </span>
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% if documentos %}
+                                {% with documentos_list=documentos %}
+                                    {% if documentos_list %}
+                                        <div class="table-responsive">
+                                            <table class="table table-hover">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Tipo</th>
+                                                        <th>Título</th>
+                                                        <th>Descrição</th>
+                                                        <th>Arquivo</th>
+                                                        <th>Upload por</th>
+                                                        <th>Data</th>
+                                                        <th>Ações</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for documento in documentos_list %}
+                                            <tr>
+                                                <td><span class="badge bg-info">{{ documento.get_tipo_display }}</span></td>
+                                                <td><strong>{{ documento.titulo }}</strong></td>
+                                                <td>{{ documento.descricao|default:"-" }}</td>
+                                                <td>
+                                                    <a href="{{ documento.arquivo.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                        <i class="fas fa-download me-1"></i>{{ documento.filename }}
+                                                    </a>
+                                                    <small class="text-muted d-block">{{ documento.file_size }}</small>
+                                                </td>
+                                                <td>{{ documento.upload_por.get_full_name|default:documento.upload_por.username }}</td>
+                                                <td>{{ documento.data_upload|date:"d/m/Y H:i" }}</td>
+                                                <td>
+                                                    {% if pode_crud_pdf %}
+                                                    <form method="post" action="{% url 'militares:documento_afastamento_delete' documento.pk %}" class="d-inline">
+                                                        {% csrf_token %}
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Tem certeza que deseja excluir este documento?')">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </form>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    {% else %}
+                                        <div class="alert alert-info text-center">
+                                            <i class="fas fa-info-circle me-2"></i>
+                                            Nenhum documento anexado ainda.
+                                        </div>
+                                    {% endif %}
+                                {% endwith %}
+                            {% else %}
+                                {% with documentos_list=afastamento.documentos.all %}
+                                    {% if documentos_list %}
+                                        <div class="table-responsive">
+                                            <table class="table table-hover">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Tipo</th>
+                                                        <th>Título</th>
+                                                        <th>Descrição</th>
+                                                        <th>Arquivo</th>
+                                                        <th>Upload por</th>
+                                                        <th>Data</th>
+                                                        <th>Ações</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for documento in documentos_list %}
+                                                        <tr>
+                                                            <td><span class="badge bg-info">{{ documento.get_tipo_display }}</span></td>
+                                                            <td><strong>{{ documento.titulo }}</strong></td>
+                                                            <td>{{ documento.descricao|default:"-" }}</td>
+                                                            <td>
+                                                                <a href="{{ documento.arquivo.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                                    <i class="fas fa-download me-1"></i>{{ documento.filename }}
+                                                                </a>
+                                                                <small class="text-muted d-block">{{ documento.file_size }}</small>
+                                                            </td>
+                                                            <td>{{ documento.upload_por.get_full_name|default:documento.upload_por.username }}</td>
+                                                            <td>{{ documento.data_upload|date:"d/m/Y H:i" }}</td>
+                                                            <td>
+                                                                <form method="post" action="{% url 'militares:documento_afastamento_delete' documento.pk %}" class="d-inline">
+                                                                    {% csrf_token %}
+                                                                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Tem certeza que deseja excluir este documento?')">
+                                                                        <i class="fas fa-trash"></i>
+                                                                    </button>
+                                                                </form>
+                                                            </td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    {% else %}
+                                        <div class="alert alert-info text-center">
+                                            <i class="fas fa-info-circle me-2"></i>
+                                            Nenhum documento anexado ainda.
+                                        </div>
+                                    {% endif %}
+                                {% endwith %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Excluir Afastamento -->
+<div class="modal fade" id="excluirAfastamentoModal" tabindex="-1" aria-labelledby="excluirAfastamentoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" id="excluirAfastamentoModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="text-center p-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('excluirAfastamentoModal');
+    const modalContent = document.getElementById('excluirAfastamentoModalContent');
+    
+    if (modal && modalContent) {
+        modal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            if (!button) return;
+            
+            const url = button.getAttribute('data-afastamento-url');
+            if (!url) {
+                console.error('URL não encontrada no botão');
+                return;
+            }
+            
+            // Limpar conteúdo anterior
+            modalContent.innerHTML = '<div class="text-center p-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Carregando...</span></div></div>';
+            
+            // Carregar conteúdo do modal via AJAX
+            fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Erro ao carregar modal');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.html) {
+                    modalContent.innerHTML = data.html;
+                } else {
+                    throw new Error('Resposta inválida do servidor');
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar modal:', error);
+                modalContent.innerHTML = '<div class="alert alert-danger m-3">Erro ao carregar o modal. Tente novamente.</div>';
+            });
+        });
+    } else {
+        console.error('Modal ou conteúdo do modal não encontrado');
+    }
+});
+</script>
+{% endblock %}
+

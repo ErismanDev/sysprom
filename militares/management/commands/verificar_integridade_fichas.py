@@ -18,7 +18,7 @@ class Command(BaseCommand):
         # 1. Verificar militares sem ficha de conceito
         self.stdout.write("🔍 1. Verificando militares sem ficha de conceito...")
         
-        militares_ativos = Militar.objects.filter(situacao='AT')
+        militares_ativos = Militar.objects.filter(classificacao='ATIVO')
         militares_sem_ficha = militares_ativos.exclude(
             Q(fichaconceitooficiais__isnull=False) | Q(fichaconceitopracas__isnull=False)
         )
@@ -57,9 +57,9 @@ class Command(BaseCommand):
         self.stdout.write("\n🔍 3. Verificando fichas de militares inativos...")
         
         fichas_militares_inativos = FichaConceitoOficiais.objects.filter(
-            militar__situacao='IN'
+            militar__classificacao='INATIVO'
         ).count() + FichaConceitoPracas.objects.filter(
-            militar__situacao='IN'
+            militar__classificacao='INATIVO'
         ).count()
         
         if fichas_militares_inativos > 0:

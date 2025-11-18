@@ -10,7 +10,7 @@ from django.shortcuts import redirect
 from django.contrib import messages
 from django.http import HttpResponseForbidden
 from django.contrib.auth.decorators import login_required
-from .models import UsuarioFuncao, PermissaoFuncao
+from .models import UsuarioFuncaoMilitar
 
 
 def obter_funcao_atual(request):
@@ -23,12 +23,12 @@ def obter_funcao_atual(request):
     funcao_id = request.session.get('funcao_atual_id')
     if funcao_id:
         try:
-            return UsuarioFuncao.objects.select_related('cargo_funcao').get(
+            return UsuarioFuncaoMilitar.objects.select_related('funcao_militar').get(
                 id=funcao_id,
                 usuario=request.user,
-                status='ATIVO'
+                ativo=True
             )
-        except UsuarioFuncao.DoesNotExist:
+        except UsuarioFuncaoMilitar.DoesNotExist:
             # Se a função não existe mais, limpa a sessão
             request.session.pop('funcao_atual_id', None)
             request.session.pop('funcao_atual_nome', None)
@@ -51,13 +51,9 @@ def tem_permissao(request, modulo, acesso):
     if not funcao_atual:
         return False
     
-    # Verificar se existe a permissão específica
-    return PermissaoFuncao.objects.filter(
-        cargo_funcao=funcao_atual.cargo_funcao,
-        modulo=modulo,
-        acesso=acesso,
-        ativo=True
-    ).exists()
+    # Usar sistema de permissões granulares
+    from .permissoes_simples import tem_permissao as tem_permissao_granular
+    return tem_permissao_granular(request.user, modulo.lower(), acesso.lower())
 
 
 def tem_permissao_modulo(request, modulo):
@@ -75,12 +71,9 @@ def tem_permissao_modulo(request, modulo):
     if not funcao_atual:
         return False
     
-    # Verificar se existe qualquer permissão para o módulo
-    return PermissaoFuncao.objects.filter(
-        cargo_funcao=funcao_atual.cargo_funcao,
-        modulo=modulo,
-        ativo=True
-    ).exists()
+    # Usar sistema de permissões granulares
+    from .permissoes_simples import tem_permissao as tem_permissao_granular
+    return tem_permissao_granular(request.user, modulo.lower(), 'visualizar')
 
 
 def requer_permissao(modulo, acesso):
@@ -94,7 +87,7 @@ def requer_permissao(modulo, acesso):
                 return view_func(request, *args, **kwargs)
             else:
                 messages.error(request, f'Você não tem permissão para {acesso.lower()} {modulo.lower()}.')
-                return redirect('militares:militar_dashboard')
+                return redirect('militares:home')
         return _wrapped_view
     return decorator
 
@@ -110,7 +103,7 @@ def requer_permissao_modulo(modulo):
                 return view_func(request, *args, **kwargs)
             else:
                 messages.error(request, f'Você não tem acesso ao módulo {modulo.lower()}.')
-                return redirect('militares:militar_dashboard')
+                return redirect('militares:home')
         return _wrapped_view
     return decorator
 
@@ -121,10 +114,42 @@ def requer_funcao_ativa(view_func):
     """
     @wraps(view_func)
     def _wrapped_view(request, *args, **kwargs):
-        funcao_atual = obter_funcao_atual(request)
-        if not funcao_atual:
-            messages.error(request, 'Você precisa selecionar uma função para acessar esta área.')
-            return redirect('militares:selecionar_funcao')
+        # Superusuários não precisam de função ativa
+        if request.user.is_superuser:
+            return view_func(request, *args, **kwargs)
+        
+        # Verificar se o usuário tem uma função ativa
+        from militares.models import UsuarioFuncaoMilitar
+        funcao_ativa = UsuarioFuncaoMilitar.objects.filter(
+            usuario=request.user,
+            ativo=True
+        ).first()
+        
+        if not funcao_ativa:
+            # Se não tem função ativa, ativar a primeira função disponível
+            primeira_funcao = UsuarioFuncaoMilitar.objects.filter(
+                usuario=request.user
+            ).first()
+            
+            if primeira_funcao:
+                # Desativar todas as funções do usuário
+                UsuarioFuncaoMilitar.objects.filter(usuario=request.user).update(ativo=False)
+                
+                # Ativar a primeira função
+                primeira_funcao.ativo = True
+                primeira_funcao.save()
+                
+                # Criar sessão ativa
+                from militares.models import UsuarioSessao
+                UsuarioSessao.objects.filter(usuario=request.user, ativo=True).update(ativo=False)
+                UsuarioSessao.objects.create(
+                    usuario=request.user,
+                    funcao_militar_usuario=primeira_funcao
+                )
+            else:
+                messages.error(request, 'Você não possui funções cadastradas no sistema.')
+                return redirect('logout')
+        
         return view_func(request, *args, **kwargs)
     return _wrapped_view
 
@@ -140,10 +165,9 @@ def obter_permissoes_usuario(request):
     if not funcao_atual:
         return []
     
-    return PermissaoFuncao.objects.filter(
-        cargo_funcao=funcao_atual.cargo_funcao,
-        ativo=True
-    ).values_list('modulo', 'acesso')
+    # Sistema antigo removido - usar permissões granulares
+    # Retornar lista vazia por compatibilidade
+    return []
 
 
 def obter_modulos_acessiveis(request):
@@ -194,6 +218,11 @@ def pode_administrar_usuarios(request):
     return tem_permissao(request, 'USUARIOS', 'ADMINISTRAR')
 
 
+def pode_reordenar_antiguidade(request):
+    """Verifica se pode reordenar antiguidade"""
+    return tem_permissao(request, 'MILITARES', 'REORDENAR_ANTIGUIDADE')
+
+
 # Context processor para disponibilizar permissões nos templates
 def permissoes_processor(request):
     """
@@ -208,6 +237,7 @@ def permissoes_processor(request):
         'pode_gerar_pdf': lambda: pode_gerar_pdf(request),
         'pode_assinar_documentos': lambda: pode_assinar_documentos(request),
         'pode_administrar_usuarios': lambda: pode_administrar_usuarios(request),
+        'pode_reordenar_antiguidade': lambda: pode_reordenar_antiguidade(request),
         'modulos_acessiveis': obter_modulos_acessiveis(request),
         'tem_permissao': lambda modulo, acesso: tem_permissao(request, modulo, acesso),
         'tem_permissao_modulo': lambda modulo: tem_permissao_modulo(request, modulo),

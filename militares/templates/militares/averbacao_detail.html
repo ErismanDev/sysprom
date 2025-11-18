@@ -1,0 +1,317 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load militares_extras %}
+
+{% block title %}Averbação: {{ object.militar.nome_completo }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-file-signature me-2 text-primary"></i>Detalhes da Averbação
+                    </h2>
+                    <p class="text-muted mb-0">
+                        {{ object.militar.get_posto_graduacao_display }} {{ object.militar.nome_completo }}
+                        {% if object.militar.cpf %}
+                            | CPF: {{ object.militar.cpf }}
+                        {% endif %}
+                    </p>
+                </div>
+                <div>
+                    <a href="{% url 'militares:averbacao_list' %}" class="btn btn-outline-secondary me-2">
+                        <i class="fas fa-arrow-left me-2"></i>Voltar para Lista
+                    </a>
+                    {% if menu_permissions.BOTAO_AVERBACAO_EDITAR and pode_crud_pdf %}
+                    <a href="{% url 'militares:averbacao_update' object.pk %}" class="btn btn-primary me-2">
+                        <i class="fas fa-edit me-2"></i>Editar
+                    </a>
+                    {% endif %}
+                    {% if menu_permissions.BOTAO_AVERBACAO_EXCLUIR and pode_crud_pdf %}
+                    <a href="{% url 'militares:averbacao_delete' object.pk %}" class="btn btn-danger">
+                        <i class="fas fa-trash me-2"></i>Excluir
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-info-circle me-2"></i>Informações da Averbação
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-4">
+                                <div class="col-md-9">
+                                    <strong>Militar:</strong><br>
+                                    <div class="d-flex align-items-center mt-2">
+                                        {% if object.militar.foto %}
+                                            <img src="{{ object.militar.foto.url }}" alt="Foto" class="rounded me-2" style="width: 60px; height: 60px; object-fit: cover;">
+                                        {% else %}
+                                            <div class="bg-light rounded d-flex align-items-center justify-content-center me-2" style="width: 60px; height: 60px;">
+                                                <i class="fas fa-user text-muted"></i>
+                                            </div>
+                                        {% endif %}
+                                        <div>
+                                            <a href="{% url 'militares:militar_detail' object.militar.pk %}" class="text-decoration-none">
+                                                <strong class="text-primary">{{ object.militar.get_posto_graduacao_display }} {{ object.militar.nome_completo }}</strong>
+                                            </a><br>
+                                            <small class="text-muted">
+                                                <i class="fas fa-id-card me-1"></i>CPF: {{ object.militar.cpf|default:"Não informado" }}
+                                            </small><br>
+                                            <small class="text-muted">
+                                                <i class="fas fa-tag me-1"></i>Matrícula: {{ object.militar.matricula }}
+                                                {% if object.militar.rgbm %}| <i class="fas fa-id-badge me-1"></i>RGBM: {{ object.militar.rgbm }}{% endif %}
+                                                {% if object.militar.nome_guerra %}| <i class="fas fa-user-tag me-1"></i>{{ object.militar.nome_guerra }}{% endif %}
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <strong>Data da Averbação:</strong><br>
+                                    <span class="text-primary fs-5">{{ object.data_averbacao|date:"d/m/Y" }}</span>
+                                </div>
+                            </div>
+                            
+                            <hr>
+                            
+                            <h6 class="mb-3"><i class="fas fa-clock me-2"></i>Tempo de Contribuição</h6>
+                            <div class="row mb-4">
+                                <div class="col-md-3">
+                                    <strong>Tempo de Contribuição (TC):</strong><br>
+                                    <span class="text-primary fs-4">{{ object.tempo_contribuicao_dias }} dias</span><br>
+                                    <small class="text-muted d-block mt-1">{{ object.tempo_contribuicao_simples }}</small><br>
+                                    <small class="text-muted"><strong>Formatado:</strong> {{ object.tempo_contribuicao_formatado }}</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <strong>Aproveitamento do Tempo:</strong><br>
+                                    <span class="text-success fs-4">{{ object.aproveitamento_dias }} dias</span><br>
+                                    <small class="text-muted d-block mt-1">{{ object.aproveitamento_simples }}</small><br>
+                                    <small class="text-muted"><strong>Formatado:</strong> {{ object.aproveitamento_formatado }}</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <strong>Status do Aproveitamento:</strong><br>
+                                    {% if object.tempo_contribuicao_dias == object.aproveitamento_dias %}
+                                        <span class="text-success fs-5"><i class="fas fa-check-circle me-1"></i>100% aproveitado</span>
+                                    {% elif object.tempo_contribuicao_dias > object.aproveitamento_dias %}
+                                        <span class="text-warning fs-5"><i class="fas fa-exclamation-triangle me-1"></i>Há dias não aproveitados</span>
+                                    {% else %}
+                                        <span class="text-info fs-5"><i class="fas fa-info-circle me-1"></i>Aproveitamento maior que TC</span>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-3">
+                                    <strong>Diferença:</strong><br>
+                                    {% if object.tempo_contribuicao_dias > object.aproveitamento_dias %}
+                                        <span class="text-warning fs-5"><i class="fas fa-exclamation-triangle me-1"></i>Há diferença</span><br>
+                                        <small class="text-muted">TC maior que aproveitamento</small>
+                                    {% elif object.aproveitamento_dias > object.tempo_contribuicao_dias %}
+                                        <span class="text-info fs-5"><i class="fas fa-info-circle me-1"></i>Há diferença</span><br>
+                                        <small class="text-muted">Aproveitamento maior que TC</small>
+                                    {% else %}
+                                        <span class="text-success fs-5"><i class="fas fa-check-circle me-1"></i>Sem diferença</span><br>
+                                        <small class="text-muted">Valores iguais</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <hr>
+                            
+                            <h6 class="mb-3"><i class="fas fa-file-invoice me-2"></i>Documento CTC/INSS</h6>
+                            <div class="row mb-4">
+                                <div class="col-md-4">
+                                    <strong>Número da CTC/INSS:</strong><br>
+                                    <span class="text-primary fs-5"><code>{{ object.numero_ctc_inss }}</code></span>
+                                </div>
+                                <div class="col-md-8">
+                                    <strong>Documento que Publicou a Averbação:</strong><br>
+                                    {% if object.documento_publicacao %}
+                                        <span class="text-primary fs-6">{{ object.documento_publicacao }}</span>
+                                    {% else %}
+                                        <span class="text-muted">Não informado</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <hr>
+                            
+                            <h6 class="mb-3"><i class="fas fa-signature me-2"></i>Assinatura</h6>
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <strong>Assinado por:</strong><br>
+                                    <span class="fs-5">{{ object.assinado_por_nome }}</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Cargo/Função:</strong><br>
+                                    <span class="fs-5">{{ object.assinado_por_cargo }}</span>
+                                </div>
+                            </div>
+                            
+                            <hr>
+                            
+                            <h6 class="mb-3"><i class="fas fa-building me-2"></i>Órgão Local</h6>
+                            <div class="row mb-4">
+                                <div class="col-md-12 mb-3">
+                                    <strong>Órgão:</strong><br>
+                                    <span class="fs-5">{{ object.orgao_local }}</span>
+                                </div>
+                                <div class="col-md-8 mb-3">
+                                    <strong>Endereço:</strong><br>
+                                    <span class="fs-6">{{ object.endereco_orgao }}</span>
+                                </div>
+                                {% if object.cep_orgao %}
+                                <div class="col-md-2 mb-3">
+                                    <strong>CEP:</strong><br>
+                                    <span class="fs-6"><code>{{ object.cep_orgao }}</code></span>
+                                </div>
+                                {% endif %}
+                                <div class="col-md-{% if object.cep_orgao %}2{% else %}4{% endif %} mb-3">
+                                    <strong>Cidade/Estado:</strong><br>
+                                    <span class="fs-6">{{ object.cidade_estado_orgao }}</span>
+                                </div>
+                            </div>
+                            
+                            {% if object.observacoes %}
+                            <hr>
+                            <h6 class="mb-3"><i class="fas fa-sticky-note me-2"></i>Observações</h6>
+                            <div class="mb-3">
+                                <p>{{ object.observacoes|linebreaks }}</p>
+                            </div>
+                            {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Accordion de Movimentações e Informações do Sistema -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="accordion" id="averbacaoAccordion">
+                        <!-- Movimentações -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="movimentacoesHeader">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#movimentacoes" aria-expanded="false" aria-controls="movimentacoes">
+                                    <i class="fas fa-history me-2 text-info"></i>Movimentações
+                                </button>
+                            </h2>
+                            <div id="movimentacoes" class="accordion-collapse collapse" aria-labelledby="movimentacoesHeader" data-bs-parent="#averbacaoAccordion">
+                                <div class="accordion-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th><i class="fas fa-calendar me-1"></i>Data/Hora</th>
+                                                    <th><i class="fas fa-user me-1"></i>Usuário</th>
+                                                    <th><i class="fas fa-info-circle me-1"></i>Tipo de Movimentação</th>
+                                                    <th><i class="fas fa-comment me-1"></i>Observações</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td>
+                                                        <strong>{{ object.data_cadastro|date:"d/m/Y H:i" }}</strong>
+                                                    </td>
+                                                    <td>
+                                                        {% if object.cadastrado_por %}
+                                                            <div class="d-flex align-items-center">
+                                                                <i class="fas fa-user-circle me-2 text-primary"></i>
+                                                                <span>{{ object.cadastrado_por.get_full_name|default:object.cadastrado_por.username }}</span>
+                                                            </div>
+                                                        {% else %}
+                                                            <span class="text-muted">Não informado</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge bg-success">
+                                                            <i class="fas fa-plus-circle me-1"></i>Criação da Averbação
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <small class="text-muted">Averbação registrada no sistema</small>
+                                                    </td>
+                                                </tr>
+                                                {% for historico in historico_alteracoes %}
+                                                <tr>
+                                                    <td>
+                                                        <strong>{{ historico.data_alteracao|date:"d/m/Y H:i" }}</strong>
+                                                    </td>
+                                                    <td>
+                                                        {% if historico.alterado_por %}
+                                                            <div class="d-flex align-items-center">
+                                                                <i class="fas fa-user-edit me-2 text-warning"></i>
+                                                                <span>{{ historico.alterado_por.get_full_name|default:historico.alterado_por.username }}</span>
+                                                            </div>
+                                                        {% else %}
+                                                            <span class="text-muted">Não informado</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge bg-warning">
+                                                            <i class="fas fa-edit me-1"></i>Alteração
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <small class="text-muted">
+                                                            <strong>{{ historico.campo_alterado }}:</strong><br>
+                                                            <span class="text-danger">Antes:</span> {{ historico.valor_anterior|default:"Não informado" }}<br>
+                                                            <span class="text-success">Depois:</span> {{ historico.valor_novo|default:"Não informado" }}
+                                                            {% if historico.observacao %}
+                                                                <br><span class="text-info">Obs:</span> {{ historico.observacao }}
+                                                            {% endif %}
+                                                        </small>
+                                                    </td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Informações do Sistema -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="informacoesSistemaHeader">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#informacoesSistema" aria-expanded="false" aria-controls="informacoesSistema">
+                                    <i class="fas fa-info-circle me-2 text-secondary"></i>Informações do Sistema
+                                </button>
+                            </h2>
+                            <div id="informacoesSistema" class="accordion-collapse collapse" aria-labelledby="informacoesSistemaHeader" data-bs-parent="#averbacaoAccordion">
+                                <div class="accordion-body">
+                                    <div class="row">
+                                        <div class="col-md-4 mb-3">
+                                            <strong><i class="fas fa-user me-2"></i>Cadastrado por:</strong><br>
+                                            {% if object.cadastrado_por %}
+                                                <span>{{ object.cadastrado_por.get_full_name|default:object.cadastrado_por.username }}</span><br>
+                                                <small class="text-muted">{{ object.cadastrado_por.email|default:"" }}</small>
+                                            {% else %}
+                                                <span class="text-muted">Não informado</span>
+                                            {% endif %}
+                                        </div>
+                                        <div class="col-md-4 mb-3">
+                                            <strong><i class="fas fa-calendar-plus me-2"></i>Data de Cadastro:</strong><br>
+                                            <span>{{ object.data_cadastro|date:"d/m/Y" }}</span><br>
+                                            <small class="text-muted">{{ object.data_cadastro|date:"H:i" }}</small>
+                                        </div>
+                                        <div class="col-md-4 mb-3">
+                                            <strong><i class="fas fa-calendar-check me-2"></i>Última Atualização:</strong><br>
+                                            <span>{{ object.data_atualizacao|date:"d/m/Y" }}</span><br>
+                                            <small class="text-muted">{{ object.data_atualizacao|date:"H:i" }}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

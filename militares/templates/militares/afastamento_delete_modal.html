@@ -1,0 +1,168 @@
+<div class="modal-header bg-danger text-white">
+    <h5 class="modal-title" id="excluirAfastamentoModalLabel">
+        <i class="fas fa-exclamation-triangle me-2"></i>Confirmar Exclusão de Afastamento
+    </h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<form id="formExcluirAfastamento" method="post" action="{% url 'militares:afastamento_delete' afastamento.pk %}">
+    {% csrf_token %}
+    <div class="modal-body">
+        <div class="text-center mb-4">
+            <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+            <h5>Deseja realmente excluir este afastamento?</h5>
+            <p class="text-muted">
+                Esta ação não pode ser desfeita.
+            </p>
+        </div>
+        
+        <div class="alert alert-warning">
+            <strong>Militar:</strong> {{ afastamento.militar.get_posto_graduacao_display }} {{ afastamento.militar.nome_guerra }}<br>
+            <strong>Tipo:</strong> {{ afastamento.get_tipo_afastamento_display }}<br>
+            <strong>Data Início:</strong> {{ afastamento.data_inicio|date:"d/m/Y" }}<br>
+            {% if afastamento.data_fim %}
+            <strong>Data Fim:</strong> {{ afastamento.data_fim|date:"d/m/Y" }}<br>
+            {% endif %}
+            <strong>Status:</strong> {{ afastamento.get_status_display }}
+        </div>
+
+        {% if afastamento.status == 'ATIVO' %}
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>ATENÇÃO:</strong> Este afastamento está ativo. A situação do militar pode ser afetada.
+        </div>
+        {% endif %}
+
+        <div class="alert alert-info">
+            <h6 class="alert-heading">
+                <i class="fas fa-info-circle me-2"></i>
+                Informações Importantes
+            </h6>
+            <ul class="mb-0">
+                <li>Esta ação é <strong>irreversível</strong></li>
+                <li>O afastamento será removido permanentemente do sistema</li>
+                <li>O histórico de afastamentos do militar será atualizado</li>
+                {% if afastamento.status == 'ATIVO' %}
+                <li>A situação do militar pode ser restaurada para o estado anterior</li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <i class="fas fa-times me-2"></i>Cancelar
+        </button>
+        <button type="submit" class="btn btn-danger">
+            <i class="fas fa-trash me-2"></i>Sim, Excluir
+        </button>
+    </div>
+</form>
+
+<script>
+(function() {
+    // Usar IIFE para garantir que o script execute imediatamente quando o HTML for inserido
+    const form = document.getElementById('formExcluirAfastamento');
+    if (form) {
+        // Remover event listeners anteriores se existirem
+        const newForm = form.cloneNode(true);
+        form.parentNode.replaceChild(newForm, form);
+        
+        // Adicionar novo event listener
+        document.getElementById('formExcluirAfastamento').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Excluindo...';
+            
+            fetch(this.action, {
+                method: 'POST',
+                body: new FormData(this),
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw { status: response.status, data: data };
+                    }).catch(() => {
+                        throw { status: response.status, data: { message: 'Erro ao processar resposta do servidor.' } };
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    // Exibir mensagens de debug se houver
+                    if (data.debug_messages && data.debug_messages.length > 0) {
+                        console.log('=== DEBUG EXCLUSÃO AFASTAMENTO ===');
+                        data.debug_messages.forEach(msg => {
+                            console.log(msg);
+                            // Criar alerta de debug
+                            const debugDiv = document.createElement('div');
+                            debugDiv.className = 'alert alert-info alert-dismissible fade show';
+                            debugDiv.style.position = 'fixed';
+                            debugDiv.style.top = '60px';
+                            debugDiv.style.right = '20px';
+                            debugDiv.style.zIndex = '9999';
+                            debugDiv.style.maxWidth = '500px';
+                            debugDiv.style.whiteSpace = 'pre-line';
+                            debugDiv.innerHTML = `
+                                <strong>[DEBUG]</strong><br>${msg.replace(/\n/g, '<br>')}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            `;
+                            document.body.appendChild(debugDiv);
+                        });
+                        console.log('Situação atual:', data.situacao_atual);
+                    }
+                    
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'alert alert-success alert-dismissible fade show';
+                    alertDiv.style.position = 'fixed';
+                    alertDiv.style.top = '20px';
+                    alertDiv.style.right = '20px';
+                    alertDiv.style.zIndex = '9999';
+                    alertDiv.innerHTML = `
+                        <i class="fas fa-check-circle me-2"></i>${data.message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    `;
+                    document.body.appendChild(alertDiv);
+                    
+                    const modalElement = document.getElementById('excluirAfastamentoModal');
+                    if (modalElement) {
+                        const modal = bootstrap.Modal.getInstance(modalElement);
+                        if (modal) {
+                            modal.hide();
+                        }
+                    }
+                    
+                    setTimeout(() => {
+                        if (data.redirect_url) {
+                            window.location.href = data.redirect_url;
+                        } else {
+                            window.location.reload();
+                        }
+                    }, 2000);
+                } else {
+                    alert(data.message || 'Erro ao excluir. Tente novamente.');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+                
+                if (error.status === 403) {
+                    alert(error.data?.message || 'Acesso negado. Você não tem permissão para realizar esta ação.');
+                } else {
+                    alert(error.data?.message || 'Erro ao excluir. Tente novamente.');
+                }
+            });
+        });
+    }
+})();
+</script>
+

@@ -1,4 +1,9 @@
 {% extends 'base.html' %}
+{% load militar_permissions %}
+{% load militares_extras %}
+{% load permissoes_tags %}
+{% load permissoes_granulares %}
+{% load militar_filters %}
 
 {% block title %}Bombeiros Militares{% endblock %}
 
@@ -78,6 +83,39 @@
         max-height: 300px;
         overflow-y: auto;
         display: none;
+    }
+    
+    .lotacao-autocomplete-container {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        max-width: 400px;
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        z-index: 1000;
+        max-height: 300px;
+        overflow-y: auto;
+        display: none;
+    }
+    
+    .estrutura-autocomplete-container {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        max-width: 400px;
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        z-index: 1000;
+        max-height: 300px;
+        overflow-y: auto;
+        display: none;
+        margin-top: 2px;
     }
     
     .autocomplete-item {
@@ -335,28 +373,45 @@
     </div>
     <div class="btn-toolbar mb-2 mb-md-0">
         <div class="btn-group me-2">
+            {% if user|pode_criar_militares %}
             <a href="{% url 'militares:militar_create' %}" class="btn btn-sm btn-primary">
                 <i class="fas fa-plus me-1"></i>Novo Militar
             </a>
+            {% endif %}
+            {% if menu_permissions.MILITARES_DASHBOARD %}
             <a href="{% url 'militares:militar_dashboard' %}" class="btn btn-sm btn-outline-secondary">
                 <i class="fas fa-tachometer-alt me-1"></i>Dashboard
             </a>
+            {% endif %}
+            {% if menu_permissions.MILITARES_EXPORTAR %}
             <a href="{% url 'militares:exportar_excel' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" class="btn btn-sm btn-success" title="Exportar lista de militares para Excel (CSV)">
                 <i class="fas fa-file-excel me-1"></i>Exportar Excel
             </a>
+            {% endif %}
+            {% if user.is_superuser %}
+            <form method="post" action="{% url 'militares:sincronizar_situacoes_militares' %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-info" title="Sincronizar situações dos militares baseado em afastamentos, férias e licenças ativas">
+                    <i class="fas fa-sync-alt me-1"></i>Sincronizar Situações
+                </button>
+            </form>
+            {% endif %}
         </div>
     </div>
 </div>
 
-{% if request.user.is_superuser or request.user.is_staff %}
+{% if menu_permissions.MILITARES_REORDENAR %}
 <div class="mb-3 d-inline-block">
     <button type="button" class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#reordenarModal">
         <i class="fas fa-sort-numeric-up-alt me-1"></i> Reordenar Antiguidade
     </button>
 </div>
+{% endif %}
+
+
 
 <!-- Modal para Reordenar Antiguidade -->
-<div class="modal fade" id="reordenarModal" tabindex="-1" aria-labelledby="reordenarModalLabel" aria-hidden="true">
+<div class="modal fade" id="reordenarModal" tabindex="-1" aria-labelledby="reordenarModalLabel">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
@@ -405,7 +460,6 @@
         </div>
     </div>
 </div>
-{% endif %}
 
 <!-- Busca Discreta -->
 <div class="search-discreet">
@@ -430,8 +484,55 @@
                     </div>
                 </div>
                 
+                <!-- Indicador de nível hierárquico -->
+                {% if nivel_usuario %}
+                <div class="alert alert-info mb-3" style="font-size: 0.9em;">
+                    <i class="fas fa-shield-alt"></i>
+                    <strong>Nível Hierárquico:</strong> 
+                    {% if nivel_usuario.acesso == 'TOTAL' %}
+                        <span class="badge badge-success">Acesso Total - Nível {{ nivel_usuario.nivel }}</span>
+                    {% elif nivel_usuario.acesso == 'ORGAO' %}
+                        <span class="badge badge-primary">Acesso Órgão - Nível {{ nivel_usuario.nivel }}</span>
+                    {% elif nivel_usuario.acesso == 'GRANDE_COMANDO' %}
+                        <span class="badge badge-info">Acesso Grande Comando - Nível {{ nivel_usuario.nivel }}</span>
+                    {% elif nivel_usuario.acesso == 'UNIDADE' %}
+                        <span class="badge badge-warning">Acesso Unidade - Nível {{ nivel_usuario.nivel }}</span>
+                    {% elif nivel_usuario.acesso == 'SUBUNIDADE' %}
+                        <span class="badge badge-secondary">Acesso Sub-Unidade - Nível {{ nivel_usuario.nivel }}</span>
+                    {% else %}
+                        <span class="badge badge-danger">Acesso Limitado</span>
+                    {% endif %}
+                    <br>
+                    <small class="text-muted">
+                        {% if nivel_usuario.nivel >= 3 %}
+                            <i class="fas fa-check text-success"></i> Pode gerenciar militares
+                        {% endif %}
+                        {% if nivel_usuario.nivel >= 4 %}
+                            <i class="fas fa-check text-success"></i> Pode editar militares
+                        {% endif %}
+                        {% if nivel_usuario.nivel >= 5 %}
+                            <i class="fas fa-check text-success"></i> Pode excluir militares
+                        {% endif %}
+                    </small>
+                </div>
+                {% endif %}
+                
                 <!-- Filtros Discretos -->
                 <form id="filtrosForm" method="get" class="filters-discreet">
+                    <div style="position: relative; display: inline-block; margin-right: 10px;">
+                        <input type="text" 
+                               id="pesquisaEstrutura" 
+                               name="estrutura_search" 
+                               class="filter-select-discreet" 
+                               placeholder="Buscar estrutura organizacional..."
+                               value="{{ nome_estrutura_pre_selecionada|default:'' }}"
+                               autocomplete="off"
+                               style="width: 250px; display: block; visibility: visible;">
+                        <input type="hidden" id="filterEstrutura" name="estrutura" value="{{ estrutura_filtro|default:'' }}">
+                        <div class="estrutura-autocomplete-container" id="estruturaAutocompleteContainer" style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 1000;">
+                            <!-- Itens do autocomplete serão inseridos aqui -->
+                        </div>
+                    </div>
                     <select name="posto" id="filterPosto" class="filter-select-discreet">
                         <option value="">Todos os Postos</option>
                         <option value="cb">Coronel</option>
@@ -449,9 +550,16 @@
                         <option value="nvrr">NVRR</option>
                     </select>
                     <select name="situacao" id="filterSituacao" class="filter-select-discreet">
-                        <option value="">Todas as Situações</option>
+                        <option value="">Todas as Classificações</option>
                         <option value="at">Ativo</option>
                         <option value="in">Inativo</option>
+                    </select>
+                    <select name="quadro" id="filterQuadro" class="filter-select-discreet">
+                        <option value="">Todos os Quadros</option>
+                        <option value="COMB">Combatente</option>
+                        <option value="ENG">Engenheiro</option>
+                        <option value="COMP">Complementar</option>
+                        <option value="PRACAS">Praças</option>
                     </select>
                     <button type="button" id="limparFiltros" class="btn btn-outline-secondary btn-sm" title="Limpar todos os filtros">
                         <i class="fas fa-times"></i> Limpar
@@ -467,17 +575,106 @@
     <div class="card-header d-flex justify-content-between align-items-center">
         <h6 class="m-0 font-weight-bold">
             <i class="fas fa-list me-2"></i>
-            Lista de Militares ({{ total_militares }} total)
+            Lista de Militares 
+            {% if query or posto_filtro or situacao_filtro or quadro_filtro %}
+                <span class="text-primary">({{ total_militares }} filtrados de {{ total_geral|default:total_militares }} total)</span>
+            {% else %}
+                <span class="text-muted">({{ total_militares }} total)</span>
+            {% endif %}
         </h6>
         <small class="text-muted">
             <i class="fas fa-info-circle me-1"></i>
             {% if page_obj.paginator.num_pages > 1 %}
                 Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
             {% else %}
-                Todos os militares
+                {% if query or posto_filtro or situacao_filtro or quadro_filtro %}
+                    <span class="text-primary">Filtros aplicados</span>
+                {% else %}
+                    Todos os militares
+                {% endif %}
             {% endif %}
         </small>
     </div>
+    
+    <!-- Resumo dos Filtros Aplicados -->
+    {% if query or posto_filtro or situacao_filtro or quadro_filtro or lotacao_filtro %}
+        <div class="card-body py-2 border-bottom bg-light">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <small class="text-muted me-2">
+                    <i class="fas fa-filter me-1"></i>Filtros ativos:
+                </small>
+                {% if query %}
+                    <span class="badge bg-primary">
+                        <i class="fas fa-search me-1"></i>Busca: "{{ query }}"
+                    </span>
+                {% endif %}
+                {% if posto_filtro %}
+                    <span class="badge bg-info">
+                        <i class="fas fa-star me-1"></i>Posto: {{ posto_filtro|upper }}
+                    </span>
+                {% endif %}
+                {% if situacao_filtro %}
+                    <span class="badge bg-warning">
+                        <i class="fas fa-circle me-1"></i>Classificação: {{ situacao_filtro|upper }}
+                    </span>
+                {% endif %}
+                {% if quadro_filtro %}
+                    <span class="badge bg-success">
+                        <i class="fas fa-layer-group me-1"></i>Quadro: {{ quadro_filtro }}
+                    </span>
+                {% endif %}
+                {% if lotacao_filtro %}
+                    {% for orgao, grandes_comandos in lotacoes_por_estrutura.items %}
+                        {% for gc, unidades in grandes_comandos.items %}
+                            {% for unidade, sub_unidades in unidades.items %}
+                                {% for item in sub_unidades %}
+                                    {% for lotacao in item.lotacoes %}
+                                        {% if lotacao.id|stringformat:"s" == lotacao_filtro %}
+                                            <span class="badge bg-secondary">
+                                                <i class="fas fa-building me-1"></i>Lotação: {{ lotacao.lotacao }}
+                                                <small class="ms-1">({{ item.sub_unidade.nome_completo }})</small>
+                                            </span>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endfor %}
+                            {% endfor %}
+                        {% endfor %}
+                    {% endfor %}
+                    {% for lotacao in lotacoes_sem_estrutura %}
+                        {% if lotacao.id|stringformat:"s" == lotacao_filtro %}
+                            <span class="badge bg-secondary">
+                                <i class="fas fa-building me-1"></i>Lotação: {{ lotacao.lotacao }}
+                            </span>
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+                <a href="{% url 'militares:militar_list' %}" class="btn btn-outline-secondary btn-sm ms-auto">
+                    <i class="fas fa-times me-1"></i>Limpar Filtros
+                </a>
+            </div>
+        </div>
+    {% else %}
+        <!-- Estatísticas Rápidas quando não há filtros -->
+        <div class="card-body py-2 border-bottom bg-light">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <small class="text-muted me-2">
+                    <i class="fas fa-chart-pie me-1"></i>Distribuição por Quadro:
+                </small>
+                <span class="badge bg-primary">
+                    <i class="fas fa-shield-alt me-1"></i>COMB: {{ total_comb|default:0 }}
+                </span>
+                <span class="badge bg-info">
+                    <i class="fas fa-hard-hat me-1"></i>ENG: {{ total_eng|default:0 }}
+                </span>
+                <span class="badge bg-warning">
+                    <i class="fas fa-plus-circle me-1"></i>COMP: {{ total_comp|default:0 }}
+                </span>
+                <span class="badge bg-success">
+                    <i class="fas fa-users me-1"></i>PRACAS: {{ total_pracas|default:0 }}
+                </span>
+            </div>
+        </div>
+    {% endif %}
     
                 <!-- Seletor de itens por página -->
             <div class="itens-por-pagina-container">
@@ -498,6 +695,9 @@
                     {% if quadro_filtro %}
                         <input type="hidden" name="quadro" value="{{ quadro_filtro }}">
                     {% endif %}
+                    {% if lotacao_filtro %}
+                        <input type="hidden" name="lotacao" value="{{ lotacao_filtro }}">
+                    {% endif %}
                     <select id="itensPorPagina" name="itens_por_pagina" onchange="document.getElementById('itensForm').submit()">
                         <option value="20" {% if itens_por_pagina == 20 %}selected{% endif %}>20</option>
                         <option value="50" {% if itens_por_pagina == 50 %}selected{% endif %}>50</option>
@@ -509,6 +709,23 @@
 
     <div class="card-body" id="militares-lista">
         {% if militares %}
+            <!-- Contador de registros visíveis -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <small class="text-muted">
+                    <i class="fas fa-eye me-1"></i>
+                    Exibindo {{ militares|length }} de {{ total_militares }} registros
+                    {% if total_geral != total_militares %}
+                        <span class="text-primary">(filtrados de {{ total_geral }} total)</span>
+                    {% endif %}
+                </small>
+                {% if total_militares > 0 %}
+                    <small class="text-muted">
+                        <i class="fas fa-percentage me-1"></i>
+                        {% widthratio total_militares total_geral 100 %}% do total
+                    </small>
+                {% endif %}
+            </div>
+            
             <div class="table-responsive">
                 <table class="table table-hover">
                     <thead>
@@ -528,124 +745,150 @@
                             <th>Antiguidade</th>
                             <th>Última Promoção</th>
                             <th>Situação</th>
-                                                                <th>Idade</th>
-                                    <th>Tempo de Serviço</th>
-                                    <th>Ações</th>
+                            <th>Lotação Atual</th>
+                            <th>Idade</th>
+                            <th>Tempo de Serviço</th>
+                            <th>Ações</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- Seção: NVRR (No Início) -->
-                        {% regroup militares by quadro as militares_por_quadro %}
-                        {% for grupo in militares_por_quadro %}
-                            {% if grupo.grouper == 'NVRR' %}
-                                <!-- Tarja do NVRR -->
-                                <tr class="table-group-divider">
-                                    <td colspan="10" class="nvrr-header">
-                                        <h6 class="mb-0 fw-bold">
-                                            <i class="fas fa-users fa-lg me-1"></i>
-                                            <span class="ms-2">NVRR</span>
-                                            <small class="ms-2 opacity-75">(Não computado no efetivo)</small>
-                                        </h6>
+                        {% if nvrr_only %}
+                            <!-- Seção: NVRR (Apenas NVRR) -->
+                            <tr class="table-group-divider">
+                                <td colspan="11" class="nvrr-header">
+                                    <h6 class="mb-0 fw-bold">
+                                        <i class="fas fa-users fa-lg me-1"></i>
+                                        <span class="ms-2">NVRR</span>
+                                        <small class="ms-2 opacity-75">(Não computado no efetivo)</small>
+                                    </h6>
+                                </td>
+                            </tr>
+                            
+                            <!-- Lista de Militares do NVRR -->
+                            {% for militar in militares %}
+                                <tr class="linha-militar linha-nvrr" data-nome="{{ militar.nome_completo|lower }}" data-posto="{{ militar.get_posto_graduacao_display|lower }}" data-matricula="{{ militar.matricula|lower }}" data-situacao="{{ militar.get_situacao_display|lower }}">
+                                    <td class="text-center align-middle">
+                                        <div class="form-check">
+                                            <input class="form-check-input militar-checkbox" type="checkbox" value="{{ militar.pk }}">
+                                        </div>
+                                    </td>
+                                    <td class="text-center align-middle">
+                                        {% if militar.foto %}
+                                            <img src="{{ militar.foto.url }}" alt="Foto" class="rounded" style="width: 60px; height: 60px; object-fit: cover;">
+                                        {% else %}
+                                            <div class="bg-light border rounded d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                                                <i class="fas fa-user text-muted"></i>
+                                            </div>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ militar.get_quadro_display }}</span>
+                                    </td>
+                                    <td>
+                                        <div>
+                                            <strong>{{ militar.nome_completo }}</strong>
+                                            {% if militar.nome_guerra %}
+                                                <br><small class="text-muted">{{ militar.nome_guerra }}</small>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ militar.get_posto_graduacao_display }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="text-muted fst-italic">NVRR</span>
+                                    </td>
+                                    <td>
+                                        {% if militar.data_promocao_atual %}
+                                            <small class="text-muted">{{ militar.data_promocao_atual|date:"d/m/Y" }}</small>
+                                        {% else %}
+                                            <span class="text-muted fst-italic">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="d-flex flex-column gap-1">
+                                            <span class="badge bg-{% if militar.situacao == 'PRONTO' %}success{% elif 'AFASTAMENTO' in militar.situacao %}warning{% elif 'AGUARDANDO' in militar.situacao %}info{% elif 'DESLIGAMENTO' in militar.situacao or 'LICENCIADO' in militar.situacao %}danger{% else %}secondary{% endif %}">{{ militar.get_situacao_display }}</span>
+                                            <span class="badge bg-{% if militar.classificacao == 'ATIVO' %}success{% elif militar.classificacao == 'INATIVO' %}warning{% else %}secondary{% endif %}" style="font-size: 0.75rem;">{{ militar.get_classificacao_display }}</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if militar.lotacao_atual_obj %}
+                                            <div class="d-flex flex-column">
+                                                <strong class="text-primary" 
+                                                        data-bs-toggle="tooltip" 
+                                                        data-bs-placement="top" 
+                                                        title="{{ militar.lotacao_atual_obj.lotacao }}">
+                                                    {{ militar.lotacao_atual_obj.lotacao|lotacao_resumida }}
+                                                </strong>
+                                                {% if militar.lotacao_atual_obj.nivel_organograma != "Sem vinculação" %}
+                                                    <small class="text-muted">{{ militar.lotacao_atual_obj.nivel_organograma }}</small>
+                                                {% endif %}
+                                            </div>
+                                        {% else %}
+                                            <span class="text-muted fst-italic">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ militar.idade }} anos</td>
+                                    <td>{{ militar.tempo_servico }} anos</td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{% url 'militares:militar_detail' militar.pk %}" 
+                                               class="btn btn-outline-primary" title="Visualizar">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            {% if menu_permissions.MILITARES_TRANSFERIR %}
+                                            <button type="button" 
+                                                    class="btn btn-outline-info" 
+                                                    title="Transferir Militar"
+                                                    onclick="abrirModalTransferencia({{ militar.pk }}, '{{ militar.nome_guerra|default:""|escapejs }}', '{{ militar.lotacao_atual.lotacao|default:"Sem lotação"|escapejs }}')">
+                                                <i class="fas fa-exchange-alt"></i>
+                                            </button>
+                                            {% endif %}
+                                            {% if menu_permissions.MILITARES_EDITAR %}
+                                            <a href="{% url 'militares:militar_edit' militar.pk %}" 
+                                               class="btn btn-outline-warning" title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            {% endif %}
+                                            {% if menu_permissions.MILITARES_EXCLUIR %}
+                                            <a href="{% url 'militares:militar_delete' militar.pk %}" 
+                                               class="btn btn-outline-danger" title="Excluir">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                            {% endif %}
+                                            {% if menu_permissions.MILITARES_INATIVAR %}
+                                            <a href="{% url 'militares:militar_transferir_inativo' militar.pk %}" 
+                                               class="btn btn-outline-warning" title="Transferir para Inativo">
+                                                <i class="fas fa-user-times"></i>
+                                            </a>
+                                            {% if menu_permissions.MILITARES_FICHA_CONCEITO %}
+                                            {% if militar.fichaconceitooficiais %}
+                                                <a href="{% url 'militares:ficha_conceito_edit' militar.fichaconceitooficiais.pk %}" 
+                                                   class="btn btn-outline-info" title="Editar Ficha de Conceito">
+                                                    <i class="fas fa-clipboard-list"></i>
+                                                </a>
+                                            {% else %}
+                                                <a href="{% url 'militares:ficha_conceito_create' %}" 
+                                                   class="btn btn-outline-success" title="Criar Ficha de Conceito">
+                                                    <i class="fas fa-plus"></i>
+                                                </a>
+                                            {% endif %}
+                                            {% endif %}
+                                            {% endif %}
+                                        </div>
                                     </td>
                                 </tr>
-                                
-                                <!-- Lista de Militares do NVRR -->
-                                {% for militar in grupo.list %}
-                                    <tr class="linha-militar linha-nvrr" data-nome="{{ militar.nome_completo|lower }}" data-posto="{{ militar.get_posto_graduacao_display|lower }}" data-matricula="{{ militar.matricula|lower }}" data-situacao="{{ militar.get_situacao_display|lower }}">
-                                        <td class="text-center align-middle">
-                                            <div class="form-check">
-                                                <input class="form-check-input militar-checkbox" type="checkbox" value="{{ militar.pk }}">
-                                            </div>
-                                        </td>
-                                        <td class="text-center align-middle">
-                                            {% if militar.foto %}
-                                                <img src="{{ militar.foto.url }}" alt="Foto" class="rounded-circle" style="width: 40px; height: 40px; object-fit: cover;">
-                                            {% else %}
-                                                <div class="bg-light border rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                                    <i class="fas fa-user text-muted"></i>
-                                                </div>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-info">{{ militar.get_quadro_display }}</span>
-                                        </td>
-                                        <td>
-                                            <div>
-                                                <strong>{{ militar.nome_completo }}</strong>
-                                                {% if militar.nome_guerra %}
-                                                    <br><small class="text-muted">{{ militar.nome_guerra }}</small>
-                                                {% endif %}
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-info">{{ militar.get_posto_graduacao_display }}</span>
-                                        </td>
-                                        <td>
-                                            <span class="text-muted fst-italic">NVRR</span>
-                                        </td>
-                                        <td>
-                                            {% if militar.data_promocao_atual %}
-                                                <small class="text-muted">{{ militar.data_promocao_atual|date:"d/m/Y" }}</small>
-                                            {% else %}
-                                                <span class="text-muted fst-italic">—</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if militar.situacao == 'AT' %}
-                                                <span class="badge bg-success">{{ militar.get_situacao_display }}</span>
-                                            {% elif militar.situacao == 'IN' %}
-                                                <span class="badge bg-warning">{{ militar.get_situacao_display }}</span>
-                                            {% else %}
-                                                <span class="badge bg-secondary">{{ militar.get_situacao_display }}</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>{{ militar.idade }} anos</td>
-                                        <td>{{ militar.tempo_servico }} anos</td>
-                                        <td>
-                                            <div class="btn-group btn-group-sm" role="group">
-                                                <a href="{% url 'militares:militar_detail' militar.pk %}" 
-                                                   class="btn btn-outline-primary" title="Visualizar">
-                                                    <i class="fas fa-eye"></i>
-                                                </a>
-                                                {% if not menu_permissions.is_consultor %}
-                                                <a href="{% url 'militares:militar_edit' militar.pk %}" 
-                                                   class="btn btn-outline-warning" title="Editar">
-                                                    <i class="fas fa-edit"></i>
-                                                </a>
-                                                <a href="{% url 'militares:militar_delete' militar.pk %}" 
-                                                   class="btn btn-outline-danger" title="Excluir">
-                                                    <i class="fas fa-trash"></i>
-                                                </a>
-                                                <a href="{% url 'militares:militar_transferir_inativo' militar.pk %}" 
-                                                   class="btn btn-outline-warning" title="Transferir para Inativo">
-                                                    <i class="fas fa-user-times"></i>
-                                                </a>
-                                                {% if militar.fichaconceitooficiais %}
-                                                    <a href="{% url 'militares:ficha_conceito_edit' militar.fichaconceitooficiais.pk %}" 
-                                                       class="btn btn-outline-info" title="Editar Ficha de Conceito">
-                                                        <i class="fas fa-clipboard-list"></i>
-                                                    </a>
-                                                {% else %}
-                                                    <a href="{% url 'militares:ficha_conceito_create' %}" 
-                                                       class="btn btn-outline-success" title="Criar Ficha de Conceito">
-                                                        <i class="fas fa-plus"></i>
-                                                    </a>
-                                                {% endif %}
-                                                {% endif %}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                            {% endif %}
-                        {% endfor %}
+                            {% endfor %}
+                        {% endif %}
                         
                         <!-- Seção: Militares Gerais (excluindo NVRR) -->
+                        {% if not nvrr_only %}
                         {% regroup militares by posto_graduacao as militares_por_posto %}
                         {% for grupo in militares_por_posto %}
                             {% if grupo.grouper != 'NVRR' %}
                                 <!-- Tarja do Posto -->
                                 <tr class="table-group-divider">
-                                    <td colspan="10" class="bg-primary bg-opacity-25">
+                                    <td colspan="11" class="bg-primary bg-opacity-25">
                                         <h6 class="mb-0 text-dark fw-bold">
                                             {% if grupo.grouper == 'CB' %}
                                                 <i class="fas fa-star text-warning fa-lg me-1"></i>
@@ -708,9 +951,9 @@
                                         </td>
                                         <td class="text-center align-middle">
                                             {% if militar.foto %}
-                                                <img src="{{ militar.foto.url }}" alt="Foto" class="rounded-circle" style="width: 40px; height: 40px; object-fit: cover;">
+                                                <img src="{{ militar.foto.url }}" alt="Foto" class="rounded" style="width: 60px; height: 60px; object-fit: cover;">
                                             {% else %}
-                                                <div class="bg-light border rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                                <div class="bg-light border rounded d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
                                                     <i class="fas fa-user text-muted"></i>
                                                 </div>
                                             {% endif %}
@@ -758,12 +1001,26 @@
                                             {% endif %}
                                         </td>
                                         <td>
-                                            {% if militar.situacao == 'AT' %}
-                                                <span class="badge bg-success">{{ militar.get_situacao_display }}</span>
-                                            {% elif militar.situacao == 'IN' %}
-                                                <span class="badge bg-warning">{{ militar.get_situacao_display }}</span>
+                                            <div class="d-flex flex-column gap-1">
+                                                <span class="badge bg-{% if militar.situacao == 'PRONTO' %}success{% elif 'AFASTAMENTO' in militar.situacao %}warning{% elif 'AGUARDANDO' in militar.situacao %}info{% elif 'DESLIGAMENTO' in militar.situacao or 'LICENCIADO' in militar.situacao %}danger{% else %}secondary{% endif %}">{{ militar.get_situacao_display }}</span>
+                                                <span class="badge bg-{% if militar.classificacao == 'ATIVO' %}success{% elif militar.classificacao == 'INATIVO' %}warning{% else %}secondary{% endif %}" style="font-size: 0.75rem;">{{ militar.get_classificacao_display }}</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            {% if militar.lotacao_atual_obj %}
+                                                <div class="d-flex flex-column">
+                                                    <strong class="text-primary" 
+                                                            data-bs-toggle="tooltip" 
+                                                            data-bs-placement="top" 
+                                                            title="{{ militar.lotacao_atual_obj.lotacao }}">
+                                                        {{ militar.lotacao_atual_obj.lotacao|lotacao_resumida }}
+                                                    </strong>
+                                                    {% if militar.lotacao_atual_obj.nivel_organograma != "Sem vinculação" %}
+                                                        <small class="text-muted">{{ militar.lotacao_atual_obj.nivel_organograma }}</small>
+                                                    {% endif %}
+                                                </div>
                                             {% else %}
-                                                <span class="badge bg-secondary">{{ militar.get_situacao_display }}</span>
+                                                <span class="text-muted fst-italic">—</span>
                                             {% endif %}
                                         </td>
                                         <td>{{ militar.idade }} anos</td>
@@ -774,23 +1031,38 @@
                                                    class="btn btn-outline-primary" title="Visualizar">
                                                     <i class="fas fa-eye"></i>
                                                 </a>
-                                                {% if not menu_permissions.is_consultor %}
+                                                {% if menu_permissions.MILITARES_TRANSFERIR %}
+                                                <button type="button" 
+                                                        class="btn btn-outline-info" 
+                                                        title="Transferir Militar"
+                                                        onclick="abrirModalTransferencia({{ militar.pk }}, '{{ militar.nome_guerra|default:""|escapejs }}', '{{ militar.lotacao_atual.lotacao|default:"Sem lotação"|escapejs }}')">
+                                                    <i class="fas fa-exchange-alt"></i>
+                                                </button>
+                                                {% endif %}
+                                                {% if menu_permissions.MILITARES_EDITAR %}
                                                 <a href="{% url 'militares:militar_edit' militar.pk %}" 
                                                    class="btn btn-outline-warning" title="Editar">
                                                     <i class="fas fa-edit"></i>
                                                 </a>
+                                                {% endif %}
+                                                {% if menu_permissions.MILITARES_EXCLUIR %}
                                                 <a href="{% url 'militares:militar_delete' militar.pk %}" 
                                                    class="btn btn-outline-danger" title="Excluir">
                                                     <i class="fas fa-trash"></i>
                                                 </a>
+                                                {% endif %}
+                                                {% if menu_permissions.MILITARES_PROMOVER %}
                                                 <a href="{% url 'militares:promocao_create' %}?militar={{ militar.pk }}" 
                                                    class="btn btn-outline-success" title="Promover Militar">
                                                     <i class="fas fa-arrow-up"></i>
                                                 </a>
+                                                {% endif %}
+                                                {% if menu_permissions.MILITARES_INATIVAR %}
                                                 <a href="{% url 'militares:militar_transferir_inativo' militar.pk %}" 
                                                    class="btn btn-outline-warning" title="Transferir para Inativo">
                                                     <i class="fas fa-user-times"></i>
                                                 </a>
+                                                {% if menu_permissions.MILITARES_FICHA_CONCEITO %}
                                                 {% if militar.fichaconceitooficiais %}
                                                     <a href="{% url 'militares:ficha_conceito_edit' militar.fichaconceitooficiais.pk %}" 
                                                        class="btn btn-outline-info" title="Editar Ficha de Conceito">
@@ -803,6 +1075,7 @@
                                                     </a>
                                                 {% endif %}
                                                 {% endif %}
+                                                {% endif %}
                                             </div>
                                         </td>
                                     </tr>
@@ -810,10 +1083,11 @@
                                 {% endfor %}
                             {% endif %}
                         {% endfor %}
+                        {% endif %}
                         
                         <!-- Linha para mensagem de nenhum resultado -->
                         <tr id="noResultsRow" style="display:none;">
-                                                            <td colspan="10" class="text-center text-muted py-5">
+                                                            <td colspan="11" class="text-center text-muted py-5">
                                 <i class="fas fa-users fa-2x mb-2"></i><br>
                                 <span>Nenhum militar encontrado</span>
                             </td>
@@ -834,12 +1108,12 @@
                     <ul class="pagination">
                         {% if page_obj.has_previous %}
                             <li class="page-item">
-                                <a class="page-link" href="?page=1&itens_por_pagina={{ itens_por_pagina }}{% if query %}&q={{ query }}{% endif %}{% if posto_filtro %}&posto={{ posto_filtro }}{% endif %}{% if situacao_filtro %}&situacao={{ situacao_filtro }}{% endif %}{% if quadro_filtro %}&quadro={{ quadro_filtro }}{% endif %}" title="Primeira página">
+                                <a class="page-link" href="?page=1&itens_por_pagina={{ itens_por_pagina }}{% if query %}&q={{ query }}{% endif %}{% if posto_filtro %}&posto={{ posto_filtro }}{% endif %}{% if situacao_filtro %}&situacao={{ situacao_filtro }}{% endif %}{% if quadro_filtro %}&quadro={{ quadro_filtro }}{% endif %}{% if estrutura_filtro %}&estrutura={{ estrutura_filtro }}{% endif %}" title="Primeira página">
                                     <i class="fas fa-angle-double-left"></i>
                                 </a>
                             </li>
                             <li class="page-item">
-                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&itens_por_pagina={{ itens_por_pagina }}{% if query %}&q={{ query }}{% endif %}{% if posto_filtro %}&posto={{ posto_filtro }}{% endif %}{% if situacao_filtro %}&situacao={{ situacao_filtro }}{% endif %}{% if quadro_filtro %}&quadro={{ quadro_filtro }}{% endif %}" title="Página anterior">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&itens_por_pagina={{ itens_por_pagina }}{% if query %}&q={{ query }}{% endif %}{% if posto_filtro %}&posto={{ posto_filtro }}{% endif %}{% if situacao_filtro %}&situacao={{ situacao_filtro }}{% endif %}{% if quadro_filtro %}&quadro={{ quadro_filtro }}{% endif %}{% if estrutura_filtro %}&estrutura={{ estrutura_filtro }}{% endif %}" title="Página anterior">
                                     <i class="fas fa-angle-left"></i>
                                 </a>
                             </li>
@@ -852,19 +1126,19 @@
                                 </li>
                             {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
                                 <li class="page-item">
-                                    <a class="page-link" href="?page={{ num }}&itens_por_pagina={{ itens_por_pagina }}{% if query %}&q={{ query }}{% endif %}{% if posto_filtro %}&posto={{ posto_filtro }}{% endif %}{% if situacao_filtro %}&situacao={{ situacao_filtro }}{% endif %}{% if quadro_filtro %}&quadro={{ quadro_filtro }}{% endif %}">{{ num }}</a>
+                                    <a class="page-link" href="?page={{ num }}&itens_por_pagina={{ itens_por_pagina }}{% if query %}&q={{ query }}{% endif %}{% if posto_filtro %}&posto={{ posto_filtro }}{% endif %}{% if situacao_filtro %}&situacao={{ situacao_filtro }}{% endif %}{% if quadro_filtro %}&quadro={{ quadro_filtro }}{% endif %}{% if estrutura_filtro %}&estrutura={{ estrutura_filtro }}{% endif %}">{{ num }}</a>
                                 </li>
                             {% endif %}
                         {% endfor %}
                         
                         {% if page_obj.has_next %}
                             <li class="page-item">
-                                <a class="page-link" href="?page={{ page_obj.next_page_number }}&itens_por_pagina={{ itens_por_pagina }}{% if query %}&q={{ query }}{% endif %}{% if posto_filtro %}&posto={{ posto_filtro }}{% endif %}{% if situacao_filtro %}&situacao={{ situacao_filtro }}{% endif %}{% if quadro_filtro %}&quadro={{ quadro_filtro }}{% endif %}" title="Próxima página">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}&itens_por_pagina={{ itens_por_pagina }}{% if query %}&q={{ query }}{% endif %}{% if posto_filtro %}&posto={{ posto_filtro }}{% endif %}{% if situacao_filtro %}&situacao={{ situacao_filtro }}{% endif %}{% if quadro_filtro %}&quadro={{ quadro_filtro }}{% endif %}{% if estrutura_filtro %}&estrutura={{ estrutura_filtro }}{% endif %}" title="Próxima página">
                                     <i class="fas fa-angle-right"></i>
                                 </a>
                             </li>
                             <li class="page-item">
-                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&itens_por_pagina={{ itens_por_pagina }}{% if query %}&q={{ query }}{% endif %}{% if posto_filtro %}&posto={{ posto_filtro }}{% endif %}{% if situacao_filtro %}&situacao={{ situacao_filtro }}{% endif %}{% if quadro_filtro %}&quadro={{ quadro_filtro }}{% endif %}" title="Última página">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&itens_por_pagina={{ itens_por_pagina }}{% if query %}&q={{ query }}{% endif %}{% if posto_filtro %}&posto={{ posto_filtro }}{% endif %}{% if situacao_filtro %}&situacao={{ situacao_filtro }}{% endif %}{% if quadro_filtro %}&quadro={{ quadro_filtro }}{% endif %}{% if estrutura_filtro %}&estrutura={{ estrutura_filtro }}{% endif %}" title="Última página">
                                     <i class="fas fa-angle-double-right"></i>
                                 </a>
                             </li>
@@ -896,12 +1170,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const autocompleteContainer = document.getElementById('autocompleteContainer');
     const filterPosto = document.getElementById('filterPosto');
     const filterSituacao = document.getElementById('filterSituacao');
+    const filterQuadro = document.getElementById('filterQuadro');
+    const filterEstrutura = document.getElementById('filterEstrutura');
+    const pesquisaEstrutura = document.getElementById('pesquisaEstrutura');
+    const estruturaAutocompleteContainer = document.getElementById('estruturaAutocompleteContainer');
     const linhas = document.querySelectorAll('.linha-militar');
     
     // Sincronizar filtros com parâmetros da URL
     const urlParams = new URLSearchParams(window.location.search);
     const urlPosto = urlParams.get('posto');
     const urlSituacao = urlParams.get('situacao');
+    const urlQuadro = urlParams.get('quadro');
+    const urlEstrutura = urlParams.get('estrutura');
     
     if (urlPosto && filterPosto) {
         filterPosto.value = urlPosto;
@@ -909,9 +1189,49 @@ document.addEventListener('DOMContentLoaded', function() {
     if (urlSituacao && filterSituacao) {
         filterSituacao.value = urlSituacao;
     }
+    if (urlQuadro && filterQuadro) {
+        filterQuadro.value = urlQuadro;
+    }
+    if (urlEstrutura && filterEstrutura) {
+        filterEstrutura.value = urlEstrutura;
+        // Buscar e exibir o nome da estrutura selecionada
+        fetch(`/militares/lotacao-autocomplete/?q=${encodeURIComponent(urlEstrutura)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.results && data.results.length > 0) {
+                    const estrutura = data.results[0];
+                    pesquisaEstrutura.value = estrutura.nome_hierarquico;
+                }
+            })
+            .catch(error => console.error('Erro ao buscar estrutura:', error));
+    } else if (pesquisaEstrutura.value && filterEstrutura.value) {
+        // Se há estrutura pré-selecionada, aplicar filtro automaticamente
+        // Aplicar filtros via GET request
+        const params = new URLSearchParams();
+        if (pesquisaInput.value.trim()) {
+            params.append('q', pesquisaInput.value.trim());
+        }
+        if (filterPosto.value) {
+            params.append('posto', filterPosto.value);
+        }
+        if (filterSituacao.value) {
+            params.append('situacao', filterSituacao.value);
+        }
+        if (filterQuadro.value) {
+            params.append('quadro', filterQuadro.value);
+        }
+        if (filterEstrutura.value) {
+            params.append('estrutura', filterEstrutura.value);
+        }
+        
+        const url = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+        window.location.href = url;
+    }
     
     let searchTimeout;
     let selectedIndex = -1;
+    let estruturaSearchTimeout;
+    let estruturaSelectedIndex = -1;
     
     // Função para mostrar o autocomplete
     function showAutocomplete(results) {
@@ -969,7 +1289,27 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Adicionar evento de clique
             autocompleteItem.addEventListener('click', function() {
-                // Aplicar busca via GET request
+                // Primeiro, tentar encontrar e destacar o militar na lista atual
+                const linhas = document.querySelectorAll('.linha-militar');
+                let militarEncontrado = null;
+                
+                // Buscar o militar na lista atual
+                for (let linha of linhas) {
+                    const nomeElement = linha.querySelector('td:nth-child(4) strong'); // Coluna do nome
+                    if (nomeElement && nomeElement.textContent.trim() === result.nome) {
+                        militarEncontrado = linha;
+                        break;
+                    }
+                }
+                
+                if (militarEncontrado) {
+                    // Se encontrou o militar na lista atual, destacar e rolar até ele
+                    selectMilitar(militarEncontrado);
+                    hideAutocomplete();
+                    return;
+                }
+                
+                // Se não encontrou, aplicar busca via GET request
                 const params = new URLSearchParams();
                 params.append('q', result.nome);
                 if (filterPosto.value) {
@@ -977,6 +1317,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 if (filterSituacao.value) {
                     params.append('situacao', filterSituacao.value);
+                }
+                if (filterQuadro.value) {
+                    params.append('quadro', filterQuadro.value);
+                }
+                if (filterEstrutura.value) {
+                    params.append('estrutura', filterEstrutura.value);
                 }
                 
                 const url = window.location.pathname + '?' + params.toString();
@@ -1000,14 +1346,15 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Função para selecionar um militar
     function selectMilitar(linha) {
-        const nomeElement = linha.querySelector('td:nth-child(3) strong');
-        const nome = nomeElement ? nomeElement.textContent : '';
+        const nomeElement = linha.querySelector('td:nth-child(4) strong'); // Coluna do nome
+        const nome = nomeElement ? nomeElement.textContent.trim() : '';
         
         pesquisaInput.value = nome;
         hideAutocomplete();
         
         // Destacar a linha selecionada
-        linhas.forEach(l => l.classList.remove('highlight'));
+        const todasLinhas = document.querySelectorAll('.linha-militar');
+        todasLinhas.forEach(l => l.classList.remove('highlight'));
         linha.classList.add('highlight');
         
         // Scroll para a linha
@@ -1023,6 +1370,75 @@ document.addEventListener('DOMContentLoaded', function() {
     function hideAutocomplete() {
         autocompleteContainer.style.display = 'none';
         selectedIndex = -1;
+    }
+    
+    // Função para mostrar o autocomplete de estrutura
+    function showEstruturaAutocomplete(results) {
+        estruturaAutocompleteContainer.innerHTML = '';
+        
+        if (results.length === 0) {
+            estruturaAutocompleteContainer.style.display = 'none';
+            return;
+        }
+        
+        results.forEach((result, index) => {
+            const autocompleteItem = document.createElement('div');
+            autocompleteItem.className = 'autocomplete-item';
+            autocompleteItem.style.padding = '12px 15px';
+            autocompleteItem.style.cursor = 'pointer';
+            autocompleteItem.style.borderBottom = '1px solid #f8f9fa';
+            
+            const info = document.createElement('div');
+            info.style.display = 'flex';
+            info.style.flexDirection = 'column';
+            
+            const nome = document.createElement('div');
+            nome.style.fontWeight = '600';
+            nome.style.color = '#495057';
+            nome.textContent = result.nome;
+            
+            const hierarquia = document.createElement('div');
+            hierarquia.style.fontSize = '12px';
+            hierarquia.style.color = '#6c757d';
+            hierarquia.style.marginTop = '2px';
+            hierarquia.textContent = result.nome_hierarquico;
+            
+            info.appendChild(nome);
+            info.appendChild(hierarquia);
+            autocompleteItem.appendChild(info);
+            estruturaAutocompleteContainer.appendChild(autocompleteItem);
+            
+            // Adicionar evento de clique
+            autocompleteItem.addEventListener('click', function() {
+                // Aplicar filtro de estrutura via GET request
+                const params = new URLSearchParams();
+                if (pesquisaInput.value.trim()) {
+                    params.append('q', pesquisaInput.value.trim());
+                }
+                if (filterPosto.value) {
+                    params.append('posto', filterPosto.value);
+                }
+                if (filterSituacao.value) {
+                    params.append('situacao', filterSituacao.value);
+                }
+                if (filterQuadro.value) {
+                    params.append('quadro', filterQuadro.value);
+                }
+                params.append('estrutura', result.id);
+                
+                const url = window.location.pathname + '?' + params.toString();
+                window.location.href = url;
+            });
+        });
+        
+        estruturaAutocompleteContainer.style.display = 'block';
+        estruturaSelectedIndex = -1;
+    }
+    
+    // Função para esconder o autocomplete de estrutura
+    function hideEstruturaAutocomplete() {
+        estruturaAutocompleteContainer.style.display = 'none';
+        estruturaSelectedIndex = -1;
     }
     
 
@@ -1049,6 +1465,20 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Inicializar botão limpar
     updateClearButton();
+    
+    // Destacar militar se houver busca na URL
+    const query = urlParams.get('q');
+    if (query && query.trim()) {
+        // Destacar o primeiro militar que corresponde à busca
+        const linhas = document.querySelectorAll('.linha-militar');
+        for (let linha of linhas) {
+            const nomeElement = linha.querySelector('td:nth-child(4) strong');
+            if (nomeElement && nomeElement.textContent.toLowerCase().includes(query.toLowerCase())) {
+                selectMilitar(linha);
+                break;
+            }
+        }
+    }
     
     // Event listeners
     pesquisaInput.addEventListener('input', function() {
@@ -1077,6 +1507,39 @@ document.addEventListener('DOMContentLoaded', function() {
                 showAutocomplete(results);
             }, 300);
         }
+    });
+    
+    // Event listener para o campo de pesquisa de estrutura
+    pesquisaEstrutura.addEventListener('input', function() {
+        const query = this.value.trim();
+        
+        // Limpar timeout anterior
+        clearTimeout(estruturaSearchTimeout);
+        
+        if (query.length < 2) {
+            hideEstruturaAutocomplete();
+            return;
+        }
+        
+        // Mostrar loading
+        showEstruturaAutocomplete([{ nome: 'Buscando...', nome_hierarquico: '' }]);
+        
+        // Debounce da busca
+        estruturaSearchTimeout = setTimeout(() => {
+            fetch(`/militares/lotacao-autocomplete/?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.results && data.results.length > 0) {
+                        showEstruturaAutocomplete(data.results);
+                    } else {
+                        showEstruturaAutocomplete([{ nome: 'Nenhuma estrutura encontrada', nome_hierarquico: '' }]);
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro na busca de estrutura:', error);
+                    hideEstruturaAutocomplete();
+                });
+        }, 300);
     });
     
     // Navegação com teclado no autocomplete
@@ -1109,6 +1572,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (filterSituacao.value) {
                 params.append('situacao', filterSituacao.value);
             }
+            if (filterQuadro.value) {
+                params.append('quadro', filterQuadro.value);
+            }
+            if (filterEstrutura.value) {
+                params.append('estrutura', filterEstrutura.value);
+            }
             
             const url = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
             window.location.href = url;
@@ -1133,6 +1602,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!pesquisaInput.contains(event.target) && !autocompleteContainer.contains(event.target)) {
             hideAutocomplete();
         }
+        if (!pesquisaEstrutura.contains(event.target) && !estruturaAutocompleteContainer.contains(event.target)) {
+            hideEstruturaAutocomplete();
+        }
     });
     
     // Botão limpar
@@ -1144,6 +1616,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         if (filterSituacao.value) {
             params.append('situacao', filterSituacao.value);
+        }
+        if (filterQuadro.value) {
+            params.append('quadro', filterQuadro.value);
+        }
+        if (filterEstrutura.value) {
+            params.append('estrutura', filterEstrutura.value);
         }
         
         const url = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
@@ -1162,6 +1640,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if (filterSituacao.value) {
             params.append('situacao', filterSituacao.value);
         }
+        if (filterQuadro.value) {
+            params.append('quadro', filterQuadro.value);
+        }
+        if (filterEstrutura.value) {
+            params.append('estrutura', filterEstrutura.value);
+        }
         
         const url = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
         window.location.href = url;
@@ -1179,10 +1663,65 @@ document.addEventListener('DOMContentLoaded', function() {
         if (filterSituacao.value) {
             params.append('situacao', filterSituacao.value);
         }
+        if (filterQuadro.value) {
+            params.append('quadro', filterQuadro.value);
+        }
+        if (filterEstrutura.value) {
+            params.append('estrutura', filterEstrutura.value);
+        }
         
         const url = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
         window.location.href = url;
     });
+
+    filterQuadro.addEventListener('change', () => {
+        // Aplicar filtros via GET request
+        const params = new URLSearchParams();
+        if (pesquisaInput.value.trim()) {
+            params.append('q', pesquisaInput.value.trim());
+        }
+        if (filterPosto.value) {
+            params.append('posto', filterPosto.value);
+        }
+        if (filterSituacao.value) {
+            params.append('situacao', filterSituacao.value);
+        }
+        if (filterQuadro.value) {
+            params.append('quadro', filterQuadro.value);
+        }
+        if (filterEstrutura.value) {
+            params.append('estrutura', filterEstrutura.value);
+        }
+        
+        const url = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+        window.location.href = url;
+    });
+
+    // Remover referência a filterLotacao que não existe
+    /*
+    filterLotacao.addEventListener('change', () => {
+        // Aplicar filtros via GET request
+        const params = new URLSearchParams();
+        if (pesquisaInput.value.trim()) {
+            params.append('q', pesquisaInput.value.trim());
+        }
+        if (filterPosto.value) {
+            params.append('posto', filterPosto.value);
+        }
+        if (filterSituacao.value) {
+            params.append('situacao', filterSituacao.value);
+        }
+        if (filterQuadro.value) {
+            params.append('quadro', filterQuadro.value);
+        }
+        if (filterEstrutura.value) {
+            params.append('estrutura', filterEstrutura.value);
+        }
+        
+        const url = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+        window.location.href = url;
+    });
+    */
     
     // Botão limpar filtros
     const limparFiltros = document.getElementById('limparFiltros');
@@ -1201,7 +1740,392 @@ document.addEventListener('DOMContentLoaded', function() {
         linha.classList.add('fade-in');
     });
 });
+
+// Função para abrir modal de transferência
+function abrirModalTransferencia(militarId, nomeMilitar, lotacaoAtual) {
+    document.getElementById('militarId').value = militarId;
+    document.getElementById('nomeMilitar').textContent = nomeMilitar;
+    document.getElementById('lotacaoAtual').textContent = lotacaoAtual;
+    
+    // Carregar estruturas organizacionais
+    carregarEstruturasOrganizacionais();
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('modalTransferencia'));
+    modal.show();
+    
+    // Focar no campo de busca após o modal ser exibido
+    modal._element.addEventListener('shown.bs.modal', function() {
+        const campoBusca = document.getElementById('buscaLotacao');
+        campoBusca.focus();
+        // Garantir que o campo seja acessível
+        campoBusca.setAttribute('aria-expanded', 'false');
+    });
+    
+    // Limpar foco quando o modal for fechado
+    modal._element.addEventListener('hidden.bs.modal', function() {
+        // Remover foco de qualquer elemento dentro do modal
+        const elementosFocaveis = modal._element.querySelectorAll('button, input, textarea, select');
+        elementosFocaveis.forEach(elemento => {
+            elemento.blur();
+        });
+    });
+}
+
+// Variável global para armazenar todas as estruturas
+let todasEstruturas = [];
+
+// Função para carregar estruturas organizacionais
+function carregarEstruturasOrganizacionais() {
+    fetch('/militares/ajax/estruturas-organizacionais/')
+        .then(response => response.json())
+        .then(data => {
+            todasEstruturas = data.estruturas;
+            
+            // Configurar busca em tempo real
+            configurarBuscaEmTempoReal();
+        })
+        .catch(error => {
+            console.error('Erro ao carregar estruturas:', error);
+            alert('Erro ao carregar estruturas organizacionais');
+        });
+}
+
+// Função para configurar busca em tempo real
+function configurarBuscaEmTempoReal() {
+    const campoBusca = document.getElementById('buscaLotacao');
+    const resultados = document.getElementById('resultadosBusca');
+    
+    // Mostrar toda a estrutura quando o campo recebe foco
+    campoBusca.addEventListener('focus', function() {
+        mostrarEstruturaCompleta();
+    });
+    
+    campoBusca.addEventListener('input', function() {
+        const termo = this.value.toLowerCase().trim();
+        
+        // Sincronizar com o campo hidden (removendo emojis se houver)
+        let valorLimpo = this.value.trim();
+        // Remover emojis do valor se existirem
+        valorLimpo = valorLimpo.replace(/^[🏗️]\s*/, '');
+        document.getElementById('novaLotacao').value = valorLimpo;
+        
+        if (termo.length === 0) {
+            // Mostrar toda a estrutura quando não há busca
+            mostrarEstruturaCompleta();
+            return;
+        }
+        
+        // Mostrar resultados da busca
+        resultados.style.display = 'block';
+        
+        // Filtrar estruturas que contêm o termo
+        const estruturasFiltradas = todasEstruturas.filter(estrutura => {
+            const nomeCompleto = (estrutura.nome_completo || estrutura.nome).toLowerCase();
+            const nomeSimples = estrutura.nome.toLowerCase();
+            return nomeCompleto.includes(termo) || nomeSimples.includes(termo);
+        });
+        
+        // Limpar resultados anteriores
+        resultados.innerHTML = '';
+        
+        if (estruturasFiltradas.length === 0) {
+            resultados.innerHTML = `
+                <div class="list-group-item text-muted text-center">
+                    <i class="fas fa-search me-2"></i>
+                    Nenhuma estrutura encontrada para "${termo}"
+                </div>
+            `;
+            return;
+        }
+        
+        // Agrupar resultados por nível
+        const grupos = {
+            1: [], // Órgãos
+            2: [], // Grandes Comandos
+            3: [], // Unidades
+            4: []  // Sub-unidades
+        };
+        
+        estruturasFiltradas.forEach(estrutura => {
+            grupos[estrutura.nivel].push(estrutura);
+        });
+        
+        // Adicionar resultados agrupados
+        Object.keys(grupos).forEach(nivel => {
+            const estruturasNivel = grupos[nivel];
+            if (estruturasNivel.length > 0) {
+                // Adicionar cabeçalho do grupo
+                const header = document.createElement('div');
+                header.className = 'list-group-item bg-light fw-bold text-primary';
+                let label = '';
+                switch(parseInt(nivel)) {
+                    case 1: label = '🏛️ ÓRGÃOS'; break;
+                    case 2: label = '🏢 GRANDES COMANDOS'; break;
+                    case 3: label = '🏬 UNIDADES'; break;
+                    case 4: label = '🏗️ SUB-UNIDADES'; break;
+                }
+                header.textContent = label;
+                resultados.appendChild(header);
+                
+                // Adicionar itens do grupo
+                estruturasNivel.forEach(estrutura => {
+                    const item = document.createElement('button');
+                    item.type = 'button';
+                    item.className = 'list-group-item list-group-item-action';
+                    
+                    const nomeExibicao = estrutura.nome_completo || estrutura.nome;
+                    const nomeLimpo = estrutura.nome; // Usar apenas o nome simples para seleção
+                    
+                    // Adicionar indentação visual baseada no nível
+                    let textoExibicao = nomeExibicao;
+                    if (estrutura.nivel > 1) {
+                        const indentacao = '  '.repeat(estrutura.nivel - 1);
+                        textoExibicao = indentacao + '└─ ' + nomeExibicao;
+                    }
+                    
+                    item.innerHTML = `
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">${textoExibicao}</h6>
+                            <small class="text-muted">Nível ${estrutura.nivel}</small>
+                        </div>
+                        <small class="text-muted">${nomeLimpo}</small>
+                    `;
+                    
+                    item.addEventListener('click', function() {
+                        // Preencher o campo de busca com o nome limpo (sem emojis)
+                        campoBusca.value = nomeLimpo;
+                        // Sincronizar com o campo hidden (sem emojis)
+                        document.getElementById('novaLotacao').value = nomeLimpo;
+                        // Esconder resultados
+                        resultados.style.display = 'none';
+                        // Focar no campo de busca
+                        campoBusca.focus();
+                    });
+                    
+                    resultados.appendChild(item);
+                });
+            }
+        });
+    });
+    
+    // Limpar busca quando o campo perde o foco
+    campoBusca.addEventListener('blur', function() {
+        setTimeout(() => {
+            if (this.value.trim() === '') {
+                resultados.style.display = 'none';
+                document.getElementById('novaLotacao').value = '';
+            }
+        }, 200);
+    });
+}
+
+// Função para mostrar toda a estrutura organizacional
+function mostrarEstruturaCompleta() {
+    const resultados = document.getElementById('resultadosBusca');
+    resultados.style.display = 'block';
+    resultados.innerHTML = '';
+    
+    // Agrupar estruturas por nível
+    const grupos = {
+        1: [], // Órgãos
+        2: [], // Grandes Comandos
+        3: [], // Unidades
+        4: []  // Sub-unidades
+    };
+    
+    todasEstruturas.forEach(estrutura => {
+        grupos[estrutura.nivel].push(estrutura);
+    });
+    
+    // Adicionar estrutura completa agrupada
+    Object.keys(grupos).forEach(nivel => {
+        const estruturasNivel = grupos[nivel];
+        if (estruturasNivel.length > 0) {
+            // Adicionar cabeçalho do grupo
+            const header = document.createElement('div');
+            header.className = 'list-group-item bg-light fw-bold text-primary';
+            let label = '';
+            switch(parseInt(nivel)) {
+                case 1: label = '🏛️ ÓRGÃOS'; break;
+                case 2: label = '🏢 GRANDES COMANDOS'; break;
+                case 3: label = '🏬 UNIDADES'; break;
+                case 4: label = '🏗️ SUB-UNIDADES'; break;
+            }
+            header.textContent = label;
+            resultados.appendChild(header);
+            
+            // Adicionar itens do grupo
+            estruturasNivel.forEach(estrutura => {
+                const item = document.createElement('button');
+                item.type = 'button';
+                item.className = 'list-group-item list-group-item-action';
+                
+                const nomeExibicao = estrutura.nome_completo || estrutura.nome;
+                const nomeLimpo = estrutura.nome; // Usar apenas o nome simples para seleção
+                
+                // Adicionar indentação visual baseada no nível
+                let textoExibicao = nomeExibicao;
+                if (estrutura.nivel > 1) {
+                    const indentacao = '  '.repeat(estrutura.nivel - 1);
+                    textoExibicao = indentacao + '└─ ' + nomeExibicao;
+                }
+                
+                item.innerHTML = `
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1">${textoExibicao}</h6>
+                        <small class="text-muted">Nível ${estrutura.nivel}</small>
+                    </div>
+                    <small class="text-muted">${nomeLimpo}</small>
+                `;
+                
+                item.addEventListener('click', function() {
+                    // Preencher o campo de busca com o nome limpo (sem emojis)
+                    const campoBusca = document.getElementById('buscaLotacao');
+                    campoBusca.value = nomeLimpo;
+                    // Sincronizar com o campo hidden (sem emojis)
+                    document.getElementById('novaLotacao').value = nomeLimpo;
+                    // Esconder resultados
+                    resultados.style.display = 'none';
+                    // Focar no campo de busca
+                    campoBusca.focus();
+                });
+                
+                resultados.appendChild(item);
+            });
+        }
+    });
+}
+
+// Função para transferir militar
+function transferirMilitar() {
+    const militarId = document.getElementById('militarId').value;
+    console.log('DEBUG: militarId =', militarId);
+    const campoBusca = document.getElementById('buscaLotacao');
+    let novaLotacao = campoBusca.value.trim();
+    // Remover emojis do valor antes de enviar
+    novaLotacao = novaLotacao.replace(/^[🏗️]\s*/, '');
+    const observacoes = document.getElementById('observacoes').value;
+    
+    if (!novaLotacao) {
+        alert('Por favor, digite ou selecione a nova lotação');
+        campoBusca.focus();
+        return;
+    }
+    
+    if (!confirm(`Confirma a transferência do militar para "${novaLotacao}"?`)) {
+        return;
+    }
+    
+    // Desabilitar botão
+    const btnTransferir = document.getElementById('btnTransferir');
+    btnTransferir.disabled = true;
+    btnTransferir.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Transferindo...';
+    
+    // Enviar requisição
+    fetch(`/militares/militar/${militarId}/transferir/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify({
+            nova_lotacao: novaLotacao,
+            observacoes: observacoes
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            // Fechar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalTransferencia'));
+            modal.hide();
+            // Recarregar página
+            location.reload();
+        } else {
+            alert('Erro: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro ao transferir militar');
+    })
+    .finally(() => {
+        // Reabilitar botão
+        btnTransferir.disabled = false;
+        btnTransferir.innerHTML = '<i class="fas fa-exchange-alt"></i> Transferir';
+    });
+}
 </script>
+
+<!-- Modal de Transferência de Militar -->
+<div class="modal fade" id="modalTransferencia" tabindex="-1" aria-labelledby="modalTransferenciaLabel">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalTransferenciaLabel">
+                    <i class="fas fa-exchange-alt me-2"></i>Transferir Militar
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formTransferencia">
+                    {% csrf_token %}
+                    <input type="hidden" id="militarId" name="militar_id">
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Militar:</label>
+                            <p class="form-control-plaintext" id="nomeMilitar"></p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Lotação Atual:</label>
+                            <p class="form-control-plaintext" id="lotacaoAtual"></p>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="buscaLotacao" class="form-label fw-bold">Nova Lotação <span class="text-danger">*</span></label>
+                        <div class="position-relative">
+                            <input type="text" class="form-control" id="buscaLotacao" placeholder="Clique para ver toda a estrutura organizacional ou digite para buscar..." autocomplete="off">
+                            <div class="position-absolute top-50 end-0 translate-middle-y me-3">
+                                <i class="fas fa-search text-muted"></i>
+                            </div>
+                        </div>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle me-1"></i>
+                            <strong>Dica:</strong> Clique no campo acima para ver toda a estrutura organizacional hierárquica, ou digite para buscar uma estrutura específica.
+                        </div>
+                        <div id="resultadosBusca" class="list-group mt-2" style="max-height: 300px; overflow-y: auto; display: none;"></div>
+                        <!-- Campo hidden para manter compatibilidade com o backend -->
+                        <input type="hidden" id="novaLotacao" name="nova_lotacao" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="observacoes" class="form-label fw-bold">Observações</label>
+                        <textarea class="form-control" id="observacoes" name="observacoes" rows="3" 
+                                  placeholder="Informações adicionais sobre a transferência (opcional)"></textarea>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Importante:</strong> A lotação atual será finalizada automaticamente e uma nova lotação será criada com a data de hoje.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" id="btnTransferir" onclick="transferirMilitar()">
+                    <i class="fas fa-exchange-alt me-1"></i>Transferir
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
  

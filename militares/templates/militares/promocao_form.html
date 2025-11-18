@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}Nova Promoção - SysProm - CBMEPI{% endblock %}
+{% block title %}{% if is_editing %}Editar Promoção{% else %}Nova Promoção{% endif %} - SysProm - CBMEPI{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -113,9 +113,19 @@
                     <div class="d-flex align-items-center">
                         <i class="fas fa-medal fa-2x me-3"></i>
                         <div>
-                            <h4 class="mb-0">{% if is_historica %}Promoção Histórica{% else %}Nova Promoção{% endif %}</h4>
+                            <h4 class="mb-0">
+                                {% if is_editing %}
+                                    Editar Promoção
+                                {% elif is_historica %}
+                                    Promoção Histórica
+                                {% else %}
+                                    Nova Promoção
+                                {% endif %}
+                            </h4>
                             <small class="opacity-75">
-                                {% if is_historica %}
+                                {% if is_editing %}
+                                    Editar dados da promoção
+                                {% elif is_historica %}
                                     Registrar promoção histórica (não atualiza o militar)
                                 {% else %}
                                     Registrar promoção de militar
@@ -148,9 +158,9 @@
                                                    class="form-control" 
                                                    placeholder="🔍 Digite o nome, posto ou matrícula..."
                                                    autocomplete="off"
-                                                   {% if militar_pre_selecionado %}value="{{ militar_pre_selecionado.get_posto_graduacao_display }} {{ militar_pre_selecionado.nome_completo }} - {{ militar_pre_selecionado.matricula }}"{% endif %}>
+                                                   {% if is_editing and promocao.militar %}value="{{ promocao.militar.get_posto_graduacao_display }} {{ promocao.militar.nome_completo }} - {{ promocao.militar.matricula }}"{% elif militar_pre_selecionado %}value="{{ militar_pre_selecionado.get_posto_graduacao_display }} {{ militar_pre_selecionado.nome_completo }} - {{ militar_pre_selecionado.matricula }}"{% endif %}>
                                             <input type="hidden" name="militar" id="id_militar" required
-                                                   {% if militar_pre_selecionado %}value="{{ militar_pre_selecionado.pk }}"{% endif %}>
+                                                   {% if is_editing and promocao.militar %}value="{{ promocao.militar.pk }}"{% elif militar_pre_selecionado %}value="{{ militar_pre_selecionado.pk }}"{% endif %}>
                                             <i class="fas fa-search position-absolute" style="left: 15px; top: 50%; transform: translateY(-50%); color: #6c757d; z-index: 2;"></i>
                                             
                                             <!-- Autocomplete -->
@@ -183,9 +193,15 @@
                                         <select name="posto_anterior" id="id_posto_anterior" class="form-select">
                                             <option value="">Usar posto atual do militar</option>
                                             {% for codigo, nome in postos %}
-                                                <option value="{{ codigo }}">{{ nome }}</option>
+                                                <option value="{{ codigo }}" {% if is_editing and promocao.posto_anterior == codigo %}selected{% endif %}>{{ nome }}</option>
                                             {% endfor %}
                                         </select>
+                                        {% if is_editing %}
+                                            <script>
+                                                console.log('Posto anterior da promoção: {{ promocao.posto_anterior }}');
+                                                console.log('Posto anterior selecionado:', document.getElementById('id_posto_anterior').value);
+                                            </script>
+                                        {% endif %}
                                         <div class="form-text">
                                             <i class="fas fa-info-circle me-1"></i>
                                             Posto anterior (deixe vazio para usar o atual)
@@ -198,7 +214,7 @@
                                         <select name="posto_novo" id="id_posto_novo" class="form-select" required>
                                             <option value="">Selecione o novo posto...</option>
                                             {% for codigo, nome in postos %}
-                                                <option value="{{ codigo }}">{{ nome }}</option>
+                                                <option value="{{ codigo }}" {% if is_editing and promocao.posto_novo == codigo %}selected{% endif %}>{{ nome }}</option>
                                             {% endfor %}
                                         </select>
                                         <div class="form-text">
@@ -208,11 +224,10 @@
                                     </div>
                                 </div>
                                 
-                                {% if not is_historica %}
                                 <div class="row g-3 mt-2">
                                     <div class="col-md-12">
                                         <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" name="is_historica" id="id_is_historica">
+                                            <input class="form-check-input" type="checkbox" name="is_historica" id="id_is_historica" {% if is_editing and promocao.is_historica %}checked{% endif %}>
                                             <label class="form-check-label" for="id_is_historica">
                                                 <i class="fas fa-history me-1"></i>
                                                 Promoção histórica (não atualiza o militar)
@@ -224,7 +239,6 @@
                                         </div>
                                     </div>
                                 </div>
-                                {% endif %}
                                     <div class="col-md-6">
                                         <label for="id_criterio" class="form-label fw-bold">
                                             Critério <span class="text-danger">*</span>
@@ -232,7 +246,7 @@
                                         <select name="criterio" id="id_criterio" class="form-select" required>
                                             <option value="">Selecione o critério...</option>
                                             {% for codigo, nome in criterios %}
-                                                <option value="{{ codigo }}">{{ nome }}</option>
+                                                <option value="{{ codigo }}" {% if is_editing and promocao.criterio == codigo %}selected{% endif %}>{{ nome }}</option>
                                             {% endfor %}
                                         </select>
                                         <div class="form-text">
@@ -247,8 +261,9 @@
                                         <label for="id_data_promocao" class="form-label fw-bold">
                                             Data da Promoção <span class="text-danger">*</span>
                                         </label>
-                                        <input type="date" name="data_promocao" id="id_data_promocao" 
-                                               class="form-control" required>
+                                                                                 <input type="date" name="data_promocao" id="id_data_promocao" 
+                                                class="form-control" required
+                                                {% if is_editing and promocao.data_promocao %}value="{{ promocao.data_promocao|date:'Y-m-d' }}"{% endif %}>
                                         <div class="form-text">
                                             <i class="fas fa-info-circle me-1"></i>
                                             Data em que a promoção foi efetivada
@@ -258,8 +273,9 @@
                                         <label for="id_data_publicacao" class="form-label fw-bold">
                                             Data da Publicação
                                         </label>
-                                        <input type="date" name="data_publicacao" id="id_data_publicacao" 
-                                               class="form-control" value="{{ today }}">
+                                                                                 <input type="date" name="data_publicacao" id="id_data_publicacao" 
+                                                class="form-control" 
+                                                {% if is_editing and promocao.data_publicacao %}value="{{ promocao.data_publicacao|date:'Y-m-d' }}"{% else %}value="{{ today }}"{% endif %}>
                                         <div class="form-text">
                                             <i class="fas fa-info-circle me-1"></i>
                                             Data da publicação no Diário Oficial
@@ -272,12 +288,24 @@
                                         <label for="id_numero_ato" class="form-label fw-bold">
                                             Número do Ato
                                         </label>
-                                        <input type="text" name="numero_ato" id="id_numero_ato" 
-                                               class="form-control" placeholder="Ex: PORTARIA Nº 123/2024">
+                                                                                 <input type="text" name="numero_ato" id="id_numero_ato" 
+                                                class="form-control" placeholder="Ex: PORTARIA Nº 123/2024" 
+                                                maxlength="200" oninput="validarNumeroAto(this)"
+                                                {% if is_editing and promocao.numero_ato %}value="{{ promocao.numero_ato }}"{% endif %}>
                                         <div class="form-text">
                                             <i class="fas fa-info-circle me-1"></i>
-                                            Número do ato administrativo da promoção
+                                            Número do ato administrativo da promoção (máximo 200 caracteres)
                                         </div>
+                                        <div id="numero_ato_counter" class="form-text text-muted">
+                                            <span id="caracteres_restantes">200</span> caracteres restantes
+                                        </div>
+                                        {% if form.numero_ato.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.numero_ato.errors %}
+                                                    {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
                                     </div>
                                 </div>
                                 
@@ -286,9 +314,9 @@
                                         <label for="id_observacoes" class="form-label fw-bold">
                                             Observações
                                         </label>
-                                        <textarea name="observacoes" id="id_observacoes" 
-                                                  class="form-control" rows="3" 
-                                                  placeholder="Observações adicionais sobre a promoção..."></textarea>
+                                                                                 <textarea name="observacoes" id="id_observacoes" 
+                                                   class="form-control" rows="3" 
+                                                   placeholder="Observações adicionais sobre a promoção...">{% if is_editing and promocao.observacoes %}{{ promocao.observacoes|safe }}{% endif %}</textarea>
                                         <div class="form-text">
                                             <i class="fas fa-info-circle me-1"></i>
                                             Observações complementares (opcional)
@@ -304,7 +332,8 @@
                                 <i class="fas fa-arrow-left me-2"></i>Voltar
                             </a>
                             <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save me-2"></i>Registrar Promoção
+                                <i class="fas fa-save me-2"></i>
+                                {% if is_editing %}Salvar Alterações{% else %}Registrar Promoção{% endif %}
                             </button>
                         </div>
                     </form>
@@ -318,6 +347,9 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM carregado');
+    console.log('is_editing:', {% if is_editing %}true{% else %}false{% endif %});
+    console.log('promocao:', {% if promocao %}'{{ promocao.pk }}'{% else %}null{% endif %});
     const militarSearchInput = document.getElementById('id_militar_search');
     const militarHiddenInput = document.getElementById('id_militar');
     const autocompleteContainer = document.getElementById('autocompleteContainer');
@@ -338,6 +370,68 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         selectMilitar(militarPreSelecionado);
     }, 100);
+    {% endif %}
+    
+    // Se estiver editando, inicializar campos com valores da promoção
+    {% if is_editing %}
+    console.log('Modo de edição detectado');
+    {% if promocao %}
+    console.log('Promoção encontrada, ID:', '{{ promocao.pk }}');
+    console.log('Dados da promoção:', {
+        posto_anterior: '{{ promocao.posto_anterior }}',
+        posto_novo: '{{ promocao.posto_novo }}',
+        criterio: '{{ promocao.criterio }}',
+        data_promocao: '{{ promocao.data_promocao|date:"Y-m-d" }}',
+        data_publicacao: '{{ promocao.data_publicacao|date:"Y-m-d" }}',
+        numero_ato: '{{ promocao.numero_ato }}',
+        observacoes: '{{ promocao.observacoes|default:"" }}',
+        is_historica: {{ promocao.is_historica|yesno:"true,false" }}
+    });
+    
+    setTimeout(function() {
+        // Preencher campos automaticamente
+        if (document.getElementById('id_posto_anterior')) {
+            document.getElementById('id_posto_anterior').value = '{{ promocao.posto_anterior }}';
+            console.log('Posto anterior definido:', '{{ promocao.posto_anterior }}');
+        }
+        if (document.getElementById('id_posto_novo')) {
+            document.getElementById('id_posto_novo').value = '{{ promocao.posto_novo }}';
+            console.log('Posto novo definido:', '{{ promocao.posto_novo }}');
+        }
+        if (document.getElementById('id_criterio')) {
+            document.getElementById('id_criterio').value = '{{ promocao.criterio }}';
+            console.log('Critério definido:', '{{ promocao.criterio }}');
+        }
+        if (document.getElementById('id_data_promocao')) {
+            document.getElementById('id_data_promocao').value = '{{ promocao.data_promocao|date:"Y-m-d" }}';
+            console.log('Data promoção definida:', '{{ promocao.data_promocao|date:"Y-m-d" }}');
+        }
+        if (document.getElementById('id_data_publicacao')) {
+            document.getElementById('id_data_publicacao').value = '{{ promocao.data_publicacao|date:"Y-m-d" }}';
+            console.log('Data publicação definida:', '{{ promocao.data_publicacao|date:"Y-m-d" }}');
+        }
+        if (document.getElementById('id_numero_ato')) {
+            document.getElementById('id_numero_ato').value = '{{ promocao.numero_ato }}';
+            console.log('Número ato definido:', '{{ promocao.numero_ato }}');
+            // Atualizar contador de caracteres
+            if (typeof validarNumeroAto === 'function') {
+                validarNumeroAto(document.getElementById('id_numero_ato'));
+            }
+        }
+        if (document.getElementById('id_observacoes')) {
+            document.getElementById('id_observacoes').value = '{{ promocao.observacoes|default:"" }}';
+            console.log('Observações definidas:', '{{ promocao.observacoes|default:"" }}');
+        }
+        if (document.getElementById('id_is_historica')) {
+            document.getElementById('id_is_historica').checked = {{ promocao.is_historica|yesno:"true,false" }};
+            console.log('Is histórica definido:', {{ promocao.is_historica|yesno:"true,false" }});
+        }
+        
+        console.log('Campos preenchidos automaticamente para edição');
+    }, 200);
+    {% else %}
+    console.log('ERRO: is_editing é True mas promocao não foi encontrada');
+    {% endif %}
     {% endif %}
     
     // Função para buscar militares via AJAX
@@ -419,7 +513,12 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Buscar informações do militar para preencher os campos
         console.log('Buscando informações do militar ID:', militar.id);
-        fetch(`{% url 'militares:militar_info_ajax' %}?militar_id=${militar.id}`)
+        
+        // Verificar se é promoção histórica
+        const isHistoricaCheckbox = document.getElementById('id_is_historica');
+        const isHistorica = isHistoricaCheckbox ? isHistoricaCheckbox.checked : false;
+        
+        fetch(`{% url 'militares:militar_info_ajax' %}?militar_id=${militar.id}&is_historica=${isHistorica}`)
             .then(response => {
                 console.log('Response status:', response.status);
                 if (!response.ok) {
@@ -430,10 +529,27 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 console.log('Dados recebidos:', data);
                 
-                // Verificar se há erro (ex: coronel selecionado)
+                // Verificar se há erro (ex: coronel selecionado para promoção não histórica)
                 if (data.error) {
                     console.error('Erro:', data.error);
-                    alert('Erro: ' + data.error);
+                    if (data.aviso_historica) {
+                        // Mostrar mensagem mais amigável para coronéis
+                        const msg = data.error + '\n\nDeseja marcar como promoção histórica?';
+                        if (confirm(msg) && isHistoricaCheckbox) {
+                            isHistoricaCheckbox.checked = true;
+                            // Repetir a busca com is_historica = true
+                            fetch(`{% url 'militares:militar_info_ajax' %}?militar_id=${militar.id}&is_historica=true`)
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.posto_atual) {
+                                        postoAnteriorSelect.value = data.posto_atual;
+                                        console.log('Posto anterior definido:', data.posto_atual);
+                                    }
+                                });
+                        }
+                    } else {
+                        alert('Erro: ' + data.error);
+                    }
                     return;
                 }
                 
@@ -458,6 +574,40 @@ document.addEventListener('DOMContentLoaded', function() {
             searchMilitares(this.value.trim());
         }, 300);
     });
+    
+    // Event listener para o checkbox is_historica
+    const isHistoricaCheckbox = document.getElementById('id_is_historica');
+    if (isHistoricaCheckbox) {
+        isHistoricaCheckbox.addEventListener('change', function() {
+            // Se há um militar selecionado, revalidar
+            const militarId = militarHiddenInput.value;
+            if (militarId) {
+                console.log('Checkbox is_historica mudou. Revalidando militar:', militarId);
+                fetch(`{% url 'militares:militar_info_ajax' %}?militar_id=${militarId}&is_historica=${this.checked}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Revalidação:', data);
+                        
+                        // Limpar mensagens de erro anteriores
+                        const existingAlert = document.querySelector('.alert-danger');
+                        if (existingAlert) {
+                            existingAlert.remove();
+                        }
+                        
+                        if (data.error && !this.checked) {
+                            // Mostrar erro se não for histórica
+                            const alertDiv = document.createElement('div');
+                            alertDiv.className = 'alert alert-warning mt-2';
+                            alertDiv.innerHTML = `<i class="fas fa-exclamation-triangle me-2"></i>${data.error}`;
+                            postoNovoSelect.parentNode.appendChild(alertDiv);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Erro na revalidação:', error);
+                    });
+            }
+        });
+    }
     
     militarSearchInput.addEventListener('focus', function() {
         if (this.value.trim()) {
@@ -511,6 +661,41 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('click', function(event) {
         if (!militarSearchInput.contains(event.target) && !autocompleteContainer.contains(event.target)) {
             hideAutocomplete();
+        }
+    });
+    
+    // Função para validar o número do ato
+    function validarNumeroAto(input) {
+        const maxLength = 200;
+        const currentLength = input.value.length;
+        const caracteresRestantes = maxLength - currentLength;
+        
+        // Atualizar contador
+        document.getElementById('caracteres_restantes').textContent = caracteresRestantes;
+        
+        // Mudar cor baseado no número de caracteres
+        const counter = document.getElementById('numero_ato_counter');
+        if (caracteresRestantes <= 10) {
+            counter.className = 'form-text text-danger';
+        } else if (caracteresRestantes <= 50) {
+            counter.className = 'form-text text-warning';
+        } else {
+            counter.className = 'form-text text-muted';
+        }
+        
+        // Validar se excedeu o limite
+        if (currentLength > maxLength) {
+            input.value = input.value.substring(0, maxLength);
+            document.getElementById('caracteres_restantes').textContent = '0';
+            counter.className = 'form-text text-danger';
+        }
+    }
+    
+    // Inicializar validação do número do ato
+    document.addEventListener('DOMContentLoaded', function() {
+        const numeroAtoInput = document.getElementById('id_numero_ato');
+        if (numeroAtoInput) {
+            validarNumeroAto(numeroAtoInput);
         }
     });
 });

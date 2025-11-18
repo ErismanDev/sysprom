@@ -70,24 +70,25 @@ class Migration(migrations.Migration):
                 verbose_name="Tipo de Comissão",
             ),
         ),
-        migrations.AlterField(
-            model_name="permissaofuncao",
-            name="modulo",
-            field=models.CharField(
-                choices=[
-                    ("MILITARES", "Gestão de Militares"),
-                    ("FICHAS_CONCEITO", "Fichas de Conceito"),
-                    ("QUADROS_ACESSO", "Quadros de Acesso"),
-                    ("PROMOCOES", "Promoções"),
-                    ("VAGAS", "Gestão de Vagas"),
-                    ("COMISSAO", "Comissão de Promoções"),
-                    ("DOCUMENTOS", "Documentos"),
-                    ("USUARIOS", "Gestão de Usuários"),
-                    ("RELATORIOS", "Relatórios"),
-                    ("CONFIGURACOES", "Configurações do Sistema"),
-                ],
-                max_length=20,
-                verbose_name="Módulo",
-            ),
-        ),
+        # NOTA: AlterField de permissaofuncao removido - modelo só é criado na migração 0140
+        # migrations.AlterField(
+        #     model_name="permissaofuncao",
+        #     name="modulo",
+        #     field=models.CharField(
+        #         choices=[
+        #             ("MILITARES", "Gestão de Militares"),
+        #             ("FICHAS_CONCEITO", "Fichas de Conceito"),
+        #             ("QUADROS_ACESSO", "Quadros de Acesso"),
+        #             ("PROMOCOES", "Promoções"),
+        #             ("VAGAS", "Gestão de Vagas"),
+        #             ("COMISSAO", "Comissão de Promoções"),
+        #             ("DOCUMENTOS", "Documentos"),
+        #             ("USUARIOS", "Gestão de Usuários"),
+        #             ("RELATORIOS", "Relatórios"),
+        #             ("CONFIGURACOES", "Configurações do Sistema"),
+        #         ],
+        #         max_length=20,
+        #         verbose_name="Módulo",
+        #     ),
+        # ),
     ]

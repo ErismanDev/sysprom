@@ -1,0 +1,469 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Nova Cautela Coletiva de Armas{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">
+                <i class="fas fa-users me-2 text-warning"></i>Nova Cautela Coletiva de Armas
+            </h2>
+            
+            <div class="card">
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.descricao.id_for_label }}" class="form-label">
+                                Descrição/Finalidade <span class="text-danger">*</span>
+                            </label>
+                            {{ form.descricao }}
+                            {% if form.descricao.errors %}
+                                <div class="text-danger small">{{ form.descricao.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.tipo_finalidade.id_for_label }}" class="form-label">
+                                Tipo de Finalidade <span class="text-danger">*</span>
+                            </label>
+                            {{ form.tipo_finalidade }}
+                            {% if form.tipo_finalidade.errors %}
+                                <div class="text-danger small">{{ form.tipo_finalidade.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.responsavel.id_for_label }}" class="form-label">
+                                Responsável <span class="text-danger">*</span>
+                            </label>
+                            {{ form.responsavel }}
+                            {% if form.responsavel.errors %}
+                                <div class="text-danger small">{{ form.responsavel.errors }}</div>
+                            {% endif %}
+                            <small class="form-text text-muted">Digite o nome do militar responsável</small>
+                        </div>
+                        
+                        <!-- Organograma (OM) - Campo único com Select2 -->
+                        <div class="mb-3">
+                            <label for="organograma-coletiva-select" class="form-label">
+                                Organização Militar (OM)
+                            </label>
+                            <select id="organograma-coletiva-select" class="form-select" style="width: 100%;">
+                                <option value="">Selecione uma opção do organograma...</option>
+                            </select>
+                            <!-- Campos ocultos para armazenar os valores do organograma -->
+                            {{ form.orgao }}
+                            {{ form.grande_comando }}
+                            {{ form.unidade }}
+                            {{ form.sub_unidade }}
+                            <small class="form-text text-muted">Selecione a organização militar</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.data_inicio.id_for_label }}" class="form-label">
+                                Data/Hora de Início <span class="text-danger">*</span>
+                            </label>
+                            {{ form.data_inicio }}
+                            <script>
+                                // Tornar o campo readonly e definir data/hora atual
+                                (function() {
+                                    const dataInput = document.getElementById('{{ form.data_inicio.id_for_label }}');
+                                    if (dataInput) {
+                                        const now = new Date();
+                                        const year = now.getFullYear();
+                                        const month = String(now.getMonth() + 1).padStart(2, '0');
+                                        const day = String(now.getDate()).padStart(2, '0');
+                                        const hours = String(now.getHours()).padStart(2, '0');
+                                        const minutes = String(now.getMinutes()).padStart(2, '0');
+                                        dataInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+                                        dataInput.readOnly = true;
+                                        dataInput.style.backgroundColor = '#f8f9fa';
+                                        dataInput.style.cursor = 'not-allowed';
+                                    }
+                                })();
+                            </script>
+                            {% if form.data_inicio.errors %}
+                                <div class="text-danger small">{{ form.data_inicio.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.documento_referencia.id_for_label }}" class="form-label">
+                                Documento de Referência
+                            </label>
+                            {{ form.documento_referencia }}
+                            {% if form.documento_referencia.errors %}
+                                <div class="text-danger small">{{ form.documento_referencia.errors }}</div>
+                            {% endif %}
+                            <small class="form-text text-muted">Número ou identificação do documento que autoriza a cautela (ex: Portaria, Ofício, etc)</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.observacoes.id_for_label }}" class="form-label">
+                                Observações
+                            </label>
+                            {{ form.observacoes }}
+                            {% if form.observacoes.errors %}
+                                <div class="text-danger small">{{ form.observacoes.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Seção de Armas -->
+                        <hr>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-gun me-2"></i>Armas Disponíveis em Reserva de Armamento
+                                </h6>
+                                <div>
+                                    <button type="button" class="btn btn-sm btn-info me-2" id="btnSelecionarTodas">
+                                        <i class="fas fa-check-square me-2"></i>Selecionar Todas
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-secondary" id="btnDesselecionarTodas">
+                                        <i class="fas fa-square me-2"></i>Desselecionar Todas
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            {% if armas_disponiveis %}
+                            <!-- Campo de Pesquisa -->
+                            <div class="mb-3">
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-search"></i>
+                                    </span>
+                                    <input type="text" 
+                                           class="form-control" 
+                                           id="pesquisaArmas" 
+                                           placeholder="Pesquisar por número de série, tipo, marca, modelo ou calibre...">
+                                    <button type="button" class="btn btn-outline-secondary" id="btnLimparPesquisa">
+                                        <i class="fas fa-times"></i> Limpar
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Contador de resultados -->
+                            <div class="alert alert-info mb-2" id="contadorArmas">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong><span id="totalArmas">0</span></strong> arma(s) em Reserva de Armamento | 
+                                <strong><span id="armasSelecionadas">0</span></strong> selecionada(s)
+                            </div>
+                            
+                            <!-- Lista de Armas -->
+                            <div class="card mb-3" style="max-height: 400px; overflow-y: auto;">
+                                <div class="card-body">
+                                    <div id="listaArmas">
+                                        {% for arma in armas_disponiveis %}
+                                        <div class="mb-2 item-arma" 
+                                             data-numero-serie="{{ arma.numero_serie|lower }}" 
+                                             data-tipo="{{ arma.get_tipo_display|lower }}" 
+                                             data-marca="{{ arma.marca|lower }}" 
+                                             data-modelo="{{ arma.modelo|lower }}" 
+                                             data-calibre="{{ arma.get_calibre_display|lower }}"
+                                             data-situacao="{{ arma.situacao }}">
+                                            <div class="form-check">
+                                <input class="form-check-input arma-checkbox" 
+                                       type="checkbox" 
+                                       name="armas_selecionadas" 
+                                       value="{{ arma.id }}" 
+                                       id="arma_{{ arma.id }}"
+                                       {% if arma.situacao != 'RESERVA_ARMAMENTO' or arma.estado_conservacao == 'INSERVIVEL' %}disabled{% endif %}>
+                                <label class="form-check-label {% if arma.situacao != 'RESERVA_ARMAMENTO' or arma.estado_conservacao == 'INSERVIVEL' %}text-muted{% endif %}" for="arma_{{ arma.id }}">
+                                    <strong>{{ arma.numero_serie }}</strong> - 
+                                    {{ arma.get_tipo_display }} - 
+                                    {{ arma.marca }} {{ arma.modelo }} 
+                                    ({{ arma.get_calibre_display }})
+                                    {% if arma.situacao != 'RESERVA_ARMAMENTO' %}
+                                    <span class="badge bg-secondary ms-2">{{ arma.get_situacao_display }}</span>
+                                    {% endif %}
+                                    {% if arma.estado_conservacao == 'INSERVIVEL' %}
+                                    <span class="badge bg-dark ms-2">Inservível</span>
+                                    {% endif %}
+                                </label>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Nenhuma arma disponível em Reserva de Armamento no momento.
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mt-3">
+                            <button type="submit" class="btn btn-warning">
+                                <i class="fas fa-save me-2"></i>Criar Cautela Coletiva
+                            </button>
+                            <a href="{% url 'militares:cautela_arma_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-times me-2"></i>Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    'use strict';
+    
+    // URLs para AJAX
+    {% url 'militares:ajax_organograma_completo' as url_organograma %}
+    {% url 'militares:militar-autocomplete' as url_militar_autocomplete %}
+    const URL_ORGANOGRAMA = '{{ url_organograma }}';
+    const URL_MILITAR_AUTOCOMPLETE = '{{ url_militar_autocomplete }}';
+    
+    // Elementos
+    const organogramaSelect = document.getElementById('organograma-coletiva-select');
+    const orgaoHidden = document.getElementById('{{ form.orgao.id_for_label }}');
+    const grandeComandoHidden = document.getElementById('{{ form.grande_comando.id_for_label }}');
+    const unidadeHidden = document.getElementById('{{ form.unidade.id_for_label }}');
+    const subUnidadeHidden = document.getElementById('{{ form.sub_unidade.id_for_label }}');
+    
+    // Função para carregar organograma completo
+    async function carregarOrganogramaCompleto() {
+        if (!organogramaSelect) return;
+        
+        try {
+            const response = await fetch(URL_ORGANOGRAMA);
+            const data = await response.json();
+            
+            organogramaSelect.innerHTML = '<option value="">Selecione uma opção do organograma...</option>';
+            
+            data.hierarquia.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item.id;
+                option.textContent = item.texto;
+                option.dataset.tipo = item.tipo;
+                option.dataset.valor = JSON.stringify(item.valor);
+                
+                // Estilizar por nível
+                if (item.nivel === 1) {
+                    option.style.fontWeight = 'bold';
+                    option.style.color = '#0d6efd';
+                } else if (item.nivel === 2) {
+                    option.style.fontWeight = '600';
+                    option.style.color = '#198754';
+                } else if (item.nivel === 3) {
+                    option.style.color = '#fd7e14';
+                } else if (item.nivel === 4) {
+                    option.style.color = '#6f42c1';
+                }
+                
+                organogramaSelect.appendChild(option);
+            });
+            
+            // Inicializar Select2 no organograma
+            setTimeout(() => {
+                if (typeof $ !== 'undefined' && $.fn.select2) {
+                    const $organogramaSelect = $('#organograma-coletiva-select');
+                    if ($organogramaSelect.length) {
+                        // Destruir Select2 anterior se existir
+                        if ($organogramaSelect.hasClass('select2-hidden-accessible')) {
+                            $organogramaSelect.select2('destroy');
+                        }
+                        
+                        $organogramaSelect.select2({
+                            placeholder: 'Selecione uma opção do organograma...',
+                            allowClear: true,
+                            width: '100%',
+                            language: {
+                                noResults: function () { return 'Nenhuma opção encontrada'; }
+                            }
+                        });
+                    }
+                }
+            }, 300);
+        } catch (error) {
+            console.error('Erro ao carregar organograma:', error);
+        }
+    }
+    
+    // Função para atualizar campos ocultos quando selecionar organograma
+    function atualizarCamposOcultosOrganograma() {
+        if (!organogramaSelect || !organogramaSelect.value) {
+            if (orgaoHidden) orgaoHidden.value = '';
+            if (grandeComandoHidden) grandeComandoHidden.value = '';
+            if (unidadeHidden) unidadeHidden.value = '';
+            if (subUnidadeHidden) subUnidadeHidden.value = '';
+            return;
+        }
+        
+        const selectedOption = organogramaSelect.options[organogramaSelect.selectedIndex];
+        if (selectedOption && selectedOption.dataset.valor) {
+            const valor = JSON.parse(selectedOption.dataset.valor);
+            
+            if (orgaoHidden) orgaoHidden.value = valor.orgao_id || '';
+            if (grandeComandoHidden) grandeComandoHidden.value = valor.grande_comando_id || '';
+            if (unidadeHidden) unidadeHidden.value = valor.unidade_id || '';
+            if (subUnidadeHidden) subUnidadeHidden.value = valor.sub_unidade_id || '';
+        }
+    }
+    
+    // Event listener para organograma
+    if (organogramaSelect) {
+        organogramaSelect.addEventListener('change', atualizarCamposOcultosOrganograma);
+    }
+    
+    // Inicializar Select2 para o campo responsável
+    function inicializarSelect2Militar() {
+        setTimeout(() => {
+            if (typeof $ !== 'undefined' && $.fn.select2) {
+                const $militarSelect = $('#id_responsavel_coletiva');
+                if ($militarSelect.length) {
+                    // Destruir Select2 anterior se existir
+                    if ($militarSelect.hasClass('select2-hidden-accessible')) {
+                        $militarSelect.select2('destroy');
+                    }
+                    
+                    $militarSelect.select2({
+                        ajax: {
+                            url: URL_MILITAR_AUTOCOMPLETE,
+                            dataType: 'json',
+                            delay: 250,
+                            data: function (params) {
+                                return { q: params.term || '' };
+                            },
+                            processResults: function (data) {
+                                return {
+                                    results: data.results || []
+                                };
+                            },
+                            cache: true
+                        },
+                        minimumInputLength: 2,
+                        placeholder: 'Digite o nome do militar...',
+                        allowClear: true,
+                        width: '100%',
+                        language: {
+                            inputTooShort: function () { return 'Digite pelo menos 2 caracteres...'; },
+                            noResults: function () { return 'Nenhum militar encontrado'; },
+                            searching: function () { return 'Buscando...'; }
+                        }
+                    });
+                }
+            }
+        }, 400);
+    }
+    
+    // Carregar organograma e inicializar Select2 do militar
+    carregarOrganogramaCompleto();
+    inicializarSelect2Militar();
+    
+    // ========== GERENCIAMENTO DE SELEÇÃO DE ARMAS ==========
+    const btnSelecionarTodas = document.getElementById('btnSelecionarTodas');
+    const btnDesselecionarTodas = document.getElementById('btnDesselecionarTodas');
+    const pesquisaArmas = document.getElementById('pesquisaArmas');
+    const btnLimparPesquisa = document.getElementById('btnLimparPesquisa');
+    const listaArmas = document.getElementById('listaArmas');
+    
+    // Função para atualizar contador de armas selecionadas
+    function atualizarContadorArmas() {
+        // Contar apenas armas habilitadas (em RESERVA_ARMAMENTO)
+        const checkboxesHabilitados = document.querySelectorAll('.item-arma:not([style*="display: none"]) .arma-checkbox:not([disabled])');
+        const checkboxesSelecionados = document.querySelectorAll('.item-arma:not([style*="display: none"]) .arma-checkbox:not([disabled]):checked');
+        const totalHabilitadas = checkboxesHabilitados.length;
+        const selecionadas = checkboxesSelecionados.length;
+        
+        const totalArmasSpan = document.getElementById('totalArmas');
+        const armasSelecionadasSpan = document.getElementById('armasSelecionadas');
+        
+        if (totalArmasSpan) {
+            totalArmasSpan.textContent = totalHabilitadas;
+        }
+        if (armasSelecionadasSpan) {
+            armasSelecionadasSpan.textContent = selecionadas;
+        }
+    }
+    
+    // Função para filtrar armas
+    function filtrarArmas(termo) {
+        if (!listaArmas) return;
+        
+        const termoLower = termo.toLowerCase().trim();
+        const itensArmas = listaArmas.querySelectorAll('.item-arma');
+        let totalVisiveis = 0;
+        
+        itensArmas.forEach(item => {
+            const numeroSerie = item.dataset.numeroSerie || '';
+            const tipo = item.dataset.tipo || '';
+            const marca = item.dataset.marca || '';
+            const modelo = item.dataset.modelo || '';
+            const calibre = item.dataset.calibre || '';
+            
+            const textoCompleto = `${numeroSerie} ${tipo} ${marca} ${modelo} ${calibre}`;
+            
+            if (termoLower === '' || textoCompleto.includes(termoLower)) {
+                item.style.display = '';
+                totalVisiveis++;
+            } else {
+                item.style.display = 'none';
+            }
+        });
+        
+        atualizarContadorArmas();
+    }
+    
+    // Event listener para pesquisa
+    if (pesquisaArmas) {
+        pesquisaArmas.addEventListener('input', function() {
+            filtrarArmas(this.value);
+        });
+    }
+    
+    // Botão limpar pesquisa
+    if (btnLimparPesquisa) {
+        btnLimparPesquisa.addEventListener('click', function() {
+            if (pesquisaArmas) {
+                pesquisaArmas.value = '';
+                filtrarArmas('');
+                pesquisaArmas.focus();
+            }
+        });
+    }
+    
+    // Selecionar todas as armas visíveis e habilitadas (apenas em RESERVA_ARMAMENTO)
+    if (btnSelecionarTodas) {
+        btnSelecionarTodas.addEventListener('click', function() {
+            const checkboxesVisiveis = document.querySelectorAll('.item-arma:not([style*="display: none"]) .arma-checkbox:not([disabled])');
+            checkboxesVisiveis.forEach(checkbox => {
+                checkbox.checked = true;
+            });
+            atualizarContadorArmas();
+        });
+    }
+    
+    // Desselecionar todas as armas
+    if (btnDesselecionarTodas) {
+        btnDesselecionarTodas.addEventListener('click', function() {
+            const checkboxes = document.querySelectorAll('.arma-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            atualizarContadorArmas();
+        });
+    }
+    
+    // Atualizar contador quando checkboxes são alterados
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('arma-checkbox')) {
+            atualizarContadorArmas();
+        }
+    });
+    
+    // Inicializar contador
+    atualizarContadorArmas();
+})();
+</script>
+{% endblock %}
+

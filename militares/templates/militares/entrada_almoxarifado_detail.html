@@ -1,0 +1,441 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load almoxarifado_filters %}
+
+{% block title %}Detalhes da Entrada #{{ entrada.pk }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-eye me-2 text-success"></i>Detalhes da Entrada #{{ entrada.pk }}
+                    </h2>
+                    <p class="text-muted mb-0">Informações completas da entrada de material</p>
+                </div>
+                <div>
+                    <a href="{% url 'militares:entrada_almoxarifado_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Voltar
+                    </a>
+                    <a href="{% url 'militares:entrada_almoxarifado_pdf' entrada.pk %}" 
+                       class="btn btn-danger" 
+                       target="_blank"
+                       title="Gerar PDF">
+                        <i class="fas fa-file-pdf me-2"></i>Gerar PDF
+                    </a>
+                </div>
+            </div>
+            
+            {% if entrada.assinaturas.exists or assinaturas %}
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-signature me-2"></i>Assinaturas Eletrônicas
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% for assinatura in entrada.assinaturas.all|default:assinaturas %}
+                        <div class="mb-3 p-3 border rounded" style="background-color: #fafafa;">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    {% if assinatura.tipo_assinatura == 'RECEBIMENTO' %}
+                                        <span class="badge bg-success">Recebimento de Material</span>
+                                    {% elif assinatura.tipo_assinatura == 'ENTREGA' %}
+                                        <span class="badge bg-primary">Entrega de Material</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ assinatura.get_tipo_assinatura_display }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-start">
+                                <div class="me-3">
+                                    <img src="{% static 'assinasyspro.png' %}" alt="Logo AssinaSysPro" width="100" height="70" style="background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius: 4px; padding: 5px;">
+                                </div>
+                                <div class="flex-grow-1">
+                                    <p class="mb-0 text-justify" style="font-size: 15px;">
+                                        Documento assinado eletronicamente por <strong>{% if assinatura.militar %}{{ assinatura.militar.get_posto_graduacao_display }} {{ assinatura.militar.nome_completo }}{% else %}{{ assinatura.assinado_por.get_full_name|default:assinatura.assinado_por.username }}{% endif %}</strong>{% if assinatura.funcao_assinatura %} - <strong>{{ assinatura.funcao_assinatura }}</strong>{% endif %}, em {{ assinatura.data_assinatura|date:"d/m/Y" }}, às {{ assinatura.data_assinatura|date:"H:i" }}, conforme horário oficial de Brasília, com fundamento na Portaria XXX/2025 Gab. Cmdo. Geral/CBMEPI de XX de XXXXX de 2025.
+                                    </p>
+                                    {% if assinatura.tipo_assinatura == 'RECEBIMENTO' %}
+                                        <p class="mt-2 mb-0 text-success fw-bold">
+                                            <i class="fas fa-check-circle me-1"></i>Material recebido conforme registro acima.
+                                        </p>
+                                    {% endif %}
+                                    {% if assinatura.observacoes %}
+                                        <p class="mt-2 mb-0 text-muted small">
+                                            <strong>Observações:</strong> {{ assinatura.observacoes }}
+                                        </p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-info-circle me-2"></i>Informações Gerais
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <strong><i class="fas fa-calendar me-2"></i>Data da Entrada:</strong>
+                            <p class="mb-0">{{ entrada.data_entrada|date:"d/m/Y" }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <strong><i class="fas fa-tag me-2"></i>Tipo de Entrada:</strong>
+                            <p class="mb-0">
+                                {% if entrada.tipo_entrada == 'COMPRA' %}
+                                    <span class="badge bg-primary">{{ entrada.get_tipo_entrada_display }}</span>
+                                {% elif entrada.tipo_entrada == 'DOACAO' %}
+                                    <span class="badge bg-success">{{ entrada.get_tipo_entrada_display }}</span>
+                                {% elif entrada.tipo_entrada == 'DEVOLUCAO' %}
+                                    <span class="badge bg-info">{{ entrada.get_tipo_entrada_display }}</span>
+                                {% elif entrada.tipo_entrada == 'TRANSFERENCIA' %}
+                                    <span class="badge bg-warning text-dark">{{ entrada.get_tipo_entrada_display }}</span>
+                                {% elif entrada.tipo_entrada == 'AJUSTE' %}
+                                    <span class="badge bg-secondary">{{ entrada.get_tipo_entrada_display }}</span>
+                                {% else %}
+                                    <span class="badge bg-dark">{{ entrada.get_tipo_entrada_display }}</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="row">
+                        <div class="col-12 mb-3">
+                            <strong><i class="fas fa-box me-2"></i>Produtos:</strong>
+                            {% if entrada.produtos_entrada.exists %}
+                                <div class="table-responsive mt-2">
+                                    <table class="table table-sm table-bordered">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Código</th>
+                                                <th>Descrição</th>
+                                                <th>Tamanho</th>
+                                                <th>Quantidade</th>
+                                                {% if entrada.tipo_entrada == 'COMPRA' %}
+                                                <th>Valor Unitário</th>
+                                                <th>Valor Total</th>
+                                                {% endif %}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for produto_entrada in entrada.produtos_entrada.all %}
+                                            <tr>
+                                                <td><strong>{{ produto_entrada.produto.codigo }}</strong></td>
+                                                <td>{{ produto_entrada.produto.descricao }}</td>
+                                                <td>
+                                                    {% if produto_entrada.produto.tamanho %}
+                                                        <span class="badge bg-info">{{ produto_entrada.produto.tamanho }}</span>
+                                                    {% else %}
+                                                        <span class="text-muted">-</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td><strong>{{ produto_entrada.quantidade|formatar_quantidade_unidade:produto_entrada.produto.unidade_medida }}</strong></td>
+                                                {% if entrada.tipo_entrada == 'COMPRA' %}
+                                                <td>
+                                                    {% if produto_entrada.valor_unitario %}
+                                                        R$ {{ produto_entrada.valor_unitario|floatformat:2 }}
+                                                    {% else %}
+                                                        <span class="text-muted">-</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {% if produto_entrada.valor_total %}
+                                                        R$ {{ produto_entrada.valor_total|floatformat:2 }}
+                                                    {% else %}
+                                                        <span class="text-muted">-</span>
+                                                    {% endif %}
+                                                </td>
+                                                {% endif %}
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                        <tfoot>
+                                            <tr class="table-info">
+                                                <td colspan="3" class="text-end"><strong>Total:</strong></td>
+                                                <td>
+                                                    <strong>
+                                                        {% if entrada.produtos_entrada.exists %}
+                                                            {% with produto_entrada=entrada.produtos_entrada.first %}
+                                                                {{ entrada.get_total_quantidade|formatar_quantidade_unidade:produto_entrada.produto.unidade_medida }}
+                                                            {% endwith %}
+                                                        {% elif entrada.produto %}
+                                                            {{ entrada.get_total_quantidade|formatar_quantidade_unidade:entrada.produto.unidade_medida }}
+                                                        {% else %}
+                                                            {{ entrada.get_total_quantidade }}
+                                                        {% endif %}
+                                                    </strong>
+                                                </td>
+                                                {% if entrada.tipo_entrada == 'COMPRA' %}
+                                                <td></td>
+                                                <td>
+                                                    <strong>
+                                                        {% if entrada.produtos_entrada.exists %}
+                                                            R$ {{ entrada.get_total_valor_total|floatformat:2 }}
+                                                        {% else %}
+                                                            <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </strong>
+                                                </td>
+                                                {% endif %}
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            {% elif entrada.produto %}
+                                <div class="mt-2">
+                                    <p class="mb-1"><strong>{{ entrada.produto.codigo }}</strong> - {{ entrada.produto.descricao }}</p>
+                                    <p class="mb-0">
+                                        <strong>Quantidade:</strong> {{ entrada.quantidade|formatar_quantidade_unidade:entrada.produto.unidade_medida }}
+                                        {% if entrada.produto.tamanho %}
+                                            | <strong>Tamanho:</strong> <span class="badge bg-info">{{ entrada.produto.tamanho }}</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            {% else %}
+                                <p class="text-muted mb-0">Nenhum produto registrado</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    {% if entrada.fornecedor or entrada.cnpj_fornecedor or entrada.endereco_fornecedor or entrada.nota_fiscal or entrada.numero_processo or entrada.numero_convenio %}
+                    <hr>
+                    <div class="row">
+                        <div class="col-12">
+                            <h6 class="mb-3"><i class="fas fa-truck me-2"></i>Informações do Fornecedor</h6>
+                        </div>
+                        {% if entrada.fornecedor %}
+                        <div class="col-md-6 mb-3">
+                            <strong>Fornecedor:</strong>
+                            <p class="mb-0">{{ entrada.fornecedor }}</p>
+                        </div>
+                        {% endif %}
+                        {% if entrada.cnpj_fornecedor %}
+                        <div class="col-md-6 mb-3">
+                            <strong>CNPJ do Fornecedor:</strong>
+                            <p class="mb-0">{{ entrada.cnpj_fornecedor }}</p>
+                        </div>
+                        {% endif %}
+                        {% if entrada.endereco_fornecedor %}
+                        <div class="col-12 mb-3">
+                            <strong>Endereço do Fornecedor:</strong>
+                            <p class="mb-0">{{ entrada.endereco_fornecedor }}</p>
+                        </div>
+                        {% endif %}
+                        {% if entrada.nota_fiscal %}
+                        <div class="col-md-6 mb-3">
+                            <strong>Nota Fiscal:</strong>
+                            <p class="mb-0">{{ entrada.nota_fiscal }}</p>
+                        </div>
+                        {% endif %}
+                        {% if entrada.tipo_entrada == 'DOACAO' %}
+                            {% if entrada.numero_processo %}
+                            <div class="col-md-6 mb-3">
+                                <strong>Número do Processo:</strong>
+                                <p class="mb-0">{{ entrada.numero_processo }}</p>
+                            </div>
+                            {% endif %}
+                            {% if entrada.numero_convenio %}
+                            <div class="col-md-6 mb-3">
+                                <strong>Número do Convênio:</strong>
+                                <p class="mb-0">{{ entrada.numero_convenio }}</p>
+                            </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    {% if entrada.valor_unitario or entrada.valor_total %}
+                    <hr>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <strong><i class="fas fa-dollar-sign me-2"></i>Valor Unitário:</strong>
+                            <p class="mb-0">
+                                {% if entrada.valor_unitario %}
+                                    R$ {{ entrada.valor_unitario|floatformat:2 }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <strong><i class="fas fa-money-bill-wave me-2"></i>Valor Total:</strong>
+                            <p class="mb-0">
+                                {% if entrada.valor_total %}
+                                    R$ {{ entrada.valor_total|floatformat:2 }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <hr>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <strong><i class="fas fa-user me-2"></i>Responsável:</strong>
+                            <p class="mb-0">
+                                {% if entrada.responsavel %}
+                                    {{ entrada.responsavel.get_posto_graduacao_display }} {{ entrada.responsavel.nome_completo }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <strong><i class="fas fa-arrow-left me-2"></i>Organização Militar de Origem:</strong>
+                            <p class="mb-0">
+                                {% if entrada.sub_unidade_origem %}
+                                    <span class="badge bg-warning text-dark">{{ entrada.sub_unidade_origem }}</span>
+                                {% elif entrada.unidade_origem %}
+                                    <span class="badge bg-warning text-dark">{{ entrada.unidade_origem }}</span>
+                                {% elif entrada.grande_comando_origem %}
+                                    <span class="badge bg-warning text-dark">{{ entrada.grande_comando_origem }}</span>
+                                {% elif entrada.orgao_origem %}
+                                    <span class="badge bg-warning text-dark">{{ entrada.orgao_origem }}</span>
+                                {% else %}
+                                    <span class="text-muted">Não informado</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <strong><i class="fas fa-arrow-right me-2"></i>Organização Militar de Destino:</strong>
+                            <p class="mb-0">
+                                {% if entrada.sub_unidade_destino %}
+                                    <span class="badge bg-success">{{ entrada.sub_unidade_destino }}</span>
+                                {% elif entrada.unidade_destino %}
+                                    <span class="badge bg-success">{{ entrada.unidade_destino }}</span>
+                                {% elif entrada.grande_comando_destino %}
+                                    <span class="badge bg-success">{{ entrada.grande_comando_destino }}</span>
+                                {% elif entrada.orgao_destino %}
+                                    <span class="badge bg-success">{{ entrada.orgao_destino }}</span>
+                                {% elif entrada.produtos_entrada.exists %}
+                                    {% with produto_entrada=entrada.produtos_entrada.first %}
+                                        {% if produto_entrada.produto.sub_unidade %}
+                                            <span class="badge bg-success">{{ produto_entrada.produto.sub_unidade }}</span>
+                                        {% elif produto_entrada.produto.unidade %}
+                                            <span class="badge bg-success">{{ produto_entrada.produto.unidade }}</span>
+                                        {% elif produto_entrada.produto.grande_comando %}
+                                            <span class="badge bg-success">{{ produto_entrada.produto.grande_comando }}</span>
+                                        {% elif produto_entrada.produto.orgao %}
+                                            <span class="badge bg-success">{{ produto_entrada.produto.orgao }}</span>
+                                        {% else %}
+                                            <span class="text-muted">Não informado</span>
+                                        {% endif %}
+                                    {% endwith %}
+                                {% elif entrada.produto %}
+                                    {% if entrada.produto.sub_unidade %}
+                                        <span class="badge bg-success">{{ entrada.produto.sub_unidade }}</span>
+                                    {% elif entrada.produto.unidade %}
+                                        <span class="badge bg-success">{{ entrada.produto.unidade }}</span>
+                                    {% elif entrada.produto.grande_comando %}
+                                        <span class="badge bg-success">{{ entrada.produto.grande_comando }}</span>
+                                    {% elif entrada.produto.orgao %}
+                                        <span class="badge bg-success">{{ entrada.produto.orgao }}</span>
+                                    {% else %}
+                                        <span class="text-muted">Não informado</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">Não informado</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <strong><i class="fas fa-user-cog me-2"></i>Criado por:</strong>
+                            <p class="mb-0">
+                                {% if entrada.criado_por %}
+                                    {{ entrada.criado_por.get_full_name|default:entrada.criado_por.username }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    {% if entrada.observacoes %}
+                    <hr>
+                    <div class="row">
+                        <div class="col-12 mb-3">
+                            <strong><i class="fas fa-sticky-note me-2"></i>Observações:</strong>
+                            <p class="mb-0">{{ entrada.observacoes }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <hr>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <strong><i class="fas fa-clock me-2"></i>Data de Criação:</strong>
+                            <p class="mb-0">{{ entrada.data_criacao|date:"d/m/Y H:i" }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <strong><i class="fas fa-edit me-2"></i>Última Atualização:</strong>
+                            <p class="mb-0">{{ entrada.data_atualizacao|date:"d/m/Y H:i" }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            {% if entrada.documentos.exists %}
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-paperclip me-2"></i>Documentos Anexados
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        {% for documento in entrada.documentos.all %}
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <i class="{{ documento.get_icone_tipo }} me-2 fs-5"></i>
+                                            <strong>{{ documento.titulo }}</strong>
+                                            <span class="badge bg-secondary ms-2">{{ documento.get_tipo_display }}</span>
+                                        </div>
+                                        {% if documento.descricao %}
+                                            <p class="mb-2 text-muted small">{{ documento.descricao }}</p>
+                                        {% endif %}
+                                        <div class="small text-muted">
+                                            <i class="fas fa-file me-1"></i>{{ documento.filename }}
+                                            <span class="ms-2"><i class="fas fa-weight me-1"></i>{{ documento.file_size }}</span>
+                                            <span class="ms-2"><i class="fas fa-user me-1"></i>{{ documento.upload_por.get_full_name|default:documento.upload_por.username }}</span>
+                                            <span class="ms-2"><i class="fas fa-calendar me-1"></i>{{ documento.data_upload|date:"d/m/Y H:i" }}</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <a href="{{ documento.arquivo.url }}" 
+                                           target="_blank" 
+                                           class="btn btn-sm btn-outline-primary"
+                                           title="Visualizar">
+                                            <i class="fas fa-eye me-1"></i>Visualizar
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+

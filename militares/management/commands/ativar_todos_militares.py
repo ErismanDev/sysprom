@@ -16,7 +16,7 @@ class Command(BaseCommand):
         dry_run = options['dry_run']
 
         # Buscar todos os militares inativos
-        militares_inativos = Militar.objects.filter(situacao='IN')
+        militares_inativos = Militar.objects.filter(classificacao='INATIVO')
         total_inativos = militares_inativos.count()
 
         if total_inativos == 0:
@@ -42,14 +42,14 @@ class Command(BaseCommand):
                 self.stdout.write(f'  ... e mais {total_inativos - 10} militares')
         else:
             # Ativar todos os militares inativos
-            militares_inativos.update(situacao='AT')
+            militares_inativos.update(classificacao='ATIVO')
             
             self.stdout.write(
                 self.style.SUCCESS(f'✅ {total_inativos} militares foram ativados com sucesso!')
             )
 
         # Mostrar estatísticas finais
-        total_ativos = Militar.objects.filter(situacao='AT').count()
+        total_ativos = Militar.objects.filter(classificacao='ATIVO').count()
         total_geral = Militar.objects.count()
         
         self.stdout.write('\n' + '='*50)

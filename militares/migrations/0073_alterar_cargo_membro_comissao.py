@@ -11,13 +11,15 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name="membrocomissao",
-            name="cargo",
-            field=models.ForeignKey(
-                on_delete=django.db.models.deletion.PROTECT,
-                to="militares.cargofuncao",
-                verbose_name="Função/Cargo do Usuário",
-            ),
-        ),
+        # NOTA: Esta alteração foi removida porque FuncaoMilitar só é criado na migração 0138
+        # A alteração será feita na migração 0159_adicionar_funcao_militar_membrocomissao
+        # migrations.AlterField(
+        #     model_name="membrocomissao",
+        #     name="cargo",
+        #     field=models.ForeignKey(
+        #         on_delete=django.db.models.deletion.PROTECT,
+        #         to="militares.funcaomilitar",
+        #         verbose_name="Função/Cargo do Usuário",
+        #     ),
+        # ),
     ]

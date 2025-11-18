@@ -1,0 +1,815 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load almoxarifado_filters %}
+
+{% block title %}Almoxarifado - Itens{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-warehouse me-2 text-primary"></i>Almoxarifado - Itens
+                    </h2>
+                    <p class="text-muted mb-0">Gerenciar cadastro de itens do almoxarifado</p>
+                </div>
+                <div>
+                    {% if pode_criar or user.is_superuser %}
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#criarItemModal">
+                        <i class="fas fa-plus me-2"></i>Novo Item
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Cards de Estatísticas -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-box fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_itens }}</h4>
+                            <p class="mb-0">Total de Itens</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card success">
+                        <div class="card-body text-center">
+                            <i class="fas fa-check-circle fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ itens_ativos }}</h4>
+                            <p class="mb-0">Itens Ativos</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card danger">
+                        <div class="card-body text-center">
+                            <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ itens_esgotados }}</h4>
+                            <p class="mb-0">Itens Esgotados</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card warning">
+                        <div class="card-body text-center">
+                            <i class="fas fa-exclamation-circle fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ itens_criticos }}</h4>
+                            <p class="mb-0">Itens Críticos</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Pesquisa</label>
+                            <input type="text" name="search" class="form-control" 
+                                   value="{{ search }}" placeholder="Código, descrição, marca...">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Categoria</label>
+                            <select name="categoria" class="form-select">
+                                <option value="">Todas</option>
+                                {% for cat in categorias %}
+                                    <option value="{{ cat.id }}" {% if categoria == cat.id|stringformat:"s" or categoria == cat.id %}selected{% endif %}>
+                                        {{ cat.nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Status Estoque</label>
+                            <select name="status_estoque" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="ESGOTADO" {% if status_estoque == 'ESGOTADO' %}selected{% endif %}>Esgotado</option>
+                                <option value="CRITICO" {% if status_estoque == 'CRITICO' %}selected{% endif %}>Crítico</option>
+                                <option value="NORMAL" {% if status_estoque == 'NORMAL' %}selected{% endif %}>Normal</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Ativo</label>
+                            <select name="ativo" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="1" {% if ativo == '1' %}selected{% endif %}>Sim</option>
+                                <option value="0" {% if ativo == '0' %}selected{% endif %}>Não</option>
+                            </select>
+                        </div>
+                        {% if opcoes_om %}
+                        <div class="col-md-3">
+                            <label class="form-label">Organização Militar</label>
+                            <select name="om" class="form-select">
+                                <option value="">Todas</option>
+                                {% for org in opcoes_om %}
+                                    <option value="{{ org.id }}" {% if om == org.id %}selected{% endif %}>
+                                        {{ org.nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endif %}
+                        <div class="col-12 d-flex justify-content-end gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                            <a href="{% url 'militares:produto_almoxarifado_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Limpar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Lista de Itens -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Lista de Itens
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if itens %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Imagem</th>
+                                        <th>Código</th>
+                                        <th>Descrição</th>
+                                        <th>Tamanho</th>
+                                        <th>Categoria</th>
+                                        <th>{% if nome_om_filtro %}{{ nome_om_filtro }}{% elif nome_om_usuario %}{{ nome_om_usuario }}{% else %}Quantidade{% endif %}</th>
+                                        <th>Status Estoque</th>
+                                        <th>Localização</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in itens %}
+                                        <tr>
+                                            <td>
+                                                {% if item.imagem %}
+                                                    <img src="{{ item.imagem.url }}" 
+                                                         alt="{{ item.descricao }}" 
+                                                         class="img-thumbnail" 
+                                                         style="width: 60px; height: 60px; object-fit: cover; cursor: pointer;"
+                                                         data-bs-toggle="modal" 
+                                                         data-bs-target="#imagemModal{{ item.pk }}">
+                                                {% else %}
+                                                    <div class="bg-light d-flex align-items-center justify-content-center" 
+                                                         style="width: 60px; height: 60px; border-radius: 4px;">
+                                                        <i class="fas fa-image text-muted"></i>
+                                                    </div>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <strong>{{ item.get_codigo_limpo }}</strong>
+                                                {% if not item.ativo %}
+                                                    <span class="badge bg-secondary ms-1">Inativo</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ item.descricao|truncatewords:10 }}</td>
+                                            <td>
+                                                {% if item.tamanho %}
+                                                    <span class="badge bg-info">{{ item.tamanho }}</span>
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ item.get_categoria_display }}</td>
+                                            <td>
+                                                {# Coluna Quantidade - mostra estoque total quando não há filtro de OM, ou estoque da OM quando há filtro #}
+                                                {% if nome_om_filtro or nome_om_usuario %}
+                                                    {# Quando há filtro de OM ou OM do usuário, mostrar estoque da OM específica #}
+                                                    {% if item.estoque_om is not None %}
+                                                        <strong>{{ item.estoque_om|formatar_quantidade_unidade:item.unidade_medida }}</strong>
+                                                    {% else %}
+                                                        <strong>0 {{ item.unidade_medida }}</strong>
+                                                    {% endif %}
+                                                {% else %}
+                                                    {# Quando não há filtro de OM, mostrar estoque total (soma de todas as OMs) #}
+                                                    {% if item.estoque_total is not None %}
+                                                        <strong>{{ item.estoque_total|formatar_quantidade_unidade:item.unidade_medida }}</strong>
+                                                    {% elif item.estoque_total_hierarquia is not None %}
+                                                        <strong>{{ item.estoque_total_hierarquia|formatar_quantidade_unidade:item.unidade_medida }}</strong>
+                                                    {% else %}
+                                                        <strong>{{ item.quantidade_atual|formatar_quantidade_unidade:item.unidade_medida }}</strong>
+                                                    {% endif %}
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if nome_om_filtro or item.estoque_om is not None %}
+                                                    {# Calcular status de estoque baseado no estoque_om #}
+                                                    {% if item.estoque_om and item.estoque_om <= 0 %}
+                                                        <span class="badge bg-danger">Esgotado</span>
+                                                    {% elif item.estoque_om and item.estoque_om <= item.estoque_minimo %}
+                                                        <span class="badge bg-warning">Crítico</span>
+                                                    {% elif item.estoque_om and item.estoque_om >= item.estoque_maximo %}
+                                                        <span class="badge bg-info">Acima do Máximo</span>
+                                                    {% elif item.estoque_om %}
+                                                        <span class="badge bg-success">Normal</span>
+                                                    {% else %}
+                                                        <span class="badge bg-secondary">N/A</span>
+                                                    {% endif %}
+                                                {% else %}
+                                                    {# Status baseado na quantidade_atual total #}
+                                                    <span class="badge bg-{{ item.get_status_estoque_color }}">
+                                                        {{ item.get_status_estoque_display }}
+                                                    </span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <span {% if item.localizacao_om or item.localizacao %}title="{% if item.localizacao_om %}{{ item.localizacao_om }}{% elif item.localizacao %}{{ item.localizacao }}{% endif %}"{% endif %}>
+                                                        {% if item.localizacao_om %}
+                                                            {{ item.localizacao_om|truncatewords:10 }}
+                                                        {% elif item.localizacao %}
+                                                            {{ item.localizacao|truncatewords:10 }}
+                                                        {% else %}
+                                                            <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </span>
+                                                    {% if pode_editar %}
+                                                        <button type="button" 
+                                                                class="btn btn-sm btn-outline-secondary p-1" 
+                                                                title="Editar localização nesta OM"
+                                                                onclick="editarLocalizacao({{ item.pk }})"
+                                                                style="line-height: 1; padding: 2px 6px !important;">
+                                                            <i class="fas fa-edit" style="font-size: 0.8rem;"></i>
+                                                        </button>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    {% if nome_om_filtro and orgao_om %}
+                                                        <a href="{% url 'militares:produto_almoxarifado_detail' item.pk %}?orgao={{ orgao_om.id }}" 
+                                                           class="btn btn-sm btn-info" title="Visualizar">
+                                                            <i class="fas fa-eye"></i>
+                                                        </a>
+                                                    {% elif nome_om_filtro and grande_comando_om %}
+                                                        <a href="{% url 'militares:produto_almoxarifado_detail' item.pk %}?grande_comando={{ grande_comando_om.id }}" 
+                                                           class="btn btn-sm btn-info" title="Visualizar">
+                                                            <i class="fas fa-eye"></i>
+                                                        </a>
+                                                    {% elif nome_om_filtro and unidade_om %}
+                                                        <a href="{% url 'militares:produto_almoxarifado_detail' item.pk %}?unidade={{ unidade_om.id }}" 
+                                                           class="btn btn-sm btn-info" title="Visualizar">
+                                                            <i class="fas fa-eye"></i>
+                                                        </a>
+                                                    {% elif nome_om_filtro and sub_unidade_om %}
+                                                        <a href="{% url 'militares:produto_almoxarifado_detail' item.pk %}?sub_unidade={{ sub_unidade_om.id }}" 
+                                                           class="btn btn-sm btn-info" title="Visualizar">
+                                                            <i class="fas fa-eye"></i>
+                                                        </a>
+                                                    {% elif nome_om_usuario and sub_unidade_usuario %}
+                                                        <a href="{% url 'militares:produto_almoxarifado_detail' item.pk %}?sub_unidade={{ sub_unidade_usuario.id }}" 
+                                                           class="btn btn-sm btn-info" title="Visualizar">
+                                                            <i class="fas fa-eye"></i>
+                                                        </a>
+                                                    {% elif nome_om_usuario and unidade_usuario %}
+                                                        <a href="{% url 'militares:produto_almoxarifado_detail' item.pk %}?unidade={{ unidade_usuario.id }}" 
+                                                           class="btn btn-sm btn-info" title="Visualizar">
+                                                            <i class="fas fa-eye"></i>
+                                                        </a>
+                                                    {% elif nome_om_usuario and grande_comando_usuario %}
+                                                        <a href="{% url 'militares:produto_almoxarifado_detail' item.pk %}?grande_comando={{ grande_comando_usuario.id }}" 
+                                                           class="btn btn-sm btn-info" title="Visualizar">
+                                                            <i class="fas fa-eye"></i>
+                                                        </a>
+                                                    {% elif nome_om_usuario and orgao_usuario %}
+                                                        <a href="{% url 'militares:produto_almoxarifado_detail' item.pk %}?orgao={{ orgao_usuario.id }}" 
+                                                           class="btn btn-sm btn-info" title="Visualizar">
+                                                            <i class="fas fa-eye"></i>
+                                                        </a>
+                                                    {% else %}
+                                                        <a href="{% url 'militares:produto_almoxarifado_detail' item.pk %}" 
+                                                           class="btn btn-sm btn-info" title="Visualizar">
+                                                            <i class="fas fa-eye"></i>
+                                                        </a>
+                                                    {% endif %}
+                                                    <a href="{% url 'militares:produto_almoxarifado_pdf' item.pk %}" 
+                                                       class="btn btn-sm btn-danger" 
+                                                       target="_blank"
+                                                       title="Gerar PDF">
+                                                        <i class="fas fa-file-pdf"></i>
+                                                    </a>
+                                                    {% if pode_criar or user.is_superuser %}
+                                                    <a href="{% url 'militares:produto_almoxarifado_duplicate' item.pk %}" 
+                                                       class="btn btn-sm btn-success" 
+                                                       title="Duplicar/Copiar item"
+                                                       onclick="return confirm('Deseja duplicar este item? Uma cópia será criada e você poderá editá-la.');">
+                                                        <i class="fas fa-copy"></i>
+                                                    </a>
+                                                    {% endif %}
+                                                    {% if item.criado_por == user or user.is_superuser %}
+                                                    <button type="button" 
+                                                            class="btn btn-sm btn-primary btn-editar-item" 
+                                                            data-item-id="{{ item.pk }}"
+                                                            title="Editar">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    {% endif %}
+                                                    {% if user.is_superuser %}
+                                                    <button type="button" 
+                                                            class="btn btn-sm btn-danger btn-excluir-item" 
+                                                            data-item-id="{{ item.pk }}"
+                                                            data-item-nome="{{ item.codigo }}"
+                                                            title="Excluir">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if is_paginated %}
+                            <nav aria-label="Paginação">
+                                <ul class="pagination justify-content-center mt-4">
+                                    {% if page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}{% if categoria %}&categoria={{ categoria }}{% endif %}{% if status_estoque %}&status_estoque={{ status_estoque }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">
+                                                <i class="fas fa-angle-double-left"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if categoria %}&categoria={{ categoria }}{% endif %}{% if status_estoque %}&status_estoque={{ status_estoque }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">
+                                                <i class="fas fa-angle-left"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                    
+                                    <li class="page-item disabled">
+                                        <span class="page-link">
+                                            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                                        </span>
+                                    </li>
+                                    
+                                    <!-- Seletor de Página -->
+                                    {% if page_obj.paginator.num_pages > 1 %}
+                                    <li class="page-item">
+                                        <div class="input-group" style="width: 120px; margin: 0 5px;">
+                                            <input type="number" 
+                                                   class="form-control form-control-sm page-selector" 
+                                                   min="1" 
+                                                   max="{{ page_obj.paginator.num_pages }}" 
+                                                   value="{{ page_obj.number }}"
+                                                   style="text-align: center;">
+                                            <button class="btn btn-sm btn-outline-secondary go-to-page-btn" type="button">
+                                                <i class="fas fa-arrow-right"></i>
+                                            </button>
+                                        </div>
+                                    </li>
+                                    {% endif %}
+                                    
+                                    {% if page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if categoria %}&categoria={{ categoria }}{% endif %}{% if status_estoque %}&status_estoque={{ status_estoque }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">
+                                                <i class="fas fa-angle-right"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if categoria %}&categoria={{ categoria }}{% endif %}{% if status_estoque %}&status_estoque={{ status_estoque }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">
+                                                <i class="fas fa-angle-double-right"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Nenhum item encontrado.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Criar Item -->
+<div class="modal fade" id="criarItemModal" tabindex="-1" aria-labelledby="criarItemModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="criarItemModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Editar Item -->
+<div class="modal fade" id="editarItemModal" tabindex="-1" aria-labelledby="editarItemModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="editarItemModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Excluir Item -->
+<div class="modal fade" id="excluirItemModal" tabindex="-1" aria-labelledby="excluirItemModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" id="excluirItemModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-danger" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Modal de Criar
+    const criarItemModal = document.getElementById('criarItemModal');
+    const criarItemModalContent = document.getElementById('criarItemModalContent');
+    
+    if (criarItemModal && criarItemModalContent) {
+        criarItemModal.addEventListener('show.bs.modal', function(event) {
+            criarItemModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            fetch('{% url "militares:produto_almoxarifado_create" %}', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.html) {
+                    criarItemModalContent.innerHTML = data.html;
+                    
+                    setTimeout(function() {
+                        const scripts = criarItemModalContent.querySelectorAll('script');
+                        scripts.forEach(function(oldScript) {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(attr => {
+                                newScript.setAttribute(attr.name, attr.value);
+                            });
+                            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                            oldScript.parentNode.replaceChild(newScript, oldScript);
+                        });
+                    }, 100);
+                } else {
+                    criarItemModalContent.innerHTML = `
+                        <div class="modal-body">
+                            <div class="alert alert-danger">Erro ao carregar formulário.</div>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                criarItemModalContent.innerHTML = `
+                    <div class="modal-body">
+                        <div class="alert alert-danger">Erro ao carregar formulário.</div>
+                    </div>
+                `;
+            });
+        });
+    }
+    
+    // Modal de Editar
+    const editarItemModal = document.getElementById('editarItemModal');
+    const editarItemModalContent = document.getElementById('editarItemModalContent');
+    
+    document.querySelectorAll('.btn-editar-item').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const itemId = this.getAttribute('data-item-id');
+            
+            editarItemModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            const modal = new bootstrap.Modal(editarItemModal);
+            modal.show();
+            
+            fetch(`/militares/almoxarifado/produtos/${itemId}/editar/`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.html) {
+                    editarItemModalContent.innerHTML = data.html;
+                    
+                    setTimeout(function() {
+                        const scripts = editarItemModalContent.querySelectorAll('script');
+                        scripts.forEach(function(oldScript) {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(attr => {
+                                newScript.setAttribute(attr.name, attr.value);
+                            });
+                            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                            oldScript.parentNode.replaceChild(newScript, oldScript);
+                        });
+                    }, 100);
+                } else {
+                    editarItemModalContent.innerHTML = `
+                        <div class="modal-body">
+                            <div class="alert alert-danger">Erro ao carregar formulário.</div>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                editarItemModalContent.innerHTML = `
+                    <div class="modal-body">
+                        <div class="alert alert-danger">Erro ao carregar formulário.</div>
+                    </div>
+                `;
+            });
+        });
+    });
+    
+    // Modal de Excluir
+    const excluirItemModal = document.getElementById('excluirItemModal');
+    const excluirItemModalContent = document.getElementById('excluirItemModalContent');
+    
+    document.querySelectorAll('.btn-excluir-item').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const itemId = this.getAttribute('data-item-id');
+            const itemNome = this.getAttribute('data-item-nome');
+            
+            excluirItemModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-danger" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando...</p>
+                </div>
+            `;
+            
+            const modal = new bootstrap.Modal(excluirItemModal);
+            modal.show();
+            
+            fetch(`/militares/almoxarifado/produtos/${itemId}/excluir/`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.html) {
+                    excluirItemModalContent.innerHTML = data.html;
+                } else {
+                    excluirItemModalContent.innerHTML = `
+                        <div class="modal-body">
+                            <div class="alert alert-danger">Erro ao carregar confirmação.</div>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                excluirItemModalContent.innerHTML = `
+                    <div class="modal-body">
+                        <div class="alert alert-danger">Erro ao carregar confirmação.</div>
+                    </div>
+                `;
+            });
+        });
+    });
+});
+</script>
+
+<!-- Modais para visualizar imagens em tamanho maior -->
+{% for item in itens %}
+    {% if item.imagem %}
+    <div class="modal fade" id="imagemModal{{ item.pk }}" tabindex="-1" aria-labelledby="imagemModalLabel{{ item.pk }}" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="imagemModalLabel{{ item.pk }}">{{ item.get_codigo_limpo }} - {{ item.descricao }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img src="{{ item.imagem.url }}" alt="{{ item.descricao }}" class="img-fluid" style="max-height: 70vh;">
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+{% endfor %}
+
+<!-- Container para modais de localização (serão inseridos dinamicamente) -->
+<div id="localizacaoModalsContainer"></div>
+
+<script>
+// Função para editar localização
+function editarLocalizacao(produtoId) {
+    // Verificar se o modal já existe
+    let modalElement = document.getElementById('modalLocalizacao' + produtoId);
+    
+    if (!modalElement) {
+        // Carregar modal via AJAX
+        fetch('{% url "militares:produto_almoxarifado_update_localizacao" 0 %}'.replace('0', produtoId), {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // Inserir HTML do modal no container
+                const container = document.getElementById('localizacaoModalsContainer');
+                container.insertAdjacentHTML('beforeend', data.html);
+                
+                // Inicializar modal
+                const modal = new bootstrap.Modal(document.getElementById('modalLocalizacao' + produtoId));
+                modal.show();
+                
+                // Configurar submit do formulário
+                const form = document.getElementById('formLocalizacao' + produtoId);
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const formData = new FormData(form);
+                    
+                    fetch(form.action, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            // Fechar modal
+                            modal.hide();
+                            
+                            // Encontrar a linha da tabela usando o ID do produto
+                            // Procurar pelo botão de editar que tem onclick="editarLocalizacao(produtoId)"
+                            const buttons = document.querySelectorAll('button[onclick*="editarLocalizacao"]');
+                            let targetRow = null;
+                            
+                            for (let btn of buttons) {
+                                const onclickAttr = btn.getAttribute('onclick');
+                                if (onclickAttr && onclickAttr.includes('editarLocalizacao(' + produtoId + ')')) {
+                                    targetRow = btn.closest('tr');
+                                    break;
+                                }
+                            }
+                            
+                            // Se não encontrou pelo botão, tentar encontrar pela estrutura da tabela
+                            if (!targetRow) {
+                                // Procurar por qualquer elemento que contenha o ID do produto
+                                const allRows = document.querySelectorAll('tbody tr');
+                                for (let row of allRows) {
+                                    // Verificar se a linha tem um botão com o produtoId
+                                    const editBtn = row.querySelector('button[onclick*="editarLocalizacao(' + produtoId + ')"]');
+                                    if (editBtn) {
+                                        targetRow = row;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            // Atualizar localização na tabela
+                            if (targetRow) {
+                                const localizacaoCell = targetRow.querySelector('td:nth-child(8)'); // Coluna de Localização (8ª coluna)
+                                if (localizacaoCell) {
+                                    const span = localizacaoCell.querySelector('span');
+                                    if (span) {
+                                        if (data.localizacao) {
+                                            // Truncar se necessário (como no template - truncatewords:3)
+                                            const palavras = data.localizacao.split(' ');
+                                            const texto = palavras.length > 3 ? palavras.slice(0, 3).join(' ') + '...' : data.localizacao;
+                                            span.textContent = texto;
+                                        } else {
+                                            span.innerHTML = '<span class="text-muted">-</span>';
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // Mostrar mensagem de sucesso
+                            if (typeof showToast === 'function') {
+                                showToast('success', data.message);
+                            } else {
+                                alert(data.message);
+                            }
+                            
+                            // Remover modal do DOM após fechar
+                            setTimeout(() => {
+                                modalElement.remove();
+                            }, 300);
+                        } else {
+                            alert('Erro: ' + (data.message || 'Erro ao atualizar localização'));
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Erro:', error);
+                        alert('Erro ao atualizar localização');
+                    });
+                });
+            } else {
+                alert('Erro ao carregar formulário');
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao carregar formulário');
+        });
+    } else {
+        // Modal já existe, apenas mostrar
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+    }
+}
+</script>
+
+<script>
+// Seletor de Página
+document.addEventListener('DOMContentLoaded', function() {
+    const pageSelectors = document.querySelectorAll('.page-selector');
+    const goToPageBtns = document.querySelectorAll('.go-to-page-btn');
+    
+    pageSelectors.forEach((selector, index) => {
+        const btn = goToPageBtns[index];
+        
+        // Ir para página ao clicar no botão
+        btn.addEventListener('click', function() {
+            const page = parseInt(selector.value);
+            const maxPage = parseInt(selector.max);
+            if (page >= 1 && page <= maxPage) {
+                const urlParams = new URLSearchParams(window.location.search);
+                urlParams.set('page', page);
+                window.location.href = '?' + urlParams.toString();
+            }
+        });
+        
+        // Ir para página ao pressionar Enter
+        selector.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const page = parseInt(selector.value);
+                const maxPage = parseInt(selector.max);
+                if (page >= 1 && page <= maxPage) {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    urlParams.set('page', page);
+                    window.location.href = '?' + urlParams.toString();
+                }
+            }
+        });
+    });
+});
+</script>
+
+{% endblock %}
+

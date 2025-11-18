@@ -1,0 +1,2149 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Lista de Escalas{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #ff6b35; /* Laranja vibrante */
+        --secondary-color: #d62828; /* Vermelho */
+        --accent-color: #f77f00; /* Laranja mais escuro */
+        --dark-color: #1a1a1a; /* Preto */
+        --dark-gray: #2d2d2d; /* Cinza escuro */
+        --light-orange: #ff8c42; /* Laranja claro */
+    }
+    
+    .escala-card {
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+        overflow: hidden;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        position: relative;
+    }
+    
+    .escala-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .escala-header {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+        color: white;
+        padding: 20px;
+    }
+    
+    .escala-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin: 0 0 10px 0;
+    }
+    
+    .escala-meta {
+        display: flex;
+        gap: 20px;
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    
+    .escala-body {
+        padding: 20px;
+    }
+    
+    .escala-info {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .info-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .info-item i {
+        color: var(--primary-color);
+        width: 16px;
+    }
+    
+    .info-label {
+        font-weight: 500;
+        color: #495057;
+    }
+    
+    .info-value {
+        color: #6c757d;
+    }
+    
+    .escala-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    
+    
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+    
+    .status-ativa {
+        background: rgba(255, 107, 53, 0.1);
+        color: var(--primary-color);
+        border: 1px solid rgba(255, 107, 53, 0.3);
+    }
+    
+    .status-inativa {
+        background: rgba(214, 40, 40, 0.1);
+        color: var(--secondary-color);
+        border: 1px solid rgba(214, 40, 40, 0.3);
+    }
+    
+    .status-concluida {
+        background: rgba(247, 127, 0, 0.1);
+        color: var(--accent-color);
+        border: 1px solid rgba(247, 127, 0, 0.3);
+    }
+    
+    .status-cancelada {
+        background: rgba(214, 40, 40, 0.1);
+        color: var(--secondary-color);
+        border: 1px solid rgba(214, 40, 40, 0.3);
+    }
+    
+    .status-pendente {
+        background: rgba(255, 140, 66, 0.1);
+        color: var(--light-orange);
+        border: 1px solid rgba(255, 140, 66, 0.3);
+    }
+    
+    .status-em_revisao {
+        background: rgba(255, 193, 7, 0.1);
+        color: #ffc107;
+        border: 1px solid rgba(255, 193, 7, 0.3);
+    }
+    
+    .status-aprovada {
+        background: rgba(40, 167, 69, 0.1);
+        color: #28a745;
+        border: 1px solid rgba(40, 167, 69, 0.3);
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #6c757d;
+    }
+    
+    .empty-state i {
+        font-size: 4em;
+        margin-bottom: 20px;
+        opacity: 0.5;
+    }
+    
+    /* Estilos para as colunas de militares */
+    .militares-section {
+        margin-top: 20px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+    
+    .militares-column {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .militares-column.operacional {
+        border-left: 4px solid var(--primary-color);
+    }
+    
+    .militares-column.administrativo {
+        border-left: 4px solid var(--accent-color);
+    }
+    
+    .column-header {
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .militares-list {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    
+    .militar-item {
+        padding: 10px;
+        margin-bottom: 10px;
+        background: #f8f9fa;
+        border-radius: 6px;
+        border: 1px solid #e9ecef;
+        overflow: hidden;
+        word-wrap: break-word;
+    }
+    
+    .militar-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    .militar-info {
+        display: flex;
+        align-items: center;
+    }
+    
+    .militar-avatar {
+        width: 40px;
+        height: 40px;
+        background: var(--primary-color);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        margin-right: 12px;
+        flex-shrink: 0;
+    }
+    
+    .militar-details {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+    }
+    
+    .militar-nome {
+        display: block;
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin: 0 0 5px 0;
+        color: #333;
+        width: 100%;
+        word-wrap: break-word;
+        word-break: break-word;
+        overflow-wrap: break-word;
+        white-space: normal;
+        line-height: 1.3;
+        max-height: 2.6em; /* Aproximadamente 2 linhas */
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+    
+    /* Fallback para navegadores que não suportam -webkit-line-clamp */
+    @supports not (-webkit-line-clamp: 2) {
+        .militar-nome {
+            display: block;
+            max-height: 2.6em;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .militar-nome::after {
+            content: "...";
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            background: #f8f9fa;
+            padding-left: 5px;
+        }
+    }
+    
+    .militar-meta {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 10px;
+        margin-bottom: 5px;
+        align-items: center;
+    }
+    
+    .militar-meta .posto {
+        background: #6c757d;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    
+    .militar-meta .funcao {
+        background: #17a2b8;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    
+    .militar-meta .secao {
+        background: #28a745;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    
+    .militar-horario {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+    
+    .militar-horario .turno {
+        font-weight: 500;
+        color: #495057;
+    }
+    
+    .multiple-turns {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .turno-item {
+        background: rgba(0, 123, 255, 0.1);
+        padding: 4px 8px;
+        border-radius: 4px;
+        border-left: 3px solid #007bff;
+        font-size: 0.85rem;
+    }
+    
+    .turno-item .turno {
+        font-weight: 600;
+        color: #007bff;
+    }
+    
+    .turno-grupo {
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        background: #f8f9fa;
+        margin-bottom: 15px;
+    }
+    
+    .turno-header {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        color: white;
+        padding: 10px 14px;
+        border-radius: 8px 8px 0 0;
+    }
+    
+    .turno-titulo {
+        margin: 0;
+        font-size: 0.9rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+    }
+    
+    .turno-nome {
+        font-size: 0.8rem;
+        opacity: 0.9;
+        margin-left: 8px;
+    }
+    
+    .militares-turno {
+        padding: 12px;
+        background: white;
+        border-radius: 0 0 8px 8px;
+    }
+    
+    .empty-militares {
+        text-align: center;
+        padding: 20px;
+        color: #6c757d;
+    }
+    
+    .empty-militares i {
+        font-size: 2rem;
+        margin-bottom: 10px;
+        display: block;
+    }
+    
+    .militar-observacoes {
+        margin-top: 8px;
+        padding: 6px 8px;
+        background: #e9ecef;
+        border-radius: 4px;
+        border-left: 3px solid #6c757d;
+    }
+    
+    .militar-observacoes small {
+        font-style: italic;
+    }
+    
+    /* Estilos para acordeons */
+    .accordion-item {
+        border: 1px solid #e9ecef;
+        border-radius: 8px !important;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    
+    .accordion-button {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border: none;
+        padding: 20px;
+        font-weight: 600;
+        color: #495057;
+        transition: all 0.3s ease;
+    }
+    
+    .accordion-button:not(.collapsed) {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+        color: white;
+        box-shadow: none;
+    }
+    
+    .accordion-button:focus {
+        box-shadow: 0 0 0 0.25rem rgba(255, 107, 53, 0.25);
+        border-color: transparent;
+    }
+    
+    .accordion-button::after {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23495057'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
+        transition: transform 0.3s ease;
+    }
+    
+    .accordion-button:not(.collapsed)::after {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='white'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
+        transform: rotate(-180deg);
+    }
+    
+    .accordion-body {
+        padding: 0;
+        background: #f8f9fa;
+    }
+    
+    .accordion-body .escala-card {
+        margin: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .accordion-body .escala-card:last-child {
+        margin-bottom: 15px;
+    }
+    
+    /* Estilos para sub-acordeons */
+    .accordion .accordion {
+        margin-top: 10px;
+    }
+    
+    .accordion .accordion .accordion-item {
+        border: 1px solid #dee2e6;
+        border-radius: 6px !important;
+        margin-bottom: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .accordion .accordion .accordion-button {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border: none;
+        padding: 12px 16px;
+        font-weight: 500;
+        color: #495057;
+        font-size: 0.9rem;
+    }
+    
+    .accordion .accordion .accordion-button:not(.collapsed) {
+        background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        color: white;
+        box-shadow: none;
+    }
+    
+    .accordion .accordion .accordion-button:focus {
+        box-shadow: 0 0 0 0.25rem rgba(108, 117, 125, 0.25);
+        border-color: transparent;
+    }
+    
+    .accordion .accordion .accordion-body {
+        padding: 10px;
+        background: #ffffff;
+    }
+    
+    .accordion .accordion .accordion-body .escala-card {
+        margin: 8px;
+        margin-bottom: 12px;
+    }
+    
+    .accordion .accordion .accordion-body .escala-card:last-child {
+        margin-bottom: 8px;
+    }
+    
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Cabeçalho -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-calendar-alt me-2"></i>
+                Escalas de Serviço
+                {% if organizacao_atual %}
+                    <span class="badge bg-success ms-2">{{ organizacao_atual }}</span>
+                {% endif %}
+                {% if not mostrando_todas %}
+                    <span class="badge bg-primary ms-2">{{ periodo_atual.mes_ano }}</span>
+                {% endif %}
+            </h1>
+            <p class="text-muted mb-0">
+                {% if organizacao_atual %}
+                    <i class="fas fa-building me-1"></i>
+                    Organização Militar: {{ organizacao_atual }} (Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }})
+                {% elif mostrando_todas %}
+                    <i class="fas fa-calendar me-1"></i>
+                    Exibindo todas as escalas cadastradas
+                {% else %}
+                    <i class="fas fa-calendar-day me-1"></i>
+                    Escalas de {{ periodo_atual.primeiro_dia|date:"F" }} de {{ periodo_atual.primeiro_dia|date:"Y" }} ({{ periodo_atual.primeiro_dia|date:"d/m/Y" }} a {{ periodo_atual.ultimo_dia|date:"d/m/Y" }})
+                {% endif %}
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            {% if mostrando_todas %}
+                <a href="?todas=false" class="btn btn-primary" data-bs-toggle="tooltip" title="Mostrar apenas escalas do mês atual">
+                    <i class="fas fa-calendar-day me-2"></i>
+                    Mês Atual
+                </a>
+            {% else %}
+                <a href="?todas=true" class="btn btn-outline-primary" data-bs-toggle="tooltip" title="Mostrar todas as escalas">
+                    <i class="fas fa-calendar me-2"></i>
+                    Todas as Escalas
+                </a>
+            {% endif %}
+            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="tooltip" title="Filtrar escalas">
+                <i class="fas fa-filter me-2"></i>
+                Filtros
+            </button>
+            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#gerarEscalasModal" title="Gerar todas as escalas do mês">
+                <i class="fas fa-calendar-plus me-2"></i>
+                Gerar Escalas do Mês
+            </button>
+        </div>
+    </div>
+
+    <!-- Alerta informativo quando mostrando apenas escalas do mês atual -->
+    {% if not mostrando_todas %}
+    <div class="alert alert-info alert-dismissible fade show" role="alert">
+        <i class="fas fa-info-circle me-2"></i>
+        <strong>Visualização Padrão:</strong> Mostrando apenas as escalas do mês atual. 
+        <a href="?todas=true" class="alert-link">Clique aqui para ver todas as escalas</a>.
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-filter me-2"></i>
+                Filtros de Escalas
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" id="filtrosForm">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Filtro Hierárquico</label>
+                        <select class="form-select" name="hierarquia" id="filtroHierarquia">
+                            <option value="">Selecione uma opção hierárquica</option>
+                            
+                            {% if opcoes_filtro_hierarquico.orgaos %}
+                                <optgroup label="Órgãos ({{ opcoes_filtro_hierarquico.orgaos.count }})">
+                                    {% for orgao in opcoes_filtro_hierarquico.orgaos %}
+                                    <option value="orgao_{{ orgao.id }}" {% if request.GET.hierarquia == "orgao_"|add:orgao.id|stringformat:"s" %}selected{% endif %}>{{ orgao.nome }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                            {% endif %}
+                            
+                            {% if opcoes_filtro_hierarquico.grandes_comandos %}
+                                <optgroup label="Grandes Comandos ({{ opcoes_filtro_hierarquico.grandes_comandos.count }})">
+                                    {% for gc in opcoes_filtro_hierarquico.grandes_comandos %}
+                                    <option value="gc_{{ gc.id }}" {% if request.GET.hierarquia == "gc_"|add:gc.id|stringformat:"s" %}selected{% endif %}>{{ gc.orgao.nome }} | {{ gc.nome }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                            {% endif %}
+                            
+                            {% if opcoes_filtro_hierarquico.unidades %}
+                                <optgroup label="Unidades ({{ opcoes_filtro_hierarquico.unidades.count }})">
+                                    {% for unidade in opcoes_filtro_hierarquico.unidades %}
+                                    <option value="unidade_{{ unidade.id }}" {% if request.GET.hierarquia == "unidade_"|add:unidade.id|stringformat:"s" %}selected{% endif %}>{{ unidade.grande_comando.orgao.nome }} | {{ unidade.grande_comando.nome }} | {{ unidade.nome }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                            {% endif %}
+                            
+                            {% if opcoes_filtro_hierarquico.subunidades %}
+                                <optgroup label="Subunidades ({{ opcoes_filtro_hierarquico.subunidades.count }})">
+                                    {% for subunidade in opcoes_filtro_hierarquico.subunidades %}
+                                    <option value="sub_{{ subunidade.id }}" {% if request.GET.hierarquia == "sub_"|add:subunidade.id|stringformat:"s" %}selected{% endif %}>{{ subunidade.unidade.grande_comando.orgao.nome }} | {{ subunidade.unidade.grande_comando.nome }} | {{ subunidade.unidade.nome }} | {{ subunidade.nome }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                            {% endif %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Data Início</label>
+                        <input type="date" class="form-control" name="data_inicio" value="{{ request.GET.data_inicio }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Data Fim</label>
+                        <input type="date" class="form-control" name="data_fim" value="{{ request.GET.data_fim }}">
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-search me-1"></i>
+                            Pesquisar
+                        </button>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <a href="{% url 'militares:escalas_list' %}" class="btn btn-secondary">
+                            <i class="fas fa-times me-1"></i>
+                            Limpar Filtros
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Lista de Escalas -->
+    <div class="row">
+        <div class="col-12">
+            {% if escalas %}
+                <!-- Agrupar escalas por origem (organização) -->
+                {% regroup escalas by escala.organizacao as escalas_por_origem %}
+                
+                <div class="accordion" id="accordionEscalas">
+                    {% for grupo in escalas_por_origem %}
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="heading{{ grupo.grouper|slugify }}">
+                            <button class="accordion-button{% if not forloop.first %} collapsed{% endif %}" 
+                                    type="button" 
+                                    data-bs-toggle="collapse" 
+                                    data-bs-target="#collapse{{ grupo.grouper|slugify }}" 
+                                    aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}" 
+                                    aria-controls="collapse{{ grupo.grouper|slugify }}">
+                                <div class="d-flex align-items-center w-100">
+                                    <div class="me-3">
+                                        <i class="fas fa-building text-primary"></i>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h5 class="mb-0">
+                                            {{ grupo.grouper }}
+                                        </h5>
+                                        <small class="text-muted">
+                                            {{ grupo.list|length }} escala{{ grupo.list|length|pluralize }} de serviço
+                                        </small>
+                                    </div>
+                                    <div class="ms-3">
+                                        <span class="badge bg-primary">{{ grupo.list|length }}</span>
+                                    </div>
+                                </div>
+                            </button>
+                        </h2>
+                        <div id="collapse{{ grupo.grouper|slugify }}" 
+                             class="accordion-collapse collapse{% if forloop.first %} show{% endif %}" 
+                             aria-labelledby="heading{{ grupo.grouper|slugify }}" 
+                             data-bs-parent="#accordionEscalas">
+                            <div class="accordion-body">
+                                <!-- Sub-acordeons por data dentro da OM -->
+                                {% regroup grupo.list by escala.data as escalas_por_data %}
+                                <div class="accordion" id="accordionSub{{ grupo.grouper|slugify }}">
+                                    {% for subgrupo in escalas_por_data %}
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header" id="subheading{{ grupo.grouper|slugify }}{{ subgrupo.grouper|date:'Ymd' }}">
+                                            <button class="accordion-button collapsed" 
+                                                    type="button" 
+                                                    data-bs-toggle="collapse" 
+                                                    data-bs-target="#subcollapse{{ grupo.grouper|slugify }}{{ subgrupo.grouper|date:'Ymd' }}" 
+                                                    aria-expanded="false" 
+                                                    aria-controls="subcollapse{{ grupo.grouper|slugify }}{{ subgrupo.grouper|date:'Ymd' }}">
+                                                <div class="d-flex align-items-center w-100">
+                                                    <div class="me-3">
+                                                        <i class="fas fa-calendar-day text-secondary"></i>
+                                                    </div>
+                                                    <div class="flex-grow-1">
+                                                        <h6 class="mb-0">
+                                                            {{ subgrupo.grouper|date:"l, d/m/Y" }}
+                                                        </h6>
+                                                        <small class="text-muted">
+                                                            {{ subgrupo.list|length }} escala{{ subgrupo.list|length|pluralize }}
+                                                        </small>
+                                                    </div>
+                                                    <div class="ms-3">
+                                                        <span class="badge bg-secondary">{{ subgrupo.list|length }}</span>
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        </h2>
+                                        <div id="subcollapse{{ grupo.grouper|slugify }}{{ subgrupo.grouper|date:'Ymd' }}" 
+                                             class="accordion-collapse collapse" 
+                                             aria-labelledby="subheading{{ grupo.grouper|slugify }}{{ subgrupo.grouper|date:'Ymd' }}" 
+                                             data-bs-parent="#accordionSub{{ grupo.grouper|slugify }}">
+                                            <div class="accordion-body">
+                                                {% for escala_info in subgrupo.list %}
+                                                <div class="escala-card">
+                    <div class="escala-header">
+                        <h5 class="escala-title">Escala de Serviço - {{ escala_info.escala.data|date:"d/m/Y" }}</h5>
+                        <div class="escala-meta">
+                            <span><i class="fas fa-calendar me-1"></i> {{ escala_info.escala.data|date:"d/m/Y" }}</span>
+                            <span><i class="fas fa-user me-1"></i> {{ escala_info.total_militares }} bombeiros</span>
+                            <span><i class="fas fa-building me-1"></i> {{ escala_info.escala.organizacao }}</span>
+                            
+                        </div>
+                    </div>
+                    <div class="escala-body">
+                        <div class="escala-info">
+                            <div class="info-item">
+                                <i class="fas fa-building"></i>
+                                <span class="info-label">Organização:</span>
+                                <span class="info-value">{{ escala_info.escala.organizacao }}</span>
+                            </div>
+                            <div class="info-item">
+                                <i class="fas fa-info-circle"></i>
+                                <span class="info-label">Status:</span>
+                                <span class="info-value">
+                                    <span class="status-badge status-{{ escala_info.escala.status }}">
+                                        {{ escala_info.escala.get_status_display }}
+                                    </span>
+                                </span>
+                            </div>
+                            <div class="info-item">
+                                <i class="fas fa-user-plus"></i>
+                                <span class="info-label">Criado por:</span>
+                                <span class="info-value">{{ escala_info.escala.criado_por.get_full_name|default:"Sistema" }}</span>
+                            </div>
+                            <div class="info-item">
+                                <i class="fas fa-clock"></i>
+                                <span class="info-label">Criado em:</span>
+                                <span class="info-value">{{ escala_info.escala.data_criacao|date:"d/m/Y H:i" }}</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Militares Escalados por Tipo de Serviço -->
+                        <div class="militares-section">
+                            <div class="row">
+                                <!-- Coluna Operacional -->
+                                <div class="col-md-6">
+                                    <div class="militares-column operacional">
+                                        <div class="column-header">
+                                            <h6 class="mb-0">
+                                                <i class="fas fa-shield-alt me-2"></i>
+                                                SERVIÇO OPERACIONAL
+                                                <span class="badge bg-primary ms-2">{{ escala_info.total_operacionais }}</span>
+                                            </h6>
+                                        </div>
+                                        <div class="militares-list">
+                                            {% if escala_info.equipes %}
+                                                <!-- Exibir por equipes -->
+                                                {% for equipe in escala_info.equipes %}
+                                                <div class="equipe-section mb-4">
+                                                    <div class="equipe-header">
+                                                        <h6 class="equipe-title">
+                                                            <i class="fas fa-users text-primary me-2"></i>
+                                                            {{ equipe.nome }}
+                                                            <span class="badge bg-primary ms-2">{{ equipe.total_militares }}</span>
+                                                        </h6>
+                                                        {% if equipe.viatura %}
+                                                        <div class="equipe-viatura">
+                                                            <i class="fas fa-truck text-info me-1"></i>
+                                                            <small class="text-muted">{{ equipe.viatura }}</small>
+                                                        </div>
+                                                        {% endif %}
+                                                    </div>
+                                                    <div class="equipe-militares">
+                                                        {% for militar in equipe.militares %}
+                                                        <div class="militar-item">
+                                                            <div class="militar-info">
+                                                                <div class="militar-avatar">
+                                                                    <i class="fas fa-user"></i>
+                                                                </div>
+                                                                <div class="militar-details">
+                                                                    <h6 class="militar-nome">{{ militar.nome_completo }}</h6>
+                                                                    <div class="militar-meta">
+                                                                        <span class="posto">{{ militar.posto_graduacao }}</span>
+                                                                    </div>
+                                                                    <div class="militar-horario">
+                                                                        <i class="fas fa-clock me-1"></i>
+                                                                        {% if militar.total_turnos > 1 %}
+                                                                            <div class="multiple-turns">
+                                                                                {% for turno in militar.turnos %}
+                                                                                <div class="turno-item">
+                                                                                    {{ turno.hora_inicio }} - {{ turno.hora_fim }}
+                                                                                    <span class="turno">({{ turno.turno_display }})</span>
+                                                                                </div>
+                                                                                {% endfor %}
+                                                                            </div>
+                                                                        {% else %}
+                                                                            {{ militar.hora_inicio }} - {{ militar.hora_fim }}
+                                                                            <span class="turno">({{ militar.turno_display }})</span>
+                                                                        {% endif %}
+                                                                    </div>
+                                                                    
+                                                                    <!-- Campos operacionais -->
+                                                                    {% if militar.funcao_operacional %}
+                                                                    <div class="militar-operacional mt-2 p-2 bg-primary bg-opacity-10 rounded">
+                                                                        <div class="d-flex align-items-center">
+                                                                            <i class="fas fa-user-tie text-primary me-2"></i>
+                                                                            <div>
+                                                                                <small class="text-muted d-block">Função Operacional</small>
+                                                                                <strong class="text-dark small">{{ militar.funcao_operacional }}</strong>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    {% endif %}
+                                                                    
+                                                                    {% if militar.observacoes and militar.observacoes != "Adicionado via seleção múltipla" %}
+                                                                    <div class="militar-observacoes">
+                                                                        <i class="fas fa-sticky-note me-1"></i>
+                                                                        <small class="text-muted">{{ militar.observacoes }}</small>
+                                                                    </div>
+                                                                    {% endif %}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        {% endfor %}
+                                                    </div>
+                                                </div>
+                                                {% endfor %}
+                                                
+                                            {% else %}
+                                                <div class="empty-militares">
+                                                    <i class="fas fa-user-slash"></i>
+                                                    <span>Nenhum operacional</span>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Coluna Administrativo -->
+                                <div class="col-md-6">
+                                    <div class="militares-column administrativo">
+                                        <div class="column-header">
+                                            <h6 class="mb-0">
+                                                <i class="fas fa-clipboard-list me-2"></i>
+                                                SERVIÇO ADMINISTRATIVO
+                                                <span class="badge bg-success ms-2">{{ escala_info.total_administrativos }}</span>
+                                            </h6>
+                                        </div>
+                                        <div class="militares-list">
+                                            {% if escala_info.escala.data|date:"w" == "2" or escala_info.escala.data|date:"w" == "4" %}
+                                                <div class="alert alert-info mb-3" style="font-size: 0.9rem; padding: 8px 12px;">
+                                                    <i class="fas fa-info-circle me-2"></i>
+                                                    <strong>EDUCAÇÃO FÍSICA DE 07:30 ÀS 08:45, SERVIÇO ADMINISTRATIVO 09:00 ÀS 13:30</strong>
+                                                </div>
+                                            {% endif %}
+                                            {% if escala_info.militares_administrativos %}
+                                                <!-- Agrupar militares administrativos por horário -->
+                                                {% regroup escala_info.militares_administrativos by hora_inicio as militares_por_horario %}
+                                                {% for grupo in militares_por_horario %}
+                                                    <div class="turno-grupo mb-3">
+                                                        <div class="turno-header">
+                                                            <h6 class="turno-titulo">
+                                                                <i class="fas fa-clock me-2"></i>
+                                                                Turno: {{ grupo.grouper }} - {{ grupo.list.0.hora_fim }}
+                                                                <span class="turno-nome">({{ grupo.list.0.turno_display }})</span>
+                                                            </h6>
+                                                        </div>
+                                                        <div class="militares-turno">
+                                                            {% for militar in grupo.list %}
+                                                            <div class="militar-item">
+                                                                <div class="militar-info">
+                                                                    <div class="militar-avatar">
+                                                                        <i class="fas fa-user"></i>
+                                                                    </div>
+                                                                    <div class="militar-details">
+                                                                        <h6 class="militar-nome">{{ militar.nome_completo }}</h6>
+                                                                        <div class="militar-meta">
+                                                                            <span class="posto">{{ militar.posto_graduacao }}</span>
+                                                                            {% if militar.secao %}
+                                                                            <span class="secao">
+                                                                                <i class="fas fa-building me-1"></i>
+                                                                                {{ militar.secao }}
+                                                                            </span>
+                                                                            {% endif %}
+                                                                        </div>
+                                                                        
+                                                                        {% if militar.observacoes and militar.observacoes != "Adicionado via seleção múltipla" %}
+                                                                        <div class="militar-observacoes">
+                                                                            <i class="fas fa-sticky-note me-1"></i>
+                                                                            <small class="text-muted">{{ militar.observacoes }}</small>
+                                                                        </div>
+                                                                        {% endif %}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            {% endfor %}
+                                                        </div>
+                                                    </div>
+                                                {% endfor %}
+                                            {% else %}
+                                                <div class="empty-militares">
+                                                    <i class="fas fa-user-slash"></i>
+                                                    <span>Nenhum administrativo</span>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="escala-actions">
+                            <a href="{% url 'militares:escala_detail' escala_info.escala.pk %}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye me-1"></i>
+                                Visualizar
+                            </a>
+                            <a href="{% url 'militares:escala_detail' escala_info.escala.pk %}" class="btn btn-sm btn-outline-info">
+                                <i class="fas fa-users me-1"></i>
+                                Adicionar Bombeiros
+                            </a>
+                            <a href="{% url 'militares:escala_pdf' escala_info.escala.pk %}" class="btn btn-sm btn-outline-danger" target="_blank" title="Visualizar PDF da escala">
+                                <i class="fas fa-file-pdf me-1"></i>
+                                Escala
+                            </a>
+                            
+                <!-- Botões de Assinatura Específicos -->
+                {% if escala_info.tem_revisao %}
+                <button type="button" class="btn btn-sm btn-success" disabled title="Já revisada e assinada">
+                    <i class="fas fa-check-circle me-1"></i>
+                    Revisada
+                </button>
+                {% elif escala_info.pode_revisar %}
+                <button type="button" class="btn btn-sm btn-outline-info" onclick="assinarRevisaoEscala({{ escala_info.escala.pk }})" title="Assinar como Revisor">
+                    <i class="fas fa-signature me-1"></i>
+                    Revisor
+                </button>
+                {% else %}
+                <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="Você não tem permissão para revisar">
+                    <i class="fas fa-lock me-1"></i>
+                    Revisor
+                </button>
+                {% endif %}
+                
+                {% if escala_info.tem_aprovacao %}
+                <button type="button" class="btn btn-sm btn-success" disabled title="Já aprovada e assinada">
+                    <i class="fas fa-check-circle me-1"></i>
+                    Aprovada
+                </button>
+                {% elif escala_info.pode_aprovar %}
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="assinarAprovacaoEscala({{ escala_info.escala.pk }})" title="Assinar como Aprovador">
+                    <i class="fas fa-signature me-1"></i>
+                    Aprovador
+                </button>
+                {% else %}
+                <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="Você não tem permissão para aprovar">
+                    <i class="fas fa-lock me-1"></i>
+                    Aprovador
+                </button>
+                {% endif %}
+                            
+                        </div>
+                    </div>
+                </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-calendar-alt fa-3x text-muted mb-3"></i>
+                    <h4>Nenhuma escala encontrada</h4>
+                    {% if not mostrando_todas %}
+                        <p class="text-muted">Ainda não foi gerada escala para o mês atual.</p>
+                        <p class="text-muted">Use o botão "Gerar Escalas do Mês" para criar as escalas do mês.</p>
+                    {% else %}
+                        <p class="text-muted">Não há escalas cadastradas no sistema.</p>
+                        <p class="text-muted">Use o botão "Gerar Escalas do Mês" para criar novas escalas.</p>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Paginação -->
+    {% if page_obj.has_other_pages %}
+    <nav aria-label="Paginação" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}{% if request.GET.status %}status={{ request.GET.status }}&{% endif %}{% if request.GET.tipo_servico %}tipo_servico={{ request.GET.tipo_servico }}&{% endif %}{% if request.GET.organizacao %}organizacao={{ request.GET.organizacao }}&{% endif %}{% if request.GET.per_page %}per_page={{ request.GET.per_page }}&{% endif %}page=1">
+                        <i class="fas fa-angle-double-left"></i> Primeira
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}{% if request.GET.status %}status={{ request.GET.status }}&{% endif %}{% if request.GET.tipo_servico %}tipo_servico={{ request.GET.tipo_servico }}&{% endif %}{% if request.GET.organizacao %}organizacao={{ request.GET.organizacao }}&{% endif %}{% if request.GET.per_page %}per_page={{ request.GET.per_page }}&{% endif %}page={{ page_obj.previous_page_number }}">
+                        <i class="fas fa-angle-left"></i> Anterior
+                    </a>
+                </li>
+            {% endif %}
+            
+            <!-- Páginas numeradas -->
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                    </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}{% if request.GET.status %}status={{ request.GET.status }}&{% endif %}{% if request.GET.tipo_servico %}tipo_servico={{ request.GET.tipo_servico }}&{% endif %}{% if request.GET.organizacao %}organizacao={{ request.GET.organizacao }}&{% endif %}{% if request.GET.per_page %}per_page={{ request.GET.per_page }}&{% endif %}page={{ num }}">{{ num }}</a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}{% if request.GET.status %}status={{ request.GET.status }}&{% endif %}{% if request.GET.tipo_servico %}tipo_servico={{ request.GET.tipo_servico }}&{% endif %}{% if request.GET.organizacao %}organizacao={{ request.GET.organizacao }}&{% endif %}{% if request.GET.per_page %}per_page={{ request.GET.per_page }}&{% endif %}page={{ page_obj.next_page_number }}">
+                    Próxima <i class="fas fa-angle-right"></i>
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}{% if request.GET.status %}status={{ request.GET.status }}&{% endif %}{% if request.GET.tipo_servico %}tipo_servico={{ request.GET.tipo_servico }}&{% endif %}{% if request.GET.organizacao %}organizacao={{ request.GET.organizacao }}&{% endif %}{% if request.GET.per_page %}per_page={{ request.GET.per_page }}&{% endif %}page={{ page_obj.paginator.num_pages }}">
+                    Última <i class="fas fa-angle-double-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+        
+        <!-- Informações da Paginação -->
+        <div class="text-center text-muted mt-2">
+            <small>
+                <i class="fas fa-info-circle me-1"></i>
+                Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }} 
+                ({{ page_obj.paginator.count }} escalas no total)
+            </small>
+        </div>
+    </nav>
+    {% endif %}
+</div>
+
+<!-- Modal para Gerar Escalas do Mês -->
+<div class="modal fade" id="gerarEscalasModal" tabindex="-1" aria-labelledby="gerarEscalasModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="gerarEscalasModalLabel">
+                    <i class="fas fa-calendar-plus me-2"></i>
+                    Gerar Escalas do Mês
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="gerarEscalasForm">
+                    {% csrf_token %}
+                    <!-- Passo 1: Seleção da Organização -->
+                    <div class="mb-4">
+                        <h6 class="text-primary mb-3">
+                            <i class="fas fa-building me-2"></i>
+                            Passo 1: Selecionar Organização
+                        </h6>
+                        <div class="row">
+                            <div class="col-12">
+                                <label for="organizacao" class="form-label">Organização</label>
+                                <select class="form-select form-select-lg" id="organizacao" name="organizacao" required>
+                                    <option value="">Carregando organizações...</option>
+                                </select>
+                                <div class="form-text">Selecione a organização para a qual serão geradas as escalas diárias</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Passo 2: Seleção do Período -->
+                    <div class="mb-4">
+                        <h6 class="text-primary mb-3">
+                            <i class="fas fa-calendar me-2"></i>
+                            Passo 2: Selecionar Mês e Ano
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="mes" class="form-label">Mês</label>
+                                <select class="form-select" id="mes" name="mes" required>
+                                    <option value="">Selecione o mês</option>
+                                    <option value="1">Janeiro</option>
+                                    <option value="2">Fevereiro</option>
+                                    <option value="3">Março</option>
+                                    <option value="4">Abril</option>
+                                    <option value="5">Maio</option>
+                                    <option value="6">Junho</option>
+                                    <option value="7">Julho</option>
+                                    <option value="8">Agosto</option>
+                                    <option value="9">Setembro</option>
+                                    <option value="10">Outubro</option>
+                                    <option value="11">Novembro</option>
+                                    <option value="12">Dezembro</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="ano" class="form-label">Ano</label>
+                                {% now 'Y' as current_year %}
+                                <select class="form-select" id="ano" name="ano" required>
+                                    <option value="">Selecione o ano</option>
+                                    {% if anos_disponiveis %}
+                                        {% for ano_option in anos_disponiveis %}
+                                        <option value="{{ ano_option }}" {% if ano_option|stringformat:'s' == current_year %}selected{% endif %}>{{ ano_option }}</option>
+                                        {% endfor %}
+                                    {% else %}
+                                        <!-- Fallback simples se anos_disponiveis não estiver disponível -->
+                                        <option value="2024" {% if "2024" == current_year %}selected{% endif %}>2024</option>
+                                        <option value="2025" {% if "2025" == current_year %}selected{% endif %}>2025</option>
+                                        <option value="2026" {% if "2026" == current_year %}selected{% endif %}>2026</option>
+                                        <option value="2027" {% if "2027" == current_year %}selected{% endif %}>2027</option>
+                                        <option value="2028" {% if "2028" == current_year %}selected{% endif %}>2028</option>
+                                        <option value="2029" {% if "2029" == current_year %}selected{% endif %}>2029</option>
+                                        <option value="2030" {% if "2030" == current_year %}selected{% endif %}>2030</option>
+                                    {% endif %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-text">Serão geradas escalas para todos os dias do mês selecionado</div>
+                    </div>
+
+                    
+                    <!-- Resumo da Geração -->
+                    <div class="alert alert-info" id="resumoGeracao" style="display: none;">
+                        <h6 class="alert-heading">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Resumo da Geração
+                        </h6>
+                        <div id="resumoConteudo">
+                            <!-- Será preenchido via JavaScript -->
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <h6>Configurações</h6>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="sobrescreverExistentes" name="sobrescrever_existentes">
+                            <label class="form-check-label" for="sobrescreverExistentes">
+                                Sobrescrever escalas existentes
+                            </label>
+                        </div>
+                        <div class="alert alert-info mt-2">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Nota:</strong> Serão geradas escalas para todos os dias do mês selecionado, incluindo finais de semana e feriados.
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-success" onclick="gerarEscalas()">
+                    <i class="fas fa-calendar-plus me-1"></i>
+                    Gerar Escalas
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Resultado da Geração de Escalas -->
+<div class="modal fade" id="resultadoGeracaoModal" tabindex="-1" aria-labelledby="resultadoGeracaoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="resultadoGeracaoModalLabel">
+                    <i class="fas fa-check-circle me-2"></i>
+                    Escalas Geradas com Sucesso!
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="resultadoConteudo">
+                    <!-- Conteúdo será preenchido via JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>
+                    Fechar
+                </button>
+                <button type="button" class="btn btn-primary" onclick="recarregarPagina()">
+                    <i class="fas fa-refresh me-1"></i>
+                    Ver Escalas Geradas
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Inicializar tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+        
+        // Verificar se o modal e botão existem
+        const modal = document.getElementById('gerarEscalasModal');
+        const btnGerar = document.querySelector('button[data-bs-target="#gerarEscalasModal"]');
+        
+        // Adicionar listener de evento para abertura do modal
+        if (btnGerar) {
+            btnGerar.addEventListener('click', function(e) {
+                // Forçar abertura do modal manualmente
+                const modal = new bootstrap.Modal(document.getElementById('gerarEscalasModal'));
+                modal.show();
+            });
+        }
+        
+        // Carregar organizações dinamicamente
+        carregarOrganizacoes();
+        carregarOrganizacoesFiltro();
+        
+        // Função para carregar organizações
+        function carregarOrganizacoes() {
+            console.log('DEBUG: Carregando organizações...');
+            fetch('{% url "militares:api_organizacoes_disponiveis" %}')
+                .then(response => {
+                    console.log('DEBUG: Resposta recebida:', response.status);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('DEBUG: Dados recebidos:', data);
+                    if (data.success) {
+                        const select = document.getElementById('organizacao');
+                        select.innerHTML = '<option value="">Selecione a organização</option>';
+                        
+                        // Agrupar organizações por nível hierárquico
+                        const organizacoesPorNivel = {};
+                        data.organizacoes.forEach(org => {
+                            if (!organizacoesPorNivel[org.nivel]) {
+                                organizacoesPorNivel[org.nivel] = [];
+                            }
+                            organizacoesPorNivel[org.nivel].push(org);
+                        });
+                        
+                        // Adicionar organizações em ordem hierárquica
+                        const niveis = [1, 2, 3, 4]; // órgão, grande comando, unidade, subunidade
+                        const nomesNiveis = ['Órgãos', 'Grandes Comandos', 'Unidades', 'Subunidades'];
+                        
+                        niveis.forEach((nivel, index) => {
+                            if (organizacoesPorNivel[nivel] && organizacoesPorNivel[nivel].length > 0) {
+                                const optgroup = document.createElement('optgroup');
+                                optgroup.label = nomesNiveis[index];
+                                
+                                organizacoesPorNivel[nivel].forEach(org => {
+                                    const option = document.createElement('option');
+                                    option.value = org.nome;
+                                    option.textContent = org.nome;
+                                    option.dataset.tipo = org.tipo;
+                                    option.dataset.nivel = org.nivel;
+                                    optgroup.appendChild(option);
+                                });
+                                
+                                select.appendChild(optgroup);
+                            }
+                        });
+                        
+                    } else {
+                        console.error('DEBUG: Erro na resposta:', data.error || 'Erro desconhecido');
+                        const select = document.getElementById('organizacao');
+                        select.innerHTML = '<option value="">Erro ao carregar organizações</option>';
+                    }
+                })
+                .catch(error => {
+                    console.error('DEBUG: Erro ao carregar organizações:', error);
+                    const select = document.getElementById('organizacao');
+                    select.innerHTML = '<option value="">Erro ao carregar organizações</option>';
+                });
+        }
+        
+        
+        // Função para carregar organizações no filtro
+        function carregarOrganizacoesFiltro() {
+            fetch('{% url "militares:api_organizacoes_disponiveis" %}')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const select = document.getElementById('filtroOrganizacao');
+                        select.innerHTML = '<option value="">Todas as organizações</option>';
+                        
+                        // Usar estrutura organizada se disponível
+                        if (data.organizacoes_organizadas) {
+                            data.organizacoes_organizadas.forEach(grupo => {
+                                // Adicionar optgroup para categoria
+                                const optgroup = document.createElement('optgroup');
+                                optgroup.label = grupo.categoria;
+                                
+                                grupo.itens.forEach(org => {
+                                    const option = document.createElement('option');
+                                    option.value = org;
+                                    option.textContent = org;
+                                    
+                                    // Verificar se deve ser selecionado baseado nos filtros atuais
+                                    const urlParams = new URLSearchParams(window.location.search);
+                                    if (urlParams.get('organizacao') === org) {
+                                        option.selected = true;
+                                    }
+                                    
+                                    optgroup.appendChild(option);
+                                });
+                                
+                                select.appendChild(optgroup);
+                            });
+                        } else {
+                            // Fallback para lista simples
+                            data.organizacoes.forEach(org => {
+                                const option = document.createElement('option');
+                                option.value = org;
+                                option.textContent = org;
+                                
+                                // Verificar se deve ser selecionado baseado nos filtros atuais
+                                const urlParams = new URLSearchParams(window.location.search);
+                                if (urlParams.get('organizacao') === org) {
+                                    option.selected = true;
+                                }
+                                
+                                select.appendChild(option);
+                            });
+                        }
+                    } else {
+                        const select = document.getElementById('filtroOrganizacao');
+                        select.innerHTML = '<option value="">Erro ao carregar organizações</option>';
+                    }
+                })
+                .catch(error => {
+                    const select = document.getElementById('filtroOrganizacao');
+                    select.innerHTML = '<option value="">Erro ao carregar organizações</option>';
+                });
+        }
+        
+        // Adicionar animação aos cards
+        $('.escala-card').each(function(index) {
+            $(this).css('animation-delay', (index * 0.1) + 's');
+            $(this).addClass('fade-in');
+        });
+        
+        // Configurar data padrão para o mês atual
+        const hoje = new Date();
+        const mesAtual = hoje.getMonth() + 1;
+        const anoAtual = hoje.getFullYear();
+        $('#mes').val(mesAtual);
+        $('#ano').val(anoAtual);
+        
+        // Atualizar resumo quando campos mudarem
+        $('#organizacao, #mes, #ano').change(function() {
+            atualizarResumo();
+        });
+        
+        // Função para atualizar o resumo
+        function atualizarResumo() {
+            const organizacao = $('#organizacao option:selected').text();
+            const mes = $('#mes option:selected').text();
+            const ano = $('#ano').val();
+            
+            if (organizacao && mes && ano) {
+                // Calcular dias do mês
+                const diasNoMes = new Date(ano, $('#mes').val() - 1 + 1, 0).getDate();
+                
+                let resumo = `
+                    <p class="mb-2"><strong>Organização:</strong> ${organizacao}</p>
+                    <p class="mb-2"><strong>Período:</strong> ${mes} de ${ano}</p>
+                    <p class="mb-0"><strong>Total de Escalas:</strong> <span class="badge bg-primary">${diasNoMes} escalas diárias</span></p>
+                    <p class="mb-0 text-muted"><small>As configurações específicas (tipo de serviço, turno, horários) serão definidas individualmente para cada pessoa.</small></p>
+                `;
+                
+                $('#resumoConteudo').html(resumo);
+                $('#resumoGeracao').show();
+            } else {
+                $('#resumoGeracao').hide();
+            }
+        }
+    });
+    
+    // Função para gerar escalas
+    function gerarEscalas() {
+        const form = document.getElementById('gerarEscalasForm');
+        const formData = new FormData(form);
+        
+        // Validar campos obrigatórios
+        const organizacao = formData.get('organizacao');
+        const mes = formData.get('mes');
+        const ano = formData.get('ano');
+        
+        if (!organizacao || !mes || !ano) {
+            alert('Por favor, preencha todos os campos obrigatórios.');
+            return;
+        }
+        
+        // Mostrar loading
+        const btnGerar = document.querySelector('button[onclick="gerarEscalas()"]');
+        const originalText = btnGerar.innerHTML;
+        btnGerar.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Gerando...';
+        btnGerar.disabled = true;
+        
+        // Fazer chamada AJAX
+        fetch('{% url "militares:gerar_escalas_mes" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Mostrar sucesso
+                btnGerar.innerHTML = '<i class="fas fa-check me-1"></i>Gerado!';
+                
+                // Fechar modal de geração após 1 segundo
+                setTimeout(() => {
+                    bootstrap.Modal.getInstance(document.getElementById('gerarEscalasModal')).hide();
+                    btnGerar.innerHTML = originalText;
+                    btnGerar.disabled = false;
+                    
+                    // Mostrar modal de resultado
+                    mostrarModalResultado(data.detalhes);
+                }, 1000);
+            } else {
+                // Mostrar erro
+                btnGerar.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Erro!';
+                btnGerar.classList.remove('btn-success');
+                btnGerar.classList.add('btn-danger');
+                
+                setTimeout(() => {
+                    btnGerar.innerHTML = originalText;
+                    btnGerar.disabled = false;
+                    btnGerar.classList.remove('btn-danger');
+                    btnGerar.classList.add('btn-success');
+                    
+                    alert('Erro ao gerar escalas: ' + data.error);
+                }, 2000);
+            }
+        })
+        .catch(error => {
+            btnGerar.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Erro!';
+            btnGerar.classList.remove('btn-success');
+            btnGerar.classList.add('btn-danger');
+            
+            setTimeout(() => {
+                btnGerar.innerHTML = originalText;
+                btnGerar.disabled = false;
+                btnGerar.classList.remove('btn-danger');
+                btnGerar.classList.add('btn-success');
+                
+                alert('Erro de conexão ao gerar escalas: ' + error.message);
+            }, 2000);
+        });
+    }
+    
+    // Função para mostrar modal de resultado
+    function mostrarModalResultado(detalhes) {
+        const conteudo = `
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card border-0 bg-light">
+                        <div class="card-body">
+                            <h6 class="card-title text-primary">
+                                <i class="fas fa-building me-2"></i>
+                                Organização
+                            </h6>
+                            <p class="card-text">${detalhes.organizacao}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card border-0 bg-light">
+                        <div class="card-body">
+                            <h6 class="card-title text-primary">
+                                <i class="fas fa-calendar me-2"></i>
+                                Período
+                            </h6>
+                            <p class="card-text">${detalhes.mes} de ${detalhes.ano}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mt-3">
+                <div class="col-md-4">
+                    <div class="text-center">
+                        <div class="display-6 text-success">${detalhes.total_escalas}</div>
+                        <div class="text-muted">Escalas Geradas</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-center">
+                        <div class="display-6 text-info">${detalhes.dias_no_mes}</div>
+                        <div class="text-muted">Dias no Mês</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-center">
+                        <div class="display-6 text-warning">${detalhes.escalas_existentes}</div>
+                        <div class="text-muted">Já Existentes</div>
+                    </div>
+                </div>
+            </div>
+            
+            
+            <div class="alert alert-info mt-3">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Próximos Passos:</strong> As configurações específicas (tipo de serviço, turno, horários) serão definidas individualmente para cada militar através do botão "Adicionar Bombeiros" de cada escala.
+            </div>
+            
+            ${detalhes.escalas_geradas.length > 0 ? `
+            <div class="mt-3">
+                <h6 class="text-primary">
+                    <i class="fas fa-list me-2"></i>
+                    Primeiras Escalas Geradas
+                </h6>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${detalhes.escalas_geradas.map(escala => `
+                                <tr>
+                                    <td>${escala.data}</td>
+                                    <td><span class="badge bg-warning">${escala.status}</span></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            ` : ''}
+        `;
+        
+        document.getElementById('resultadoConteudo').innerHTML = conteudo;
+        
+        // Mostrar modal
+        const modal = new bootstrap.Modal(document.getElementById('resultadoGeracaoModal'));
+        modal.show();
+    }
+    
+    // Função para recarregar página
+    function recarregarPagina() {
+        location.reload();
+    }
+    
+</script>
+
+<style>
+    .fade-in {
+        animation: fadeInUp 0.5s ease-out forwards;
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    
+    @keyframes fadeInUp {
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Estilos para seções de equipes */
+    .equipe-section {
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        background: #f8f9fa;
+        overflow: hidden;
+    }
+    
+    .equipe-header {
+        background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+        color: white;
+        padding: 12px 16px;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .equipe-title {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .equipe-viatura {
+        margin-top: 4px;
+        font-size: 0.85rem;
+        opacity: 0.9;
+    }
+    
+    .equipe-militares {
+        padding: 12px;
+        background: white;
+    }
+    
+    .equipe-militares .militar-item {
+        margin-bottom: 8px;
+        border: 1px solid #e9ecef;
+        border-radius: 6px;
+        background: white;
+        transition: all 0.2s ease;
+    }
+    
+    .equipe-militares .militar-item:hover {
+        box-shadow: 0 2px 8px rgba(255, 107, 53, 0.1);
+        border-color: var(--primary-color);
+    }
+    
+    .equipe-militares .militar-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    /* Estilo para equipe "Sem Equipe" */
+    .equipe-section:has(.equipe-title i.fa-user-slash) .equipe-header {
+        background: linear-gradient(135deg, #6c757d, #495057);
+    }
+    
+    .equipe-section:has(.equipe-title i.fa-user-slash) .equipe-militares {
+        background: #f8f9fa;
+    }
+</style>
+
+
+<!-- Modal Assinar Escala como Revisor -->
+<div class="modal fade" id="modalAssinarRevisaoEscala" tabindex="-1" aria-labelledby="modalAssinarRevisaoEscalaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="modalAssinarRevisaoEscalaLabel">
+                    <i class="fas fa-signature me-2"></i>
+                    Assinar Escala como Revisor
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Informações da Escala -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-muted mb-3">Informações da Escala</h6>
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p class="mb-2"><strong>Data:</strong> <span id="escalaDataRevisao">-</span></p>
+                                        <p class="mb-2"><strong>Organização:</strong> <span id="escalaOrganizacaoRevisao">-</span></p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p class="mb-2"><strong>Tipo:</strong> <span id="escalaTipoRevisao">-</span></p>
+                                        <p class="mb-2"><strong>Status:</strong> <span id="escalaStatusRevisao">-</span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Formulário de Assinatura -->
+                <form id="formAssinaturaRevisaoEscala">
+                    {% csrf_token %}
+                    <input type="hidden" id="escalaIdRevisao" name="escala_id">
+                    <input type="hidden" name="tipo_assinatura" value="REVISAO">
+                    
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="mb-3">
+                                <label for="funcao_revisao" class="form-label">
+                                    <i class="fas fa-user-tie me-1"></i>
+                                    Função para Assinatura *
+                                </label>
+                                <select class="form-select" id="funcao_revisao" name="funcao_id" required>
+                                    <option value="">Selecione uma função</option>
+                                </select>
+                                <div class="form-text">Selecione a função que será exibida na assinatura da escala.</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="observacoes_revisao" class="form-label">
+                            <i class="fas fa-comment me-1"></i>
+                            Observações (opcional)
+                        </label>
+                        <textarea class="form-control" id="observacoes_revisao" name="observacoes" rows="3" 
+                                  placeholder="Digite observações sobre a revisão..."></textarea>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Atenção:</strong> A assinatura eletrônica tem a mesma validade de uma assinatura física. 
+                        Certifique-se de que todas as informações estão corretas antes de assinar.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-info" onclick="console.log('🔘 Botão Revisor clicado!'); confirmarAssinaturaRevisaoEscala()">
+                    <i class="fas fa-signature me-1"></i>
+                    Assinar como Revisor
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Assinar Escala como Aprovador -->
+<div class="modal fade" id="modalAssinarAprovacaoEscala" tabindex="-1" aria-labelledby="modalAssinarAprovacaoEscalaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="modalAssinarAprovacaoEscalaLabel">
+                    <i class="fas fa-signature me-2"></i>
+                    Assinar Escala como Aprovador
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Informações da Escala -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-muted mb-3">Informações da Escala</h6>
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p class="mb-2"><strong>Data:</strong> <span id="escalaDataAprovacao">-</span></p>
+                                        <p class="mb-2"><strong>Organização:</strong> <span id="escalaOrganizacaoAprovacao">-</span></p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p class="mb-2"><strong>Tipo:</strong> <span id="escalaTipoAprovacao">-</span></p>
+                                        <p class="mb-2"><strong>Status:</strong> <span id="escalaStatusAprovacao">-</span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Formulário de Assinatura -->
+                <form id="formAssinaturaAprovacaoEscala">
+                    {% csrf_token %}
+                    <input type="hidden" id="escalaIdAprovacao" name="escala_id">
+                    <input type="hidden" name="tipo_assinatura" value="APROVACAO">
+                    
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="mb-3">
+                                <label for="funcao_aprovacao" class="form-label">
+                                    <i class="fas fa-user-tie me-1"></i>
+                                    Função para Assinatura *
+                                </label>
+                                <select class="form-select" id="funcao_aprovacao" name="funcao_id" required>
+                                    <option value="">Selecione uma função</option>
+                                </select>
+                                <div class="form-text">Selecione a função que será exibida na assinatura da escala.</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="observacoes_aprovacao" class="form-label">
+                            <i class="fas fa-comment me-1"></i>
+                            Observações (opcional)
+                        </label>
+                        <textarea class="form-control" id="observacoes_aprovacao" name="observacoes" rows="3" 
+                                  placeholder="Digite observações sobre a aprovação..."></textarea>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Atenção:</strong> A assinatura eletrônica tem a mesma validade de uma assinatura física. 
+                        Certifique-se de que todas as informações estão corretas antes de assinar.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-success" onclick="console.log('🔘 Botão Aprovador clicado!'); confirmarAssinaturaAprovacaoEscala()">
+                    <i class="fas fa-signature me-1"></i>
+                    Assinar como Aprovador
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+let escalaIdAtual = null;
+
+
+
+// Função para assinar escala como revisor
+async function assinarRevisaoEscala(escalaId) {
+    console.log('🔍 Iniciando assinatura como revisor para escala:', escalaId);
+    escalaIdAtual = escalaId;
+    
+    // Verificar se o modal existe
+    const modal = document.getElementById('modalAssinarRevisaoEscala');
+    if (!modal) {
+        console.error('❌ Modal não encontrado: modalAssinarRevisaoEscala');
+        return;
+    }
+    console.log('✅ Modal encontrado:', modal);
+    
+    try {
+        // Carregar dados da escala
+        console.log('📡 Fazendo requisição para:', `/militares/escalas/${escalaId}/api/dados-assinatura/?tipo=REVISAO`);
+        const response = await fetch(`/militares/escalas/${escalaId}/api/dados-assinatura/?tipo=REVISAO`);
+        console.log('📡 Resposta recebida:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('📊 Dados recebidos:', data);
+        
+        if (data.success) {
+            // Preencher dados da escala
+            document.getElementById('escalaIdRevisao').value = escalaId;
+            document.getElementById('escalaDataRevisao').textContent = data.escala.data;
+            document.getElementById('escalaOrganizacaoRevisao').textContent = data.escala.organizacao;
+            document.getElementById('escalaTipoRevisao').textContent = data.escala.tipo_servico_display;
+            document.getElementById('escalaStatusRevisao').textContent = data.escala.status_display;
+            
+            // Preencher funções do usuário
+            const funcaoSelect = document.getElementById('funcao_revisao');
+            funcaoSelect.innerHTML = '<option value="">Selecione uma função</option>';
+            
+            data.funcoes_usuario.forEach(funcao => {
+                const option = document.createElement('option');
+                option.value = funcao.id;
+                option.textContent = funcao.nome;
+                funcaoSelect.appendChild(option);
+            });
+            
+            // Limpar campos
+            document.getElementById('observacoes_revisao').value = '';
+            
+            // Mostrar modal
+            const modal = new bootstrap.Modal(document.getElementById('modalAssinarRevisaoEscala'));
+            modal.show();
+        } else {
+            console.error('❌ Erro na resposta da API:', data);
+            // Mostrar alerta de erro
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+            alertDiv.innerHTML = `
+                <i class="fas fa-exclamation-circle me-2"></i>
+                Erro ao carregar dados da escala: ${data.message || data.error || 'Erro desconhecido'}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.insertBefore(alertDiv, document.body.firstChild);
+        }
+    } catch (error) {
+        console.error('❌ Erro ao carregar dados da escala:', error);
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+        alertDiv.innerHTML = `
+            <i class="fas fa-exclamation-circle me-2"></i>
+            Erro ao carregar dados da escala: ${error.message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.insertBefore(alertDiv, document.body.firstChild);
+    }
+}
+
+// Função para assinar escala como aprovador
+async function assinarAprovacaoEscala(escalaId) {
+    console.log('🔍 Iniciando assinatura como aprovador para escala:', escalaId);
+    escalaIdAtual = escalaId;
+    
+    // Verificar se o modal existe
+    const modal = document.getElementById('modalAssinarAprovacaoEscala');
+    if (!modal) {
+        console.error('❌ Modal não encontrado: modalAssinarAprovacaoEscala');
+        return;
+    }
+    console.log('✅ Modal encontrado:', modal);
+    
+    try {
+        // Carregar dados da escala
+        console.log('📡 Fazendo requisição para:', `/militares/escalas/${escalaId}/api/dados-assinatura/?tipo=APROVACAO`);
+        const response = await fetch(`/militares/escalas/${escalaId}/api/dados-assinatura/?tipo=APROVACAO`);
+        console.log('📡 Resposta recebida:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('📊 Dados recebidos:', data);
+        
+        if (data.success) {
+            // Preencher dados da escala
+            document.getElementById('escalaIdAprovacao').value = escalaId;
+            document.getElementById('escalaDataAprovacao').textContent = data.escala.data;
+            document.getElementById('escalaOrganizacaoAprovacao').textContent = data.escala.organizacao;
+            document.getElementById('escalaTipoAprovacao').textContent = data.escala.tipo_servico_display;
+            document.getElementById('escalaStatusAprovacao').textContent = data.escala.status_display;
+            
+            // Preencher funções do usuário
+            const funcaoSelect = document.getElementById('funcao_aprovacao');
+            funcaoSelect.innerHTML = '<option value="">Selecione uma função</option>';
+            
+            data.funcoes_usuario.forEach(funcao => {
+                const option = document.createElement('option');
+                option.value = funcao.id;
+                option.textContent = funcao.nome;
+                funcaoSelect.appendChild(option);
+            });
+            
+            // Limpar campos
+            document.getElementById('observacoes_aprovacao').value = '';
+            
+            // Mostrar modal
+            const modal = new bootstrap.Modal(document.getElementById('modalAssinarAprovacaoEscala'));
+            modal.show();
+        } else {
+            console.error('❌ Erro na resposta da API:', data);
+            // Mostrar alerta de erro
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+            alertDiv.innerHTML = `
+                <i class="fas fa-exclamation-circle me-2"></i>
+                Erro ao carregar dados da escala: ${data.message || data.error || 'Erro desconhecido'}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.insertBefore(alertDiv, document.body.firstChild);
+        }
+    } catch (error) {
+        console.error('❌ Erro ao carregar dados da escala:', error);
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+        alertDiv.innerHTML = `
+            <i class="fas fa-exclamation-circle me-2"></i>
+            Erro ao carregar dados da escala: ${error.message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.insertBefore(alertDiv, document.body.firstChild);
+    }
+}
+
+// Função para confirmar assinatura como revisor
+async function confirmarAssinaturaRevisaoEscala() {
+    console.log('🔍 Iniciando confirmação de assinatura como revisor');
+    const form = document.getElementById('formAssinaturaRevisaoEscala');
+    console.log('📋 Formulário encontrado:', form);
+    const formData = new FormData(form);
+    
+    // Definir tipo de mídia como eletrônica
+    formData.set('tipo_midia', 'ELETRONICA');
+    
+    // Gerar dados básicos para assinatura eletrônica
+    const timestamp = new Date().toISOString();
+    const hash = btoa(escalaIdAtual + timestamp);
+    
+    formData.set('hash_documento', hash);
+    formData.set('timestamp', timestamp);
+    formData.set('assinatura_digital', hash);
+    formData.set('certificado', 'ASSINATURA_SIMPLES_SEI');
+    
+    // Validar se a função foi selecionada
+    const funcaoId = formData.get('funcao_id');
+    console.log('🔍 Função selecionada:', funcaoId);
+    
+    if (!funcaoId) {
+        console.error('❌ Nenhuma função selecionada');
+        alert('Por favor, selecione uma função para assinar.');
+        return;
+    }
+    
+    console.log('📡 Enviando requisição para API...');
+    
+    try {
+        const response = await fetch(`/militares/escalas/${escalaIdAtual}/assinar/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: formData
+        });
+        
+        console.log('📡 Status da resposta:', response.status);
+        console.log('📡 Headers da resposta:', response.headers);
+        
+        const data = await response.json();
+        console.log('📊 Dados da resposta:', data);
+        
+        if (data.success) {
+            console.log('✅ Assinatura realizada com sucesso!');
+            // Mostrar alerta de sucesso
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-success alert-dismissible fade show';
+            alertDiv.innerHTML = `
+                <i class="fas fa-check-circle me-2"></i>
+                ${data.message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.insertBefore(alertDiv, document.body.firstChild);
+            
+            // Fechar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalAssinarRevisaoEscala'));
+            modal.hide();
+            
+            // Recarregar página após 1.5 segundos
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            console.error('❌ Erro na resposta da API:', data);
+            // Mostrar alerta de erro
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+            alertDiv.innerHTML = `
+                <i class="fas fa-exclamation-circle me-2"></i>
+                ${data.message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.insertBefore(alertDiv, document.body.firstChild);
+        }
+    } catch (error) {
+        console.error('Erro ao assinar escala:', error);
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+        alertDiv.innerHTML = `
+            <i class="fas fa-exclamation-circle me-2"></i>
+            Erro ao assinar escala
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.insertBefore(alertDiv, document.body.firstChild);
+    }
+}
+
+// Função para confirmar assinatura como aprovador
+async function confirmarAssinaturaAprovacaoEscala() {
+    console.log('🔍 Iniciando confirmação de assinatura como aprovador');
+    const form = document.getElementById('formAssinaturaAprovacaoEscala');
+    console.log('📋 Formulário encontrado:', form);
+    const formData = new FormData(form);
+    
+    // Definir tipo de mídia como eletrônica
+    formData.set('tipo_midia', 'ELETRONICA');
+    
+    // Gerar dados básicos para assinatura eletrônica
+    const timestamp = new Date().toISOString();
+    const hash = btoa(escalaIdAtual + timestamp);
+    
+    formData.set('hash_documento', hash);
+    formData.set('timestamp', timestamp);
+    formData.set('assinatura_digital', hash);
+    formData.set('certificado', 'ASSINATURA_SIMPLES_SEI');
+    
+    // Validar se a função foi selecionada
+    const funcaoId = formData.get('funcao_id');
+    console.log('🔍 Função selecionada:', funcaoId);
+    
+    if (!funcaoId) {
+        console.error('❌ Nenhuma função selecionada');
+        alert('Por favor, selecione uma função para assinar.');
+        return;
+    }
+    
+    console.log('📡 Enviando requisição para API...');
+    
+    try {
+        const response = await fetch(`/militares/escalas/${escalaIdAtual}/assinar/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: formData
+        });
+        
+        console.log('📡 Status da resposta:', response.status);
+        console.log('📡 Headers da resposta:', response.headers);
+        
+        const data = await response.json();
+        console.log('📊 Dados da resposta:', data);
+        
+        if (data.success) {
+            console.log('✅ Assinatura realizada com sucesso!');
+            // Mostrar alerta de sucesso
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-success alert-dismissible fade show';
+            alertDiv.innerHTML = `
+                <i class="fas fa-check-circle me-2"></i>
+                ${data.message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.insertBefore(alertDiv, document.body.firstChild);
+            
+            // Fechar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalAssinarAprovacaoEscala'));
+            modal.hide();
+            
+            // Recarregar página após 1.5 segundos
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            console.error('❌ Erro na resposta da API:', data);
+            // Mostrar alerta de erro
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+            alertDiv.innerHTML = `
+                <i class="fas fa-exclamation-circle me-2"></i>
+                ${data.message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.insertBefore(alertDiv, document.body.firstChild);
+        }
+    } catch (error) {
+        console.error('Erro ao assinar escala:', error);
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+        alertDiv.innerHTML = `
+            <i class="fas fa-exclamation-circle me-2"></i>
+            Erro ao assinar escala
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.insertBefore(alertDiv, document.body.firstChild);
+    }
+}
+
+</script>
+
+{% endblock %}

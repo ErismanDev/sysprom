@@ -1,12 +1,13 @@
-from militares.permissoes_simples import (
-    requer_edicao_militares, requer_edicao_fichas_conceito,
-    requer_gerenciamento_quadros_vagas, requer_gerenciamento_comissoes,
-    requer_gerenciamento_usuarios, requer_assinatura_documentos,
-    requer_funcao_especial, apenas_visualizacao_comissao
-)
 # Imports para sistema de permissões
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+import json
+import time
+# from .permissoes_simples import requer_sessao_ativa, requer_acesso_promocoes
+from .decorators_hierarquia import requer_hierarquia_lotacao
 from .permissoes_sistema import (
     requer_perm_militares_visualizar, requer_perm_militares_criar, requer_perm_militares_editar, requer_perm_militares_excluir, requer_perm_militares_admin,
+    requer_perm_reordenar_antiguidade, tem_permissao,
     requer_perm_fichas_visualizar, requer_perm_fichas_criar, requer_perm_fichas_editar, requer_perm_fichas_aprovar, requer_perm_fichas_admin,
     requer_perm_quadros_visualizar, requer_perm_quadros_criar, requer_perm_quadros_editar, requer_perm_quadros_excluir, requer_perm_quadros_admin,
     requer_perm_promocoes_visualizar, requer_perm_promocoes_criar, requer_perm_promocoes_editar, requer_perm_promocoes_aprovar, requer_perm_promocoes_homologar, requer_perm_promocoes_admin,
@@ -26,7 +27,10 @@ from django.contrib import messages
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required, user_passes_test, permission_required
 from django.views.decorators.csrf import csrf_protect
+from django.views.decorators.http import require_http_methods
 from django.contrib.auth import update_session_auth_hash
+from django.core.paginator import Paginator
+from django.db.models import Q
 from django.core.exceptions import ValidationError
 from django.contrib.auth.password_validation import validate_password
 from django.core.paginator import Paginator
@@ -38,7 +42,7 @@ from datetime import date, datetime
 from django.contrib.auth.models import User, Group, Permission
 from django.db import models, IntegrityError
 from django.conf import settings
-from .models import NotificacaoSessao
+from .models import NotificacaoSessao, PermissaoSubmenu
 from .models import NotificacaoSessao
 from django.http import JsonResponse
 from .models import NotificacaoSessao
@@ -60,10 +64,11 @@ from django.http import FileResponse
 from django.http import FileResponse
 from .models import JustificativaEncerramento
 from .models import AtaSessao
-from .forms import AtaSessaoForm
+from .forms import AtaSessaoForm, OrgaoForm, GrandeComandoForm, UnidadeForm, SubUnidadeForm, ElogioForm, PunicaoForm
 from .models import AtaSessao
 from .models import AtaSessao, AssinaturaAta
 from .models import AtaSessao
+from .models import Orgao, GrandeComando, Unidade, SubUnidade
 from django.http import HttpResponse
 from django.utils import timezone
 from .models import AtaSessao
@@ -96,17 +101,18 @@ from .utils import calcular_proxima_data_promocao
 from .models import (
     Militar, FichaConceitoOficiais, FichaConceitoPracas, QuadroAcesso, ItemQuadroAcesso, 
     Militar, FichaConceitoOficiais, FichaConceitoPracas, QuadroAcesso, ItemQuadroAcesso, 
-    Promocao, Vaga, Curso, MedalhaCondecoracao, Documento, Intersticio,
-    POSTO_GRADUACAO_CHOICES, SITUACAO_CHOICES, QUADRO_CHOICES,
+    Promocao, Vaga, Curso, MedalhaCondecoracao, Documento, Intersticio, Qualificacao,
+    Elogio, Punicao, Publicacao,
+    POSTO_GRADUACAO_CHOICES, SITUACAO_CHOICES, QUADRO_CHOICES, TIPO_QUALIFICACAO_CHOICES, STATUS_VERIFICACAO_CHOICES,
     PrevisaoVaga, AssinaturaQuadroAcesso, AssinaturaQuadroFixacaoVagas, ComissaoPromocao, MembroComissao, SessaoComissao, PresencaSessao, DeliberacaoComissao, VotoDeliberacao, DocumentoSessao, AtaSessao, ModeloAta, CargoComissao,
-    VagaManual, QuadroFixacaoVagas, ItemQuadroFixacaoVagas, UsuarioFuncao,
-    CargoFuncao, PermissaoFuncao, PerfilAcesso, CalendarioPromocao, ItemCalendarioPromocao,
-    AssinaturaCalendarioPromocao, AlmanaqueMilitar, AssinaturaAlmanaque
+    VagaManual, QuadroFixacaoVagas, ItemQuadroFixacaoVagas, UsuarioFuncaoMilitar,
+    FuncaoMilitar, PermissaoFuncao, PerfilAcesso, CalendarioPromocao, ItemCalendarioPromocao,
+    AssinaturaCalendarioPromocao, AlmanaqueMilitar, AssinaturaAlmanaque, LogSistema, MilitarFuncao
 )
-from .forms import MilitarForm, DocumentoForm, UserRegistrationForm, ConfirmarSenhaForm, ComissaoPromocaoForm, MembroComissaoForm, SessaoComissaoForm, DeliberacaoComissaoForm, DocumentoSessaoForm, AtaSessaoForm, ModeloAtaForm, CargoComissaoForm, FichaConceitoPracasForm, FichaConceitoOficiaisForm, UsuarioFuncaoForm, UsuarioForm, CargoFuncaoForm
-from .decorators import usuario_comissao_required, usuario_cpo_required, usuario_cpp_required, apenas_visualizacao_comissao, administracao_required, militar_edit_permission, comissao_acesso_total, cargos_especiais_required, can_edit_ficha_conceito, can_edit_militar
+from .forms import MilitarForm, DocumentoForm, UserRegistrationForm, ConfirmarSenhaForm, ComissaoPromocaoForm, MembroComissaoForm, SessaoComissaoForm, DeliberacaoComissaoForm, DocumentoSessaoForm, AtaSessaoForm, ModeloAtaForm, CargoComissaoForm, FichaConceitoPracasForm, FichaConceitoOficiaisForm, UsuarioForm, FuncaoMilitarForm, QualificacaoForm, MilitarFuncaoForm
+from .decorators import usuario_comissao_required, usuario_cpo_required, usuario_cpp_required, apenas_visualizacao_comissao, administracao_required, militar_edit_permission, comissao_acesso_total, cargos_especiais_required, can_edit_ficha_conceito, can_edit_militar, diretor_gestao_chefe_promocoes_required
 from .admin_decorators import admin_bypass, admin_or_permission_required
-from .permissoes_simples import requer_gerenciamento_comissoes
+# from .permissoes_simples import requer_gerenciamento_comissoes
 from .permissoes import requer_funcao_ativa
 from django import forms
 from django.contrib.auth import authenticate
@@ -147,10 +153,10 @@ def teste_modal_simples(request):
     return render(request, 'teste_modal_simples.html')
 
 @login_required
-@requer_perm_militares_visualizar
+@requer_funcao_ativa
 def militar_list(request):
     """Lista todos os militares ativos com paginação e busca"""
-    militares = Militar.objects.filter(situacao='AT')
+    militares = Militar.objects.filter(classificacao='ATIVO')
 
     # Ordenação padrão por hierarquia e antiguidade
     ordenacao = 'hierarquia_antiguidade'
@@ -245,36 +251,11 @@ def militar_list(request):
         'page_obj': page_obj,
         'itens_por_pagina': itens_por_pagina,
         'total_militares': len(militares_list),
+        'query': query,
+        'pode_reordenar_antiguidade': tem_permissao(request.user, 'MILITARES', 'REORDENAR_ANTIGUIDADE'),
     }
     
     return render(request, 'militares/militar_list.html', context)
-
-@login_required
-@requer_perm_militares_visualizar
-def militar_detail(request, pk):
-    """Exibe os detalhes de um militar"""
-    militar = get_object_or_404(Militar, pk=pk)
-    
-    # Busca ficha de conceito
-    fichas_oficiais = list(militar.fichaconceitooficiais_set.all())
-    fichas_pracas = list(militar.fichaconceitopracas_set.all())
-    ficha_conceito = fichas_oficiais + fichas_pracas
-    ficha_conceito.sort(key=lambda x: x.data_registro, reverse=True)
-    
-    # Busca promoções
-    promocoes = militar.promocao_set.all().order_by('-data_promocao')
-    
-    # Busca documentos
-    documentos = Documento.objects.filter(militar=militar).order_by('-data_upload')
-    
-    context = {
-        'militar': militar,
-        'ficha_conceito': ficha_conceito,
-        'promocoes': promocoes,
-        'documentos': documentos,
-    }
-    
-    return render(request, 'militares/militar_detail.html', context)
 
 @login_required
 def militar_detail_pessoal(request):
@@ -287,7 +268,30 @@ def militar_detail_pessoal(request):
         militar = request.user.militar
     except Militar.DoesNotExist:
         messages.error(request, 'Você não possui militar associado.')
-        return redirect('militares:militar_dashboard')
+        return redirect('militares:home')
+    
+    # Verificar se o usuário tem acesso "NENHUM" - apenas visualização
+    from .permissoes_hierarquicas import obter_nivel_acesso_usuario
+    nivel_acesso = obter_nivel_acesso_usuario(request.user)
+    if nivel_acesso == 'NENHUM':
+        # Usuário com acesso NENHUM: apenas visualização, sem edição
+        pode_editar_dados_pessoais = False
+    else:
+        # Outros usuários podem editar seus dados pessoais
+        pode_editar_dados_pessoais = True
+    
+    # Verificar se o usuário tem sessão ativa (necessário para o menu lateral)
+    from .models import UsuarioSessao
+    sessao_ativa = UsuarioSessao.objects.filter(
+        usuario=request.user,
+        ativo=True
+    ).first()
+    
+    # Para fichas pessoais, não é obrigatório ter sessão ativa
+    # O usuário pode acessar suas informações pessoais mesmo sem função selecionada
+    if not sessao_ativa:
+        # Usar uma sessão temporária ou None para permitir acesso às fichas pessoais
+        pass
     
     # Busca ficha de conceito
     fichas_oficiais = list(militar.fichaconceitooficiais_set.all())
@@ -298,16 +302,216 @@ def militar_detail_pessoal(request):
     # Busca promoções
     promocoes = militar.promocao_set.all().order_by('-data_promocao')
     
+    # Busca lotações
+    lotacoes = militar.lotacoes.filter(ativo=True).order_by('-data_inicio', '-data_cadastro')
+    
+    # Verificar se há função PRINCIPAL ativa e promover ADICIONAL se necessário
+    tem_principal = militar.funcoes.filter(ativo=True, status='ATUAL', tipo_funcao='PRINCIPAL').exists()
+    if not tem_principal:
+        primeira_adicional = militar.funcoes.filter(ativo=True, status='ATUAL', tipo_funcao='ADICIONAL').order_by('-data_inicio', '-data_cadastro').first()
+        if primeira_adicional:
+            primeira_adicional.tipo_funcao = 'PRINCIPAL'
+            primeira_adicional.save()
+    
+    # Busca funções - ordenar por tipo (PRINCIPAL primeiro) e depois por data
+    from django.db.models import Case, When, Value, IntegerField
+    funcoes = militar.funcoes.filter(ativo=True, status__in=['ATUAL', 'ANTERIOR']).annotate(
+        tipo_ordem=Case(
+            When(tipo_funcao='PRINCIPAL', then=Value(1)),
+            When(tipo_funcao='ADICIONAL', then=Value(2)),
+            When(tipo_funcao='TEMPORARIA', then=Value(3)),
+            When(tipo_funcao='COMISSAO', then=Value(4)),
+            default=Value(5),
+            output_field=IntegerField(),
+        )
+    ).order_by('-status', 'tipo_ordem', '-data_inicio', '-data_cadastro')
+    
+    # Busca todas as funções (atuais e históricas)
+    funcoes_atuais = militar.funcoes.filter(status='ATUAL').order_by('-data_inicio')
+    funcoes_historicas = militar.funcoes.filter(status='ANTERIOR').order_by('-data_inicio')
+    todas_funcoes = militar.funcoes.all().order_by('-data_inicio')
+    
     # Busca documentos
     documentos = Documento.objects.filter(militar=militar).order_by('-data_upload')
     
-    context = {
-        'militar': militar,
-        'ficha_conceito': ficha_conceito,
-        'promocoes': promocoes,
-        'documentos': documentos,
-        'is_own_ficha': True,  # Flag para indicar que é a própria ficha
-    }
+    # Importar funções de permissão
+    from .permissoes_simples import (
+        pode_visualizar_militares, pode_editar_militares,
+        pode_visualizar_fichas_conceito, pode_editar_fichas_conceito,
+        pode_visualizar_quadros_acesso, pode_editar_quadros_acesso,
+        pode_visualizar_quadros_fixacao, pode_editar_quadros_fixacao,
+        pode_visualizar_almanaques, pode_editar_almanaques,
+        pode_visualizar_promocoes, pode_editar_promocoes,
+        pode_visualizar_calendarios, pode_editar_calendarios,
+        pode_visualizar_comissoes, pode_editar_comissoes,
+        pode_visualizar_lotacoes, pode_editar_lotacoes,
+        pode_gerenciar_usuarios, pode_gerenciar_permissoes,
+        pode_acessar_logs, pode_gerenciar_medalhas
+    )
+    from .permissoes_militares import pode_visualizar_punicoes_elogios, pode_editar_punicoes_elogios
+    
+    # Buscar elogios e punições (o próprio militar sempre pode ver os seus)
+    elogios = militar.elogios.filter(ativo=True).order_by('-data_elogio', '-data_registro')
+    punicoes = militar.punicoes.filter(ativo=True).order_by('-data_punicao', '-data_registro')
+    
+    # Busca férias do militar ordenadas por ano de referência (do mais atual para o mais distante)
+    # Inclui férias de todos os planos, mesmo que o plano esteja em RASCUNHO
+    from militares.models import Ferias, LicencaEspecial
+    ferias = list(Ferias.objects.filter(militar=militar).select_related('plano', 'militar').order_by('-ano_referencia', '-data_inicio'))
+    
+    # Busca licenças especiais do militar ordenadas por plano e data de início (do mais atual para o mais distante)
+    # NÃO filtrar por status - mostrar TODAS as licenças (PLANEJADA, GOZANDO, GOZADA, CANCELADA)
+    # Ordenar por plano (None primeiro) e depois por data de início
+    licencas_especiais_qs = LicencaEspecial.objects.filter(militar=militar).select_related('militar', 'cadastrado_por', 'plano').order_by('-plano__ano_plano', '-data_inicio', '-data_cadastro')
+    licencas_especiais = list(licencas_especiais_qs)
+    
+    # Busca afastamentos do militar
+    # O próprio militar sempre pode ver seus próprios afastamentos
+    from militares.models import Afastamento
+    afastamentos = list(militar.afastamentos.all().order_by('-data_inicio', '-data_cadastro'))
+    
+    # Tipos de afastamento para o modal de certidão
+    tipos_afastamento = Afastamento.get_all_tipo_choices()
+    
+    # Busca cautelas de armas do militar
+    from militares.models import CautelaArma, CautelaArmaColetiva
+    cautelas_individuais = CautelaArma.objects.filter(militar=militar).select_related('arma', 'militar', 'entregue_por', 'devolvido_por').order_by('-data_entrega')
+    cautelas_coletivas = CautelaArmaColetiva.objects.filter(responsavel=militar).select_related('responsavel', 'criado_por', 'finalizado_por').order_by('-data_inicio')
+    total_cautelas = cautelas_individuais.count() + cautelas_coletivas.count()
+    
+    # Busca processos administrativos do militar
+    from militares.models import ProcessoAdministrativo
+    processos_envolvido = ProcessoAdministrativo.objects.filter(
+        militares_envolvidos=militar,
+        ativo=True
+    ).select_related('orgao', 'grande_comando', 'unidade', 'sub_unidade').order_by('-data_abertura', '-data_criacao')
+    
+    processos_encarregado = ProcessoAdministrativo.objects.filter(
+        militares_encarregados=militar,
+        ativo=True
+    ).select_related('orgao', 'grande_comando', 'unidade', 'sub_unidade').order_by('-data_abertura', '-data_criacao')
+    
+    processos_escriva = ProcessoAdministrativo.objects.filter(
+        escrivaos=militar,
+        ativo=True
+    ).select_related('orgao', 'grande_comando', 'unidade', 'sub_unidade').order_by('-data_abertura', '-data_criacao')
+    
+    # Combinar todos os processos únicos
+    processos_ids = set()
+    processos_todos = []
+    
+    for processo in processos_envolvido:
+        if processo.pk not in processos_ids:
+            processos_ids.add(processo.pk)
+            processos_todos.append(('envolvido', processo))
+    
+    for processo in processos_encarregado:
+        if processo.pk not in processos_ids:
+            processos_ids.add(processo.pk)
+            processos_todos.append(('encarregado', processo))
+    
+    for processo in processos_escriva:
+        if processo.pk not in processos_ids:
+            processos_ids.add(processo.pk)
+            processos_todos.append(('escriva', processo))
+    
+    # Ordenar por data de abertura (mais recente primeiro)
+    from datetime import date
+    processos_todos.sort(key=lambda x: (
+        x[1].data_abertura if x[1].data_abertura else (x[1].data_criacao.date() if x[1].data_criacao else date.min)
+    ), reverse=True)
+    total_processos = len(processos_todos)
+    
+    # DEBUG: Log para verificar se as licenças estão sendo buscadas
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"DEBUG militar_detail_pessoal - Militar ID: {militar.pk}, Licenças encontradas: {len(licencas_especiais)}, IDs: {[l.pk for l in licencas_especiais]}, Afastamentos: {len(afastamentos)}")
+    
+    # Verificar permissões baseadas na função militar
+    # O próprio militar sempre pode visualizar seus elogios e punições
+    pode_ver_elogios_punicoes = pode_visualizar_punicoes_elogios(request.user, militar)
+    pode_editar_elogios_punicoes = pode_editar_punicoes_elogios(request.user, militar)
+    
+    # Para usuários com acesso NENHUM, permitir visualização da própria ficha
+    if nivel_acesso == 'NENHUM':
+        # Usuário com acesso NENHUM pode visualizar apenas sua própria ficha
+        context = {
+            'militar': militar,
+            'ficha_conceito': ficha_conceito,
+            'promocoes': promocoes,
+            'lotacoes': lotacoes,
+            'funcoes': funcoes,
+            'funcoes_atuais': funcoes_atuais,
+            'funcoes_historicas': funcoes_historicas,
+            'todas_funcoes': todas_funcoes,
+            'documentos': documentos,
+            'elogios': elogios,
+            'punicoes': punicoes,
+            'ferias': ferias,
+            'licencas_especiais': licencas_especiais,
+            'afastamentos': afastamentos,
+            'tipos_afastamento': tipos_afastamento,
+            'cautelas_individuais': cautelas_individuais,
+            'cautelas_coletivas': cautelas_coletivas,
+            'total_cautelas': total_cautelas,
+            'processos_todos': processos_todos,
+            'total_processos': total_processos,
+            'averbacoes': list(militar.averbacoes.all().order_by('-data_averbacao', '-data_cadastro')),
+            'is_own_ficha': True,  # Flag para indicar que é a própria ficha
+            'permissoes_detalhes': {
+                'detail_contato': True,  # Pode ver contato próprio
+                'detail_medalhas': False,  # Não pode ver medalhas
+            },
+            'menu_permissions': {
+                'DETAIL_FICHAS_CONCEITO': True,  # Pode ver suas próprias fichas
+                'DETAIL_PUNICOES': pode_ver_elogios_punicoes,  # Pode ver seus próprios elogios/punições
+            },
+            'pode_visualizar_punicoes_elogios': pode_ver_elogios_punicoes,  # O próprio militar sempre pode ver
+            'pode_editar_punicoes_elogios': pode_editar_elogios_punicoes,  # Editar apenas superusuário
+            'pode_editar_dados_pessoais': False,  # Não pode editar dados pessoais
+        }
+    else:
+        # Outros usuários seguem as permissões normais
+        context = {
+            'militar': militar,
+            'ficha_conceito': ficha_conceito,
+            'promocoes': promocoes,
+            'lotacoes': lotacoes,
+            'funcoes': funcoes,
+            'funcoes_atuais': funcoes_atuais,
+            'funcoes_historicas': funcoes_historicas,
+            'todas_funcoes': todas_funcoes,
+            'documentos': documentos,
+            'elogios': elogios,
+            'punicoes': punicoes,
+            'ferias': ferias,
+            'licencas_especiais': licencas_especiais,
+            'afastamentos': afastamentos,
+            'tipos_afastamento': tipos_afastamento,
+            'cautelas_individuais': cautelas_individuais,
+            'cautelas_coletivas': cautelas_coletivas,
+            'total_cautelas': total_cautelas,
+            'processos_todos': processos_todos,
+            'total_processos': total_processos,
+            'averbacoes': list(militar.averbacoes.all().order_by('-data_averbacao', '-data_cadastro')),
+            'is_own_ficha': True,  # Flag para indicar que é a própria ficha
+            'permissoes_detalhes': {
+                'detail_contato': pode_visualizar_militares(request.user),  # Baseado na função militar
+                'detail_medalhas': pode_gerenciar_medalhas(request.user),  # Baseado na função militar
+            },
+            'menu_permissions': {
+                'DETAIL_FICHAS_CONCEITO': pode_visualizar_fichas_conceito(request.user),  # Baseado na função militar
+                'DETAIL_PUNICOES': pode_ver_elogios_punicoes,  # Baseado na função militar e próprio militar
+            },
+            'pode_visualizar_punicoes_elogios': pode_ver_elogios_punicoes,  # Usa função correta que considera próprio militar
+            'pode_editar_punicoes_elogios': pode_editar_elogios_punicoes,  # Usa função correta
+            'pode_editar_dados_pessoais': pode_editar_dados_pessoais,  # Baseado no nível de acesso
+        }
+    
+    # Adicionar permissões do menu do context processor
+    from .context_processors import menu_permissions_processor
+    menu_context = menu_permissions_processor(request)
+    context.update(menu_context)
     
     return render(request, 'militares/militar_detail.html', context)
 
@@ -347,7 +551,7 @@ def militar_update(request, pk):
     """Atualiza um militar existente"""
     # Verificar permissão
     if not can_edit_militar(request.user):
-        messages.error(request, 'Você não tem permissão para editar militares. Apenas administradores, chefes da seção de promoções e diretores de gestão de pessoas podem editar.')
+        messages.error(request, 'Você não tem permissão para editar militares. Apenas administradores, chefes da seção de promoções, diretores de gestão de pessoas e operadores do sistema podem editar.')
         return redirect('militares:militar_list')
     
     militar = get_object_or_404(Militar, pk=pk)
@@ -371,6 +575,7 @@ def militar_update(request, pk):
                         messages.success(request, f'Militar {militar.nome_completo} atualizado com sucesso!')
                 except Exception as e:
                     messages.warning(request, f'Militar atualizado, mas houve um erro na reordenação automática: {str(e)}')
+                return redirect('militares:militar_detail', pk=militar.pk)
             else:
                 messages.success(request, f'Militar {militar.nome_completo} atualizado com sucesso!')
                 return redirect('militares:militar_detail', pk=militar.pk)
@@ -395,7 +600,7 @@ def militar_delete(request, pk):
     """Remove um militar"""
     # Verificar permissão
     if not can_edit_militar(request.user):
-        messages.error(request, 'Você não tem permissão para excluir militares. Apenas administradores, chefes da seção de promoções e diretores de gestão de pessoas podem excluir.')
+        messages.error(request, 'Você não tem permissão para excluir militares. Apenas administradores, chefes da seção de promoções, diretores de gestão de pessoas e operadores do sistema podem excluir.')
         return redirect('militares:militar_list')
     
     militar = get_object_or_404(Militar, pk=pk)
@@ -418,12 +623,12 @@ def militar_search_ajax(request):
     logger = logging.getLogger(__name__)
     
     query = request.GET.get('q', '')
-    logger.info(f'🔍 Busca AJAX recebida: {query}')
-    logger.info(f'📡 Método da requisição: {request.method}')
-    logger.info(f'📡 Headers: {dict(request.headers)}')
+    logger.info(f'DEBUG - Busca AJAX recebida: {query}')
+    logger.info(f'DEBUG - Metodo da requisicao: {request.method}')
+    logger.info(f'DEBUG - Headers: {dict(request.headers)}')
     
     if len(query) < 2:
-        logger.info('⚠️ Query muito curta, retornando vazio')
+        logger.info('WARNING - Query muito curta, retornando vazio')
         return JsonResponse({'results': []})
     
     try:
@@ -465,17 +670,17 @@ def buscar_usuarios_ajax(request):
     
     query = request.GET.get('q', '')
     comissao_tipo = request.GET.get('comissao_tipo', '')  # CPO ou CPP
-    logger.info(f'🔍 Busca de usuários AJAX recebida: {query} (comissão: {comissao_tipo})')
+    logger.info(f'DEBUG - Busca de usuarios AJAX recebida: {query} (comissao: {comissao_tipo})')
     
     if len(query) < 2:
-        logger.info('⚠️ Query muito curta, retornando vazio')
+        logger.info('WARNING - Query muito curta, retornando vazio')
         return JsonResponse({'usuarios': []})
     
     try:
         # Buscar usuários que têm militares vinculados e estão ativos
         usuarios = User.objects.filter(
             militar__isnull=False,  # Apenas usuários com militar vinculado
-            militar__situacao='AT',  # Apenas militares ativos
+            militar__classificacao='ATIVO',  # Apenas militares ativos
             is_active=True  # Apenas usuários ativos
         ).filter(
             Q(militar__nome_completo__icontains=query) |
@@ -491,16 +696,16 @@ def buscar_usuarios_ajax(request):
             # Para CPO: apenas usuários com funções CPO
             usuarios = usuarios.filter(
                 militar__posto_graduacao__in=['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS'],  # Apenas oficiais
-                funcoes__cargo_funcao__nome__icontains='CPO',  # Com função CPO
-                funcoes__status='ATIVO'  # Função ativa
+                funcoes__funcao_militar__nome__icontains='CPO',  # Com função CPO
+                funcoes__ativo=True  # Função ativa
             ).distinct()
             
         elif comissao_tipo == 'CPP':
             # Para CPP: apenas usuários com funções CPP
             usuarios = usuarios.filter(
                 militar__posto_graduacao__in=['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS'],  # Apenas oficiais
-                funcoes__cargo_funcao__nome__icontains='CPP',  # Com função CPP
-                funcoes__status='ATIVO'  # Função ativa
+                funcoes__funcao_militar__nome__icontains='CPP',  # Com função CPP
+                funcoes__ativo=True  # Função ativa
             ).distinct()
         
         usuarios = usuarios.order_by('militar__nome_completo')[:10]
@@ -512,9 +717,9 @@ def buscar_usuarios_ajax(request):
             militar = usuario.militar
             
             # Buscar a função específica do usuário
-            funcao_cpo_cpp = usuario.funcoes.filter(
-                status='ATIVO',
-                cargo_funcao__nome__icontains=comissao_tipo if comissao_tipo else ''
+            funcao_cpo_cpp = usuario.funcoes_militares.filter(
+                ativo=True,
+                funcao_militar__nome__icontains=comissao_tipo if comissao_tipo else ''
             ).first()
             
             results.append({
@@ -528,7 +733,7 @@ def buscar_usuarios_ajax(request):
                     'posto': militar.get_posto_graduacao_display(),
                     'matricula': militar.matricula,
                 },
-                'funcao': funcao_cpo_cpp.cargo_funcao.nome if funcao_cpo_cpp else None
+                'funcao': funcao_cpo_cpp.funcao_militar.nome if funcao_cpo_cpp else None
             })
         
         logger.info(f'✅ Retornando {len(results)} resultados')
@@ -539,21 +744,428 @@ def buscar_usuarios_ajax(request):
         return JsonResponse({'usuarios': [], 'error': str(e)})
 
 @login_required
+def home(request):
+    """Página inicial do sistema - acessível por todos os usuários"""
+    from .models import UsuarioSessao, Publicacao, EscalaServico, EscalaMilitar
+    from django.utils import timezone
+    from datetime import datetime, date
+    from django.db.models import Q
+    
+    # Obter mês e ano (atual ou filtrado)
+    hoje = date.today()
+    mes_atual = int(request.GET.get('mes', hoje.month))
+    ano_atual = int(request.GET.get('ano', hoje.year))
+    
+    # Validar mês e ano
+    if mes_atual < 1 or mes_atual > 12:
+        mes_atual = hoje.month
+    if ano_atual < 2020 or ano_atual > hoje.year + 1:
+        ano_atual = hoje.year
+    
+    # Superusuários podem acessar diretamente sem sessão
+    if request.user.is_superuser:
+        # Boletins disponibilizados
+        boletins_disponibilizados = Publicacao.objects.filter(
+            tipo='BOLETIM_OSTENSIVO',
+            data_disponibilizacao__isnull=False
+        ).order_by('-data_disponibilizacao')[:6]
+        
+        # Escalas de serviço do mês atual (todas para superusuário)
+        escalas_mes_atual = EscalaServico.objects.filter(
+            data__month=mes_atual,
+            data__year=ano_atual
+        ).order_by('data', 'hora_inicio')[:10]
+        
+        # Boletins reservados disponibilizados
+        boletins_reservados_disponibilizados = Publicacao.objects.filter(
+            tipo='BOLETIM_RESERVADO',
+            data_disponibilizacao__isnull=False
+        ).order_by('-data_disponibilizacao')[:6]
+        
+        # Boletins especiais disponibilizados
+        boletins_especiais_disponibilizados = Publicacao.objects.filter(
+            tipo='BOLETIM_ESPECIAL',
+            data_disponibilizacao__isnull=False
+        ).order_by('-data_disponibilizacao')[:6]
+        
+        # Buscar licenciamentos próximos ao vencimento (5 dias antes do proximo_vencimento)
+        proximo_licenciamento_vencer = None
+        licenciamentos_alertas = []
+        from .models import LicenciamentoViatura
+        from datetime import timedelta
+        data_alerta = hoje + timedelta(days=5)
+        
+        licenciamentos_proximos_vencimento = LicenciamentoViatura.objects.filter(
+            proximo_vencimento__gte=hoje,
+            proximo_vencimento__lte=data_alerta,
+            ativo=True
+        ).select_related('viatura', 'responsavel').order_by('proximo_vencimento')
+        
+        # Filtrar apenas aqueles que ainda não foram renovados
+        for lic in licenciamentos_proximos_vencimento:
+            # Verificar se não há um novo licenciamento após o proximo_vencimento
+            novo_licenciamento = LicenciamentoViatura.objects.filter(
+                viatura=lic.viatura,
+                data_vencimento__gt=lic.proximo_vencimento,
+                ativo=True
+            ).exists()
+            
+            if not novo_licenciamento:
+                licenciamentos_alertas.append(lic)
+        
+        # Pegar o mais próximo para o card
+        proximo_licenciamento_vencer = licenciamentos_alertas[0] if licenciamentos_alertas else None
+        
+        # Buscar manutenções próximas (viatura próxima do próximo_km_revisao)
+        proxima_manutencao = None
+        manutencoes_alertas = []
+        from .models import ManutencaoViatura
+        manutencoes_candidatas = ManutencaoViatura.objects.filter(
+            proximo_km_revisao__isnull=False,
+            ativo=True
+        ).select_related('viatura', 'responsavel')
+        
+        for manutencao in manutencoes_candidatas:
+            if manutencao.viatura:
+                km_atual = manutencao.viatura.km_atual
+                km_proximo = manutencao.proximo_km_revisao
+                diferenca_km = km_proximo - km_atual
+                
+                # Alertar se faltam menos de 1000 km ou se já passou
+                if diferenca_km <= 1000:
+                    # Verificar se ainda não foi feita uma nova manutenção após o próximo_km_revisao
+                    nova_manutencao = ManutencaoViatura.objects.filter(
+                        viatura=manutencao.viatura,
+                        km_manutencao__gte=km_proximo,
+                        ativo=True
+                    ).exclude(pk=manutencao.pk).exists()
+                    
+                    if not nova_manutencao:
+                        manutencoes_alertas.append((diferenca_km, manutencao))
+        
+        # Ordenar por menor diferença (mais próximo) e pegar o primeiro
+        if manutencoes_alertas:
+            manutencoes_alertas.sort(key=lambda x: x[0])
+            manutencoes_alertas = [m[1] for m in manutencoes_alertas]
+            proxima_manutencao = manutencoes_alertas[0]
+        
+        # Buscar trocas de óleo próximas (viatura próxima do proximo_km_troca)
+        proxima_troca_oleo = None
+        trocas_oleo_alertas = []
+        from .models import TrocaOleoViatura
+        trocas_candidatas = TrocaOleoViatura.objects.filter(
+            proximo_km_troca__isnull=False,
+            ativo=True
+        ).select_related('viatura', 'responsavel')
+        
+        for troca in trocas_candidatas:
+            if troca.viatura:
+                km_atual = troca.viatura.km_atual
+                km_proximo = troca.proximo_km_troca
+                diferenca_km = km_proximo - km_atual
+                
+                # Alertar se faltam menos de 1000 km ou se já passou
+                if diferenca_km <= 1000:
+                    # Verificar se ainda não foi feita uma nova troca após o proximo_km_troca
+                    nova_troca = TrocaOleoViatura.objects.filter(
+                        viatura=troca.viatura,
+                        km_troca__gte=km_proximo,
+                        ativo=True
+                    ).exclude(pk=troca.pk).exists()
+                    
+                    if not nova_troca:
+                        trocas_oleo_alertas.append((diferenca_km, troca))
+        
+        # Ordenar por menor diferença (mais próximo) e pegar o primeiro
+        if trocas_oleo_alertas:
+            trocas_oleo_alertas.sort(key=lambda x: x[0])
+            trocas_oleo_alertas = [t[1] for t in trocas_oleo_alertas]
+            proxima_troca_oleo = trocas_oleo_alertas[0]
+        
+        context = {
+            'boletins_disponibilizados': boletins_disponibilizados,
+            'boletins_reservados_disponibilizados': boletins_reservados_disponibilizados,
+            'boletins_especiais_disponibilizados': boletins_especiais_disponibilizados,
+            'escalas_mes_atual': escalas_mes_atual,
+            'mes_atual': mes_atual,
+            'ano_atual': ano_atual,
+            'nivel_usuario': None,  # Superusuário não precisa de nível
+            'is_superuser': True,
+            'proximas_ferias': None,
+            'proxima_licenca_especial': None,
+            'proximo_licenciamento_vencer': proximo_licenciamento_vencer,
+            'licenciamentos_alertas': licenciamentos_alertas,
+            'proxima_manutencao': proxima_manutencao,
+            'manutencoes_alertas': manutencoes_alertas,
+            'proxima_troca_oleo': proxima_troca_oleo,
+            'trocas_oleo_alertas': trocas_oleo_alertas,
+        }
+        
+        return render(request, 'militares/home.html', context)
+    
+    # Verificar se o usuário tem sessão ativa com função selecionada
+    sessao_ativa = UsuarioSessao.objects.filter(
+        usuario=request.user,
+        ativo=True
+    ).first()
+
+    if not sessao_ativa:
+        # Se não tem sessão ativa, redirecionar para seleção de função
+        return redirect('militares:selecionar_funcao_lotacao')
+
+    funcao_usuario = sessao_ativa.funcao_militar_usuario
+    funcao_militar = funcao_usuario.funcao_militar
+    
+    # Boletins disponibilizados
+    boletins_disponibilizados = Publicacao.objects.filter(
+        tipo='BOLETIM_OSTENSIVO',
+        data_disponibilizacao__isnull=False
+    ).order_by('-data_disponibilizacao')[:6]
+    
+    # Boletins reservados disponibilizados
+    boletins_reservados_disponibilizados = Publicacao.objects.filter(
+        tipo='BOLETIM_RESERVADO',
+        data_disponibilizacao__isnull=False
+    ).order_by('-data_disponibilizacao')[:6]
+    
+    # Boletins especiais disponibilizados
+    boletins_especiais_disponibilizados = Publicacao.objects.filter(
+        tipo='BOLETIM_ESPECIAL',
+        data_disponibilizacao__isnull=False
+    ).order_by('-data_disponibilizacao')[:6]
+    
+    # Escalas de serviço do mês atual - mostrar apenas escalas onde o militar foi inserido
+    from .models import Militar, EscalaMilitar
+    
+    try:
+        # Buscar o militar do usuário
+        militar = Militar.objects.get(user=request.user)
+        
+        # Buscar escalas onde o militar foi efetivamente escalado
+        escalas_militar = EscalaMilitar.objects.filter(
+            militar=militar,
+            escala__data__month=mes_atual,
+            escala__data__year=ano_atual
+        ).select_related('escala').order_by('escala__data', 'escala__hora_inicio')
+        
+        # Extrair as escalas e remover duplicatas
+        escalas_unicas = {}
+        for em in escalas_militar[:10]:
+            escalas_unicas[em.escala.id] = em.escala
+        escalas_mes_atual = list(escalas_unicas.values())
+        
+        # Buscar próximas férias do militar (PLANEJADA ou GOZANDO)
+        from .models import Ferias, LicencaEspecial
+        proximas_ferias = Ferias.objects.filter(
+            militar=militar,
+            status__in=['PLANEJADA', 'GOZANDO'],
+            data_inicio__gte=hoje
+        ).order_by('data_inicio').first()
+        
+        # Buscar próxima licença especial do militar (PLANEJADA ou GOZANDO)
+        proxima_licenca_especial = LicencaEspecial.objects.filter(
+            militar=militar,
+            status__in=['PLANEJADA', 'GOZANDO'],
+            data_inicio__gte=hoje
+        ).order_by('data_inicio').first()
+        
+    except Militar.DoesNotExist:
+        # Se não é militar, não tem escalas
+        escalas_mes_atual = []
+        proximas_ferias = None
+        proxima_licenca_especial = None
+    
+    # Buscar licenciamentos próximos ao vencimento (5 dias antes do proximo_vencimento)
+    # Apenas para usuários com acesso ao menu de viaturas
+    proximo_licenciamento_vencer = None
+    licenciamentos_alertas = []
+    
+    # Verificar se o usuário tem permissão para ver o menu de viaturas
+    from .permissoes_hierarquicas import obter_funcao_militar_ativa
+    funcao_atual = obter_funcao_militar_ativa(request.user)
+    tem_permissao_viaturas = False
+    
+    if request.user.is_superuser:
+        tem_permissao_viaturas = True
+    elif funcao_atual and funcao_atual.funcao_militar:
+        permissoes = funcao_atual.funcao_militar.get_menu_permissions()
+        tem_permissao_viaturas = permissoes.get('show_viaturas', False)
+    
+    if tem_permissao_viaturas:
+        from .models import LicenciamentoViatura
+        from datetime import timedelta
+        data_alerta = hoje + timedelta(days=5)
+        
+        licenciamentos_proximos_vencimento = LicenciamentoViatura.objects.filter(
+            proximo_vencimento__gte=hoje,
+            proximo_vencimento__lte=data_alerta,
+            ativo=True
+        ).select_related('viatura', 'responsavel').order_by('proximo_vencimento')
+        
+        # Filtrar apenas aqueles que ainda não foram renovados
+        for lic in licenciamentos_proximos_vencimento:
+            # Verificar se não há um novo licenciamento após o proximo_vencimento
+            novo_licenciamento = LicenciamentoViatura.objects.filter(
+                viatura=lic.viatura,
+                data_vencimento__gt=lic.proximo_vencimento,
+                ativo=True
+            ).exists()
+            
+            if not novo_licenciamento:
+                licenciamentos_alertas.append(lic)
+        
+        # Pegar o mais próximo para o card
+        proximo_licenciamento_vencer = licenciamentos_alertas[0] if licenciamentos_alertas else None
+    
+    # Buscar manutenções próximas (viatura próxima do próximo_km_revisao)
+    # Considerar "próximo" quando faltam menos de 1000 km ou quando já passou
+    proxima_manutencao = None
+    manutencoes_alertas = []
+    
+    if tem_permissao_viaturas:
+        from .models import ManutencaoViatura
+        manutencoes_candidatas = ManutencaoViatura.objects.filter(
+            proximo_km_revisao__isnull=False,
+            ativo=True
+        ).select_related('viatura', 'responsavel')
+        
+        for manutencao in manutencoes_candidatas:
+            if manutencao.viatura:
+                km_atual = manutencao.viatura.km_atual
+                km_proximo = manutencao.proximo_km_revisao
+                diferenca_km = km_proximo - km_atual
+                
+                # Alertar se faltam menos de 1000 km ou se já passou
+                if diferenca_km <= 1000:
+                    # Verificar se ainda não foi feita uma nova manutenção após o próximo_km_revisao
+                    nova_manutencao = ManutencaoViatura.objects.filter(
+                        viatura=manutencao.viatura,
+                        km_manutencao__gte=km_proximo,
+                        ativo=True
+                    ).exclude(pk=manutencao.pk).exists()
+                    
+                    if not nova_manutencao:
+                        manutencoes_alertas.append((diferenca_km, manutencao))
+        
+        # Ordenar por menor diferença (mais próximo) e pegar o primeiro
+        if manutencoes_alertas:
+            manutencoes_alertas.sort(key=lambda x: x[0])
+            manutencoes_alertas = [m[1] for m in manutencoes_alertas]
+            proxima_manutencao = manutencoes_alertas[0]
+    
+    # Buscar trocas de óleo próximas (viatura próxima do proximo_km_troca)
+    # Considerar "próximo" quando faltam menos de 1000 km ou quando já passou
+    proxima_troca_oleo = None
+    trocas_oleo_alertas = []
+    
+    if tem_permissao_viaturas:
+        from .models import TrocaOleoViatura
+        trocas_candidatas = TrocaOleoViatura.objects.filter(
+            proximo_km_troca__isnull=False,
+            ativo=True
+        ).select_related('viatura', 'responsavel')
+        
+        for troca in trocas_candidatas:
+            if troca.viatura:
+                km_atual = troca.viatura.km_atual
+                km_proximo = troca.proximo_km_troca
+                diferenca_km = km_proximo - km_atual
+                
+                # Alertar se faltam menos de 1000 km ou se já passou
+                if diferenca_km <= 1000:
+                    # Verificar se ainda não foi feita uma nova troca após o proximo_km_troca
+                    nova_troca = TrocaOleoViatura.objects.filter(
+                        viatura=troca.viatura,
+                        km_troca__gte=km_proximo,
+                        ativo=True
+                    ).exclude(pk=troca.pk).exists()
+                    
+                    if not nova_troca:
+                        trocas_oleo_alertas.append((diferenca_km, troca))
+        
+        # Ordenar por menor diferença (mais próximo) e pegar o primeiro
+        if trocas_oleo_alertas:
+            trocas_oleo_alertas.sort(key=lambda x: x[0])
+            trocas_oleo_alertas = [t[1] for t in trocas_oleo_alertas]
+            proxima_troca_oleo = trocas_oleo_alertas[0]
+    
+    # Determinar nível de acesso do usuário
+    nivel_usuario = None
+    if funcao_militar:
+        nivel_usuario = funcao_militar
+    
+    context = {
+        'boletins_disponibilizados': boletins_disponibilizados,
+        'boletins_reservados_disponibilizados': boletins_reservados_disponibilizados,
+        'boletins_especiais_disponibilizados': boletins_especiais_disponibilizados,
+        'escalas_mes_atual': escalas_mes_atual,
+        'mes_atual': mes_atual,
+        'ano_atual': ano_atual,
+        'nivel_usuario': nivel_usuario,
+        'is_superuser': False,
+        'proximas_ferias': proximas_ferias,
+        'proxima_licenca_especial': proxima_licenca_especial,
+        'proximo_licenciamento_vencer': proximo_licenciamento_vencer,
+        'licenciamentos_alertas': licenciamentos_alertas,
+        'proxima_manutencao': proxima_manutencao,
+        'manutencoes_alertas': manutencoes_alertas,
+        'proxima_troca_oleo': proxima_troca_oleo,
+        'trocas_oleo_alertas': trocas_oleo_alertas,
+    }
+    
+    return render(request, 'militares/home.html', context)
+
+def dashboard_permission_required(view_func):
+    """Decorator para verificar permissão de acesso ao dashboard"""
+    def wrapper(request, *args, **kwargs):
+        # Superusuários sempre têm acesso
+        if request.user.is_superuser:
+            return view_func(request, *args, **kwargs)
+        
+        # Verificar se tem sessão ativa
+        from .models import UsuarioSessao
+        sessao_ativa = UsuarioSessao.objects.filter(
+            usuario=request.user,
+            ativo=True
+        ).first()
+        
+        if not sessao_ativa or not sessao_ativa.funcao_militar_usuario:
+            return redirect('militares:selecionar_funcao_lotacao')
+        
+        funcao_militar = sessao_ativa.funcao_militar_usuario.funcao_militar
+        
+        # Verificar se tem nível de acesso suficiente (nível 4 ou superior)
+        if funcao_militar.nivel >= 4:
+            return view_func(request, *args, **kwargs)
+        
+        # Se não tem permissão, redirecionar para home com mensagem
+        from django.contrib import messages
+        messages.warning(request, 'Você não tem permissão para acessar o dashboard administrativo.')
+        return redirect('militares:home')
+    
+    return wrapper
+
+@login_required
+@dashboard_permission_required
 def militar_dashboard(request):
     """Dashboard principal do sistema"""
-    
-    # Verificar se usuário é do tipo "Usuário" e redirecionar para sua ficha
-    is_usuario = UsuarioFuncao.objects.filter(
+
+    # Verificar se o usuário tem sessão ativa com função selecionada
+    from militares.models import UsuarioSessao
+    sessao_ativa = UsuarioSessao.objects.filter(
         usuario=request.user,
-        status='ATIVO',
-        cargo_funcao__nome='Usuário'
-    ).exists()
-    
-    if is_usuario:
-        return redirect('militares:redirect_usuario_ficha')
-    
+        ativo=True
+    ).first()
+
+    if not sessao_ativa:
+        # Se não tem sessão ativa, redirecionar para seleção de função
+        return redirect('militares:selecionar_funcao_lotacao')
+
+    # Todos os usuários, independente da função, vão para o dashboard principal
+    # Apenas usuários com "Serviço Operacional" podem acessar a ficha via menu
+
     total_militares = Militar.objects.count()
-    militares_ativos = Militar.objects.filter(situacao='AT').count()
+    militares_ativos = Militar.objects.filter(classificacao='ATIVO').count()
     militares_inativos = total_militares - militares_ativos
     # Contar militares que possuem ficha de conceito (não o total de fichas)
     militares_com_ficha = Militar.objects.filter(
@@ -566,14 +1178,28 @@ def militar_dashboard(request):
     total_quadros = QuadroAcesso.objects.count()
     
     # Estatísticas por quadro
-    estatisticas_quadro = Militar.objects.filter(situacao='AT').values('quadro').annotate(
+    estatisticas_quadro = Militar.objects.filter(classificacao='ATIVO').values('quadro').annotate(
         total=Count('id')
     ).order_by('quadro')
     
     # Estatísticas por posto/graduação
-    estatisticas_posto = Militar.objects.filter(situacao='AT').values('posto_graduacao').annotate(
+    estatisticas_posto = Militar.objects.filter(classificacao='ATIVO').values('posto_graduacao').annotate(
         total=Count('id')
     ).order_by('posto_graduacao')
+    
+    # Estatísticas por gênero - Posto/Graduação
+    estatisticas_genero_posto = Militar.objects.filter(classificacao='ATIVO').values('posto_graduacao', 'sexo').annotate(
+        total=Count('id')
+    ).order_by('posto_graduacao', 'sexo')
+    
+    # Estatísticas por gênero - Quadro
+    estatisticas_genero_quadro = Militar.objects.filter(classificacao='ATIVO').values('quadro', 'sexo').annotate(
+        total=Count('id')
+    ).order_by('quadro', 'sexo')
+    
+    # Totais por gênero
+    total_homens = Militar.objects.filter(classificacao='ATIVO', sexo='M').count()
+    total_mulheres = Militar.objects.filter(classificacao='ATIVO', sexo='F').count()
     
     # Estatísticas de documentos por status
     documentos_por_status = Documento.objects.values('status').annotate(
@@ -603,7 +1229,7 @@ def militar_dashboard(request):
     
     # Buscar militares ativos com ficha de conceito (para cálculo de aptos)
     militares_aptos_candidatos = Militar.objects.filter(
-        situacao='AT',
+        classificacao='ATIVO',
         posto_graduacao__in=intersticios_minimos.keys()
     ).filter(
         Q(fichaconceitooficiais__isnull=False) | Q(fichaconceitopracas__isnull=False)
@@ -653,6 +1279,10 @@ def militar_dashboard(request):
     # Aplicar slice apenas para exibição
     notificacoes = notificacoes_base[:10]
     
+    # Obter nível hierárquico do usuário para exibição de permissões
+    from militares.permissoes_niveis import obter_nivel_hierarquico_usuario
+    nivel_usuario = obter_nivel_hierarquico_usuario(request.user)
+    
     context = {
         'total_militares': total_militares,
         'militares_ativos': militares_ativos,
@@ -663,6 +1293,10 @@ def militar_dashboard(request):
         'total_quadros': total_quadros,
         'estatisticas_quadro': estatisticas_quadro,
         'estatisticas_posto': estatisticas_posto,
+        'estatisticas_genero_posto': estatisticas_genero_posto,
+        'estatisticas_genero_quadro': estatisticas_genero_quadro,
+        'total_homens': total_homens,
+        'total_mulheres': total_mulheres,
         'documentos_por_status': documentos_por_status,
         'militares_aptos_por_posto': militares_aptos_ordenados,
         'total_aptos_quadro': total_aptos,
@@ -672,89 +1306,304 @@ def militar_dashboard(request):
         'total_notificacoes': total_notificacoes,
         'notificacoes_urgentes': notificacoes_urgentes,
         'notificacoes_altas': notificacoes_altas,
+        'nivel_usuario': nivel_usuario,
     }
     
     return render(request, 'militares/dashboard.html', context)
 
 # Views para Ficha de Conceito
 @login_required
-@apenas_visualizacao_comissao
 def ficha_conceito_list(request):
-    """Lista ficha de conceito de oficiais"""
+    """Lista unificada de fichas de conceito de oficiais e praças"""
+    from .permissoes_simples import filtrar_fichas_conceito_por_usuario, pode_editar_fichas_conceito, pode_visualizar_fichas_conceito, obter_funcao_militar_ativa
+    from .models import UsuarioSessao
+    from .filtros_hierarquicos_novo import aplicar_filtro_hierarquico_fichas
+    
     militar_id = request.GET.get('militar')
-    if militar_id:
-        militar = get_object_or_404(Militar, pk=militar_id)
-        fichas_oficiais = list(militar.fichaconceitooficiais_set.all())
-        fichas_pracas = list(militar.fichaconceitopracas_set.all())
-        fichas = fichas_oficiais + fichas_pracas
-        fichas.sort(key=lambda x: x.data_registro, reverse=True)
-        oficiais_com_ficha = fichas
-        oficiais_sem_ficha = []
-    else:
-        militar = None
-        # Filtrar apenas oficiais (CB, TC, MJ, CP, 1T, 2T, AS, AA)
-        oficiais = Militar.objects.filter(
-            situacao='AT',
-            posto_graduacao__in=['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS', 'AA']
-        )
-        # Buscar oficiais com ficha
-        fichas = FichaConceitoOficiais.objects.filter(militar__in=oficiais)
+    tipo_filtro = request.GET.get('tipo', 'oficiais')  # 'oficiais', 'pracas', 'todos'
+    
+    # Verificar se é superusuário - tem acesso total sem função militar
+    if request.user.is_superuser:
+        # Para superusuário, usar dados globais sem filtros hierárquicos
+        if militar_id:
+            militar = get_object_or_404(Militar, pk=militar_id)
+            fichas_oficiais = list(militar.fichaconceitooficiais_set.all())
+            fichas_pracas = list(militar.fichaconceitopracas_set.all())
+            fichas = fichas_oficiais + fichas_pracas
+            fichas.sort(key=lambda x: x.data_registro, reverse=True)
+            militares_com_ficha = fichas
+            militares_sem_ficha = []
+        else:
+            # Buscar oficiais ativos (todos)
+            oficiais = Militar.objects.filter(
+                classificacao='ATIVO',
+                posto_graduacao__in=['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS', 'AA']
+            )
+            
+            # Buscar praças ativas (todas)
+            pracas = Militar.objects.filter(
+                classificacao='ATIVO',
+                posto_graduacao__in=['SD', 'CAB', '3S', '2S', '1S', 'ST']
+            )
+            
+            # Aplicar filtro de tipo
+            if tipo_filtro == 'oficiais':
+                militares_ativos = oficiais
+                fichas_oficiais = FichaConceitoOficiais.objects.filter(militar__in=oficiais)
+                fichas_pracas = []
+            elif tipo_filtro == 'pracas':
+                militares_ativos = pracas
+                fichas_oficiais = []
+                fichas_pracas = FichaConceitoPracas.objects.filter(militar__in=pracas)
+            else:  # todos
+                militares_ativos = list(oficiais) + list(pracas)
+                fichas_oficiais = FichaConceitoOficiais.objects.filter(militar__in=oficiais)
+                fichas_pracas = FichaConceitoPracas.objects.filter(militar__in=pracas)
+            
+            # Combinar fichas
+            fichas = list(fichas_oficiais) + list(fichas_pracas)
+            
+            # Hierarquia para ordenação
+            hierarquia_oficiais = {
+                'CB': 1, 'TC': 2, 'MJ': 3, 'CP': 4, '1T': 5, '2T': 6, 'AS': 7, 'AA': 8,
+            }
+            hierarquia_pracas = {
+                'ST': 1, '1S': 2, '2S': 3, '3S': 4, 'CAB': 5, 'SD': 6,
+            }
+            
+            # Ordenar fichas existentes
+            fichas_list = list(fichas)
+            fichas_list.sort(key=lambda x: (
+                hierarquia_oficiais.get(x.militar.posto_graduacao, 999) if x.militar.is_oficial() 
+                else hierarquia_pracas.get(x.militar.posto_graduacao, 999),
+                x.militar.nome_completo
+            ))
+            
+            # Buscar militares sem ficha
+            militares_sem_ficha = []
+            for m in militares_ativos:
+                if not (m.fichaconceitooficiais_set.exists() or m.fichaconceitopracas_set.exists()):
+                    militares_sem_ficha.append(m)
+            
+            # Ordenar militares sem ficha
+            militares_sem_ficha.sort(key=lambda x: (
+                hierarquia_oficiais.get(x.posto_graduacao, 999) if x.is_oficial() 
+                else hierarquia_pracas.get(x.posto_graduacao, 999),
+                x.nome_completo
+            ))
+            
+            militares_com_ficha = fichas_list
+            
+            # Estatísticas para superusuário
+            total_oficiais_ativos = Militar.objects.filter(
+                classificacao='ATIVO',
+                posto_graduacao__in=['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS', 'AA']
+            ).count()
+            
+            total_pracas_ativos = Militar.objects.filter(
+                classificacao='ATIVO',
+                posto_graduacao__in=['SD', 'CAB', '3S', '2S', '1S', 'ST']
+            ).count()
+            
+            # Montar lista final: primeiro os sem ficha, depois os com ficha
+            fichas_final = militares_sem_ficha + militares_com_ficha
         
-        # Buscar oficiais sem ficha
-        oficiais_sem_ficha = oficiais.exclude(
-            Q(fichaconceitooficiais__isnull=False) | Q(fichaconceitopracas__isnull=False)
-        )
-        
-        hierarquia_oficiais = {
-            'CB': 1,   # Coronel
-            'TC': 2,   # Tenente Coronel
-            'MJ': 3,   # Major
-            'CP': 4,   # Capitão
-            '1T': 5,   # 1º Tenente
-            '2T': 6,   # 2º Tenente
-            'AS': 7,   # Aspirante a Oficial
-            'AA': 8,   # Aluno de Adaptação
+        # Aplicar filtro de permissão para usuários comuns (não necessário para superusuário)
+        # if not pode_editar_fichas_conceito(request.user):
+        #     fichas_final = filtrar_fichas_conceito_por_usuario(request.user, fichas_final)
+        #     militares_com_ficha = filtrar_fichas_conceito_por_usuario(request.user, militares_com_ficha)
+        #     militares_sem_ficha = filtrar_fichas_conceito_por_usuario(request.user, militares_sem_ficha)
+
+        context = {
+            'militar': militar if militar_id else None,
+            'fichas': fichas_final,
+            'total_oficiais_ativos': total_oficiais_ativos,
+            'total_pracas_ativos': total_pracas_ativos,
+            'total_fichas_oficiais': len([f for f in militares_com_ficha if hasattr(f, 'militar') and f.militar.is_oficial()]),
+            'total_fichas_pracas': len([f for f in militares_com_ficha if hasattr(f, 'militar') and not f.militar.is_oficial()]),
+            'militares_sem_ficha': militares_sem_ficha,
+            'militares_com_ficha': militares_com_ficha,
+            'tipo_filtro': tipo_filtro,
+            'is_superuser': True,  # Flag para identificar superusuário no template
         }
         
-        # Ordenar fichas existentes
-        fichas_list = list(fichas)
-        fichas_list.sort(key=lambda x: (
-            hierarquia_oficiais.get(x.militar.posto_graduacao, 999),  # Primeiro por hierarquia
-            x.militar.nome_completo                                    # Depois por nome
-        ))
+        print(f"DEBUG - Fichas de Conceito - Acesso SUPERUSUARIO para {request.user.username}:")
+        print(f"   - Tipo filtro: {tipo_filtro}")
+        print(f"   - Total oficiais ativos: {total_oficiais_ativos}")
+        print(f"   - Total praças ativas: {total_pracas_ativos}")
+        print(f"   - Total fichas encontradas: {len(fichas_final)}")
+        print(f"   - Militares sem ficha: {len(militares_sem_ficha)}")
+        print(f"   - Militares com ficha: {len(militares_com_ficha)}")
+        print(f"   - Fichas de oficiais: {len([f for f in militares_com_ficha if hasattr(f, 'militar') and f.militar.is_oficial()])}")
+        print(f"   - Fichas de praças: {len([f for f in militares_com_ficha if hasattr(f, 'militar') and not f.militar.is_oficial()])}")
         
-        # Ordenar oficiais sem ficha
-        oficiais_sem_ficha_list = list(oficiais_sem_ficha)
-        oficiais_sem_ficha_list.sort(key=lambda x: (
-            hierarquia_oficiais.get(x.posto_graduacao, 999),  # Primeiro por hierarquia
-            x.nome_completo                                    # Depois por nome
-        ))
+        return render(request, 'militares/ficha_conceito_list.html', context)
+    
+    else:
+        # Para usuários normais, verificar se tem sessão ativa com função selecionada
+        funcao_usuario = obter_funcao_militar_ativa(request.user)
+        funcao_militar = None
         
-        oficiais_com_ficha = fichas_list
-        oficiais_sem_ficha = oficiais_sem_ficha_list
+        if funcao_usuario:
+            funcao_militar = funcao_usuario.funcao_militar
+        else:
+            # Se não tem sessão ativa, permitir apenas visualizar própria ficha
+            # Não redirecionar, apenas aplicar filtro mais restritivo
+            pass
     
-    # Estatísticas para mostrar no template (apenas oficiais)
-    total_oficiais_ativos = Militar.objects.filter(
-        situacao='AT',
-        posto_graduacao__in=['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS', 'AA']
-    ).count()
+        # Log do filtro aplicado para debug
+        print(f"DEBUG - Fichas de Conceito - Filtro hierarquico aplicado para {request.user.username}:")
+        if funcao_militar:
+            print(f"   - Função: {funcao_militar.nome}")
+            print(f"   - Tipo de acesso: {funcao_militar.get_acesso_display()}")
+        else:
+            print(f"   - Sem função ativa - permitindo apenas própria ficha")
+        
+        if militar_id:
+            militar = get_object_or_404(Militar, pk=militar_id)
+            fichas_oficiais = list(militar.fichaconceitooficiais_set.all())
+            fichas_pracas = list(militar.fichaconceitopracas_set.all())
+            fichas = fichas_oficiais + fichas_pracas
+            fichas.sort(key=lambda x: x.data_registro, reverse=True)
+            militares_com_ficha = fichas
+            militares_sem_ficha = []
+        else:
+            militar = None
+        
+            # Buscar oficiais ativos
+            oficiais = Militar.objects.filter(
+                posto_graduacao__in=['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS', 'AA']
+            )
+            
+            # Buscar praças ativas
+            pracas = Militar.objects.filter(
+                posto_graduacao__in=['SD', 'CAB', '3S', '2S', '1S', 'ST']
+            )
+        
+            # Aplicar filtro de tipo com filtros hierárquicos
+            if funcao_usuario:
+                # Com função ativa, aplicar filtros hierárquicos
+                if tipo_filtro == 'oficiais':
+                    militares_ativos = oficiais
+                    fichas_oficiais = list(aplicar_filtro_hierarquico_fichas(FichaConceitoOficiais.objects, funcao_usuario, request.user).filter(militar__in=oficiais))
+                    fichas_pracas = []
+                elif tipo_filtro == 'pracas':
+                    militares_ativos = pracas
+                    fichas_oficiais = []
+                    fichas_pracas = list(aplicar_filtro_hierarquico_fichas(FichaConceitoPracas.objects, funcao_usuario, request.user).filter(militar__in=pracas))
+                else:  # todos
+                    militares_ativos = list(oficiais) + list(pracas)
+                    fichas_oficiais = list(aplicar_filtro_hierarquico_fichas(FichaConceitoOficiais.objects, funcao_usuario, request.user).filter(militar__in=oficiais))
+                    fichas_pracas = list(aplicar_filtro_hierarquico_fichas(FichaConceitoPracas.objects, funcao_usuario, request.user).filter(militar__in=pracas))
+            else:
+                # Sem função ativa, buscar todas as fichas (será filtrado depois para mostrar apenas própria)
+                if tipo_filtro == 'oficiais':
+                    militares_ativos = oficiais
+                    fichas_oficiais = list(FichaConceitoOficiais.objects.filter(militar__in=oficiais))
+                    fichas_pracas = []
+                elif tipo_filtro == 'pracas':
+                    militares_ativos = pracas
+                    fichas_oficiais = []
+                    fichas_pracas = list(FichaConceitoPracas.objects.filter(militar__in=pracas))
+                else:  # todos
+                    militares_ativos = list(oficiais) + list(pracas)
+                    fichas_oficiais = list(FichaConceitoOficiais.objects.filter(militar__in=oficiais))
+                    fichas_pracas = list(FichaConceitoPracas.objects.filter(militar__in=pracas))
+        
+            # Combinar fichas
+            fichas = fichas_oficiais + fichas_pracas
+            
+            # Log das fichas encontradas
+            print(f"   - Fichas de oficiais encontradas: {len(fichas_oficiais)}")
+            print(f"   - Fichas de praças encontradas: {len(fichas_pracas)}")
+            print(f"   - Total de fichas: {len(fichas)}")
+        
+            # Hierarquia para ordenação
+            hierarquia_oficiais = {
+                'CB': 1, 'TC': 2, 'MJ': 3, 'CP': 4, '1T': 5, '2T': 6, 'AS': 7, 'AA': 8,
+            }
+            hierarquia_pracas = {
+                'ST': 1, '1S': 2, '2S': 3, '3S': 4, 'CAB': 5, 'SD': 6,
+            }
+            
+            # Ordenar fichas existentes
+            fichas_list = list(fichas)
+            fichas_list.sort(key=lambda x: (
+                hierarquia_oficiais.get(x.militar.posto_graduacao, 999) if x.militar.is_oficial() 
+                else hierarquia_pracas.get(x.militar.posto_graduacao, 999),
+                x.militar.nome_completo
+            ))
+            
+            # Buscar militares sem ficha
+            militares_sem_ficha = []
+            for m in militares_ativos:
+                if not (m.fichaconceitooficiais_set.exists() or m.fichaconceitopracas_set.exists()):
+                    militares_sem_ficha.append(m)
+        
+            # Ordenar militares sem ficha
+            militares_sem_ficha.sort(key=lambda x: (
+                hierarquia_oficiais.get(x.posto_graduacao, 999) if x.is_oficial() 
+                else hierarquia_pracas.get(x.posto_graduacao, 999),
+                x.nome_completo
+            ))
+            
+            militares_com_ficha = fichas_list
     
-    # Montar lista final: primeiro os sem ficha, depois os com ficha
-    fichas_final = oficiais_sem_ficha_list + fichas
+        # Estatísticas com filtros hierárquicos
+        if militar_id:
+            # Para militar específico, usar estatísticas globais
+            total_oficiais_ativos = Militar.objects.filter(
+                classificacao='ATIVO',
+                posto_graduacao__in=['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS', 'AA']
+            ).count()
+            
+            total_pracas_ativos = Militar.objects.filter(
+                classificacao='ATIVO',
+                posto_graduacao__in=['SD', 'CAB', '3S', '2S', '1S', 'ST']
+            ).count()
+        else:
+            # Para listagem geral, usar todos os militares
+            total_oficiais_ativos = Militar.objects.filter(
+                posto_graduacao__in=['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS', 'AA']
+            ).count()
+            
+            total_pracas_ativos = Militar.objects.filter(
+                posto_graduacao__in=['SD', 'CAB', '3S', '2S', '1S', 'ST']
+            ).count()
+        
+        # Montar lista final: primeiro os sem ficha, depois os com ficha
+        fichas_final = militares_sem_ficha + militares_com_ficha
+    
+        # Aplicar filtro de permissão baseado na função militar da sessão
+        # Superusuários e usuários com acesso TOTAL podem visualizar todas as fichas
+        # Se não tem permissão geral, aplicar filtro (que permite ver própria ficha)
+        if not request.user.is_superuser:
+            if funcao_militar and funcao_militar.acesso != 'TOTAL' and not pode_visualizar_fichas_conceito(request.user):
+                fichas_final = filtrar_fichas_conceito_por_usuario(request.user, fichas_final)
+                militares_com_ficha = filtrar_fichas_conceito_por_usuario(request.user, militares_com_ficha)
+                militares_sem_ficha = filtrar_fichas_conceito_por_usuario(request.user, militares_sem_ficha)
+            elif not funcao_militar and not pode_visualizar_fichas_conceito(request.user):
+                # Sem função ativa, permitir apenas própria ficha
+                fichas_final = filtrar_fichas_conceito_por_usuario(request.user, fichas_final)
+                militares_com_ficha = filtrar_fichas_conceito_por_usuario(request.user, militares_com_ficha)
+                militares_sem_ficha = filtrar_fichas_conceito_por_usuario(request.user, militares_sem_ficha)
 
-    context = {
-        'militar': militar,
-        'fichas': fichas_final,
-        'total_oficiais_ativos': total_oficiais_ativos,
-        'total_fichas_oficiais': total_fichas_oficiais,
-        'oficiais_sem_ficha': oficiais_sem_ficha_list,
-        'oficiais_com_ficha': fichas,
-        'is_oficiais': True,
-    }
-    return render(request, 'militares/ficha_conceito_list.html', context)
+        context = {
+            'militar': militar,
+            'fichas': fichas_final,
+            'total_oficiais_ativos': total_oficiais_ativos,
+            'total_pracas_ativos': total_pracas_ativos,
+            'total_fichas_oficiais': len([f for f in militares_com_ficha if hasattr(f, 'militar') and f.militar.is_oficial()]),
+            'total_fichas_pracas': len([f for f in militares_com_ficha if hasattr(f, 'militar') and not f.militar.is_oficial()]),
+            'militares_sem_ficha': militares_sem_ficha,
+            'militares_com_ficha': militares_com_ficha,
+            'tipo_filtro': tipo_filtro,
+            'pode_editar_fichas_conceito': pode_editar_fichas_conceito(request.user),
+        }
+        return render(request, 'militares/ficha_conceito_list.html', context)
 
 @login_required
-@apenas_visualizacao_comissao
+@diretor_gestao_chefe_promocoes_required
 def ficha_conceito_create(request):
     """Cria nova ficha de conceito"""
     if request.method == 'POST':
@@ -830,10 +1679,10 @@ def teste_modal_simples(request):
     return render(request, 'teste_modal_simples.html')
 
 @login_required
-@requer_perm_militares_visualizar
+@requer_funcao_ativa
 def militar_list(request):
     """Lista todos os militares ativos com paginação e busca"""
-    militares = Militar.objects.filter(situacao='AT')
+    militares = Militar.objects.filter(classificacao='ATIVO')
 
     # Ordenação padrão por hierarquia e antiguidade
     ordenacao = 'hierarquia_antiguidade'
@@ -902,6 +1751,10 @@ def militar_list(request):
     else:
         militares = militares.order_by('nome_completo')
 
+    # Adicionar lotação atual para cada militar
+    for militar in militares:
+        militar.lotacao_atual_obj = militar.lotacao_atual()
+    
     # Sem paginação - mostrar todos os militares
     context = {
         'militares': militares,
@@ -909,32 +1762,6 @@ def militar_list(request):
     
     return render(request, 'militares/militar_list.html', context)
 
-@login_required
-@requer_perm_militares_visualizar
-def militar_detail(request, pk):
-    """Exibe os detalhes de um militar"""
-    militar = get_object_or_404(Militar, pk=pk)
-    
-    # Busca ficha de conceito
-    fichas_oficiais = list(militar.fichaconceitooficiais_set.all())
-    fichas_pracas = list(militar.fichaconceitopracas_set.all())
-    ficha_conceito = fichas_oficiais + fichas_pracas
-    ficha_conceito.sort(key=lambda x: x.data_registro, reverse=True)
-    
-    # Busca promoções
-    promocoes = militar.promocao_set.all().order_by('-data_promocao')
-    
-    # Busca documentos
-    documentos = Documento.objects.filter(militar=militar).order_by('-data_upload')
-    
-    context = {
-        'militar': militar,
-        'ficha_conceito': ficha_conceito,
-        'promocoes': promocoes,
-        'documentos': documentos,
-    }
-    
-    return render(request, 'militares/militar_detail.html', context)
 
 @login_required
 @admin_bypass
@@ -967,59 +1794,13 @@ def militar_create(request):
 
 @login_required
 @admin_bypass
-def militar_update(request, pk):
-    """Atualiza um militar existente"""
-    # Verificar permissão
-    if not can_edit_militar(request.user):
-        messages.error(request, 'Você não tem permissão para editar militares. Apenas administradores, chefes da seção de promoções e diretores de gestão de pessoas podem editar.')
-        return redirect('militares:militar_list')
-    
-    militar = get_object_or_404(Militar, pk=pk)
-    
-    if request.method == 'POST':
-        form = MilitarForm(request.POST, request.FILES, instance=militar)
-        if form.is_valid():
-            # Capturar a numeração anterior antes de salvar
-            numeracao_anterior = militar.numeracao_antiguidade
-            
-            # Salvar o militar
-            militar = form.save()
-            
-            # Se a numeração de antiguidade foi alterada, reordenar automaticamente
-            if numeracao_anterior != militar.numeracao_antiguidade and militar.numeracao_antiguidade is not None:
-                try:
-                    militares_reordenados = militar.reordenar_numeracoes_apos_alteracao(numeracao_anterior)
-                    if militares_reordenados and militares_reordenados > 0:
-                        messages.success(request, f'Militar {militar.nome_completo} atualizado com sucesso! {militares_reordenados} militares foram reordenados automaticamente.')
-                    else:
-                        messages.success(request, f'Militar {militar.nome_completo} atualizado com sucesso!')
-                except Exception as e:
-                    messages.warning(request, f'Militar atualizado, mas houve um erro na reordenação automática: {str(e)}')
-            else:
-                messages.success(request, f'Militar {militar.nome_completo} atualizado com sucesso!')
-                return redirect('militares:militar_detail', pk=militar.pk)
-        else:
-            messages.error(request, 'Erro ao atualizar militar. Verifique os dados.')
-    else:
-        form = MilitarForm(instance=militar)
-    
-    context = {
-        'form': form,
-        'militar': militar,
-        'title': 'Editar Militar',
-        'action': 'update',
-        'today': timezone.now().date().isoformat(),
-    }
-    
-    return render(request, 'militares/militar_form.html', context)
-
 @login_required
 @admin_bypass
 def militar_delete(request, pk):
     """Remove um militar"""
     # Verificar permissão
     if not can_edit_militar(request.user):
-        messages.error(request, 'Você não tem permissão para excluir militares. Apenas administradores, chefes da seção de promoções e diretores de gestão de pessoas podem excluir.')
+        messages.error(request, 'Você não tem permissão para excluir militares. Apenas administradores, chefes da seção de promoções, diretores de gestão de pessoas e operadores do sistema podem excluir.')
         return redirect('militares:militar_list')
     
     militar = get_object_or_404(Militar, pk=pk)
@@ -1067,12 +1848,12 @@ def militar_search_ajax(request):
 def militar_dashboard(request):
     """Dashboard principal do sistema"""
     total_militares = Militar.objects.count()
-    militares_ativos = Militar.objects.filter(situacao='AT').count()
+    militares_ativos = Militar.objects.filter(classificacao='ATIVO').count()
     fichas_pendentes = FichaConceitoOficiais.objects.count() + FichaConceitoPracas.objects.count()
     documentos_pendentes = Documento.objects.filter(status='PENDENTE').count()
     
     # Estatísticas por quadro
-    estatisticas_quadro = Militar.objects.filter(situacao='AT').values('quadro').annotate(
+    estatisticas_quadro = Militar.objects.filter(classificacao='ATIVO').values('quadro').annotate(
         total=Count('id')
     ).order_by('quadro')
     
@@ -1120,85 +1901,8 @@ def militar_dashboard(request):
     
     return render(request, 'militares/dashboard.html', context)
 
-# Views para Ficha de Conceito
 @login_required
-@apenas_visualizacao_comissao
-def ficha_conceito_list(request):
-    """Lista ficha de conceito de oficiais"""
-    militar_id = request.GET.get('militar')
-    if militar_id:
-        militar = get_object_or_404(Militar, pk=militar_id)
-        fichas_oficiais = list(militar.fichaconceitooficiais_set.all())
-        fichas_pracas = list(militar.fichaconceitopracas_set.all())
-        fichas = fichas_oficiais + fichas_pracas
-        fichas.sort(key=lambda x: x.data_registro, reverse=True)
-        oficiais_com_ficha = fichas
-        oficiais_sem_ficha = []
-    else:
-        militar = None
-        # Filtrar apenas oficiais (CB, TC, MJ, CP, 1T, 2T, AS, AA)
-        oficiais = Militar.objects.filter(
-            situacao='AT',
-            posto_graduacao__in=['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS', 'AA']
-        )
-        # Buscar oficiais com ficha
-        fichas = FichaConceitoOficiais.objects.filter(militar__in=oficiais)
-        
-        # Buscar oficiais sem ficha
-        oficiais_sem_ficha = oficiais.exclude(
-            Q(fichaconceitooficiais__isnull=False) | Q(fichaconceitopracas__isnull=False)
-        )
-        
-        hierarquia_oficiais = {
-            'CB': 1,   # Coronel
-            'TC': 2,   # Tenente Coronel
-            'MJ': 3,   # Major
-            'CP': 4,   # Capitão
-            '1T': 5,   # 1º Tenente
-            '2T': 6,   # 2º Tenente
-            'AS': 7,   # Aspirante a Oficial
-            'AA': 8,   # Aluno de Adaptação
-        }
-        
-        # Ordenar fichas existentes
-        fichas_list = list(fichas)
-        fichas_list.sort(key=lambda x: (
-            hierarquia_oficiais.get(x.militar.posto_graduacao, 999),  # Primeiro por hierarquia
-            x.militar.nome_completo                                    # Depois por nome
-        ))
-        
-        # Ordenar oficiais sem ficha
-        oficiais_sem_ficha_list = list(oficiais_sem_ficha)
-        oficiais_sem_ficha_list.sort(key=lambda x: (
-            hierarquia_oficiais.get(x.posto_graduacao, 999),  # Primeiro por hierarquia
-            x.nome_completo                                    # Depois por nome
-        ))
-        
-        oficiais_com_ficha = fichas_list
-        oficiais_sem_ficha = oficiais_sem_ficha_list
-    
-    # Estatísticas para mostrar no template (apenas oficiais)
-    total_oficiais_ativos = Militar.objects.filter(
-        situacao='AT',
-        posto_graduacao__in=['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS', 'AA']
-    ).count()
-    
-    # Montar lista final: primeiro os sem ficha, depois os com ficha
-    fichas_final = oficiais_sem_ficha_list + fichas
-
-    context = {
-        'militar': militar,
-        'fichas': fichas_final,
-        'total_oficiais_ativos': total_oficiais_ativos,
-        'total_fichas_oficiais': total_fichas_oficiais,
-        'oficiais_sem_ficha': oficiais_sem_ficha_list,
-        'oficiais_com_ficha': fichas,
-        'is_oficiais': True,
-    }
-    return render(request, 'militares/ficha_conceito_list.html', context)
-
-@login_required
-@apenas_visualizacao_comissao
+@diretor_gestao_chefe_promocoes_required
 def ficha_conceito_create(request):
     """Cria nova ficha de conceito"""
     if request.method == 'POST':
@@ -1305,42 +2009,23 @@ def documento_upload(request, ficha_pk):
 
 # Views para Quadros de Acesso
 @login_required
-@requer_perm_quadros_visualizar
 def quadro_acesso_list(request):
-    """Lista todos os quadros de acesso"""
-    # Superusuários e staff têm acesso total
-    if request.user.is_superuser or request.user.is_staff:
-        quadros = QuadroAcesso.objects.all()
-    else:
-        # Permissão especial para funções administrativas
-        cargos_especiais = ['Diretor de Gestão de Pessoas', 'Chefe da Seção de Promoções', 'Administrador do Sistema', 'Administrador']
-        funcoes_ativas = request.user.funcoes.filter(
-            cargo_funcao__nome__in=cargos_especiais,
-            status='ATIVO',
-        )
-        if funcoes_ativas.exists():
-            quadros = QuadroAcesso.objects.all()
-        else:
-            # Verificar se o usuário é membro de alguma comissão e aplicar filtro
-            membros_comissao = MembroComissao.objects.filter(
-                usuario=request.user,
-                ativo=True,
-                comissao__status='ATIVA'
-            )
-            if membros_comissao.exists():
-                tem_cpo = membros_comissao.filter(comissao__tipo='CPO').exists()
-                tem_cpp = membros_comissao.filter(comissao__tipo='CPP').exists()
-                if tem_cpo and tem_cpp:
-                    quadros = QuadroAcesso.objects.all()
-                elif tem_cpo:
-                    quadros = QuadroAcesso.objects.filter(categoria='OFICIAIS')
-                elif tem_cpp:
-                    quadros = QuadroAcesso.objects.filter(categoria='PRACAS')
-                else:
-                    quadros = QuadroAcesso.objects.none()
-            else:
-                quadros = QuadroAcesso.objects.none()
+    """Lista todos os quadros de acesso com filtros hierárquicos"""
+    from militares.permissoes_simples import tem_permissao
+    from militares.filtros_hierarquicos_adicionais import aplicar_filtro_hierarquico_quadros_acesso
+    from militares.permissoes_hierarquicas import obter_funcao_militar_ativa
     
+    # Obter função militar ativa
+    funcao_usuario = obter_funcao_militar_ativa(request.user)
+    
+    # Aplicar filtros hierárquicos baseados no acesso da função
+    if request.user.is_superuser:
+        quadros = QuadroAcesso.objects.all()
+    elif funcao_usuario and tem_permissao(request.user, 'quadros_acesso', 'visualizar'):
+        quadros = aplicar_filtro_hierarquico_quadros_acesso(QuadroAcesso.objects.all(), funcao_usuario, request.user)
+    else:
+        quadros = QuadroAcesso.objects.none()
+
     # Filtros
     tipo = request.GET.get('tipo')
     if tipo:
@@ -1410,10 +2095,10 @@ def quadro_acesso_list(request):
     return render(request, 'militares/quadro_acesso_list.html', context)
 
 @login_required
-@requer_perm_militares_visualizar
+@requer_funcao_ativa
 def militar_list(request):
     """Lista todos os militares ativos com paginação e busca"""
-    militares = Militar.objects.filter(situacao='AT')
+    militares = Militar.objects.filter(classificacao='ATIVO')
 
     # Ordenação padrão por hierarquia e antiguidade
     ordenacao = 'hierarquia_antiguidade'
@@ -1481,6 +2166,10 @@ def militar_list(request):
     else:
         militares = militares.order_by('nome_completo')
 
+    # Adicionar lotação atual para cada militar
+    for militar in militares:
+        militar.lotacao_atual_obj = militar.lotacao_atual()
+    
     # Sem paginação - mostrar todos os militares
     context = {
         'militares': militares,
@@ -1488,32 +2177,6 @@ def militar_list(request):
     
     return render(request, 'militares/militar_list.html', context)
 
-@login_required
-@requer_perm_militares_visualizar
-def militar_detail(request, pk):
-    """Exibe os detalhes de um militar"""
-    militar = get_object_or_404(Militar, pk=pk)
-    
-    # Busca ficha de conceito
-    fichas_oficiais = list(militar.fichaconceitooficiais_set.all())
-    fichas_pracas = list(militar.fichaconceitopracas_set.all())
-    ficha_conceito = fichas_oficiais + fichas_pracas
-    ficha_conceito.sort(key=lambda x: x.data_registro, reverse=True)
-    
-    # Busca promoções
-    promocoes = militar.promocao_set.all().order_by('-data_promocao')
-    
-    # Busca documentos
-    documentos = Documento.objects.filter(militar=militar).order_by('-data_upload')
-    
-    context = {
-        'militar': militar,
-        'ficha_conceito': ficha_conceito,
-        'promocoes': promocoes,
-        'documentos': documentos,
-    }
-    
-    return render(request, 'militares/militar_detail.html', context)
 
 @login_required
 @admin_bypass
@@ -1546,59 +2209,13 @@ def militar_create(request):
 
 @login_required
 @admin_bypass
-def militar_update(request, pk):
-    """Atualiza um militar existente"""
-    # Verificar permissão
-    if not can_edit_militar(request.user):
-        messages.error(request, 'Você não tem permissão para editar militares. Apenas administradores, chefes da seção de promoções e diretores de gestão de pessoas podem editar.')
-        return redirect('militares:militar_list')
-    
-    militar = get_object_or_404(Militar, pk=pk)
-    
-    if request.method == 'POST':
-        form = MilitarForm(request.POST, request.FILES, instance=militar)
-        if form.is_valid():
-            # Capturar a numeração anterior antes de salvar
-            numeracao_anterior = militar.numeracao_antiguidade
-            
-            # Salvar o militar
-            militar = form.save()
-            
-            # Se a numeração de antiguidade foi alterada, reordenar automaticamente
-            if numeracao_anterior != militar.numeracao_antiguidade and militar.numeracao_antiguidade is not None:
-                try:
-                    militares_reordenados = militar.reordenar_numeracoes_apos_alteracao(numeracao_anterior)
-                    if militares_reordenados and militares_reordenados > 0:
-                        messages.success(request, f'Militar {militar.nome_completo} atualizado com sucesso! {militares_reordenados} militares foram reordenados automaticamente.')
-                    else:
-                        messages.success(request, f'Militar {militar.nome_completo} atualizado com sucesso!')
-                except Exception as e:
-                    messages.warning(request, f'Militar atualizado, mas houve um erro na reordenação automática: {str(e)}')
-            else:
-                messages.success(request, f'Militar {militar.nome_completo} atualizado com sucesso!')
-                return redirect('militares:militar_detail', pk=militar.pk)
-        else:
-            messages.error(request, 'Erro ao atualizar militar. Verifique os dados.')
-    else:
-        form = MilitarForm(instance=militar)
-    
-    context = {
-        'form': form,
-        'militar': militar,
-        'title': 'Editar Militar',
-        'action': 'update',
-        'today': timezone.now().date().isoformat(),
-    }
-    
-    return render(request, 'militares/militar_form.html', context)
-
 @login_required
 @admin_bypass
 def militar_delete(request, pk):
     """Remove um militar"""
     # Verificar permissão
     if not can_edit_militar(request.user):
-        messages.error(request, 'Você não tem permissão para excluir militares. Apenas administradores, chefes da seção de promoções e diretores de gestão de pessoas podem excluir.')
+        messages.error(request, 'Você não tem permissão para excluir militares. Apenas administradores, chefes da seção de promoções, diretores de gestão de pessoas e operadores do sistema podem excluir.')
         return redirect('militares:militar_list')
     
     militar = get_object_or_404(Militar, pk=pk)
@@ -1646,12 +2263,12 @@ def militar_search_ajax(request):
 def militar_dashboard(request):
     """Dashboard principal do sistema"""
     total_militares = Militar.objects.count()
-    militares_ativos = Militar.objects.filter(situacao='AT').count()
+    militares_ativos = Militar.objects.filter(classificacao='ATIVO').count()
     fichas_pendentes = FichaConceitoOficiais.objects.count() + FichaConceitoPracas.objects.count()
     documentos_pendentes = Documento.objects.filter(status='PENDENTE').count()
     
     # Estatísticas por quadro
-    estatisticas_quadro = Militar.objects.filter(situacao='AT').values('quadro').annotate(
+    estatisticas_quadro = Militar.objects.filter(classificacao='ATIVO').values('quadro').annotate(
         total=Count('id')
     ).order_by('quadro')
     
@@ -1702,7 +2319,7 @@ def militar_dashboard(request):
 # Views para Ficha de Conceito
 
 @login_required
-@apenas_visualizacao_comissao
+@diretor_gestao_chefe_promocoes_required
 def ficha_conceito_create(request):
     """Cria nova ficha de conceito"""
     if request.method == 'POST':
@@ -1810,105 +2427,6 @@ def documento_upload(request, ficha_pk):
 # Views para Quadros de Acesso
 @login_required
 @requer_perm_quadros_visualizar
-def quadro_acesso_list(request):
-    """Lista todos os quadros de acesso"""
-        # Permissão especial para Diretor de Gestão de Pessoas ou Chefe da Seção de Promoções
-    cargos_especiais = ['Diretor de Gestão de Pessoas', 'Chefe da Seção de Promoções']
-    funcoes_ativas = request.user.funcoes.filter(
-        cargo_funcao__nome__in=cargos_especiais,
-        status='ATIVO',
-    )
-    if funcoes_ativas.exists():
-        quadros = QuadroAcesso.objects.all()
-    else:
-        # Verificar se o usuário é membro de alguma comissão e aplicar filtro
-        membros_comissao = MembroComissao.objects.filter(
-            usuario=request.user,
-            ativo=True,
-            comissao__status='ATIVA'
-        )
-        if membros_comissao.exists():
-            tem_cpo = membros_comissao.filter(comissao__tipo='CPO').exists()
-            tem_cpp = membros_comissao.filter(comissao__tipo='CPP').exists()
-            if tem_cpo and tem_cpp:
-                quadros = QuadroAcesso.objects.all()
-            elif tem_cpo:
-                quadros = QuadroAcesso.objects.filter(categoria='OFICIAIS')
-            elif tem_cpp:
-                quadros = QuadroAcesso.objects.filter(categoria='PRACAS')
-            else:
-                quadros = QuadroAcesso.objects.none()
-        else:
-            quadros = QuadroAcesso.objects.none()
-    
-    # Filtros
-    tipo = request.GET.get('tipo')
-    if tipo:
-        quadros = quadros.filter(tipo=tipo)
-    
-    status = request.GET.get('status')
-    if status:
-        quadros = quadros.filter(status=status)
-    
-    # Ordenação
-    ordenacao = request.GET.get('ordenacao', '-data_criacao')
-    quadros = quadros.order_by(ordenacao)
-    
-    # Adicionar quantidade de militares para cada quadro
-    for quadro in quadros:
-        quadro.total_militares_count = quadro.total_militares()
-    
-    # Verificar se é uma requisição AJAX
-    if request.GET.get('ajax') == '1':
-        import json
-        
-        # Preparar dados para JSON
-        quadros_data = []
-        for quadro in quadros:
-            quadros_data.append({
-                'id': quadro.id,
-                'tipo': quadro.tipo,
-                'get_tipo_display': quadro.get_tipo_display(),
-                'data_promocao': quadro.data_promocao.strftime('%d/%m/%Y'),
-                'status': quadro.status,
-                'get_status_display': quadro.get_status_display(),
-                'total_militares': quadro.total_militares(),
-                'motivo_nao_elaboracao': quadro.motivo_nao_elaboracao,
-                'get_motivo_display_completo': quadro.get_motivo_display_completo() if quadro.motivo_nao_elaboracao else None,
-            })
-        
-        return JsonResponse({
-            'quadros': quadros_data,
-            'total': len(quadros_data)
-        })
-    
-    # Calcular estatísticas
-    total_quadros = quadros.count()
-    elaborados = quadros.filter(status='ELABORADO').count()
-    homologados = quadros.filter(status='HOMOLOGADO').count()
-    nao_elaborados = quadros.filter(status='NAO_ELABORADO').count()
-    em_elaboracao = quadros.filter(status='EM_ELABORACAO').count()
-    
-    context = {
-        'quadros': quadros,
-        'tipos': QuadroAcesso.TIPO_CHOICES,
-        'status_choices': QuadroAcesso.STATUS_CHOICES,
-        'filtros': {
-            'tipo': tipo,
-            'status': status,
-            'ordenacao': ordenacao
-        },
-        'estatisticas': {
-            'total': total_quadros,
-            'elaborados': elaborados,
-            'homologados': homologados,
-            'nao_elaborados': nao_elaborados,
-            'em_elaboracao': em_elaboracao,
-        }
-    }
-    
-    return render(request, 'militares/quadro_acesso_list.html', context)
-
 @login_required
 @requer_perm_quadros_visualizar
 def quadro_acesso_detail(request, pk):
@@ -2027,14 +2545,14 @@ def quadro_acesso_detail(request, pk):
                     'texto': 'Deixa de ser elaborado o Quadro de Acesso por Merecimento para o posto de Major em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
                 }
             ],
-            'COMP': [  # Complementar - apenas MJ→TC e CP→MJ
-                {
-                    'numero': 'I',
-                    'titulo': 'MAJOR para o posto de TENENTE-CORONEL',
-                    'origem': 'MJ',
-                    'destino': 'TC',
-                    'texto': 'Deixa de ser elaborado o Quadro de Acesso por Merecimento para o posto de Tenente-Coronel em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
-                },
+            'COMP': [  # Complementar - apenas CP→MJ (MJ→TC comentado temporariamente)
+                # {
+                #     'numero': 'I',
+                #     'titulo': 'MAJOR para o posto de TENENTE-CORONEL',
+                #     'origem': 'MJ',
+                #     'destino': 'TC',
+                #     'texto': 'Deixa de ser elaborado o Quadro de Acesso por Merecimento para o posto de Tenente-Coronel em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
+                # },
                 {
                     'numero': 'II',
                     'titulo': 'CAPITÃO para o posto de MAJOR',
@@ -2160,13 +2678,14 @@ def quadro_acesso_detail(request, pk):
                 }
             ],
             'COMP': [  # Complementar
-                {
-                    'numero': 'I',
-                    'titulo': 'MAJOR para o posto de TENENTE-CORONEL',
-                    'origem': 'MJ',
-                    'destino': 'TC',
-                    'texto': 'Deixa de ser elaborado o Quadro de Acesso por Antiguidade para o posto de Tenente-Coronel em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
-                },
+                # OCULTO TEMPORARIAMENTE - MAJOR para TENENTE-CORONEL
+                # {
+                #     'numero': 'I',
+                #     'titulo': 'MAJOR para o posto de TENENTE-CORONEL',
+                #     'origem': 'MJ',
+                #     'destino': 'TC',
+                #     'texto': 'Deixa de ser elaborado o Quadro de Acesso por Antiguidade para o posto de Tenente-Coronel em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
+                # },
                 {
                     'numero': 'II',
                     'titulo': 'CAPITÃO para o posto de MAJOR',
@@ -2201,20 +2720,20 @@ def quadro_acesso_detail(request, pk):
     # Buscar todos os militares aptos do quadro
     militares_aptos = quadro.itemquadroacesso_set.all().select_related('militar').order_by('posicao')
     
-    # Lógica especial para o quadro ID 312 - forçar exibição da transição Major → Tenente-Coronel
-    if quadro.id == 312:
-        # Criar transição especial de Major para Tenente-Coronel para todos os quadros
-        transicao_especial = {
-            'numero': 'I',
-            'titulo': 'MAJOR para o posto de TENENTE-CORONEL',
-            'origem': 'MJ',
-            'destino': 'TC',
-            'texto': 'Deixa de ser elaborado o Quadro de Acesso por Antiguidade para o posto de Tenente-Coronel em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
-        }
-        # Adicionar a transição especial em todos os quadros
-        for q in quadros:
-            if q in transicoes_por_quadro:
-                transicoes_por_quadro[q].insert(0, transicao_especial)
+    # OCULTO TEMPORARIAMENTE - Lógica especial para o quadro ID 312 - forçar exibição da transição Major → Tenente-Coronel
+    # if quadro.id == 312:
+    #     # Criar transição especial de Major para Tenente-Coronel para todos os quadros
+    #     transicao_especial = {
+    #         'numero': 'I',
+    #         'titulo': 'MAJOR para o posto de TENENTE-CORONEL',
+    #         'origem': 'MJ',
+    #         'destino': 'TC',
+    #         'texto': 'Deixa de ser elaborado o Quadro de Acesso por Antiguidade para o posto de Tenente-Coronel em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
+    #     }
+    #     # Adicionar a transição especial em todos os quadros
+    #     for q in quadros:
+    #         if q in transicoes_por_quadro:
+    #                 transicoes_por_quadro[q].insert(0, transicao_especial)
     
     # Organizar militares por quadro e transição
     estrutura_quadros = {}
@@ -2253,26 +2772,26 @@ def quadro_acesso_detail(request, pk):
         'estrutura_quadros': estrutura_quadros,
     }
     
-    # Garantir exibição da transição MJ→TC em todos os quadros de acesso
-    for q in estrutura_quadros:
-        transicoes = estrutura_quadros[q]['transicoes']
-        existe = any(
-            t['origem'] == 'MJ' and t['destino'] == 'TC'
-            for t in transicoes
-        )
-        if not existe:
-            # Buscar militares Major do quadro correspondente
-            militares_mj_tc = [
-                item for item in militares_aptos 
-                if item.militar.quadro == q and item.militar.posto_graduacao == 'MJ'
-            ]
-            estrutura_quadros[q]['transicoes'].insert(0, {
-                'origem': 'MJ',
-                'destino': 'TC',
-                'origem_nome': nomes_postos.get('MJ', 'MJ'),
-                'destino_nome': nomes_postos.get('TC', 'TC'),
-                'militares': militares_mj_tc,
-            })
+    # OCULTO TEMPORARIAMENTE - Garantir exibição da transição MJ→TC em todos os quadros de acesso
+    # for q in estrutura_quadros:
+    #     transicoes = estrutura_quadros[q]['transicoes']
+    #     existe = any(
+    #         t['origem'] == 'MJ' and t['destino'] == 'TC'
+    #         for t in transicoes
+    #     )
+    #     if not existe:
+    #         # Buscar militares Major do quadro correspondente
+    #         militares_mj_tc = [
+    #             item for item in militares_aptos 
+    #             if item.militar.quadro == q and item.militar.posto_graduacao == 'MJ'
+    #         ]
+    #         estrutura_quadros[q]['transicoes'].insert(0, {
+    #             'origem': 'MJ',
+    #             'destino': 'TC',
+    #             'origem_nome': nomes_postos.get('MJ', 'MJ'),
+    #             'destino_nome': nomes_postos.get('TC', 'TC'),
+    #             'militares': militares_mj_tc,
+    #         })
     
     return render(request, 'militares/quadro_acesso_detail.html', context)
 
@@ -2885,7 +3404,7 @@ def quadro_acesso_pdf(request, pk):
             "alterada pela Lei Nº 7.772, de 04 de abril de 2022."
         )
     story.append(Paragraph(texto_intro, style_just))
-    story.append(Spacer(1, 13))
+    story.append(Spacer(1, 8))
 
     # Definir todos os quadros
     quadros_info = [
@@ -2970,14 +3489,14 @@ def quadro_acesso_pdf(request, pk):
                     'texto': 'Deixa de ser elaborado o Quadro de Acesso por Merecimento para o posto de Major em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
                 }
             ],
-            'COMP': [  # Complementar - apenas MJ→TC e CP→MJ
-                {
-                    'numero': 'I',
-                    'titulo': 'MAJOR para o posto de TENENTE-CORONEL',
-                    'origem': 'MJ',
-                    'destino': 'TC',
-                    'texto': 'Deixa de ser elaborado o Quadro de Acesso por Merecimento para o posto de Tenente-Coronel em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
-                },
+            'COMP': [  # Complementar - apenas CP→MJ (MJ→TC comentado temporariamente)
+                # {
+                #     'numero': 'I',
+                #     'titulo': 'MAJOR para o posto de TENENTE-CORONEL',
+                #     'origem': 'MJ',
+                #     'destino': 'TC',
+                #     'texto': 'Deixa de ser elaborado o Quadro de Acesso por Merecimento para o posto de Tenente-Coronel em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
+                # },
                 {
                     'numero': 'II',
                     'titulo': 'CAPITÃO para o posto de MAJOR',
@@ -3102,36 +3621,37 @@ def quadro_acesso_pdf(request, pk):
                 }
             ],
             'COMP': [  # Complementar
+                # OCULTO TEMPORARIAMENTE - MAJOR para TENENTE-CORONEL
+                # {
+                #     'numero': 'I',
+                #     'titulo': 'MAJOR para o posto de TENENTE-CORONEL',
+                #     'origem': 'MJ',
+                #     'destino': 'TC',
+                #     'texto': 'Deixa de ser elaborado o Quadro de Acesso por Antiguidade para o posto de Tenente-Coronel em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
+                # },
                 {
-                    'numero': 'I',
-                    'titulo': 'MAJOR para o posto de TENENTE-CORONEL',
-                    'origem': 'MJ',
-                    'destino': 'TC',
-                    'texto': 'Deixa de ser elaborado o Quadro de Acesso por Antiguidade para o posto de Tenente-Coronel em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
-                },
-                {
-                    'numero': 'II',
+                    'numero': 'I',  # Ajustado de 'II' para 'I'
                     'titulo': 'CAPITÃO para o posto de MAJOR',
                     'origem': 'CP',
                     'destino': 'MJ',
                     'texto': 'Deixa de ser elaborado o Quadro de Acesso por Antiguidade para o posto de Major em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
                 },
                 {
-                    'numero': 'III',
+                    'numero': 'II',  # Ajustado de 'III' para 'II'
                     'titulo': '1º TENENTE para o posto de CAPITÃO',
                     'origem': '1T',
                     'destino': 'CP',
                     'texto': 'Deixa de ser elaborado o Quadro de Acesso por Antiguidade para o posto de Capitão em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
                 },
                 {
-                    'numero': 'IV',
+                    'numero': 'III',  # Ajustado de 'IV' para 'III'
                     'titulo': '2º TENENTE para o posto de 1º TENENTE',
                     'origem': '2T',
                     'destino': '1T',
                     'texto': 'Deixa de ser elaborado o Quadro de Acesso por Antiguidade para o posto de 1º Tenente em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
                 },
                 {
-                    'numero': 'V',
+                    'numero': 'IV',  # Ajustado de 'V' para 'IV'
                     'titulo': 'SUBTENENTE para o posto de 2º TENENTE',
                     'origem': 'ST',
                     'destino': '2T',
@@ -3147,7 +3667,7 @@ def quadro_acesso_pdf(request, pk):
             story.append(Spacer(1, 16))
         
         story.append(Paragraph(f'<b>{quadro_info["numero"]}. {quadro_info["nome"]}</b>', style_center))
-        story.append(Spacer(1, 13))
+        story.append(Spacer(1, 8))
 
         # Processar cada transição de posto específica do quadro
         transicoes_do_quadro = transicoes_por_quadro.get(quadro_info['codigo'], [])
@@ -3180,9 +3700,9 @@ def quadro_acesso_pdf(request, pk):
                     transicoes_ordenadas.append(transicao)
             transicoes_do_quadro = transicoes_ordenadas
         for transicao in transicoes_do_quadro:
-            story.append(Spacer(1, 13))
+            story.append(Spacer(1, 8))
             story.append(Paragraph(f'<b>{transicao["numero"]} – {transicao["titulo"]}</b>', style_bold))
-            story.append(Spacer(1, 13))
+            story.append(Spacer(1, 8))
             
             # Buscar militares aptos para esta transição neste quadro específico
             todos_militares = quadro.itemquadroacesso_set.all()
@@ -3244,35 +3764,59 @@ def quadro_acesso_pdf(request, pk):
                     max_posto = max([len(row[2]) for row in header_data])
                     max_pontuacao = max([len(row[4]) for row in header_data])
                     
-                    # Definir larguras mínimas e ajustáveis
-                    col_widths = [
-                        max(1.2*cm, max_ord * 0.3*cm),  # ORD
-                        max(3*cm, max_cpf * 0.3*cm),    # CPF
-                        max(3*cm, max_posto * 0.3*cm),  # POSTO
-                        6*cm,  # NOME (reduzido para dar espaço à pontuação)
-                        max(2*cm, max_pontuacao * 0.3*cm)  # PONTUAÇÃO
-                    ]
+                    # Larguras fixas alinhadas entre tabelas (equilíbrio melhor dos campos)
+                    w_ord = 1.2*cm
+                    w_cpf = 2.0*cm
+                    w_posto = 2.4*cm
+                    w_pont = 2.0*cm
+                    nome_width = doc.width - (w_ord + w_cpf + w_posto + w_pont)
+                    col_widths = [w_ord, w_cpf, w_posto, nome_width, w_pont]
                 else:
-                    header_data = [['ORD', 'CPF', 'POSTO', 'NOME']]
-                    for idx, item in enumerate(aptos, 1):
-                        header_data.append([
-                            str(idx),
-                            criptografar_cpf_lgpd(item.militar.cpf),
-                            item.militar.get_posto_graduacao_display() if hasattr(item.militar, 'get_posto_graduacao_display') else item.militar.posto_graduacao,
-                            item.militar.nome_completo
-                        ])
-                    # Calcular larguras das colunas baseado no conteúdo
-                    max_ord = max([len(str(row[0])) for row in header_data])
-                    max_cpf = max([len(row[1]) for row in header_data])
-                    max_posto = max([len(row[2]) for row in header_data])
-                    
-                    # Definir larguras mínimas e ajustáveis
-                    col_widths = [
-                        max(1.2*cm, max_ord * 0.3*cm),  # ORD
-                        max(3*cm, max_cpf * 0.3*cm),    # CPF
-                        max(3*cm, max_posto * 0.3*cm),  # POSTO
-                        8*cm  # NOME (fixo)
-                    ]
+                    # Em antiguidade, incluir coluna NOTA DO CHO somente para transição ST→2T
+                    incluir_nota_cho = (quadro.tipo == 'ANTIGUIDADE' and transicao['origem'] == 'ST' and transicao['destino'] == '2T')
+                    if incluir_nota_cho:
+                        header_data = [['ORD', 'CPF', 'POSTO', 'NOME', 'NOTA']]
+                        for idx, item in enumerate(aptos, 1):
+                            nota_cho_val = item.militar.nota_cho if getattr(item.militar, 'nota_cho', None) is not None else None
+                            header_data.append([
+                                str(idx),
+                                criptografar_cpf_lgpd(item.militar.cpf),
+                                item.militar.get_posto_graduacao_display() if hasattr(item.militar, 'get_posto_graduacao_display') else item.militar.posto_graduacao,
+                                item.militar.nome_completo,
+                                f"{float(nota_cho_val):.2f}" if nota_cho_val is not None else "-"
+                            ])
+                        # Calcular larguras das colunas baseado no conteúdo
+                        max_ord = max([len(str(row[0])) for row in header_data])
+                        max_cpf = max([len(row[1]) for row in header_data])
+                        max_posto = max([len(row[2]) for row in header_data])
+                        max_nota = max([len(str(row[4])) for row in header_data])
+                        # Larguras fixas alinhadas
+                        w_ord = 1.2*cm
+                        w_cpf = 2.0*cm
+                        w_posto = 2.4*cm
+                        w_nota = 1.8*cm
+                        nome_width = doc.width - (w_ord + w_cpf + w_posto + w_nota)
+                        col_widths = [w_ord, w_cpf, w_posto, nome_width, w_nota]
+                    else:
+                        header_data = [['ORD', 'CPF', 'POSTO', 'NOME']]
+                        for idx, item in enumerate(aptos, 1):
+                            header_data.append([
+                                str(idx),
+                                criptografar_cpf_lgpd(item.militar.cpf),
+                                item.militar.get_posto_graduacao_display() if hasattr(item.militar, 'get_posto_graduacao_display') else item.militar.posto_graduacao,
+                                item.militar.nome_completo
+                            ])
+                        # Calcular larguras das colunas baseado no conteúdo
+                        max_ord = max([len(str(row[0])) for row in header_data])
+                        max_cpf = max([len(row[1]) for row in header_data])
+                        max_posto = max([len(row[2]) for row in header_data])
+                        
+                        # Larguras fixas alinhadas
+                        w_ord = 1.2*cm
+                        w_cpf = 2.0*cm
+                        w_posto = 2.4*cm
+                        nome_width = doc.width - (w_ord + w_cpf + w_posto)
+                        col_widths = [w_ord, w_cpf, w_posto, nome_width]
                 table = Table(header_data, colWidths=col_widths)
                 # Aplicar estilo diferente baseado no tipo de quadro
                 if quadro.tipo == 'MERECIMENTO':
@@ -3353,11 +3897,11 @@ def quadro_acesso_pdf(request, pk):
         # Se não houver assinatura, usar a data do quadro
         data_extenso = f"Teresina - PI, {quadro.data_promocao.day} de {meses_pt[quadro.data_promocao.month]} de {quadro.data_promocao.year}"
     
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 40))
     story.append(Paragraph(data_extenso, style_center))
     
     # Seção de Assinaturas Físicas (sem título)
-    story.append(Spacer(1, 13))
+    story.append(Spacer(1, 8))
 
     # Buscar todas as assinaturas válidas do quadro (da mais recente para a mais antiga)
     assinaturas = quadro.assinaturas.filter(assinado_por__isnull=False).order_by('-data_assinatura')
@@ -3381,14 +3925,14 @@ def quadro_acesso_pdf(request, pk):
         tipo = assinatura.get_tipo_assinatura_display() or "Tipo não registrado"
         
         # Exibir no formato físico: Nome - Posto BM (negrito), Função (normal), Tipo (negrito menor)
-        story.append(Spacer(1, 13))
+        story.append(Spacer(1, 8))
         story.append(Paragraph(f"<b>{nome_completo}</b>", style_center))
         story.append(Paragraph(f"{funcao}", style_center))
         story.append(Paragraph(f"<b>{tipo}</b>", style_center))
-        story.append(Spacer(1, 13))
+        story.append(Spacer(1, 8))
 
     # Seção de Assinaturas Eletrônicas (sem título)
-    story.append(Spacer(1, 13))
+    story.append(Spacer(1, 8))
     
     # Processar assinaturas eletrônicas
     for i, assinatura in enumerate(assinaturas):
@@ -3415,41 +3959,35 @@ def quadro_acesso_pdf(request, pk):
         
         texto_assinatura = f"Documento assinado eletronicamente por {nome_assinante} - {funcao}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
         
-        # Adicionar logo do CBMEPI
-        logo_path = os.path.join(settings.STATIC_ROOT, 'logo_cbmepi.png')
-        if not os.path.exists(logo_path):
-            logo_path = os.path.join(settings.STATICFILES_DIRS[0], 'logo_cbmepi.png') if settings.STATICFILES_DIRS else os.path.join(settings.BASE_DIR, 'static', 'logo_cbmepi.png')
+        # Adicionar logo da assinatura eletrônica
+        from .utils import obter_caminho_assinatura_eletronica
+        logo_path = obter_caminho_assinatura_eletronica()
         
         # Tabela das assinaturas: Logo + Texto de assinatura
         assinatura_data = [
-            [Image(logo_path, width=1.5*cm, height=1.5*cm), Paragraph(texto_assinatura, style_small)]
+            [Image(obter_caminho_assinatura_eletronica(), width=2.5*cm, height=1.8*cm), Paragraph(texto_assinatura, style_small)]
         ]
         
-        assinatura_table = Table(assinatura_data, colWidths=[2*cm, 14*cm])
+        assinatura_table = Table(assinatura_data, colWidths=[3*cm, 13*cm])
         assinatura_table.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # Logo centralizado
             ('ALIGN', (1, 0), (1, 0), 'LEFT'),    # Texto alinhado à esquerda
-            ('LEFTPADDING', (0, 0), (-1, -1), 2),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-            ('TOPPADDING', (0, 0), (-1, -1), 2),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('BOX', (0, 0), (-1, -1), 1, colors.grey),  # Borda do retângulo
         ]))
         
         story.append(assinatura_table)
-        
-        # Adicionar linha separadora entre assinaturas (exceto na última)
-        if i < len(assinaturas) - 1:
-            story.append(Spacer(1, 13))
-            story.append(HRFlowable(width="100%", thickness=0.5, spaceAfter=13, spaceBefore=13, color=colors.lightgrey))
-            story.append(Spacer(1, 13))
+        story.append(Spacer(1, 10))  # Espaçamento entre assinaturas
     
     # Se não houver assinaturas, mostrar mensagem
     if not assinaturas.exists():
         story.append(Paragraph("Nenhuma assinatura registrada", style_center))
-
     # Rodapé com QR Code para conferência de veracidade
-    story.append(Spacer(1, 13))
+    story.append(Spacer(1, 8))
     story.append(HRFlowable(width="100%", thickness=1, spaceAfter=10, spaceBefore=10, color=colors.grey))
     
     # Usar a função utilitária para gerar o autenticador
@@ -3461,15 +3999,15 @@ def quadro_acesso_pdf(request, pk):
         [autenticador['qr_img'], Paragraph(autenticador['texto_autenticacao'], style_small)]
     ]
     
-    rodape_table = Table(rodape_data, colWidths=[2*cm, 14*cm])
+    rodape_table = Table(rodape_data, colWidths=[3*cm, 13*cm])
     rodape_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # QR centralizado
         ('ALIGN', (1, 0), (1, 0), 'LEFT'),    # Texto alinhado à esquerda
-        ('LEFTPADDING', (0, 0), (-1, -1), 2),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LEFTPADDING', (0, 0), (-1, -1), 1),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 1),
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
 
     ]))
     
@@ -3484,10 +4022,10 @@ def quadro_acesso_pdf(request, pk):
     return FileResponse(buffer, content_type='application/pdf', filename=f'quadro_acesso_{quadro.pk}.pdf')
 
 @login_required
-@requer_perm_militares_visualizar
+@requer_funcao_ativa
 def militar_list(request):
     """Lista todos os militares ativos com paginação e busca"""
-    militares = Militar.objects.filter(situacao='AT')
+    militares = Militar.objects.filter(classificacao='ATIVO')
 
     # Ordenação padrão por hierarquia e antiguidade
     ordenacao = 'hierarquia_antiguidade'
@@ -3555,6 +4093,10 @@ def militar_list(request):
     else:
         militares = militares.order_by('nome_completo')
 
+    # Adicionar lotação atual para cada militar
+    for militar in militares:
+        militar.lotacao_atual_obj = militar.lotacao_atual()
+    
     # Sem paginação - mostrar todos os militares
     context = {
         'militares': militares,
@@ -3562,32 +4104,6 @@ def militar_list(request):
     
     return render(request, 'militares/militar_list.html', context)
 
-@login_required
-@requer_perm_militares_visualizar
-def militar_detail(request, pk):
-    """Exibe os detalhes de um militar"""
-    militar = get_object_or_404(Militar, pk=pk)
-    
-    # Busca ficha de conceito
-    fichas_oficiais = list(militar.fichaconceitooficiais_set.all())
-    fichas_pracas = list(militar.fichaconceitopracas_set.all())
-    ficha_conceito = fichas_oficiais + fichas_pracas
-    ficha_conceito.sort(key=lambda x: x.data_registro, reverse=True)
-    
-    # Busca promoções
-    promocoes = militar.promocao_set.all().order_by('-data_promocao')
-    
-    # Busca documentos
-    documentos = Documento.objects.filter(militar=militar).order_by('-data_upload')
-    
-    context = {
-        'militar': militar,
-        'ficha_conceito': ficha_conceito,
-        'promocoes': promocoes,
-        'documentos': documentos,
-    }
-    
-    return render(request, 'militares/militar_detail.html', context)
 
 @login_required
 @admin_bypass
@@ -3620,59 +4136,13 @@ def militar_create(request):
 
 @login_required
 @admin_bypass
-def militar_update(request, pk):
-    """Atualiza um militar existente"""
-    # Verificar permissão
-    if not can_edit_militar(request.user):
-        messages.error(request, 'Você não tem permissão para editar militares. Apenas administradores, chefes da seção de promoções e diretores de gestão de pessoas podem editar.')
-        return redirect('militares:militar_list')
-    
-    militar = get_object_or_404(Militar, pk=pk)
-    
-    if request.method == 'POST':
-        form = MilitarForm(request.POST, request.FILES, instance=militar)
-        if form.is_valid():
-            # Capturar a numeração anterior antes de salvar
-            numeracao_anterior = militar.numeracao_antiguidade
-            
-            # Salvar o militar
-            militar = form.save()
-            
-            # Se a numeração de antiguidade foi alterada, reordenar automaticamente
-            if numeracao_anterior != militar.numeracao_antiguidade and militar.numeracao_antiguidade is not None:
-                try:
-                    militares_reordenados = militar.reordenar_numeracoes_apos_alteracao(numeracao_anterior)
-                    if militares_reordenados and militares_reordenados > 0:
-                        messages.success(request, f'Militar {militar.nome_completo} atualizado com sucesso! {militares_reordenados} militares foram reordenados automaticamente.')
-                    else:
-                        messages.success(request, f'Militar {militar.nome_completo} atualizado com sucesso!')
-                except Exception as e:
-                    messages.warning(request, f'Militar atualizado, mas houve um erro na reordenação automática: {str(e)}')
-            else:
-                messages.success(request, f'Militar {militar.nome_completo} atualizado com sucesso!')
-                return redirect('militares:militar_detail', pk=militar.pk)
-        else:
-            messages.error(request, 'Erro ao atualizar militar. Verifique os dados.')
-    else:
-        form = MilitarForm(instance=militar)
-    
-    context = {
-        'form': form,
-        'militar': militar,
-        'title': 'Editar Militar',
-        'action': 'update',
-        'today': timezone.now().date().isoformat(),
-    }
-    
-    return render(request, 'militares/militar_form.html', context)
-
 @login_required
 @admin_bypass
 def militar_delete(request, pk):
     """Remove um militar"""
     # Verificar permissão
     if not can_edit_militar(request.user):
-        messages.error(request, 'Você não tem permissão para excluir militares. Apenas administradores, chefes da seção de promoções e diretores de gestão de pessoas podem excluir.')
+        messages.error(request, 'Você não tem permissão para excluir militares. Apenas administradores, chefes da seção de promoções, diretores de gestão de pessoas e operadores do sistema podem excluir.')
         return redirect('militares:militar_list')
     
     militar = get_object_or_404(Militar, pk=pk)
@@ -3720,12 +4190,12 @@ def militar_search_ajax(request):
 def militar_dashboard(request):
     """Dashboard principal do sistema"""
     total_militares = Militar.objects.count()
-    militares_ativos = Militar.objects.filter(situacao='AT').count()
+    militares_ativos = Militar.objects.filter(classificacao='ATIVO').count()
     fichas_pendentes = FichaConceitoOficiais.objects.count() + FichaConceitoPracas.objects.count()
     documentos_pendentes = Documento.objects.filter(status='PENDENTE').count()
     
     # Estatísticas por quadro
-    estatisticas_quadro = Militar.objects.filter(situacao='AT').values('quadro').annotate(
+    estatisticas_quadro = Militar.objects.filter(classificacao='ATIVO').values('quadro').annotate(
         total=Count('id')
     ).order_by('quadro')
     
@@ -3776,64 +4246,9 @@ def militar_dashboard(request):
 # Views para Ficha de Conceito
 @login_required
 @apenas_visualizacao_comissao
-def ficha_conceito_list(request):
-    """Lista ficha de conceito de oficiais"""
-    militar_id = request.GET.get('militar')
-    if militar_id:
-        militar = get_object_or_404(Militar, pk=militar_id)
-        fichas_oficiais = list(militar.fichaconceitooficiais_set.all())
-        fichas_pracas = list(militar.fichaconceitopracas_set.all())
-        fichas = fichas_oficiais + fichas_pracas
-        fichas.sort(key=lambda x: x.data_registro, reverse=True)
-    else:
-        militar = None
-        # Filtrar apenas oficiais (CB, TC, MJ, CP, 1T, 2T, AS, AA)
-        oficiais = Militar.objects.filter(
-            situacao='AT',
-            posto_graduacao__in=['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS', 'AA']
-        )
-        fichas = FichaConceitoOficiais.objects.filter(militar__in=oficiais)
-        hierarquia_oficiais = {
-            'CB': 1,   # Coronel
-            'TC': 2,   # Tenente Coronel
-            'MJ': 3,   # Major
-            'CP': 4,   # Capitão
-            '1T': 5,   # 1º Tenente
-            '2T': 6,   # 2º Tenente
-            'AS': 7,   # Aspirante a Oficial
-            'AA': 8,   # Aluno de Adaptação
-        }
-        fichas_list = list(fichas)
-        fichas_list.sort(key=lambda x: (
-            hierarquia_oficiais.get(x.militar.posto_graduacao, 999),  # Primeiro por hierarquia
-            x.militar.nome_completo                                    # Depois por nome
-        ))
-        fichas = fichas_list
-    
-    # Estatísticas para mostrar no template (apenas oficiais)
-    total_oficiais_ativos = Militar.objects.filter(
-        situacao='AT',
-        posto_graduacao__in=['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS', 'AA']
-    ).count()
-    total_fichas_oficiais = len(fichas)
-    oficiais_sem_ficha = total_oficiais_ativos - total_fichas_oficiais
-    
-    # Montar lista final: primeiro os sem ficha, depois os com ficha
-    fichas_final = oficiais_sem_ficha_list + fichas
-
-    context = {
-        'militar': militar,
-        'fichas': fichas_final,
-        'total_oficiais_ativos': total_oficiais_ativos,
-        'total_fichas_oficiais': total_fichas_oficiais,
-        'oficiais_sem_ficha': oficiais_sem_ficha_list,
-        'oficiais_com_ficha': fichas,
-        'is_oficiais': True,
-}
-    return render(request, 'militares/ficha_conceito_list.html', context)
 
 @login_required
-@apenas_visualizacao_comissao
+@diretor_gestao_chefe_promocoes_required
 def ficha_conceito_create(request):
     """Cria nova ficha de conceito"""
     if request.method == 'POST':
@@ -3941,105 +4356,6 @@ def documento_upload(request, ficha_pk):
 # Views para Quadros de Acesso
 @login_required
 @requer_perm_quadros_visualizar
-def quadro_acesso_list(request):
-    """Lista todos os quadros de acesso"""
-        # Permissão especial para Diretor de Gestão de Pessoas ou Chefe da Seção de Promoções
-    cargos_especiais = ['Diretor de Gestão de Pessoas', 'Chefe da Seção de Promoções']
-    funcoes_ativas = request.user.funcoes.filter(
-        cargo_funcao__nome__in=cargos_especiais,
-        status='ATIVO',
-    )
-    if funcoes_ativas.exists():
-        quadros = QuadroAcesso.objects.all()
-    else:
-        # Verificar se o usuário é membro de alguma comissão e aplicar filtro
-        membros_comissao = MembroComissao.objects.filter(
-            usuario=request.user,
-            ativo=True,
-            comissao__status='ATIVA'
-        )
-        if membros_comissao.exists():
-            tem_cpo = membros_comissao.filter(comissao__tipo='CPO').exists()
-            tem_cpp = membros_comissao.filter(comissao__tipo='CPP').exists()
-            if tem_cpo and tem_cpp:
-                quadros = QuadroAcesso.objects.all()
-            elif tem_cpo:
-                quadros = QuadroAcesso.objects.filter(categoria='OFICIAIS')
-            elif tem_cpp:
-                quadros = QuadroAcesso.objects.filter(categoria='PRACAS')
-            else:
-                quadros = QuadroAcesso.objects.none()
-        else:
-            quadros = QuadroAcesso.objects.none()
-    
-    # Filtros
-    tipo = request.GET.get('tipo')
-    if tipo:
-        quadros = quadros.filter(tipo=tipo)
-    
-    status = request.GET.get('status')
-    if status:
-        quadros = quadros.filter(status=status)
-    
-    # Ordenação
-    ordenacao = request.GET.get('ordenacao', '-data_criacao')
-    quadros = quadros.order_by(ordenacao)
-    
-    # Adicionar quantidade de militares para cada quadro
-    for quadro in quadros:
-        quadro.total_militares_count = quadro.total_militares()
-    
-    # Verificar se é uma requisição AJAX
-    if request.GET.get('ajax') == '1':
-        import json
-        
-        # Preparar dados para JSON
-        quadros_data = []
-        for quadro in quadros:
-            quadros_data.append({
-                'id': quadro.id,
-                'tipo': quadro.tipo,
-                'get_tipo_display': quadro.get_tipo_display(),
-                'data_promocao': quadro.data_promocao.strftime('%d/%m/%Y'),
-                'status': quadro.status,
-                'get_status_display': quadro.get_status_display(),
-                'total_militares': quadro.total_militares(),
-                'motivo_nao_elaboracao': quadro.motivo_nao_elaboracao,
-                'get_motivo_display_completo': quadro.get_motivo_display_completo() if quadro.motivo_nao_elaboracao else None,
-            })
-        
-        return JsonResponse({
-            'quadros': quadros_data,
-            'total': len(quadros_data)
-        })
-    
-    # Calcular estatísticas
-    total_quadros = quadros.count()
-    elaborados = quadros.filter(status='ELABORADO').count()
-    homologados = quadros.filter(status='HOMOLOGADO').count()
-    nao_elaborados = quadros.filter(status='NAO_ELABORADO').count()
-    em_elaboracao = quadros.filter(status='EM_ELABORACAO').count()
-    
-    context = {
-        'quadros': quadros,
-        'tipos': QuadroAcesso.TIPO_CHOICES,
-        'status_choices': QuadroAcesso.STATUS_CHOICES,
-        'filtros': {
-            'tipo': tipo,
-            'status': status,
-            'ordenacao': ordenacao
-        },
-        'estatisticas': {
-            'total': total_quadros,
-            'elaborados': elaborados,
-            'homologados': homologados,
-            'nao_elaborados': nao_elaborados,
-            'em_elaboracao': em_elaboracao,
-        }
-    }
-    
-    return render(request, 'militares/quadro_acesso_list.html', context)
-
 @login_required
 @requer_perm_quadros_visualizar
 def quadro_acesso_detail(request, pk):
@@ -4111,13 +4427,14 @@ def quadro_acesso_detail(request, pk):
                     'destino': 'CB',
                     'texto': 'Deixa de ser elaborado o Quadro de Acesso por Merecimento para o posto de Coronel em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
                 },
-                {
-                    'numero': 'II',
-                    'titulo': 'MAJOR para o posto de TENENTE-CORONEL',
-                    'origem': 'MJ',
-                    'destino': 'TC',
-                    'texto': 'Deixa de ser elaborado o Quadro de Acesso por Merecimento para o posto de Tenente-Coronel em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
-                },
+                # OCULTO TEMPORARIAMENTE - MAJOR para TENENTE-CORONEL
+                # {
+                #     'numero': 'II',
+                #     'titulo': 'MAJOR para o posto de TENENTE-CORONEL',
+                #     'origem': 'MJ',
+                #     'destino': 'TC',
+                #     'texto': 'Deixa de ser elaborado o Quadro de Acesso por Merecimento para o posto de Tenente-Coronel em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
+                # },
                 {
                     'numero': 'III',
                     'titulo': 'CAPITÃO para o posto de MAJOR',
@@ -4158,14 +4475,14 @@ def quadro_acesso_detail(request, pk):
                     'texto': 'Deixa de ser elaborado o Quadro de Acesso por Merecimento para o posto de Major em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
                 }
             ],
-            'COMP': [  # Complementar - apenas MJ→TC e CP→MJ
-                {
-                    'numero': 'I',
-                    'titulo': 'MAJOR para o posto de TENENTE-CORONEL',
-                    'origem': 'MJ',
-                    'destino': 'TC',
-                    'texto': 'Deixa de ser elaborado o Quadro de Acesso por Merecimento para o posto de Tenente-Coronel em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
-                },
+            'COMP': [  # Complementar - apenas CP→MJ (MJ→TC comentado temporariamente)
+                # {
+                #     'numero': 'I',
+                #     'titulo': 'MAJOR para o posto de TENENTE-CORONEL',
+                #     'origem': 'MJ',
+                #     'destino': 'TC',
+                #     'texto': 'Deixa de ser elaborado o Quadro de Acesso por Merecimento para o posto de Tenente-Coronel em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
+                # },
                 {
                     'numero': 'II',
                     'titulo': 'CAPITÃO para o posto de MAJOR',
@@ -4290,14 +4607,14 @@ def quadro_acesso_detail(request, pk):
                     'texto': 'Deixa de ser elaborado o Quadro de Acesso por Antiguidade para o posto de 2º Tenente em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
                 }
             ],
-            'COMP': [  # Complementar
-                {
-                    'numero': 'I',
-                    'titulo': 'MAJOR para o posto de TENENTE-CORONEL',
-                    'origem': 'MJ',
-                    'destino': 'TC',
-                    'texto': 'Deixa de ser elaborado o Quadro de Acesso por Antiguidade para o posto de Tenente-Coronel em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
-                },
+            'COMP': [  # Complementar (MJ→TC comentado temporariamente)
+                # {
+                #     'numero': 'I',
+                #     'titulo': 'MAJOR para o posto de TENENTE-CORONEL',
+                #     'origem': 'MJ',
+                #     'destino': 'TC',
+                #     'texto': 'Deixa de ser elaborado o Quadro de Acesso por Antiguidade para o posto de Tenente-Coronel em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
+                # },
                 {
                     'numero': 'II',
                     'titulo': 'CAPITÃO para o posto de MAJOR',
@@ -4384,26 +4701,25 @@ def quadro_acesso_detail(request, pk):
         'estrutura_quadros': estrutura_quadros,
     }
     
-    # Garantir exibição da transição MJ→TC em todos os quadros de acesso
-    for q in estrutura_quadros:
-        transicoes = estrutura_quadros[q]['transicoes']
-        existe = any(
-            t['origem'] == 'MJ' and t['destino'] == 'TC'
-            for t in transicoes
-        )
-        if not existe:
-            # Buscar militares Major do quadro correspondente
-            militares_mj_tc = [
-                item for item in militares_aptos 
-                if item.militar.quadro == q and item.militar.posto_graduacao == 'MJ'
-            ]
-            estrutura_quadros[q]['transicoes'].insert(0, {
-                'origem': 'MJ',
-                'destino': 'TC',
-                'origem_nome': nomes_postos.get('MJ', 'MJ'),
-                'destino_nome': nomes_postos.get('TC', 'TC'),
-                'militares': militares_mj_tc,
-            })
+    # OCULTO TEMPORARIAMENTE - Lógica que forçava exibição da transição MJ→TC em todos os quadros
+    # for q in estrutura_quadros:
+    #     transicoes = estrutura_quadros[q]['transicoes']
+    #     existe = any(
+    #         t['origem'] == 'MJ' and t['destino'] == 'TC'
+    #         for t in transicoes
+    #     )
+    #     if not existe:
+    #         # Buscar militares Major do quadro correspondente
+    #         militares_mj_tc = [
+    #             item for item in militares_aptos 
+    #             if item.militar.quadro == q and item.militar.posto_graduacao == 'MJ'
+    #         ]
+    #         estrutura_quadros[q]['transicoes'].insert(0, {
+    #             'origem': 'MJ',
+    #             'destino': 'TC',
+    #             'destino_nome': nomes_postos.get('TC', 'TC'),
+    #             'militares': militares_mj_tc,
+    #         })
     
     return render(request, 'militares/quadro_acesso_detail.html', context)
 
@@ -4842,21 +5158,132 @@ def quadro_acesso_edit(request, pk):
     return FileResponse(buffer, as_attachment=True, filename=f'quadro_acesso_{quadro.pk}.pdf')
 
 @login_required
-@requer_perm_militares_visualizar
+@requer_funcao_ativa
 def militar_list(request):
-    """Lista todos os militares ativos com paginação e busca"""
-    militares = Militar.objects.filter(situacao='AT')
+    """Lista militares ativos com filtro por unidade baseado na função do usuário"""
+    from .models import UsuarioSessao
+    
+    # Obter sessão ativa do usuário
+    sessao_ativa = UsuarioSessao.objects.filter(
+        usuario=request.user,
+        ativo=True
+    ).first()
+    
+    if not sessao_ativa or not sessao_ativa.funcao_militar_usuario:
+        # Se não tem sessão ativa, redirecionar para seleção de função
+        return redirect('militares:selecionar_funcao')
+    
+    funcao_usuario = sessao_ativa.funcao_militar_usuario
+    
+    # Filtrar militares baseado no nível de acesso hierárquico do usuário
+    funcao_militar = funcao_usuario.funcao_militar
+    
+    if funcao_usuario.nivel_acesso == 'TOTAL':
+        # Acesso total - mostrar todos os militares
+        militares = Militar.objects.filter(classificacao='ATIVO')
+    elif funcao_usuario.nivel_acesso == 'NENHUM':
+        # Sem acesso - mostrar apenas o próprio militar
+        militares = Militar.objects.filter(
+            classificacao='ATIVO',
+            user=request.user
+        )
+    else:
+        # Filtrar por hierarquia baseado no nível de acesso do usuário
+        militares = Militar.objects.filter(classificacao='ATIVO')
+        
+        # Aplicar filtro hierárquico baseado no organograma
+        if funcao_usuario.nivel_acesso == 'ORGAO':
+            # Acesso ao órgão - filtrar por órgão e TODA sua descendência
+            if funcao_usuario.orgao:
+                militares = militares.filter(
+                    lotacoes__orgao=funcao_usuario.orgao,
+                    lotacoes__status='ATUAL',
+                    lotacoes__ativo=True
+                ).distinct()
+                
+        elif funcao_usuario.nivel_acesso == 'GRANDE_COMANDO':
+            # Acesso ao grande comando - filtrar por grande comando e TODA sua descendência
+            if funcao_usuario.grande_comando:
+                militares = militares.filter(
+                    lotacoes__grande_comando=funcao_usuario.grande_comando,
+                    lotacoes__status='ATUAL',
+                    lotacoes__ativo=True
+                ).distinct()
+                
+        elif funcao_usuario.nivel_acesso == 'UNIDADE':
+            # Acesso à unidade - filtrar por unidade e TODAS suas subunidades
+            if funcao_usuario.unidade:
+                from .models import SubUnidade
+                # Buscar TODAS as subunidades da unidade
+                subunidades = SubUnidade.objects.filter(unidade=funcao_usuario.unidade)
+                militares = militares.filter(
+                    Q(lotacoes__unidade=funcao_usuario.unidade) |
+                    Q(lotacoes__sub_unidade__in=subunidades),
+                    lotacoes__status='ATUAL',
+                    lotacoes__ativo=True
+                ).distinct()
+                
+        elif funcao_usuario.nivel_acesso == 'SUBUNIDADE':
+            # Acesso à subunidade - filtrar apenas pela subunidade específica
+            if funcao_usuario.sub_unidade:
+                militares = militares.filter(
+                    lotacoes__sub_unidade=funcao_usuario.sub_unidade,
+                    lotacoes__status='ATUAL',
+                    lotacoes__ativo=True
+                ).distinct()
+    
+    print(f"DEBUG - Filtro hierarquico aplicado para {request.user.username}:")
+    print(f"   - Função: {funcao_militar.nome}")
+    print(f"   - Nível de acesso: {funcao_usuario.get_nivel_acesso_display()}")
+    print(f"   - Órgão: {funcao_usuario.orgao}")
+    print(f"   - Grande Comando: {funcao_usuario.grande_comando}")
+    print(f"   - Unidade: {funcao_usuario.unidade}")
+    print(f"   - Subunidade: {funcao_usuario.sub_unidade}")
+    print(f"   - Militares encontrados: {militares.count()}")
+    
+    # Log detalhado do filtro aplicado
+    if funcao_usuario.nivel_acesso == 'ORGAO' and funcao_usuario.orgao:
+        print(f"   📊 Filtro: Órgão '{funcao_usuario.orgao}' + TODA descendência")
+    elif funcao_usuario.nivel_acesso == 'GRANDE_COMANDO' and funcao_usuario.grande_comando:
+        print(f"   📊 Filtro: Grande Comando '{funcao_usuario.grande_comando}' + TODA descendência")
+    elif funcao_usuario.nivel_acesso == 'UNIDADE' and funcao_usuario.unidade:
+        from .models import SubUnidade
+        subunidades = SubUnidade.objects.filter(unidade=funcao_usuario.unidade)
+        print(f"   📊 Filtro: Unidade '{funcao_usuario.unidade}' + {subunidades.count()} subunidades")
+    elif funcao_usuario.nivel_acesso == 'SUBUNIDADE' and funcao_usuario.sub_unidade:
+        print(f"   📊 Filtro: Apenas Subunidade '{funcao_usuario.sub_unidade}'")
     
     # Busca
     query = request.GET.get('q')
     if query:
-        militares = militares.filter(
+        # Decodificar URL e normalizar a query
+        import urllib.parse
+        query = urllib.parse.unquote(query)
+        query = query.strip()
+        
+        # Busca mais flexível - dividir a query em palavras
+        palavras = query.split()
+        q_objects = Q()
+        
+        for palavra in palavras:
+            q_objects |= (
+                Q(nome_completo__icontains=palavra) |
+                Q(nome_guerra__icontains=palavra) |
+                Q(matricula__icontains=palavra) |
+                Q(cpf__icontains=palavra) |
+                Q(email__icontains=palavra)
+            )
+        
+        # Também buscar pela query completa
+        q_objects |= (
             Q(nome_completo__icontains=query) |
             Q(nome_guerra__icontains=query) |
             Q(matricula__icontains=query) |
             Q(cpf__icontains=query) |
             Q(email__icontains=query)
         )
+        
+        militares = militares.filter(q_objects)
     
     # Filtros
     posto = request.GET.get('posto')
@@ -4884,12 +5311,12 @@ def militar_list(request):
     situacao = request.GET.get('situacao')
     if situacao:
         situacao_mapping = {
-            'at': 'AT',
-            'in': 'IN'
+            'at': 'ATIVO',
+            'in': 'INATIVO'
         }
         situacao_codigo = situacao_mapping.get(situacao.lower())
         if situacao_codigo:
-            militares = militares.filter(situacao=situacao_codigo)
+            militares = militares.filter(classificacao=situacao_codigo)
     
     quadro = request.GET.get('quadro')
     if quadro:
@@ -4942,6 +5369,10 @@ def militar_list(request):
     else:
         militares = militares.order_by('nome_completo')
 
+    # Adicionar lotação atual para cada militar
+    for militar in militares:
+        militar.lotacao_atual_obj = militar.lotacao_atual()
+    
     # Sem paginação - mostrar todos os militares
     context = {
         'militares': militares,
@@ -4950,7 +5381,7 @@ def militar_list(request):
     return render(request, 'militares/militar_list.html', context)
 
 @login_required
-@requer_perm_militares_visualizar
+@requer_funcao_ativa
 def militar_detail(request, pk):
     """Exibe os detalhes de um militar"""
     militar = get_object_or_404(Militar, pk=pk)
@@ -4967,14 +5398,746 @@ def militar_detail(request, pk):
     # Busca documentos
     documentos = Documento.objects.filter(militar=militar).order_by('-data_upload')
     
+    # Busca lotações
+    lotacoes = militar.lotacoes.filter(ativo=True).order_by('-data_inicio', '-data_cadastro')
+    
+    # Verificar se há função PRINCIPAL ativa e promover ADICIONAL se necessário
+    tem_principal = militar.funcoes.filter(ativo=True, status='ATUAL', tipo_funcao='PRINCIPAL').exists()
+    if not tem_principal:
+        primeira_adicional = militar.funcoes.filter(ativo=True, status='ATUAL', tipo_funcao='ADICIONAL').order_by('-data_inicio', '-data_cadastro').first()
+        if primeira_adicional:
+            primeira_adicional.tipo_funcao = 'PRINCIPAL'
+            primeira_adicional.save()
+    
+    # Busca funções - ordenar por tipo (PRINCIPAL primeiro) e depois por data
+    from django.db.models import Case, When, Value, IntegerField
+    funcoes = militar.funcoes.filter(ativo=True, status__in=['ATUAL', 'ANTERIOR']).annotate(
+        tipo_ordem=Case(
+            When(tipo_funcao='PRINCIPAL', then=Value(1)),
+            When(tipo_funcao='ADICIONAL', then=Value(2)),
+            When(tipo_funcao='TEMPORARIA', then=Value(3)),
+            When(tipo_funcao='COMISSAO', then=Value(4)),
+            default=Value(5),
+            output_field=IntegerField(),
+        )
+    ).order_by('-status', 'tipo_ordem', '-data_inicio', '-data_cadastro')
+    
+    # Busca todas as funções (atuais e históricas) para o template
+    funcoes_atuais = militar.funcoes.filter(status='ATUAL').order_by('-data_inicio')
+    funcoes_historicas = militar.funcoes.filter(status='ANTERIOR').order_by('-data_inicio')
+    todas_funcoes = militar.funcoes.all().order_by('-data_inicio')
+    
+    # Busca elogios e punições com verificação de permissão
+    from militares.permissoes_militares import pode_visualizar_punicoes_elogios, pode_editar_punicoes_elogios, pode_editar_militares, pode_fazer_crud_pdf, tem_funcao_restrita
+    
+    elogios = []
+    punicoes = []
+    
+    # Verificar se pode visualizar punições e elogios
+    if pode_visualizar_punicoes_elogios(request.user, militar):
+        elogios = militar.elogios.filter(ativo=True).order_by('-data_elogio', '-data_registro')
+        punicoes = militar.punicoes.filter(ativo=True).order_by('-data_punicao', '-data_registro')
+    
+    # Verificar se usuário tem função restrita e se pode fazer CRUD/PDF
+    pode_crud_pdf = pode_fazer_crud_pdf(request.user, militar)
+    tem_funcao_restrita_user = tem_funcao_restrita(request.user)
+    
+    # Busca afastamentos do militar
+    # Na ficha individual do militar, sempre mostrar TODOS os afastamentos daquele militar
+    # O filtro hierárquico é aplicado apenas em listas gerais, não na ficha individual
+    # Se o usuário tem acesso para ver a ficha do militar, deve ver todos os afastamentos dele
+    from militares.models import Afastamento
+    afastamentos = list(militar.afastamentos.all().order_by('-data_inicio', '-data_cadastro'))
+    
+    # Garantir que afastamentos seja sempre uma lista (não None)
+    if afastamentos is None:
+        afastamentos = []
+    
+    # Tipos de afastamento para o modal de certidão
+    tipos_afastamento = Afastamento.get_all_tipo_choices()
+    
+    # Busca férias do militar ordenadas por ano de referência (do mais atual para o mais distante)
+    # Inclui férias de todos os planos, mesmo que o plano esteja em RASCUNHO
+    from militares.models import Ferias, LicencaEspecial
+    ferias = list(Ferias.objects.filter(militar=militar).select_related('plano', 'militar').order_by('-ano_referencia', '-data_inicio'))
+    
+    # Busca licenças especiais do militar ordenadas por plano e data de início (do mais atual para o mais distante)
+    # IMPORTANTE: Para o regroup funcionar, precisa estar ordenado pelo campo que será agrupado (plano)
+    # Usar filtro direto para garantir que pegamos todas as licenças
+    licencas_especiais_qs = LicencaEspecial.objects.filter(militar=militar).select_related('militar', 'cadastrado_por', 'plano')
+    licencas_especiais = list(licencas_especiais_qs)
+    # Ordenar manualmente: primeiro por plano (para regroup funcionar), depois por data
+    # None será tratado como (9999, 9999) para vir por último quando ordenar reverso
+    licencas_especiais.sort(key=lambda x: (
+        x.plano.pk if x.plano else 9999,  # Agrupar por plano.pk primeiro (para regroup)
+        x.plano.ano_plano if x.plano else 9999,  # Depois por ano do plano
+        x.data_inicio if x.data_inicio else None,
+        x.data_cadastro if x.data_cadastro else None
+    ), reverse=True)
+    
+    # Busca cautelas de armas do militar
+    from militares.models import CautelaArma, CautelaArmaColetiva
+    cautelas_individuais = CautelaArma.objects.filter(militar=militar).select_related('arma', 'militar', 'entregue_por', 'devolvido_por').order_by('-data_entrega')
+    cautelas_coletivas = CautelaArmaColetiva.objects.filter(responsavel=militar).select_related('responsavel', 'criado_por', 'finalizado_por').order_by('-data_inicio')
+    total_cautelas = cautelas_individuais.count() + cautelas_coletivas.count()
+    
+    # Busca processos administrativos do militar
+    from militares.models import ProcessoAdministrativo
+    processos_envolvido = ProcessoAdministrativo.objects.filter(
+        militares_envolvidos=militar,
+        ativo=True
+    ).select_related('orgao', 'grande_comando', 'unidade', 'sub_unidade').order_by('-data_abertura', '-data_criacao')
+    
+    processos_encarregado = ProcessoAdministrativo.objects.filter(
+        militares_encarregados=militar,
+        ativo=True
+    ).select_related('orgao', 'grande_comando', 'unidade', 'sub_unidade').order_by('-data_abertura', '-data_criacao')
+    
+    processos_escriva = ProcessoAdministrativo.objects.filter(
+        escrivaos=militar,
+        ativo=True
+    ).select_related('orgao', 'grande_comando', 'unidade', 'sub_unidade').order_by('-data_abertura', '-data_criacao')
+    
+    # Combinar todos os processos únicos
+    processos_ids = set()
+    processos_todos = []
+    
+    for processo in processos_envolvido:
+        if processo.pk not in processos_ids:
+            processos_ids.add(processo.pk)
+            processos_todos.append(('envolvido', processo))
+    
+    for processo in processos_encarregado:
+        if processo.pk not in processos_ids:
+            processos_ids.add(processo.pk)
+            processos_todos.append(('encarregado', processo))
+    
+    for processo in processos_escriva:
+        if processo.pk not in processos_ids:
+            processos_ids.add(processo.pk)
+            processos_todos.append(('escriva', processo))
+    
+    # Ordenar por data de abertura (mais recente primeiro)
+    # Usar data_abertura se existir, senão usar data_criacao
+    from datetime import date
+    processos_todos.sort(key=lambda x: (
+        x[1].data_abertura if x[1].data_abertura else (x[1].data_criacao.date() if x[1].data_criacao else date.min)
+    ), reverse=True)
+    total_processos = len(processos_todos)
+    
     context = {
         'militar': militar,
         'ficha_conceito': ficha_conceito,
         'promocoes': promocoes,
         'documentos': documentos,
+        'lotacoes': lotacoes,
+        'funcoes': funcoes,
+        'funcoes_atuais': funcoes_atuais,
+        'funcoes_historicas': funcoes_historicas,
+        'todas_funcoes': todas_funcoes,
+        'elogios': elogios,
+        'punicoes': punicoes,
+        'afastamentos': afastamentos,
+        'tipos_afastamento': tipos_afastamento,
+        'ferias': ferias,
+        'licencas_especiais': licencas_especiais,
+        'averbacoes': list(militar.averbacoes.all().order_by('-data_averbacao', '-data_cadastro')),
+        'cautelas_individuais': cautelas_individuais,
+        'cautelas_coletivas': cautelas_coletivas,
+        'total_cautelas': total_cautelas,
+        'processos_todos': processos_todos,
+        'total_processos': total_processos,
+        'pode_editar_punicoes_elogios': pode_editar_punicoes_elogios(request.user, militar),
+        'pode_visualizar_punicoes_elogios': pode_visualizar_punicoes_elogios(request.user, militar),
+        'pode_editar_militares': pode_editar_militares(request.user),
+        'pode_crud_pdf': pode_crud_pdf,
+        'tem_funcao_restrita_user': tem_funcao_restrita_user,
     }
     
     return render(request, 'militares/militar_detail.html', context)
+
+@requer_funcao_ativa
+def militar_promocoes_pdf(request, pk):
+    """Gera PDF com o histórico de promoções de um militar"""
+    militar = get_object_or_404(Militar, pk=pk)
+    
+    # Busca promoções ordenadas por data
+    promocoes = militar.promocao_set.all().order_by('-data_promocao')
+    
+    if not promocoes.exists():
+        messages.warning(request, 'Este militar não possui histórico de promoções para gerar PDF.')
+        return redirect('militares:militar_detail', pk=militar.pk)
+    
+    # Gera o PDF usando reportlab
+    try:
+        from io import BytesIO
+        from reportlab.lib.pagesizes import A4
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib import colors
+        from reportlab.lib.units import cm
+        
+        # Criar buffer para o PDF
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=2*cm, bottomMargin=2*cm)
+        story = []
+        
+        # Estilos
+        styles = getSampleStyleSheet()
+        style_title = ParagraphStyle('title', parent=styles['Heading1'], alignment=1, fontSize=16, spaceAfter=20)
+        style_subtitle = ParagraphStyle('subtitle', parent=styles['Heading2'], alignment=1, fontSize=14, spaceAfter=15)
+        style_center = ParagraphStyle('center', parent=styles['Normal'], alignment=1, fontSize=12)
+        style_normal = ParagraphStyle('normal', parent=styles['Normal'], fontSize=11)
+        style_bold = ParagraphStyle('bold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=11)
+        style_just = ParagraphStyle('just', parent=styles['Normal'], alignment=4, fontSize=11)
+        
+        # Logo/Brasão centralizado
+        logo_path = os.path.join('staticfiles', 'logo_cbmepi.png')
+        if os.path.exists(logo_path):
+            story.append(Image(logo_path, width=2.5*cm, height=2.5*cm, hAlign='CENTER'))
+            story.append(Spacer(1, 6))
+        
+        # Cabeçalho institucional
+        cabecalho = [
+            "GOVERNO DO ESTADO DO PIAUÍ",
+            "CORPO DE BOMBEIROS MILITAR DO ESTADO DO PIAUÍ",
+            "DIRETORIA DE GESTÃO DE PESSOAS",
+            "Av. Miguel Rosa, 3515 - Bairro Piçarra, Teresina/PI, CEP 64001-490",
+            "Telefone: (86)3216-1264 - http://www.cbm.pi.gov.br"
+        ]
+        for linha in cabecalho:
+            story.append(Paragraph(linha, style_center))
+        story.append(Spacer(1, 10))
+        
+        # Título principal centralizado e sublinhado
+        story.append(Paragraph("<u>HISTÓRICO DE PROMOÇÕES</u>", style_title))
+        story.append(Spacer(1, 16))
+        
+        story.append(Spacer(1, 16))
+        
+        # Título discreto para dados do militar
+        story.append(Paragraph("Dados do Militar", ParagraphStyle('subtitle_discreto', parent=styles['Normal'], alignment=1, fontSize=11, spaceAfter=8, textColor=colors.grey)))
+        story.append(Spacer(1, 5))
+        
+        # Informações do militar em uma coluna (dados ao lado dos títulos)
+        militar_data = [
+            [f'Nome Completo: {militar.nome_completo}'],
+            [f'Nome de Guerra: {militar.nome_guerra}'],
+            [f'Matrícula: {militar.matricula}'],
+            [f'Posto Atual: {militar.get_posto_graduacao_display()}'],
+            [f'Quadro: {militar.get_quadro_display()}'],
+            [f'Data Promoção: {militar.data_promocao_atual.strftime("%d/%m/%Y") if militar.data_promocao_atual else "Não informada"}'],
+        ]
+        
+        militar_table = Table(militar_data, colWidths=[19*cm])
+        militar_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTSIZE', (0, 0), (-1, -1), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('WORDWRAP', (0, 0), (-1, -1), True),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP')
+        ]))
+        
+        story.append(militar_table)
+        story.append(Spacer(1, 20))
+        
+        # Título discreto para a tabela de promoções
+        story.append(Paragraph("Histórico de Promoções", ParagraphStyle('subtitle_discreto', parent=styles['Normal'], alignment=1, fontSize=11, spaceAfter=8, textColor=colors.grey)))
+        story.append(Spacer(1, 5))
+        
+        # Dados das promoções
+        promocoes_data = [['Data', 'Posto Anterior', 'Novo Posto', 'Critério', 'Ato']]
+        for promocao in promocoes:
+            promocoes_data.append([
+                promocao.data_promocao.strftime('%d/%m/%Y'),
+                promocao.get_posto_anterior_display(),
+                promocao.get_posto_novo_display(),
+                promocao.get_criterio_display(),
+                promocao.numero_ato
+            ])
+        
+        promocoes_table = Table(promocoes_data, colWidths=[3*cm, 3.5*cm, 3.5*cm, 3.5*cm, 6.5*cm])
+        promocoes_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('WORDWRAP', (0, 0), (-1, -1), True),
+
+            # Configurações específicas para a última coluna (Ato)
+            ('ALIGN', (4, 0), (4, -1), 'LEFT'),  # Última coluna alinhada à esquerda
+            ('FONTSIZE', (4, 0), (4, -1), 8),    # Fonte menor para a última coluna
+            ('WORDWRAP', (4, 0), (4, -1), True), # Wordwrap específico para última coluna
+            ('LEFTPADDING', (4, 0), (4, -1), 4), # Padding esquerdo para última coluna
+            ('RIGHTPADDING', (4, 0), (4, -1), 4) # Padding direito para última coluna
+        ]))
+        
+        story.append(promocoes_table)
+        story.append(Spacer(1, 20))
+        
+
+        
+        # Construir o PDF
+        doc.build(story)
+        pdf_content = buffer.getvalue()
+        buffer.close()
+        
+        # Criar resposta HTTP
+        from django.http import HttpResponse
+        response = HttpResponse(pdf_content, content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="historico_promocoes_{militar.matricula}_{timezone.now().strftime("%Y%m%d")}.pdf"'
+        
+        return response
+        
+    except Exception as e:
+        messages.error(request, f'Erro ao gerar PDF: {str(e)}')
+        return redirect('militares:militar_detail', pk=militar.pk)
+
+
+@login_required
+def tempo_servico_certidao_pdf(request, militar_id):
+    """Gera PDF com certidão de tempo de serviço de um militar"""
+    import os
+    from io import BytesIO
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak, HRFlowable
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+    from reportlab.lib.units import cm
+    from django.http import FileResponse, HttpResponse
+    
+    militar = get_object_or_404(Militar, pk=militar_id)
+    
+    if not militar.data_ingresso:
+        error_html = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Erro - Certidão de Tempo de Serviço</title>
+            <meta charset="utf-8">
+            <style>
+                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                .error-box { border: 2px solid #dc3545; border-radius: 5px; padding: 20px; 
+                            max-width: 500px; margin: 0 auto; background-color: #f8d7da; }
+                h2 { color: #721c24; }
+                p { color: #721c24; }
+                button { background-color: #dc3545; color: white; border: none; 
+                        padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+                button:hover { background-color: #c82333; }
+            </style>
+        </head>
+        <body>
+            <div class="error-box">
+                <h2>❌ Erro ao Gerar Certidão de Tempo de Serviço</h2>
+                <p><strong>Este militar não possui data de ingresso cadastrada.</strong></p>
+                <p>Por favor, cadastre a data de ingresso antes de gerar a certidão.</p>
+                <button onclick="window.close()">Fechar</button>
+            </div>
+        </body>
+        </html>
+        """
+        return HttpResponse(error_html, status=400, content_type='text/html')
+    
+    try:
+        # Criar buffer para o PDF
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=0.1*cm, bottomMargin=2*cm)
+        story = []
+        
+        # Estilos
+        styles = getSampleStyleSheet()
+        style_title = ParagraphStyle('title', parent=styles['Heading1'], alignment=1, fontSize=16, spaceAfter=20)
+        style_subtitle = ParagraphStyle('subtitle', parent=styles['Heading2'], alignment=1, fontSize=14, spaceAfter=15)
+        style_center = ParagraphStyle('center', parent=styles['Normal'], alignment=1, fontSize=12)
+        style_normal = ParagraphStyle('normal', parent=styles['Normal'], fontSize=11)
+        style_bold = ParagraphStyle('bold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=11)
+        style_just = ParagraphStyle('just', parent=styles['Normal'], alignment=4, fontSize=11)
+        style_small = ParagraphStyle('small', parent=styles['Normal'], fontSize=9, alignment=0, spaceAfter=6)
+        
+        # Logo/Brasão centralizado
+        logo_path = os.path.join('staticfiles', 'logo_cbmepi.png')
+        if os.path.exists(logo_path):
+            story.append(Image(logo_path, width=2.5*cm, height=2.5*cm, hAlign='CENTER'))
+            story.append(Spacer(1, 6))
+        
+        # Cabeçalho institucional
+        cabecalho = [
+            "GOVERNO DO ESTADO DO PIAUÍ",
+            "CORPO DE BOMBEIROS MILITAR DO ESTADO DO PIAUÍ",
+            "DIRETORIA DE GESTÃO DE PESSOAS",
+            "Av. Miguel Rosa, 3515 - Bairro Piçarra, Teresina/PI, CEP 64001-490",
+            "Telefone: (86)3216-1264 - http://www.cbm.pi.gov.br"
+        ]
+        for linha in cabecalho:
+            story.append(Paragraph(linha, style_center))
+        story.append(Spacer(1, 12 + 0.5*cm))
+        
+        # Título principal
+        story.append(Paragraph("<u>CERTIDÃO DE TEMPO DE SERVIÇO</u>", style_title))
+        story.append(Spacer(1, 13 - 0.5*cm))
+        
+        # Calcular tempo de serviço detalhado
+        tempo_detalhado = militar.tempo_servico_detalhado()
+        
+        # Buscar todas as averbações do militar e somar os dias de aproveitamento
+        from .models import Averbacao
+        averbacoes = Averbacao.objects.filter(militar=militar)
+        total_dias_averbacao = sum(averbacao.aproveitamento_dias for averbacao in averbacoes)
+        
+        # Converter dias de averbação para anos, meses e dias
+        def converter_dias_para_anos_meses_dias(dias):
+            """Converte dias em anos, meses e dias"""
+            anos = dias // 365
+            dias_resto = dias % 365
+            meses = dias_resto // 30
+            dias_finais = dias_resto % 30
+            return anos, meses, dias_finais
+        
+        # Calcular tempo de averbação detalhado
+        if total_dias_averbacao > 0:
+            anos_averb, meses_averb, dias_averb = converter_dias_para_anos_meses_dias(total_dias_averbacao)
+            tempo_averbacao_extenso = f"{anos_averb} ano{'s' if anos_averb != 1 else ''}, {meses_averb} mês{'es' if meses_averb != 1 else ''} e {dias_averb} dia{'s' if dias_averb != 1 else ''}"
+        else:
+            anos_averb, meses_averb, dias_averb = 0, 0, 0
+            tempo_averbacao_extenso = "0 dias"
+        
+        # Calcular tempo total (serviço + averbação)
+        # Converter tempo de serviço para dias (aproximação: 1 ano = 365 dias, 1 mês = 30 dias)
+        tempo_servico_dias = (tempo_detalhado.years * 365) + (tempo_detalhado.months * 30) + tempo_detalhado.days
+        
+        # Somar os dias de averbação
+        total_dias = tempo_servico_dias + total_dias_averbacao
+        
+        # Converter total para anos, meses e dias
+        anos_total, meses_total, dias_total = converter_dias_para_anos_meses_dias(total_dias)
+        tempo_total_extenso = f"{anos_total} ano{'s' if anos_total != 1 else ''}, {meses_total} mês{'es' if meses_total != 1 else ''} e {dias_total} dia{'s' if dias_total != 1 else ''}"
+        
+        # Texto de certificação com dados do militar
+        posto_display = militar.get_posto_graduacao_display()
+        tempo_extenso = f"{tempo_detalhado.years} ano{'s' if tempo_detalhado.years != 1 else ''}, {tempo_detalhado.months} mês{'es' if tempo_detalhado.months != 1 else ''} e {tempo_detalhado.days} dia{'s' if tempo_detalhado.days != 1 else ''}"
+        
+        # Obter data atual formatada
+        data_atual_texto = timezone.now().date().strftime("%d/%m/%Y")
+        
+        # Verificar se houve transferências para inativo e reativações
+        historico_inativacoes = []
+        if militar.data_ultima_inativacao:
+            historico_inativacoes.append({
+                'tipo': 'inativacao',
+                'data': militar.data_ultima_inativacao,
+                'descricao': 'Transferido para Inativo'
+            })
+        if militar.data_ultima_reativacao:
+            historico_inativacoes.append({
+                'tipo': 'reativacao',
+                'data': militar.data_ultima_reativacao,
+                'descricao': 'Retornado para Ativo'
+            })
+        
+        # Ordenar histórico por data
+        historico_inativacoes.sort(key=lambda x: x['data'])
+        
+        # Texto de certificação base
+        if historico_inativacoes:
+            texto_certificacao = (
+                f"Certifico para os devidos fins que conforme os registros funcionais desta instituição, "
+                f"foi encontrado que o servidor <b>{posto_display} BM {militar.nome_completo}</b>, "
+                f"CPF: <b>{militar.cpf or 'Não informado'}</b>, Matrícula: <b>{militar.matricula}</b>, "
+                f"possui tempo de serviço ativo de <b>{tempo_extenso}</b>, computado apenas nos períodos em que esteve em situação ativa, "
+                f"considerando o ingresso em <b>{militar.data_ingresso.strftime('%d/%m/%Y')}</b> até a presente data <b>{data_atual_texto}</b>."
+            )
+        else:
+            texto_certificacao = (
+                f"Certifico para os devidos fins que conforme os registros funcionais desta instituição, "
+                f"foi encontrado que o servidor <b>{posto_display} BM {militar.nome_completo}</b>, "
+                f"CPF: <b>{militar.cpf or 'Não informado'}</b>, Matrícula: <b>{militar.matricula}</b>, "
+                f"possui tempo de serviço de <b>{tempo_extenso}</b>, contados a partir de <b>{militar.data_ingresso.strftime('%d/%m/%Y')}</b> até a presente data <b>{data_atual_texto}</b>."
+            )
+        story.append(Paragraph(texto_certificacao, ParagraphStyle('certificacao', parent=styles['Normal'], fontSize=11, alignment=4, spaceAfter=10)))
+        
+        # Adicionar informações sobre transferências e reativações
+        if historico_inativacoes:
+            story.append(Spacer(1, 10))
+            story.append(Paragraph("<b>HISTÓRICO DE SITUAÇÕES:</b>", ParagraphStyle('titulo_historico', parent=styles['Normal'], fontSize=10, alignment=0, spaceAfter=8)))
+            
+            # Calcular períodos
+            if militar.data_ultima_inativacao and militar.data_ultima_reativacao:
+                # Foi inativado e reativado - mostrar ambos os períodos
+                periodo_anterior = militar.tempo_servico_periodo_anterior()
+                periodo_atual = militar.tempo_servico_periodo_atual()
+                
+                texto_historico = (
+                    f"O servidor foi <b>transferido para inativo</b> em <b>{militar.data_ultima_inativacao.strftime('%d/%m/%Y')}</b>, "
+                    f"permanecendo nessa situação até <b>{militar.data_ultima_reativacao.strftime('%d/%m/%Y')}</b>, quando foi <b>retornado para ativo</b>. "
+                    f"Período ativo anterior: <b>{periodo_anterior.years} ano{'s' if periodo_anterior.years != 1 else ''}, {periodo_anterior.months} mês{'es' if periodo_anterior.months != 1 else ''} e {periodo_anterior.days} dia{'s' if periodo_anterior.days != 1 else ''}</b>. "
+                    f"Período ativo atual (desde {militar.data_ultima_reativacao.strftime('%d/%m/%Y')}): <b>{periodo_atual.years} ano{'s' if periodo_atual.years != 1 else ''}, {periodo_atual.months} mês{'es' if periodo_atual.months != 1 else ''} e {periodo_atual.days} dia{'s' if periodo_atual.days != 1 else ''}</b>."
+                )
+            elif militar.data_ultima_inativacao and not militar.data_ultima_reativacao:
+                # Foi inativado mas não reativado (ainda está inativo)
+                periodo_anterior = militar.tempo_servico_periodo_anterior()
+                texto_historico = (
+                    f"O servidor foi <b>transferido para inativo</b> em <b>{militar.data_ultima_inativacao.strftime('%d/%m/%Y')}</b>, "
+                    f"permanecendo nessa situação até a presente data. "
+                    f"Período ativo anterior (até {militar.data_ultima_inativacao.strftime('%d/%m/%Y')}): <b>{periodo_anterior.years} ano{'s' if periodo_anterior.years != 1 else ''}, {periodo_anterior.months} mês{'es' if periodo_anterior.months != 1 else ''} e {periodo_anterior.days} dia{'s' if periodo_anterior.days != 1 else ''}</b>."
+                )
+            elif militar.data_ultima_reativacao and not militar.data_ultima_inativacao:
+                # Foi reativado mas não tem data de inativação (caso antigo)
+                periodo_atual = militar.tempo_servico_periodo_atual()
+                texto_historico = (
+                    f"O servidor foi <b>retornado para ativo</b> em <b>{militar.data_ultima_reativacao.strftime('%d/%m/%Y')}</b>. "
+                    f"Período ativo atual (desde {militar.data_ultima_reativacao.strftime('%d/%m/%Y')}): <b>{periodo_atual.years} ano{'s' if periodo_atual.years != 1 else ''}, {periodo_atual.months} mês{'es' if periodo_atual.months != 1 else ''} e {periodo_atual.days} dia{'s' if periodo_atual.days != 1 else ''}</b>."
+                )
+            else:
+                texto_historico = ""
+            
+            if texto_historico:
+                story.append(Paragraph(texto_historico, ParagraphStyle('historico', parent=styles['Normal'], fontSize=11, alignment=4, spaceAfter=10)))
+        
+        # Adicionar informações sobre averbações
+        if averbacoes.exists():
+            story.append(Spacer(1, 10))
+            texto_averbacao = (
+                f"Adicionalmente, o servidor possui tempo de contribuição averbado de <b>{tempo_averbacao_extenso}</b>, "
+                f"totalizando <b>{tempo_total_extenso}</b> de tempo total computado (tempo de serviço ativo + tempo averbado)."
+            )
+            story.append(Paragraph(texto_averbacao, ParagraphStyle('averbacao', parent=styles['Normal'], fontSize=11, alignment=4, spaceAfter=10)))
+            
+            # Adicionar tabela com detalhes das averbações
+            story.append(Spacer(1, 10))
+            story.append(Paragraph("<b>DETALHAMENTO DAS AVERBAÇÕES:</b>", ParagraphStyle('titulo_tabela', parent=styles['Normal'], fontSize=10, alignment=0, spaceAfter=8)))
+            
+            dados_averbacoes = [['Data', 'CTC/INSS', 'Tempo Averbado', 'Documento Publicação']]
+            for averbacao in averbacoes.order_by('-data_averbacao'):
+                anos_av, meses_av, dias_av = converter_dias_para_anos_meses_dias(averbacao.aproveitamento_dias)
+                tempo_av_extenso = f"{anos_av} ano{'s' if anos_av != 1 else ''}, {meses_av} mês{'es' if meses_av != 1 else ''} e {dias_av} dia{'s' if dias_av != 1 else ''}"
+                documento_pub = averbacao.documento_publicacao or "Não informado"
+                dados_averbacoes.append([
+                    averbacao.data_averbacao.strftime('%d/%m/%Y'),
+                    averbacao.numero_ctc_inss,
+                    tempo_av_extenso,
+                    documento_pub[:50] + ('...' if len(documento_pub) > 50 else '')
+                ])
+            
+            tabela_averbacoes = Table(dados_averbacoes, repeatRows=1, colWidths=[3*cm, 3.5*cm, 5*cm, 4.5*cm])
+            tabela_averbacoes.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
+                ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0,0), (-1,-1), 8),
+                ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+                ('LEFTPADDING', (0,0), (-1,-1), 4),
+                ('RIGHTPADDING', (0,0), (-1,-1), 4),
+                ('TOPPADDING', (0,0), (-1,-1), 4),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+            ]))
+            story.append(tabela_averbacoes)
+            story.append(Spacer(1, 10))
+        
+        # Texto final
+        texto_final = "A presente certidão é emitida a pedido do(a) interessado(a), para fins de comprovação e demais usos legais que se fizerem necessários."
+        story.append(Paragraph(texto_final, ParagraphStyle('texto_final', parent=styles['Normal'], fontSize=11, alignment=4, spaceAfter=20)))
+        story.append(Spacer(1, 30))
+        
+        # Cidade e Data por extenso (centralizada)
+        try:
+            militar_logado = request.user.militar if hasattr(request.user, 'militar') else None
+            
+            # Obter cidade
+            if militar_logado and militar_logado.cidade:
+                cidade_doc = militar_logado.cidade
+            else:
+                cidade_doc = "Teresina"
+            cidade_estado = f"{cidade_doc} - PI"
+        except:
+            cidade_estado = "Teresina - PI"
+        
+        # Data por extenso - usar timezone de Brasília
+        import pytz
+        brasilia_tz = pytz.timezone('America/Sao_Paulo')
+        data_atual = timezone.now().astimezone(brasilia_tz) if timezone.is_aware(timezone.now()) else brasilia_tz.localize(timezone.now())
+        
+        meses_extenso = {
+            1: 'janeiro', 2: 'fevereiro', 3: 'março', 4: 'abril',
+            5: 'maio', 6: 'junho', 7: 'julho', 8: 'agosto',
+            9: 'setembro', 10: 'outubro', 11: 'novembro', 12: 'dezembro'
+        }
+        data_formatada_extenso = f"{data_atual.day} de {meses_extenso[data_atual.month]} de {data_atual.year}"
+        data_cidade = f"{cidade_estado}, {data_formatada_extenso}."
+        
+        # Adicionar cidade e data centralizada
+        story.append(Paragraph(data_cidade, ParagraphStyle('data_extenso', parent=styles['Normal'], alignment=1, fontSize=11, fontName='Helvetica', spaceAfter=20)))
+        
+        # Obter função do formulário ou função atual
+        from .permissoes_hierarquicas import obter_funcao_militar_ativa
+        funcao_selecionada = request.GET.get('funcao', '')
+        if not funcao_selecionada:
+            funcao_atual_obj = obter_funcao_militar_ativa(request.user)
+            funcao_selecionada = funcao_atual_obj.funcao_militar.nome if funcao_atual_obj and funcao_atual_obj.funcao_militar else "Usuário do Sistema"
+        
+        # Adicionar assinatura física (como se fosse para assinar com caneta)
+        try:
+            militar_logado = request.user.militar if hasattr(request.user, 'militar') else None
+            
+            if militar_logado:
+                nome_posto = f"{militar_logado.nome_completo} - {militar_logado.get_posto_graduacao_display()} BM"
+                
+                # Adicionar espaço para assinatura física
+                story.append(Spacer(1, 1*cm))
+                
+                # Linha para assinatura física - 1ª linha: Nome - Posto
+                story.append(Paragraph(nome_posto, ParagraphStyle('assinatura_fisica', parent=styles['Normal'], alignment=1, fontSize=11, fontName='Helvetica-Bold', spaceAfter=5)))
+                
+                # 2ª linha: Função
+                story.append(Paragraph(funcao_selecionada, ParagraphStyle('assinatura_funcao', parent=styles['Normal'], alignment=1, fontSize=11, fontName='Helvetica', spaceAfter=20)))
+                
+                # Linha para assinatura (espaço para caneta)
+                story.append(Spacer(1, 0.3*cm))
+            else:
+                nome_usuario = request.user.get_full_name() or request.user.username
+                story.append(Spacer(1, 1*cm))
+                story.append(Paragraph(nome_usuario, ParagraphStyle('assinatura_fisica', parent=styles['Normal'], alignment=1, fontSize=11, fontName='Helvetica-Bold', spaceAfter=5)))
+                story.append(Paragraph(funcao_selecionada, ParagraphStyle('assinatura_funcao', parent=styles['Normal'], alignment=1, fontSize=11, fontName='Helvetica', spaceAfter=20)))
+                story.append(Spacer(1, 0.3*cm))
+        except Exception as e:
+            # Se houver erro, apenas adicionar espaço
+            story.append(Spacer(1, 1*cm))
+        
+        # Adicionar espaço antes da assinatura eletrônica
+        story.append(Spacer(1, 0.5*cm))
+        
+        # Adicionar assinatura eletrônica com logo
+        try:
+            militar_logado = request.user.militar if hasattr(request.user, 'militar') else None
+            
+            # Obter informações do assinante
+            if militar_logado:
+                nome_posto_quadro = f"{militar_logado.nome_completo} - {militar_logado.get_posto_graduacao_display()} BM"
+                
+                # Usar função selecionada do formulário
+                funcao_display = funcao_selecionada
+            else:
+                nome_posto_quadro = request.user.get_full_name() or request.user.username
+                funcao_display = funcao_selecionada
+            
+            # Data e hora da assinatura
+            agora = timezone.now().astimezone(brasilia_tz) if timezone.is_aware(timezone.now()) else brasilia_tz.localize(timezone.now())
+            data_formatada = agora.strftime('%d/%m/%Y')
+            hora_formatada = agora.strftime('%H:%M')
+            
+            texto_assinatura = f"Documento assinado eletronicamente por {nome_posto_quadro} - {funcao_display}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
+            
+            # Adicionar logo da assinatura eletrônica
+            from .utils import obter_caminho_assinatura_eletronica
+            logo_path = obter_caminho_assinatura_eletronica()
+            
+            # Tabela das assinaturas: Logo + Texto de assinatura
+            assinatura_data = [
+                [Image(logo_path, width=3.0*cm, height=2.0*cm), Paragraph(texto_assinatura, style_small)]
+            ]
+            
+            assinatura_table = Table(assinatura_data, colWidths=[3*cm, 13*cm])
+            assinatura_table.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # Logo centralizado
+                ('ALIGN', (1, 0), (1, 0), 'LEFT'),    # Texto alinhado à esquerda
+                ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('BOX', (0, 0), (-1, -1), 1, colors.grey),  # Borda do retângulo
+            ]))
+            
+            story.append(assinatura_table)
+        except Exception as e:
+            # Se houver erro, apenas adicionar espaço
+            story.append(Spacer(1, 1*cm))
+        
+        # Rodapé com QR Code para conferência de veracidade
+        story.append(Spacer(1, 0.1*cm))
+        
+        # Usar a função utilitária para gerar o autenticador
+        from .utils import gerar_autenticador_veracidade
+        # Usar o militar como objeto para gerar o autenticador
+        autenticador = gerar_autenticador_veracidade(militar, request, tipo_documento='certidao_tempo_servico')
+        
+        # Tabela do rodapé: QR + Texto de autenticação
+        rodape_data = [
+            [autenticador['qr_img'], Paragraph(autenticador['texto_autenticacao'], style_small)]
+        ]
+        
+        rodape_table = Table(rodape_data, colWidths=[3*cm, 13*cm])
+        rodape_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # QR centralizado
+            ('ALIGN', (1, 0), (1, 0), 'LEFT'),    # Texto alinhado à esquerda
+            ('LEFTPADDING', (0, 0), (-1, -1), 1),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 1),
+            ('TOPPADDING', (0, 0), (-1, -1), 1),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+            ('BOX', (0, 0), (-1, -1), 1, colors.grey),  # Borda do retângulo
+        ]))
+        
+        story.append(rodape_table)
+        
+        # Construir PDF
+        doc.build(story)
+        buffer.seek(0)
+        
+        # Retornar PDF para visualização no navegador (sem download automático)
+        filename = f'certidao_tempo_servico_{militar.matricula}_{militar.nome_guerra.replace(" ", "_")}.pdf'
+        response = FileResponse(buffer, as_attachment=False, filename=filename, content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="{filename}"'
+        return response
+        
+    except Exception as e:
+        from django.http import HttpResponse
+        import traceback
+        error_details = str(e)
+        # Log do erro completo para debug (remover traceback em produção se necessário)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'Erro ao gerar certidão de tempo de serviço para militar {militar.pk}: {error_details}\n{traceback.format_exc()}')
+        
+        error_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Erro - Certidão de Tempo de Serviço</title>
+            <meta charset="utf-8">
+            <style>
+                body {{ font-family: Arial, sans-serif; text-align: center; padding: 50px; }}
+                .error-box {{ border: 2px solid #dc3545; border-radius: 5px; padding: 20px; 
+                            max-width: 600px; margin: 0 auto; background-color: #f8d7da; }}
+                h2 {{ color: #721c24; }}
+                p {{ color: #721c24; }}
+                .error-detail {{ background-color: #fff; padding: 10px; border-radius: 3px; 
+                               margin: 10px 0; font-size: 12px; text-align: left; }}
+                button {{ background-color: #dc3545; color: white; border: none; 
+                        padding: 10px 20px; border-radius: 5px; cursor: pointer; }}
+                button:hover {{ background-color: #c82333; }}
+            </style>
+        </head>
+        <body>
+            <div class="error-box">
+                <h2>❌ Erro ao Gerar Certidão de Tempo de Serviço</h2>
+                <p><strong>Ocorreu um erro ao gerar a certidão de tempo de serviço.</strong></p>
+                <div class="error-detail">
+                    <strong>Detalhes do erro:</strong><br>
+                    {error_details}
+                </div>
+                <p>Por favor, tente novamente ou entre em contato com o suporte técnico.</p>
+                <button onclick="window.close()">Fechar</button>
+            </div>
+        </body>
+        </html>
+        """
+        return HttpResponse(error_html, status=500, content_type='text/html')
+
 
 @login_required
 @admin_bypass
@@ -5013,65 +6176,13 @@ def militar_create(request):
 
 @login_required
 @admin_bypass
-def militar_update(request, pk):
-    """Atualiza um militar existente"""
-    # Verificar permissão
-    if not can_edit_militar(request.user):
-        messages.error(request, 'Você não tem permissão para editar militares. Apenas administradores, chefes da seção de promoções e diretores de gestão de pessoas podem editar.')
-        return redirect('militares:militar_list')
-    
-    militar = get_object_or_404(Militar, pk=pk)
-    
-    if request.method == 'POST':
-        form = MilitarForm(request.POST, request.FILES, instance=militar)
-        if form.is_valid():
-            # Capturar a numeração anterior antes de salvar
-            numeracao_anterior = militar.numeracao_antiguidade
-            
-            # Salvar o militar
-            militar = form.save(commit=False)
-            
-            # Se for NVRR, garantir que não tenha numeração de antiguidade
-            if militar.quadro == 'NVRR' or militar.posto_graduacao == 'NVRR':
-                militar.numeracao_antiguidade = None
-            
-            militar.save()
-            
-            # Se a numeração de antiguidade foi alterada, reordenar automaticamente
-            if numeracao_anterior != militar.numeracao_antiguidade and militar.numeracao_antiguidade is not None:
-                try:
-                    militares_reordenados = militar.reordenar_numeracoes_apos_alteracao(numeracao_anterior)
-                    if militares_reordenados and militares_reordenados > 0:
-                        messages.success(request, f'Militar {militar.nome_completo} atualizado com sucesso! {militares_reordenados} militares foram reordenados automaticamente.')
-                    else:
-                        messages.success(request, f'Militar {militar.nome_completo} atualizado com sucesso!')
-                except Exception as e:
-                    messages.warning(request, f'Militar atualizado, mas houve um erro na reordenação automática: {str(e)}')
-            else:
-                messages.success(request, f'Militar {militar.nome_completo} atualizado com sucesso!')
-                return redirect('militares:militar_detail', pk=militar.pk)
-        else:
-            messages.error(request, 'Erro ao atualizar militar. Verifique os dados.')
-    else:
-        form = MilitarForm(instance=militar)
-    
-    context = {
-        'form': form,
-        'militar': militar,
-        'title': 'Editar Militar',
-        'action': 'update',
-        'today': timezone.now().date().isoformat(),
-    }
-    
-    return render(request, 'militares/militar_form.html', context)
-
 @login_required
 @admin_bypass
 def militar_delete(request, pk):
     """Remove um militar"""
     # Verificar permissão
     if not can_edit_militar(request.user):
-        messages.error(request, 'Você não tem permissão para excluir militares. Apenas administradores, chefes da seção de promoções e diretores de gestão de pessoas podem excluir.')
+        messages.error(request, 'Você não tem permissão para excluir militares. Apenas administradores, chefes da seção de promoções, diretores de gestão de pessoas e operadores do sistema podem excluir.')
         return redirect('militares:militar_list')
     
     militar = get_object_or_404(Militar, pk=pk)
@@ -5116,16 +6227,250 @@ def militar_search_ajax(request):
 @login_required
 def militar_dashboard(request):
     """Dashboard principal do sistema"""
-    total_militares = Militar.objects.count()
-    militares_ativos = Militar.objects.filter(situacao='AT').count()
+    from .models import UsuarioSessao
+    from django.db.models import Q, Count
+    
+    # Verificar se é superusuário - tem acesso total sem função militar
+    if request.user.is_superuser:
+        # Para superusuário, usar estatísticas globais sem filtros hierárquicos
+        total_militares = Militar.objects.count()
+        militares_ativos = Militar.objects.filter(classificacao='ATIVO').count()
+        militares_inativos = total_militares - militares_ativos
+        
+        # Calcular oficiais e praças ativos
+        oficiais_ativos = Militar.objects.filter(
+            classificacao='ATIVO',
+            posto_graduacao__in=['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS', 'AA']
+        ).count()
+        pracas_ativas = Militar.objects.filter(
+            classificacao='ATIVO',
+            posto_graduacao__in=['1S', '2S', '3S', 'CAB', 'SD', 'AL']
+        ).count()
+        
+        # Documentos
+        documentos_pendentes = Documento.objects.filter(status='PENDENTE').count()
+        documentos_aprovados = Documento.objects.filter(status='APROVADO').count()
+        total_documentos = Documento.objects.count()
+        documentos_rejeitados = total_documentos - documentos_aprovados - documentos_pendentes
+        
+        # Fichas
+        total_fichas = FichaConceitoOficiais.objects.count() + FichaConceitoPracas.objects.count()
+        fichas_aprovadas = 0  # Campo status não existe no modelo
+        fichas_pendentes = total_fichas
+        
+        # Militares com/sem ficha
+        militares_com_ficha = Militar.objects.filter(
+            Q(fichaconceitooficiais__isnull=False) | Q(fichaconceitopracas__isnull=False)
+        ).distinct().count()
+        militares_sem_ficha = militares_ativos - militares_com_ficha
+        
+        # Estatísticas por quadro
+        estatisticas_quadro = Militar.objects.filter(classificacao='ATIVO').values('quadro').annotate(
+            total=Count('id')
+        ).order_by('quadro')
+        
+        # Estatísticas por posto/graduação
+        estatisticas_posto = Militar.objects.filter(classificacao='ATIVO').values('posto_graduacao').annotate(
+            total=Count('id')
+        ).order_by('posto_graduacao')
+        
+        # Últimas fichas de conceito
+        fichas_oficiais = list(FichaConceitoOficiais.objects.select_related('militar').order_by('-data_registro')[:5])
+        fichas_pracas = list(FichaConceitoPracas.objects.select_related('militar').order_by('-data_registro')[:5])
+        ultimas_fichas = fichas_oficiais + fichas_pracas
+        ultimas_fichas.sort(key=lambda x: x.data_registro, reverse=True)
+        ultimas_fichas = ultimas_fichas[:5]
+        
+        # Documentos recentes
+        documentos_recentes = Documento.objects.select_related('militar').order_by('-data_upload')[:5]
+        
+        # Quadros de acesso recentes
+        quadros_recentes = QuadroAcesso.objects.all().order_by('-data_criacao')[:5]
+        
+        
+        # Notificações do usuário
+        notificacoes_base = NotificacaoSessao.objects.filter(
+            usuario=request.user,
+            lida=False
+        ).order_by('-prioridade', '-data_criacao')
+        
+        # Contadores de notificações
+        total_notificacoes = notificacoes_base.count()
+        notificacoes_urgentes = notificacoes_base.filter(prioridade='URGENTE').count()
+        notificacoes_altas = notificacoes_base.filter(prioridade='ALTA').count()
+        notificacoes = notificacoes_base[:10]
+        
+        # Definir hierarquia dos postos para ordenação
+        hierarquia_posto = {
+            'CB': 1, 'TC': 2, 'MJ': 3, 'CP': 4, '1T': 5, '2T': 6, 'AS': 7, 'AA': 8,
+            'ST': 9, '1S': 10, '2S': 11, '3S': 12, 'CAB': 13, 'SD': 14, 'AL': 15,
+        }
+        
+        # Ordenar estatísticas por hierarquia
+        estatisticas_posto_list = list(estatisticas_posto)
+        estatisticas_posto_list.sort(key=lambda x: hierarquia_posto.get(x['posto_graduacao'], 999))
+        
+        # Estatísticas por gênero
+        estatisticas_genero_posto = Militar.objects.filter(classificacao='ATIVO').values('posto_graduacao', 'sexo').annotate(
+            total=Count('id')
+        ).order_by('posto_graduacao', 'sexo')
+        
+        estatisticas_genero_posto_list = list(estatisticas_genero_posto)
+        estatisticas_genero_posto_list.sort(key=lambda x: hierarquia_posto.get(x['posto_graduacao'], 999))
+        
+        estatisticas_genero_quadro = Militar.objects.filter(classificacao='ATIVO').values('quadro', 'sexo').annotate(
+            total=Count('id')
+        ).order_by('quadro', 'sexo')
+        
+        total_homens = Militar.objects.filter(classificacao='ATIVO', sexo='M').count()
+        total_mulheres = Militar.objects.filter(classificacao='ATIVO', sexo='F').count()
+        
+        # Log do acesso superusuário
+        print(f"DEBUG - Dashboard - Acesso SUPERUSUARIO para {request.user.username}:")
+        print(f"   - Acesso: TOTAL (sem restrições)")
+        print(f"   - Militares ativos: {militares_ativos}")
+        print(f"   - Documentos pendentes: {documentos_pendentes}")
+        
+        context = {
+            'total_militares': total_militares,
+            'militares_ativos': militares_ativos,
+            'militares_inativos': militares_inativos,
+            'militares_com_ficha': militares_com_ficha,
+            'militares_sem_ficha': militares_sem_ficha,
+            'oficiais_ativos': oficiais_ativos,
+            'pracas_ativas': pracas_ativas,
+            'documentos_pendentes': documentos_pendentes,
+            'documentos_aprovados': documentos_aprovados,
+            'documentos_rejeitados': documentos_rejeitados,
+            'total_documentos': total_documentos,
+            'total_fichas': total_fichas,
+            'fichas_aprovadas': fichas_aprovadas,
+            'fichas_pendentes': fichas_pendentes,
+            'estatisticas_quadro': estatisticas_quadro,
+            'estatisticas_posto': estatisticas_posto_list,
+            'estatisticas_genero_posto': estatisticas_genero_posto_list,
+            'estatisticas_genero_quadro': estatisticas_genero_quadro,
+            'total_homens': total_homens,
+            'total_mulheres': total_mulheres,
+            'ultimas_fichas': ultimas_fichas,
+            'documentos_recentes': documentos_recentes,
+            'quadros_recentes': quadros_recentes,
+            'notificacoes': notificacoes,
+            'total_notificacoes': total_notificacoes,
+            'notificacoes_urgentes': notificacoes_urgentes,
+            'notificacoes_altas': notificacoes_altas,
+            'funcao_atual': None,  # Superusuário não tem função específica
+            'is_superuser': True,  # Flag para identificar superusuário no template
+        }
+        
+        return render(request, 'militares/militar_dashboard.html', context)
+    
+    # Para usuários normais, verificar se tem sessão ativa com função selecionada
+    sessao_ativa = UsuarioSessao.objects.filter(
+        usuario=request.user,
+        ativo=True
+    ).first()
+    
+    if not sessao_ativa or not sessao_ativa.funcao_militar_usuario:
+        # Se não tem sessão ativa, redirecionar para seleção de função
+        return redirect('militares:selecionar_funcao_lotacao')
+    
+    funcao_usuario = sessao_ativa.funcao_militar_usuario
+    funcao_militar = funcao_usuario.funcao_militar
+    
+    # Usar todos os dados sem filtros hierárquicos
+    militares_filtrados = Militar.objects
+    documentos_filtrados = Documento.objects
+    fichas_oficiais_filtradas = FichaConceitoOficiais.objects
+    fichas_pracas_filtradas = FichaConceitoPracas.objects
+    
+    # Calcular estatísticas filtradas baseadas no tipo de acesso
+    from django.db.models import Count, Q
+    
+    total_militares = militares_filtrados.count()
+    militares_ativos = militares_filtrados.filter(classificacao='ATIVO').count()
     militares_inativos = total_militares - militares_ativos
     
-    # Estatísticas detalhadas por posto/graduação
-    estatisticas_posto = Militar.objects.filter(situacao='AT').values('posto_graduacao').annotate(
-        total=Count('id')
-    )
+    # Contar militares que possuem ficha de conceito
+    militares_com_ficha = militares_filtrados.filter(
+        Q(fichaconceitooficiais__isnull=False) | Q(fichaconceitopracas__isnull=False)
+    ).distinct().count()
     
-    # Definir hierarquia para ordenação
+    # Contar militares ativos sem ficha de conceito
+    militares_sem_ficha = militares_ativos - militares_com_ficha
+    
+    # Estatísticas de documentos
+    documentos_pendentes = documentos_filtrados.filter(status='PENDENTE').count()
+    total_documentos = documentos_filtrados.count()
+    
+    # Estatísticas de fichas
+    total_fichas = fichas_oficiais_filtradas.count() + fichas_pracas_filtradas.count()
+    fichas_aprovadas = 0  # Campo status não existe no modelo
+    fichas_pendentes = total_fichas  # Considerar todas como pendentes por enquanto
+    
+    # Estatísticas por quadro (apenas militares ativos)
+    estatisticas_quadro = militares_filtrados.filter(classificacao='ATIVO').values('quadro').annotate(
+        total=Count('id')
+    ).order_by('quadro')
+    
+    # Estatísticas por posto/graduação (apenas militares ativos)
+    estatisticas_posto = militares_filtrados.filter(classificacao='ATIVO').values('posto_graduacao').annotate(
+        total=Count('id')
+    ).order_by('posto_graduacao')
+    
+    # Criar dicionário de estatísticas
+    stats = {
+        'total_militares': total_militares,
+        'militares_ativos': militares_ativos,
+        'militares_inativos': militares_inativos,
+        'militares_com_ficha': militares_com_ficha,
+        'militares_sem_ficha': militares_sem_ficha,
+        'documentos_pendentes': documentos_pendentes,
+        'total_documentos': total_documentos,
+        'total_fichas': total_fichas,
+        'fichas_aprovadas': fichas_aprovadas,
+        'fichas_pendentes': fichas_pendentes,
+        'estatisticas_quadro': estatisticas_quadro,
+        'estatisticas_posto': estatisticas_posto,
+    }
+    
+    # Calcular oficiais e praças ativos filtrados
+    oficiais_ativos = militares_filtrados.filter(
+        posto_graduacao__in=['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS', 'AA']
+    ).count()
+    pracas_ativas = militares_filtrados.filter(
+        posto_graduacao__in=['1S', '2S', '3S', 'CAB', 'SD', 'AL']
+    ).count()
+    
+    # Últimas fichas de conceito filtradas
+    fichas_oficiais = list(fichas_oficiais_filtradas.select_related('militar').order_by('-data_registro')[:5])
+    fichas_pracas = list(fichas_pracas_filtradas.select_related('militar').order_by('-data_registro')[:5])
+    ultimas_fichas = fichas_oficiais + fichas_pracas
+    ultimas_fichas.sort(key=lambda x: x.data_registro, reverse=True)
+    ultimas_fichas = ultimas_fichas[:5]
+    
+    # Documentos recentes filtrados
+    documentos_recentes = documentos_filtrados.select_related('militar').order_by('-data_upload')[:5]
+    
+    # Quadros de acesso recentes (não filtrados por hierarquia)
+    quadros_recentes = QuadroAcesso.objects.all().order_by('-data_criacao')[:5]
+    
+    
+    # Notificações do usuário
+    notificacoes_base = NotificacaoSessao.objects.filter(
+        usuario=request.user,
+        lida=False
+    ).order_by('-prioridade', '-data_criacao')
+    
+    # Contadores de notificações (antes do slice)
+    total_notificacoes = notificacoes_base.count()
+    notificacoes_urgentes = notificacoes_base.filter(prioridade='URGENTE').count()
+    notificacoes_altas = notificacoes_base.filter(prioridade='ALTA').count()
+    
+    # Aplicar slice apenas para exibição
+    notificacoes = notificacoes_base[:10]
+    
+    # Definir hierarquia dos postos para ordenação
     hierarquia_posto = {
         'CB': 1,   # Coronel
         'TC': 2,   # Tenente Coronel
@@ -5145,74 +6490,11 @@ def militar_dashboard(request):
     }
     
     # Ordenar estatísticas por hierarquia
-    estatisticas_posto_list = list(estatisticas_posto)
+    estatisticas_posto_list = list(stats['estatisticas_posto'])
     estatisticas_posto_list.sort(key=lambda x: hierarquia_posto.get(x['posto_graduacao'], 999))
     
-    # Manter contadores gerais para compatibilidade
-    oficiais_ativos = Militar.objects.filter(
-        situacao='AT',
-        posto_graduacao__in=['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS', 'AA']
-    ).count()
-    pracas_ativas = Militar.objects.filter(
-        situacao='AT',
-        posto_graduacao__in=['1S', '2S', '3S', 'CB', 'SD', 'AL']
-    ).count()
-    
-    documentos_pendentes = Documento.objects.filter(status='PENDENTE').count()
-    
-    # Estatísticas por quadro
-    estatisticas_quadro = Militar.objects.filter(situacao='AT').values('quadro').annotate(
-        total=Count('id')
-    ).order_by('quadro')
-    
-    # Últimas fichas de conceito
-    fichas_oficiais = list(FichaConceitoOficiais.objects.select_related('militar').order_by('-data_registro')[:5])
-    fichas_pracas = list(FichaConceitoPracas.objects.select_related('militar').order_by('-data_registro')[:5])
-    ultimas_fichas = fichas_oficiais + fichas_pracas
-    ultimas_fichas.sort(key=lambda x: x.data_registro, reverse=True)
-    ultimas_fichas = ultimas_fichas[:5]
-    
-    # Documentos recentes
-    documentos_recentes = Documento.objects.select_related('militar').order_by('-data_upload')[:5]
-    
-    # Quadros de acesso recentes
-    quadros_recentes = QuadroAcesso.objects.all().order_by('-data_criacao')[:5]
-    
-    # Notificações do usuário
-    notificacoes_base = NotificacaoSessao.objects.filter(
-        usuario=request.user,
-        lida=False
-    ).order_by('-prioridade', '-data_criacao')
-    
-    # Contadores de notificações (antes do slice)
-    total_notificacoes = notificacoes_base.count()
-    notificacoes_urgentes = notificacoes_base.filter(prioridade='URGENTE').count()
-    notificacoes_altas = notificacoes_base.filter(prioridade='ALTA').count()
-    
-    # Aplicar slice apenas para exibição
-    notificacoes = notificacoes_base[:10]
-    
-    # Definir hierarquia dos postos (do mais alto para o mais baixo)
-    hierarquia_posto = {
-        'CB': 1,   # Coronel
-        'TC': 2,   # Tenente Coronel
-        'MJ': 3,   # Major
-        'CP': 4,   # Capitão
-        '1T': 5,   # 1º Tenente
-        '2T': 6,   # 2º Tenente
-        'AS': 7,   # Aspirante a Oficial
-        'AA': 8,   # Aluno de Adaptação
-        'ST': 9,   # Subtenente
-        '1S': 10,  # 1º Sargento
-        '2S': 11,  # 2º Sargento
-        '3S': 12,  # 3º Sargento
-        'CAB': 13, # Cabo
-        'SD': 14,  # Soldado
-        'AL': 15,  # Aluno
-    }
-    
-    # Estatísticas por gênero - Posto/Graduação
-    estatisticas_genero_posto = Militar.objects.filter(situacao='AT').values('posto_graduacao', 'sexo').annotate(
+    # Estatísticas por gênero - Posto/Graduação (filtradas)
+    estatisticas_genero_posto = militares_filtrados.filter(classificacao='ATIVO').values('posto_graduacao', 'sexo').annotate(
         total=Count('id')
     ).order_by('posto_graduacao', 'sexo')
     
@@ -5220,124 +6502,65 @@ def militar_dashboard(request):
     estatisticas_genero_posto_list = list(estatisticas_genero_posto)
     estatisticas_genero_posto_list.sort(key=lambda x: hierarquia_posto.get(x['posto_graduacao'], 999))
     
-    # Estatísticas por gênero - Quadro
-    estatisticas_genero_quadro = Militar.objects.filter(situacao='AT').values('quadro', 'sexo').annotate(
+    # Estatísticas por gênero - Quadro (filtradas)
+    estatisticas_genero_quadro = militares_filtrados.filter(classificacao='ATIVO').values('quadro', 'sexo').annotate(
         total=Count('id')
     ).order_by('quadro', 'sexo')
     
-    # Totais por gênero
-    total_homens = Militar.objects.filter(situacao='AT', sexo='M').count()
-    total_mulheres = Militar.objects.filter(situacao='AT', sexo='F').count()
+    # Totais por gênero (filtrados)
+    total_homens = militares_filtrados.filter(classificacao='ATIVO', sexo='M').count()
+    total_mulheres = militares_filtrados.filter(classificacao='ATIVO', sexo='F').count()
+    
+    # Log do filtro aplicado para debug
+    print(f"DEBUG - Dashboard - Filtro hierarquico aplicado para {request.user.username}:")
+    print(f"   - Funcao: {funcao_militar.nome}")
+    print(f"   - Tipo de acesso: {funcao_militar.get_acesso_display()}")
+    print(f"   - Militares ativos encontrados: {stats['militares_ativos']}")
+    print(f"   - Documentos pendentes: {stats['documentos_pendentes']}")
+    
+    # Calcular documentos aprovados e rejeitados
+    documentos_aprovados = documentos_filtrados.filter(status='APROVADO').count()
+    documentos_rejeitados = stats['total_documentos'] - documentos_aprovados - stats['documentos_pendentes']
     
     context = {
-        'total_militares': total_militares,
-        'militares_ativos': militares_ativos,
-        'militares_inativos': militares_inativos,
+        'total_militares': stats['total_militares'],
+        'militares_ativos': stats['militares_ativos'],
+        'militares_inativos': stats['militares_inativos'],
+        'militares_com_ficha': stats['militares_com_ficha'],
+        'militares_sem_ficha': stats['militares_sem_ficha'],
         'oficiais_ativos': oficiais_ativos,
         'pracas_ativas': pracas_ativas,
-        'documentos_pendentes': documentos_pendentes,
-        'estatisticas_quadro': estatisticas_quadro,
+        'documentos_pendentes': stats['documentos_pendentes'],
+        'documentos_aprovados': documentos_aprovados,
+        'documentos_rejeitados': documentos_rejeitados,
+        'total_documentos': stats['total_documentos'],
+        'total_fichas': stats['total_fichas'],
+        'fichas_aprovadas': stats['fichas_aprovadas'],
+        'fichas_pendentes': stats['fichas_pendentes'],
+        'estatisticas_quadro': stats['estatisticas_quadro'],
         'estatisticas_posto': estatisticas_posto_list,
         'estatisticas_genero_posto': estatisticas_genero_posto_list,
         'estatisticas_genero_quadro': estatisticas_genero_quadro,
         'total_homens': total_homens,
         'total_mulheres': total_mulheres,
+        'ultimas_fichas': ultimas_fichas,
         'documentos_recentes': documentos_recentes,
         'quadros_recentes': quadros_recentes,
         'notificacoes': notificacoes,
         'total_notificacoes': total_notificacoes,
         'notificacoes_urgentes': notificacoes_urgentes,
         'notificacoes_altas': notificacoes_altas,
+        'funcao_atual': funcao_usuario,  # Para exibir informações da função no template
     }
     
-    return render(request, 'militares/dashboard.html', context)
+    return render(request, 'militares/militar_dashboard.html', context)
 
 # Views para Ficha de Conceito
 @login_required
 @apenas_visualizacao_comissao
-def ficha_conceito_list(request):
-    """Lista ficha de conceito de oficiais"""
-    militar_id = request.GET.get('militar')
-    if militar_id:
-        militar = get_object_or_404(Militar, pk=militar_id)
-        fichas_oficiais = list(militar.fichaconceitooficiais_set.all())
-        fichas_pracas = list(militar.fichaconceitopracas_set.all())
-        fichas = fichas_oficiais + fichas_pracas
-        fichas.sort(key=lambda x: x.data_registro, reverse=True)
-    else:
-        militar = None
-        # Filtrar apenas oficiais (CB, TC, MJ, CP, 1T, 2T, AS, AA)
-        oficiais = Militar.objects.filter(
-            situacao='AT',
-            posto_graduacao__in=['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS', 'AA']
-        )
-        fichas = FichaConceitoOficiais.objects.filter(militar__in=oficiais)
-        hierarquia_oficiais = {
-            'CB': 1,   # Coronel
-            'TC': 2,   # Tenente Coronel
-            'MJ': 3,   # Major
-            'CP': 4,   # Capitão
-            '1T': 5,   # 1º Tenente
-            '2T': 6,   # 2º Tenente
-            'AS': 7,   # Aspirante a Oficial
-            'AA': 8,   # Aluno de Adaptação
-        }
-        fichas_list = list(fichas)
-        fichas_list.sort(key=lambda x: (
-            hierarquia_oficiais.get(x.militar.posto_graduacao, 999),  # Primeiro por hierarquia
-            x.militar.nome_completo                                    # Depois por nome
-        ))
-        fichas = fichas_list
-    
-    # Estatísticas para mostrar no template (apenas oficiais)
-    total_oficiais_ativos = Militar.objects.filter(
-        situacao='AT',
-        posto_graduacao__in=['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS', 'AA']
-    ).count()
-    total_fichas_oficiais = len(fichas)
-    
-    # Buscar oficiais sem ficha
-    oficiais_sem_ficha = Militar.objects.filter(
-        situacao='AT',
-        posto_graduacao__in=['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS', 'AA']
-    ).exclude(
-        Q(fichaconceitooficiais__isnull=False) | Q(fichaconceitopracas__isnull=False)
-    )
-    
-    # Ordenar oficiais sem ficha por hierarquia
-    hierarquia_oficiais = {
-        'CB': 1,   # Coronel
-        'TC': 2,   # Tenente Coronel
-        'MJ': 3,   # Major
-        'CP': 4,   # Capitão
-        '1T': 5,   # 1º Tenente
-        '2T': 6,   # 2º Tenente
-        'AS': 7,   # Aspirante a Oficial
-        'AA': 8,   # Aluno de Adaptação
-    }
-    
-    oficiais_sem_ficha_list = list(oficiais_sem_ficha)
-    oficiais_sem_ficha_list.sort(key=lambda x: (
-        hierarquia_oficiais.get(x.posto_graduacao, 999),  # Primeiro por hierarquia
-        x.nome_completo                                    # Depois por nome
-    ))
-    
-    # Montar lista final: primeiro os sem ficha, depois os com ficha
-    fichas_final = oficiais_sem_ficha_list + fichas
-
-    context = {
-        'militar': militar,
-        'fichas': fichas_final,
-        'total_oficiais_ativos': total_oficiais_ativos,
-        'total_fichas_oficiais': total_fichas_oficiais,
-        'oficiais_sem_ficha': oficiais_sem_ficha_list,
-        'oficiais_com_ficha': fichas,
-        'is_oficiais': True,
-}
-    return render(request, 'militares/ficha_conceito_list.html', context)
 
 @login_required
-@apenas_visualizacao_comissao
+@diretor_gestao_chefe_promocoes_required
 def ficha_conceito_create(request):
     """Cria nova ficha de conceito"""
     if request.method == 'POST':
@@ -5445,105 +6668,6 @@ def documento_upload(request, ficha_pk):
 # Views para Quadros de Acesso
 @login_required
 @requer_perm_quadros_visualizar
-def quadro_acesso_list(request):
-    """Lista todos os quadros de acesso"""
-        # Permissão especial para Diretor de Gestão de Pessoas ou Chefe da Seção de Promoções
-    cargos_especiais = ['Diretor de Gestão de Pessoas', 'Chefe da Seção de Promoções']
-    funcoes_ativas = request.user.funcoes.filter(
-        cargo_funcao__nome__in=cargos_especiais,
-        status='ATIVO',
-    )
-    if funcoes_ativas.exists():
-        quadros = QuadroAcesso.objects.all()
-    else:
-        # Verificar se o usuário é membro de alguma comissão e aplicar filtro
-        membros_comissao = MembroComissao.objects.filter(
-            usuario=request.user,
-            ativo=True,
-            comissao__status='ATIVA'
-        )
-        if membros_comissao.exists():
-            tem_cpo = membros_comissao.filter(comissao__tipo='CPO').exists()
-            tem_cpp = membros_comissao.filter(comissao__tipo='CPP').exists()
-            if tem_cpo and tem_cpp:
-                quadros = QuadroAcesso.objects.all()
-            elif tem_cpo:
-                quadros = QuadroAcesso.objects.filter(categoria='OFICIAIS')
-            elif tem_cpp:
-                quadros = QuadroAcesso.objects.filter(categoria='PRACAS')
-            else:
-                quadros = QuadroAcesso.objects.none()
-        else:
-            quadros = QuadroAcesso.objects.none()
-    
-    # Filtros
-    tipo = request.GET.get('tipo')
-    if tipo:
-        quadros = quadros.filter(tipo=tipo)
-    
-    status = request.GET.get('status')
-    if status:
-        quadros = quadros.filter(status=status)
-    
-    # Ordenação
-    ordenacao = request.GET.get('ordenacao', '-data_criacao')
-    quadros = quadros.order_by(ordenacao)
-    
-    # Adicionar quantidade de militares para cada quadro
-    for quadro in quadros:
-        quadro.total_militares_count = quadro.total_militares()
-    
-    # Verificar se é uma requisição AJAX
-    if request.GET.get('ajax') == '1':
-        import json
-        
-        # Preparar dados para JSON
-        quadros_data = []
-        for quadro in quadros:
-            quadros_data.append({
-                'id': quadro.id,
-                'tipo': quadro.tipo,
-                'get_tipo_display': quadro.get_tipo_display(),
-                'data_promocao': quadro.data_promocao.strftime('%d/%m/%Y'),
-                'status': quadro.status,
-                'get_status_display': quadro.get_status_display(),
-                'total_militares': quadro.total_militares(),
-                'motivo_nao_elaboracao': quadro.motivo_nao_elaboracao,
-                'get_motivo_display_completo': quadro.get_motivo_display_completo() if quadro.motivo_nao_elaboracao else None,
-            })
-        
-        return JsonResponse({
-            'quadros': quadros_data,
-            'total': len(quadros_data)
-        })
-    
-    # Calcular estatísticas
-    total_quadros = quadros.count()
-    elaborados = quadros.filter(status='ELABORADO').count()
-    homologados = quadros.filter(status='HOMOLOGADO').count()
-    nao_elaborados = quadros.filter(status='NAO_ELABORADO').count()
-    em_elaboracao = quadros.filter(status='EM_ELABORACAO').count()
-    
-    context = {
-        'quadros': quadros,
-        'tipos': QuadroAcesso.TIPO_CHOICES,
-        'status_choices': QuadroAcesso.STATUS_CHOICES,
-        'filtros': {
-            'tipo': tipo,
-            'status': status,
-            'ordenacao': ordenacao
-        },
-        'estatisticas': {
-            'total': total_quadros,
-            'elaborados': elaborados,
-            'homologados': homologados,
-            'nao_elaborados': nao_elaborados,
-            'em_elaboracao': em_elaboracao,
-        }
-    }
-    
-    return render(request, 'militares/quadro_acesso_list.html', context)
-
 @login_required
 @requer_perm_quadros_visualizar
 def quadro_acesso_detail(request, pk):
@@ -5662,14 +6786,14 @@ def quadro_acesso_detail(request, pk):
                     'texto': 'Deixa de ser elaborado o Quadro de Acesso por Merecimento para o posto de Major em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
                 }
             ],
-            'COMP': [  # Complementar - apenas MJ→TC e CP→MJ
-                {
-                    'numero': 'I',
-                    'titulo': 'MAJOR para o posto de TENENTE-CORONEL',
-                    'origem': 'MJ',
-                    'destino': 'TC',
-                    'texto': 'Deixa de ser elaborado o Quadro de Acesso por Merecimento para o posto de Tenente-Coronel em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
-                },
+            'COMP': [  # Complementar - apenas CP→MJ (MJ→TC comentado temporariamente)
+                # {
+                #     'numero': 'I',
+                #     'titulo': 'MAJOR para o posto de TENENTE-CORONEL',
+                #     'origem': 'MJ',
+                #     'destino': 'TC',
+                #     'texto': 'Deixa de ser elaborado o Quadro de Acesso por Merecimento para o posto de Tenente-Coronel em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
+                # },
                 {
                     'numero': 'II',
                     'titulo': 'CAPITÃO para o posto de MAJOR',
@@ -5793,14 +6917,14 @@ def quadro_acesso_detail(request, pk):
                     'texto': 'Deixa de ser elaborado o Quadro de Acesso por Antiguidade para o posto de 2º Tenente em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
                 }
             ],
-            'COMP': [  # Complementar
-                {
-                    'numero': 'I',
-                    'titulo': 'MAJOR para o posto de TENENTE-CORONEL',
-                    'origem': 'MJ',
-                    'destino': 'TC',
-                    'texto': 'Deixa de ser elaborado o Quadro de Acesso por Antiguidade para o posto de Tenente-Coronel em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
-                },
+            'COMP': [  # Complementar (MJ→TC comentado temporariamente)
+                # {
+                #     'numero': 'I',
+                #     'titulo': 'MAJOR para o posto de TENENTE-CORONEL',
+                #     'origem': 'MJ',
+                #     'destino': 'TC',
+                #     'texto': 'Deixa de ser elaborado o Quadro de Acesso por Antiguidade para o posto de Tenente-Coronel em virtude de não haver oficial que satisfaça os requisitos essenciais para ingresso ao Quadro de acesso, nos termos do <b>art. 12</b> da Lei nº 5.461, de 30 de junho de 2005, alterada pela Lei Nº 7.772, de 04 de abril de 2022.'
+                # },
                 {
                     'numero': 'II',
                     'titulo': 'CAPITÃO para o posto de MAJOR',
@@ -5872,26 +6996,26 @@ def quadro_acesso_detail(request, pk):
         'estrutura_quadros': estrutura_quadros,
     }
     
-    # Garantir exibição da transição MJ→TC em todos os quadros de acesso
-    for q in estrutura_quadros:
-        transicoes = estrutura_quadros[q]['transicoes']
-        existe = any(
-            t['origem'] == 'MJ' and t['destino'] == 'TC'
-            for t in transicoes
-        )
-        if not existe:
-            # Buscar militares Major do quadro correspondente
-            militares_mj_tc = [
-                item for item in militares_aptos 
-                if item.militar.quadro == q and item.militar.posto_graduacao == 'MJ'
-            ]
-            estrutura_quadros[q]['transicoes'].insert(0, {
-                'origem': 'MJ',
-                'destino': 'TC',
-                'origem_nome': nomes_postos.get('MJ', 'MJ'),
-                'destino_nome': nomes_postos.get('TC', 'TC'),
-                'militares': militares_mj_tc,
-            })
+    # OCULTO TEMPORARIAMENTE - Lógica que forçava exibição da transição MJ→TC em todos os quadros
+    # for q in estrutura_quadros:
+    #     transicoes = estrutura_quadros[q]['transicoes']
+    #     existe = any(
+    #         t['origem'] == 'MJ' and t['destino'] == 'TC'
+    #         for t in transicoes
+    #     )
+    #     if not existe:
+    #         # Buscar militares Major do quadro correspondente
+    #         militares_mj_tc = [
+    #             item for item in militares_aptos 
+    #             if item.militar.quadro == q and item.militar.posto_graduacao == 'MJ'
+    #         ]
+    #         estrutura_quadros[q]['transicoes'].insert(0, {
+    #             'origem': 'MJ',
+    #             'destino': 'TC',
+    #             'origem_nome': nomes_postos.get('MJ', 'MJ'),
+    #             'destino_nome': nomes_postos.get('TC', 'TC'),
+    #             'militares': militares_mj_tc,
+    #         })
     
     return render(request, 'militares/quadro_acesso_detail.html', context)
 
@@ -6161,8 +7285,8 @@ def homologar_quadro_acesso(request, pk):
         
         # Verificar se a função existe e pertence ao usuário
         try:
-            funcao = UsuarioFuncao.objects.get(id=funcao_id, usuario=request.user)
-        except UsuarioFuncao.DoesNotExist:
+            funcao = UsuarioFuncaoMilitar.objects.get(id=funcao_id, usuario=request.user)
+        except UsuarioFuncaoMilitar.DoesNotExist:
             messages.error(request, 'Função inválida.')
             return redirect('militares:quadro_acesso_list')
         
@@ -6387,6 +7511,7 @@ def marcar_nao_elaborado(request, pk):
 # Views para Promoções
 @login_required
 @requer_perm_promocoes_visualizar
+@login_required
 def promocao_list(request):
     """Lista promoções"""
     # Filtros
@@ -6415,7 +7540,37 @@ def promocao_list(request):
     if data_fim:
         promocoes = promocoes.filter(data_promocao__lte=data_fim)
     
-    promocoes = promocoes.order_by('-data_promocao')
+    # Ordenação: primeiro normais, depois históricas, ambas por hierarquia de postos
+    # Definir hierarquia dos postos (do mais alto para o mais baixo)
+    hierarquia_postos = {
+        'CB': 1,   # Coronel
+        'TC': 2,   # Tenente Coronel
+        'MJ': 3,   # Major
+        'CP': 4,   # Capitão
+        '1T': 5,   # 1º Tenente
+        '2T': 6,   # 2º Tenente
+        'AS': 7,   # Aspirante a Oficial
+        'AA': 8,   # Aluno de Adaptação
+        'ST': 9,   # Subtenente
+        '1S': 10,  # 1º Sargento
+        '2S': 11,  # 2º Sargento
+        '3S': 12,  # 3º Sargento
+        'CAB': 13, # Cabo
+        'SD': 14,  # Soldado
+        'NVRR': 15, # NVRR
+    }
+    
+    # Converter para lista para ordenação personalizada
+    promocoes_list = list(promocoes)
+    
+    # Ordenar: primeiro por tipo (normais primeiro), depois por hierarquia de posto, depois por data
+    promocoes_list.sort(key=lambda x: (
+        x.is_historica,  # False (normais) vem primeiro, True (históricas) depois
+        hierarquia_postos.get(x.posto_novo, 999),  # Hierarquia do posto novo
+        -x.data_promocao.toordinal()  # Data mais recente primeiro (ordinal negativo)
+    ))
+    
+    promocoes = promocoes_list
     
     # Estatísticas
     total_promocoes = Promocao.objects.count()
@@ -6423,10 +7578,22 @@ def promocao_list(request):
     militares_promovidos = Promocao.objects.values('militar').distinct().count()
     promocoes_merecimento = Promocao.objects.filter(criterio='MERECIMENTO').count()
     
-    # Paginação
-    paginator = Paginator(promocoes, 20)
+    # Paginação com seletor de registros por página
+    registros_por_pagina = request.GET.get('registros', '20')
+    try:
+        registros_por_pagina = int(registros_por_pagina)
+        # Validar valores permitidos
+        if registros_por_pagina not in [10, 20, 50, 100]:
+            registros_por_pagina = 20
+    except ValueError:
+        registros_por_pagina = 20
+    
+    paginator = Paginator(promocoes, registros_por_pagina)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
+    
+    # Opções de registros por página
+    opcoes_registros = [10, 20, 50, 100]
     
     context = {
         'promocoes': page_obj,
@@ -6434,27 +7601,31 @@ def promocao_list(request):
         'promocoes_este_ano': promocoes_este_ano,
         'militares_promovidos': militares_promovidos,
         'promocoes_merecimento': promocoes_merecimento,
+        'registros_por_pagina': registros_por_pagina,
+        'opcoes_registros': opcoes_registros,
     }
     
     return render(request, 'militares/promocao_list.html', context)
 
 @login_required
 @requer_perm_promocoes_criar
+@login_required
 def promocao_create(request):
     """Registra nova promoção"""
+    from .forms import PromocaoForm
+    
     if request.method == 'POST':
-        militar_id = request.POST.get('militar')
-        posto_anterior = request.POST.get('posto_anterior')  # Novo campo
-        posto_novo = request.POST.get('posto_novo')
-        criterio = request.POST.get('criterio')
-        data_promocao = request.POST.get('data_promocao')
-        data_publicacao = request.POST.get('data_publicacao')
-        numero_ato = request.POST.get('numero_ato')
-        observacoes = request.POST.get('observacoes')
-        is_historica = request.POST.get('is_historica') == 'on'  # Novo campo
-        
-        if all([militar_id, posto_novo, criterio, data_promocao]):
-            militar = get_object_or_404(Militar, pk=militar_id)
+        form = PromocaoForm(request.POST)
+        if form.is_valid():
+            militar = form.cleaned_data['militar']
+            posto_anterior = form.cleaned_data['posto_anterior']
+            posto_novo = form.cleaned_data['posto_novo']
+            criterio = form.cleaned_data['criterio']
+            data_promocao = form.cleaned_data['data_promocao']
+            data_publicacao = form.cleaned_data['data_publicacao']
+            numero_ato = form.cleaned_data['numero_ato']
+            observacoes = form.cleaned_data['observacoes']
+            is_historica = form.cleaned_data.get('is_historica', False)
             
             # Se não foi informado posto anterior, usar o atual do militar
             if not posto_anterior:
@@ -6469,7 +7640,8 @@ def promocao_create(request):
                 data_promocao=data_promocao,
                 data_publicacao=data_publicacao or timezone.now().date(),
                 numero_ato=numero_ato or f"ATO-{timezone.now().strftime('%Y%m%d%H%M%S')}",
-                observacoes=observacoes
+                observacoes=observacoes,
+                is_historica=is_historica
             )
             
             # Só atualiza o militar se não for promoção histórica
@@ -6494,9 +7666,13 @@ def promocao_create(request):
                     request, 
                     f'Promoção registrada com sucesso! {militar.nome_completo} recebeu a {nova_numeracao}ª numeração de antiguidade no posto de {militar.get_posto_graduacao_display()}. {militares_reordenados} militares foram reordenados no posto anterior.'
                 )
+            else:
+                # Mensagem para promoções históricas (qualquer posto)
+                messages.success(request, f'Promoção histórica registrada com sucesso! O posto atual do militar não foi alterado.')
             
-            messages.success(request, f'Promoção registrada com sucesso!')
             return redirect('militares:promocao_list')
+    else:
+        form = PromocaoForm()
     
     # Verificar se há um militar pré-selecionado na URL
     militar_pre_selecionado = None
@@ -6504,16 +7680,102 @@ def promocao_create(request):
     if militar_id:
         try:
             militar_pre_selecionado = Militar.objects.get(pk=militar_id)
+            if form.is_bound:
+                form.initial['militar'] = militar_pre_selecionado
         except Militar.DoesNotExist:
             pass
     
     context = {
-        'militares': Militar.objects.filter(situacao='AT').order_by('nome_completo'),
+        'form': form,
+        'militares': Militar.objects.filter(classificacao='ATIVO').order_by('nome_completo'),
         'postos': POSTO_GRADUACAO_CHOICES,
         'criterios': Promocao.CRITERIO_CHOICES,
         'today': timezone.now().date().isoformat(),
         'militar_pre_selecionado': militar_pre_selecionado,
     }
+    
+    return render(request, 'militares/promocao_form.html', context)
+
+@login_required
+@requer_perm_promocoes_editar
+@login_required
+def promocao_update(request, pk):
+    """Edita uma promoção existente"""
+    from .forms import PromocaoForm
+    
+    print(f"DEBUG: Tentando editar promoção com PK: {pk}")
+    
+    try:
+        promocao = Promocao.objects.get(pk=pk)
+        print(f"DEBUG: Promoção encontrada: {promocao}")
+        print(f"DEBUG: Militar: {promocao.militar.nome_completo}")
+        print(f"DEBUG: Posto anterior: {promocao.posto_anterior}")
+        print(f"DEBUG: Posto novo: {promocao.posto_novo}")
+    except Promocao.DoesNotExist:
+        print(f"DEBUG: Promoção não encontrada para PK: {pk}")
+        messages.error(request, 'Promoção não encontrada.')
+        return redirect('militares:promocao_list')
+    
+    if request.method == 'POST':
+        form = PromocaoForm(request.POST, instance=promocao)
+        if form.is_valid():
+            # Capturar dados antes da edição para comparação
+            posto_anterior_original = promocao.posto_anterior
+            posto_novo_original = promocao.posto_novo
+            is_historica_original = promocao.is_historica
+            militar_original = promocao.militar
+            
+            # Salvar a promoção editada
+            promocao = form.save()
+            
+            # Se a promoção não é mais histórica e foi alterada para não histórica
+            if not promocao.is_historica and is_historica_original:
+                # Atualizar o militar com o novo posto
+                militar = promocao.militar
+                militar.posto_graduacao = promocao.posto_novo
+                militar.data_promocao_atual = promocao.data_promocao
+                militar.save()
+                messages.success(request, f'Promoção editada com sucesso! O posto atual do militar foi atualizado para {militar.get_posto_graduacao_display()}.')
+            elif promocao.is_historica and not is_historica_original:
+                # Se foi alterada para histórica, reverter o posto do militar
+                militar = promocao.militar
+                # Buscar a última promoção não histórica
+                ultima_promocao = Promocao.objects.filter(
+                    militar=militar, 
+                    is_historica=False
+                ).exclude(pk=pk).order_by('-data_promocao').first()
+                
+                if ultima_promocao:
+                    militar.posto_graduacao = ultima_promocao.posto_novo
+                    militar.data_promocao_atual = ultima_promocao.data_promocao
+                else:
+                    # Se não houver outras promoções, usar o posto anterior desta promoção
+                    militar.posto_graduacao = promocao.posto_anterior
+                    militar.data_promocao_atual = None
+                
+                militar.save()
+                messages.success(request, f'Promoção editada com sucesso! O posto atual do militar foi revertido para {militar.get_posto_graduacao_display()}.')
+            else:
+                # Se não houve mudança no tipo de promoção
+                messages.success(request, 'Promoção editada com sucesso!')
+            
+            return redirect('militares:promocao_list')
+    else:
+        form = PromocaoForm(instance=promocao)
+    
+    context = {
+        'form': form,
+        'promocao': promocao,
+        'militares': Militar.objects.filter(classificacao='ATIVO').order_by('nome_completo'),
+        'postos': POSTO_GRADUACAO_CHOICES,
+        'criterios': Promocao.CRITERIO_CHOICES,
+        'today': timezone.now().date().isoformat(),
+        'is_editing': True,
+    }
+    
+    print(f"DEBUG: Editando promoção {promocao.pk}, is_editing={context['is_editing']}")
+    print(f"DEBUG: Dados da promoção: posto_anterior={promocao.posto_anterior}, posto_novo={promocao.posto_novo}")
+    print(f"DEBUG: Contexto completo: {context}")
     
     return render(request, 'militares/promocao_form.html', context)
 
@@ -6542,7 +7804,8 @@ def promocao_historica_create(request):
                 data_promocao=data_promocao,
                 data_publicacao=data_publicacao or timezone.now().date(),
                 numero_ato=numero_ato or f"ATO-HIST-{timezone.now().strftime('%Y%m%d%H%M%S')}",
-                observacoes=observacoes
+                observacoes=observacoes,
+                is_historica=True
             )
             
             messages.success(request, f'Promoção histórica registrada com sucesso!')
@@ -6714,7 +7977,7 @@ def ficha_conceito_form_oficiais(request, militar_pk):
     """Formulário de ficha de conceito para oficiais com upload de documentos"""
     # Verificar permissão
     if not can_edit_ficha_conceito(request.user):
-        messages.error(request, 'Você não tem permissão para editar fichas de conceito. Apenas administradores, chefes da seção de promoções e diretores de gestão de pessoas podem editar.')
+        messages.error(request, 'Você não tem permissão para editar fichas de conceito. Apenas Chefe da Seção de Promoções e Auxiliar da Seção de Promoções podem editar.')
         return redirect('militares:ficha_conceito_list')
     
     militar = get_object_or_404(Militar, pk=militar_pk)
@@ -6783,12 +8046,12 @@ def ficha_conceito_form_oficiais(request, militar_pk):
     return render(request, 'militares/ficha_conceito_form.html', context)
 
 @login_required
-@apenas_visualizacao_comissao
+@diretor_gestao_chefe_promocoes_required
 def ficha_conceito_edit(request, pk):
     """Editar ficha de conceito"""
     # Verificar permissão
     if not can_edit_ficha_conceito(request.user):
-        messages.error(request, 'Você não tem permissão para editar fichas de conceito. Apenas administradores, chefes da seção de promoções e diretores de gestão de pessoas podem editar.')
+        messages.error(request, 'Você não tem permissão para editar fichas de conceito. Apenas Chefe da Seção de Promoções e Auxiliar da Seção de Promoções podem editar.')
         return redirect('militares:ficha_conceito_list')
     # Tentar buscar em ambos os modelos
     ficha = None
@@ -6843,10 +8106,10 @@ def ficha_conceito_detail(request, pk):
     if tipo_ficha == 'oficiais':
         pontos_detalhados = {
             'tempo_posto': {
-                'valor': ficha.tempo_posto,
-                'pontos': min(ficha.tempo_posto * 1.0, 5.0),
+                'valor': ficha.tempo_posto_extenso,
+                'pontos': min(ficha.tempo_posto_anos * 1.0, 5.0),
                 'limite': 5.0,
-                'descricao': 'Tempo de Serviço no Posto Atual'
+                'descricao': 'Tempo de Serviço no Posto Atual (apenas anos completos)'
             },
             'cursos_militares': {
                 'valor': ficha.cursos_especializacao + ficha.cursos_csbm,
@@ -6888,14 +8151,14 @@ def ficha_conceito_detail(request, pk):
             },
             'punicoes': {
                 'valor': ficha.punicao_repreensao + ficha.punicao_detencao + ficha.punicao_prisao,
-                'pontos': -(ficha.punicao_repreensao * 0.25 + ficha.punicao_detencao * 0.5 +
-                           ficha.punicao_prisao * 1.0),
+                'pontos': -(ficha.punicao_repreensao * 0.5 + ficha.punicao_detencao * 1.0 + 
+                           ficha.punicao_prisao * 2.0),
                 'limite': None,
                 'descricao': 'Punições'
             },
             'falta_aproveitamento': {
                 'valor': ficha.falta_aproveitamento,
-                'pontos': -(ficha.falta_aproveitamento * 0.5),
+                'pontos': -(ficha.falta_aproveitamento * 5.0),
                 'limite': None,
                 'descricao': 'Falta de Aproveitamento em Cursos Militares'
             }
@@ -6903,10 +8166,10 @@ def ficha_conceito_detail(request, pk):
     else:  # praças
         pontos_detalhados = {
             'tempo_posto': {
-                'valor': ficha.tempo_posto,
-                'pontos': ficha.tempo_posto * 1.0,
+                'valor': ficha.tempo_posto_extenso,
+                'pontos': ficha.tempo_posto_anos * 1.0,
                 'limite': None,
-                'descricao': 'Tempo de Serviço no Posto Atual'
+                'descricao': 'Tempo de Serviço no Posto Atual (apenas anos completos)'
             },
             'cursos_militares': {
                 'valor': ficha.cursos_especializacao,
@@ -6948,7 +8211,7 @@ def ficha_conceito_detail(request, pk):
             },
             'punicoes': {
                 'valor': ficha.punicao_repreensao + ficha.punicao_detencao + ficha.punicao_prisao,
-                'pontos': -(ficha.punicao_repreensao * 1.0 + ficha.punicao_detencao * 2.0 +
+                'pontos': -(ficha.punicao_repreensao * 1.0 + ficha.punicao_detencao * 2.0 + 
                            ficha.punicao_prisao * 5.0),
                 'limite': None,
                 'descricao': 'Punições'
@@ -7103,17 +8366,47 @@ def estatisticas(request):
     """Estatísticas do sistema"""
     # Estatísticas gerais
     total_militares = Militar.objects.count()
-    militares_ativos = Militar.objects.filter(situacao='AT').count()
+    militares_ativos = Militar.objects.filter(classificacao='ATIVO').count()
     
-    # Por quadro
-    estatisticas_quadro = Militar.objects.filter(situacao='AT').values('quadro').annotate(
-        total=Count('id')
-    ).order_by('quadro')
+    # Definir hierarquia para ordenação
+    hierarquia_posto = {
+        'CB': 1,   # Coronel
+        'TC': 2,   # Tenente Coronel
+        'MJ': 3,   # Major
+        'CP': 4,   # Capitão
+        '1T': 5,   # 1º Tenente
+        '2T': 6,   # 2º Tenente
+        'AS': 7,   # Aspirante a Oficial
+        'AA': 8,   # Aluno de Adaptação
+        'NVRR': 9, # Navegador
+        'ST': 10,  # Subtenente
+        '1S': 11,  # 1º Sargento
+        '2S': 12,  # 2º Sargento
+        '3S': 13,  # 3º Sargento
+        'CAB': 14, # Cabo
+        'SD': 15,  # Soldado
+    }
     
-    # Por posto
-    estatisticas_posto = Militar.objects.filter(situacao='AT').values('posto_graduacao').annotate(
+    hierarquia_quadro = {
+        'COMB': 1,    # Combatente
+        'SAUDE': 2,   # Saúde
+        'ENG': 3,     # Engenheiro
+        'COMP': 4,    # Complementar
+        'NVRR': 5,    # NVRR
+        'PRACAS': 6,  # Praças
+    }
+    
+    # Por quadro - ordenar por hierarquia
+    estatisticas_quadro = list(Militar.objects.filter(classificacao='ATIVO').values('quadro').annotate(
         total=Count('id')
-    ).order_by('posto_graduacao')
+    ))
+    estatisticas_quadro.sort(key=lambda x: hierarquia_quadro.get(x['quadro'], 999))
+    
+    # Por posto - ordenar por hierarquia
+    estatisticas_posto = list(Militar.objects.filter(classificacao='ATIVO').values('posto_graduacao').annotate(
+        total=Count('id')
+    ))
+    estatisticas_posto.sort(key=lambda x: hierarquia_posto.get(x['posto_graduacao'], 999))
     
     # Fichas de conceito
     total_fichas = FichaConceitoOficiais.objects.count() + FichaConceitoPracas.objects.count()
@@ -7135,7 +8428,16 @@ def estatisticas(request):
             'nao_elaborados': QuadroAcesso.objects.filter(status='NAO_ELABORADO').count(),
             'em_elaboracao': QuadroAcesso.objects.filter(status='EM_ELABORACAO').count(),
             'militares_aptos': sum([q.itemquadroacesso_set.count() for q in QuadroAcesso.objects.filter(status='ELABORADO')]),
-            'status': list(QuadroAcesso.objects.values('status').annotate(total=Count('id'))),
+            'status': sorted(
+                list(QuadroAcesso.objects.values('status').annotate(total=Count('id'))),
+                key=lambda x: {
+                    'ELABORADO': 1,
+                    'HOMOLOGADO': 2,
+                    'ASSINADO': 3,
+                    'EM_ELABORACAO': 4,
+                    'NAO_ELABORADO': 5
+                }.get(x['status'], 999)
+            ),
             'tipo': list(QuadroAcesso.objects.values('tipo').annotate(total=Count('id'))),
             'categoria': list(QuadroAcesso.objects.values('categoria').annotate(total=Count('id'))),
         }
@@ -7214,7 +8516,8 @@ def intersticio_list(request):
     
     return render(request, 'militares/intersticio_list.html', {'intersticios': intersticios_ordenados})
 
-@user_passes_test(lambda u: u.is_superuser or u.is_staff)
+@login_required
+@administracao_required
 def intersticio_manage(request):
     # Definir a hierarquia dos postos (do mais alto para o mais baixo)
     hierarquia_postos = {
@@ -7276,7 +8579,8 @@ def intersticio_manage(request):
     }
     return render(request, 'militares/intersticio_manage.html', context)
 
-@user_passes_test(lambda u: u.is_superuser or u.is_staff)
+@login_required
+@administracao_required
 def intersticio_create(request):
     """Criar novo interstício"""
     if request.method == 'POST':
@@ -7303,7 +8607,8 @@ def intersticio_create(request):
     
     return redirect('militares:intersticio_manage')
 
-@user_passes_test(lambda u: u.is_superuser or u.is_staff)
+@login_required
+@administracao_required
 def intersticio_delete(request, pk):
     """Excluir interstício"""
     intersticio = get_object_or_404(Intersticio, pk=pk)
@@ -7352,7 +8657,7 @@ def relatorio_requisitos_quadro(request, pk):
     # Para quadros de merecimento, buscar apenas militares com ficha de conceito
     if quadro.tipo == 'MERECIMENTO':
         militares_candidatos = Militar.objects.filter(
-            situacao='AT'
+            classificacao='ATIVO'
         ).filter(
             Q(fichaconceitooficiais__isnull=False) | Q(fichaconceitopracas__isnull=False)
         ).filter(
@@ -7361,7 +8666,7 @@ def relatorio_requisitos_quadro(request, pk):
     else:
         # Para quadros de antiguidade, buscar todos os militares ativos
         militares_candidatos = Militar.objects.filter(
-            situacao='AT'
+            classificacao='ATIVO'
         ).filter(
             posto_graduacao__in=postos
         )
@@ -7473,7 +8778,7 @@ def relatorio_aptos_promocao(request):
                 militares = Militar.objects.filter(
                     quadro=cod_quadro,
                     posto_graduacao=cod_posto,
-                    situacao='AT'
+                    classificacao='ATIVO'
                 ).filter(
                     Q(fichaconceitooficiais__isnull=False) | Q(fichaconceitopracas__isnull=False)
                 ).distinct()
@@ -7656,7 +8961,7 @@ def buscar_militares_ajax(request):
             return JsonResponse({'militares': []})
         
         militares = Militar.objects.filter(
-            situacao='AT',
+            classificacao='ATIVO',
             nome_completo__icontains=termo
         ).values('id', 'nome_completo', 'posto_graduacao', 'quadro', 'matricula')[:10]
         
@@ -7677,6 +8982,313 @@ def buscar_pontuacao_militar(request, militar_id):
         return JsonResponse({'pontuacao': 0})
 
 @login_required
+def militares_disponiveis_ajax(request):
+    """Retorna TODOS os militares cadastrados no sistema para indexação"""
+    if request.method == 'GET':
+        try:
+            from django.db.models import Q
+            
+            # Obter termo de pesquisa
+            termo_pesquisa = request.GET.get('q', '').strip()
+            
+            # Buscar militares
+            militares_query = Militar.objects.all()
+            
+            # Aplicar filtro de pesquisa se houver
+            if termo_pesquisa:
+                militares_query = militares_query.filter(
+                    Q(nome_completo__icontains=termo_pesquisa) |
+                    Q(nome_guerra__icontains=termo_pesquisa) |
+                    Q(matricula__icontains=termo_pesquisa) |
+                    Q(posto_graduacao__icontains=termo_pesquisa)
+                )
+            
+            militares = militares_query.values(
+                'id', 
+                'nome_completo', 
+                'posto_graduacao', 
+                'matricula',
+                'classificacao',
+                'nome_guerra'
+            ).order_by('posto_graduacao', 'nome_completo')
+            
+            # Converter para lista e adicionar informações formatadas
+            militares_list = []
+            for militar in militares:
+                # Obter o display do posto/graduação
+                posto_display = dict(POSTO_GRADUACAO_CHOICES).get(militar['posto_graduacao'], militar['posto_graduacao'])
+                
+                militares_list.append({
+                    'id': militar['id'],
+                    'nome_completo': militar['nome_completo'],
+                    'nome_guerra': militar['nome_guerra'] or '',
+                    'posto_graduacao': militar['posto_graduacao'],
+                    'posto_display': posto_display,
+                    'matricula': militar['matricula'],
+                    'classificacao': militar['classificacao'],
+                    'display_name': f"{posto_display} {militar['nome_completo']} ({militar['matricula']})"
+                })
+            
+            return JsonResponse({
+                'success': True,
+                'militares': militares_list,
+                'total': len(militares_list)
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+    
+    return JsonResponse({'success': False, 'error': 'Método não permitido'})
+
+@login_required
+def buscar_publicacoes_militar_ajax(request, pk):
+    """Busca publicações onde o militar está indexado via AJAX"""
+    try:
+        militar = get_object_or_404(Militar, pk=pk)
+        
+        # Buscar publicações onde o militar está indexado
+        publicacoes = militar.publicacoes_indexadas.all().order_by('-data_publicacao', '-data_criacao')
+        
+        # Listar todas as publicações indexadas (sem filtro de status)
+        
+        # Limitar resultados para performance
+        publicacoes = publicacoes[:50]
+        
+        # Preparar dados para JSON
+        publicacoes_data = []
+        for pub in publicacoes:
+            # Determinar o número do boletim baseado no tipo
+            numero_boletim = None
+            if pub.numero_boletim:
+                numero_boletim = f"Ostensivo {pub.numero_boletim}"
+            elif pub.numero_boletim_reservado:
+                numero_boletim = f"Reservado {pub.numero_boletim_reservado}"
+            elif pub.numero_boletim_especial:
+                numero_boletim = f"Especial {pub.numero_boletim_especial}"
+            
+            # Determinar URL do boletim baseada no tipo
+            url_boletim = None
+            if pub.status == 'PUBLICADA' and numero_boletim:
+                # Buscar o boletim que contém esta publicação
+                boletim = None
+                if pub.numero_boletim:
+                    boletim = Publicacao.objects.filter(
+                        tipo='BOLETIM_OSTENSIVO',
+                        numero_boletim=pub.numero_boletim,
+                        status='PUBLICADA'
+                    ).first()
+                elif pub.numero_boletim_reservado:
+                    boletim = Publicacao.objects.filter(
+                        tipo='BOLETIM_RESERVADO',
+                        numero_boletim_reservado=pub.numero_boletim_reservado,
+                        status='PUBLICADA'
+                    ).first()
+                elif pub.numero_boletim_especial:
+                    boletim = Publicacao.objects.filter(
+                        tipo='BOLETIM_ESPECIAL',
+                        numero=pub.numero_boletim_especial,
+                        data_disponibilizacao__isnull=False
+                    ).first()
+                
+                if boletim:
+                    if pub.numero_boletim:
+                        url_boletim = f'/militares/boletins-ostensivos/{boletim.id}/pdf/?t={int(time.time())}'
+                    elif pub.numero_boletim_reservado:
+                        url_boletim = f'/militares/boletins-reservados/{boletim.id}/pdf/?t={int(time.time())}'
+                    elif pub.numero_boletim_especial:
+                        url_boletim = f'/militares/boletins-especiais/{boletim.id}/pdf/?t={int(time.time())}'
+            
+            publicacoes_data.append({
+                'id': pub.id,
+                'numero': pub.numero,
+                'titulo': pub.titulo,
+                'tipo': pub.get_tipo_display(),
+                'tipo_codigo': pub.tipo,
+                'status': pub.get_status_display(),
+                'status_codigo': pub.status,
+                'data_publicacao': pub.data_publicacao.strftime('%d/%m/%Y %H:%M') if pub.data_publicacao else None,
+                'data_criacao': pub.data_criacao.strftime('%d/%m/%Y %H:%M'),
+                'origem': pub.origem_publicacao or 'Não informado',
+                'topicos': pub.topicos or 'Não informado',
+                'numero_boletim': numero_boletim or 'Não publicado',
+                'url_detalhes': f'/militares/notas/{pub.id}/gerar-pdf/?t={int(time.time())}',
+                'url_boletim': url_boletim,
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'publicacoes': publicacoes_data,
+            'total': len(publicacoes_data),
+            'militar': {
+                'id': militar.id,
+                'nome': militar.nome_completo,
+                'posto': militar.get_posto_graduacao_display(),
+                'matricula': militar.matricula
+            }
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+@login_required
+def buscar_militares_indexados_ajax(request, pk):
+    """Busca militares já indexados em uma publicação via AJAX"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f'DEBUG - Buscando militares indexados para publicacao {pk}')
+    
+    if request.method == 'GET':
+        try:
+            # Buscar a publicação
+            publicacao = get_object_or_404(Publicacao, pk=pk)
+            
+            # Buscar militares já indexados nesta publicação
+            militares_indexados = publicacao.militares_indexados.all().values(
+                'id', 
+                'nome_completo', 
+                'posto_graduacao', 
+                'matricula',
+                'classificacao',
+                'nome_guerra'
+            ).order_by('posto_graduacao', 'nome_completo')
+            
+            # Converter para lista e adicionar informações formatadas
+            militares_list = []
+            for militar in militares_indexados:
+                # Obter o display do posto/graduação
+                posto_display = dict(POSTO_GRADUACAO_CHOICES).get(militar['posto_graduacao'], militar['posto_graduacao'])
+                
+                militares_list.append({
+                    'id': militar['id'],
+                    'nome_completo': militar['nome_completo'],
+                    'nome_guerra': militar['nome_guerra'] or '',
+                    'posto_graduacao': militar['posto_graduacao'],
+                    'posto_display': posto_display,
+                    'matricula': militar['matricula'],
+                    'classificacao': militar['classificacao'],
+                    'display_name': f"{posto_display} {militar['nome_completo']} ({militar['matricula']})"
+                })
+            
+            logger.info(f'✅ Encontrados {len(militares_list)} militares indexados')
+            
+            return JsonResponse({
+                'success': True,
+                'militares_indexados': militares_list,
+                'total_indexados': len(militares_list)
+            })
+            
+        except Exception as e:
+            logger.error(f'❌ Erro ao buscar militares indexados: {str(e)}')
+            return JsonResponse({
+                'success': False,
+                'error': f'Erro ao buscar militares indexados: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({'success': False, 'error': 'Método não permitido'})
+
+@login_required
+def salvar_indexacao_militares_ajax(request, pk):
+    """Salva a indexação de militares em uma publicação via AJAX"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f'DEBUG - Salvando indexacao para publicacao {pk}')
+    logger.info(f'DEBUG - Metodo: {request.method}')
+    logger.info(f'DEBUG - Usuario: {request.user}')
+    
+    if request.method == 'POST':
+        try:
+            # Buscar a publicação
+            logger.info(f'DEBUG - Buscando publicacao {pk}...')
+            publicacao = get_object_or_404(Publicacao, pk=pk)
+            logger.info(f'SUCCESS - Publicacao encontrada: {publicacao.titulo}')
+            logger.info(f'DEBUG - Criado por: {publicacao.criado_por}')
+            
+            # Verificar permissões (apenas quem pode editar a publicação)
+            if not (request.user.is_superuser or publicacao.criado_por == request.user):
+                logger.warning(f'❌ Usuário {request.user} não tem permissão para indexar na publicação {pk}')
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Você não tem permissão para indexar militares nesta publicação'
+                }, status=403)
+            
+            # Obter IDs dos militares do POST
+            militares_ids = request.POST.getlist('militares_ids[]')
+            logger.info(f'DEBUG - IDs dos militares recebidos: {militares_ids}')
+            
+            if not militares_ids:
+                logger.warning('⚠️ Nenhum militar selecionado - limpando indexações anteriores')
+                # Limpar indexações anteriores (permitir nota sem militares indexados)
+                publicacao.militares_indexados.clear()
+                logger.info('✅ Indexações anteriores removidas - nota sem militares indexados')
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Indexação atualizada com sucesso! A nota ficou sem militares indexados.',
+                    'militares_indexados': [],
+                    'total_indexados': 0,
+                    'publicacao_id': publicacao.id,
+                    'publicacao_titulo': publicacao.titulo
+                })
+            
+            # Validar se os militares existem
+            logger.info(f'DEBUG - Validando existencia dos militares...')
+            militares = Militar.objects.filter(id__in=militares_ids)
+            logger.info(f'✅ Militares encontrados: {militares.count()} de {len(militares_ids)}')
+            
+            if militares.count() != len(militares_ids):
+                logger.error(f'❌ Alguns militares não foram encontrados')
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Alguns militares selecionados não foram encontrados'
+                })
+            
+            # Limpar indexações anteriores e adicionar novas
+            logger.info(f'DEBUG - Limpando indexacoes anteriores...')
+            publicacao.militares_indexados.clear()
+            logger.info(f'DEBUG - Adicionando novas indexacoes...')
+            publicacao.militares_indexados.set(militares)
+            logger.info(f'✅ Indexações salvas com sucesso')
+            
+            # Buscar dados dos militares indexados para resposta
+            militares_data = []
+            for militar in militares:
+                militares_data.append({
+                    'id': militar.id,
+                    'nome': militar.nome_completo,
+                    'posto': militar.get_posto_graduacao_display(),
+                    'matricula': militar.matricula
+                })
+            
+            logger.info(f'✅ Resposta preparada com {len(militares_data)} militares')
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Indexação salva com sucesso! {len(militares)} militar(es) indexado(s).',
+                'militares_indexados': militares_data,
+                'total_indexados': len(militares_data),
+                'publicacao_id': publicacao.id,
+                'publicacao_titulo': publicacao.titulo
+            })
+            
+        except Exception as e:
+            logger.error(f'❌ Erro ao salvar indexação: {str(e)}')
+            logger.error(f'❌ Stack trace: {e.__traceback__}')
+            return JsonResponse({
+                'success': False,
+                'error': f'Erro ao salvar indexação: {str(e)}'
+            }, status=500)
+    
+    logger.warning(f'❌ Método não permitido: {request.method}')
+    return JsonResponse({'success': False, 'error': 'Método não permitido'}, status=405)
+
+@login_required
 def gerar_fichas_conceito_todos(request):
     """Gera fichas de conceito para todos os militares cadastrados que ainda não possuem"""
     if request.method == 'POST':
@@ -7686,13 +9298,13 @@ def gerar_fichas_conceito_todos(request):
         if is_oficiais:
             # Filtrar apenas oficiais ativos
             militares_ativos = Militar.objects.filter(
-                situacao='AT',
+                classificacao='ATIVO',
                 posto_graduacao__in=['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS', 'AA']
             )
             tipo_militar = "oficiais"
         else:
             # Buscar todos os militares ativos
-            militares_ativos = Militar.objects.filter(situacao='AT')
+            militares_ativos = Militar.objects.filter(classificacao='ATIVO')
             tipo_militar = "militares"
         
         # Buscar militares que não possuem ficha de conceito
@@ -7741,7 +9353,7 @@ def gerar_fichas_conceito_todos(request):
     return redirect('militares:ficha_conceito_list')
 
 @login_required
-@user_passes_test(lambda u: u.is_superuser or u.is_staff)
+@administracao_required
 def limpar_pontos_fichas_conceito(request):
     """Limpa os pontos das fichas de conceito, mantendo apenas o tempo no posto"""
     if request.method == 'POST':
@@ -7751,7 +9363,7 @@ def limpar_pontos_fichas_conceito(request):
         if is_oficiais:
             # Filtrar apenas fichas de oficiais
             oficiais = Militar.objects.filter(
-                situacao='AT',
+                classificacao='ATIVO',
                 posto_graduacao__in=['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS', 'AA']
             )
             fichas = FichaConceitoOficiais.objects.filter(militar__in=oficiais)
@@ -7906,14 +9518,14 @@ def previsao_vaga_list(request):
             efetivo_atual = Militar.objects.filter(
                 posto_graduacao='ST',
                 quadro='COMP',  # ST estão cadastrados como COMP
-                situacao='AT'   # Apenas militares ativos
+                classificacao='ATIVO'   # Apenas militares ativos
             ).count()
         else:
             # Para outros postos, contar normalmente
             efetivo_atual = Militar.objects.filter(
                 posto_graduacao=previsao.posto,
                 quadro=previsao.quadro,
-                situacao='AT'  # Apenas militares ativos
+                classificacao='ATIVO'  # Apenas militares ativos
             ).count()
         
         previsao.efetivo_atual = efetivo_atual
@@ -7942,7 +9554,8 @@ def previsao_vaga_list(request):
     
     return render(request, 'militares/previsao_vaga_list.html', context)
 
-@user_passes_test(lambda u: u.is_superuser or u.is_staff)
+@login_required
+@administracao_required
 def previsao_vaga_manage(request):
     """Gerenciar previsões de vagas"""
     # Definir a hierarquia dos postos (do mais alto para o mais baixo)
@@ -8008,7 +9621,8 @@ def previsao_vaga_manage(request):
     }
     return render(request, 'militares/previsao_vaga_manage.html', context)
 
-@user_passes_test(lambda u: u.is_superuser or u.is_staff)
+@login_required
+@administracao_required
 def previsao_vaga_create(request):
     """Criar nova previsão de vaga"""
     if request.method == 'POST':
@@ -8035,7 +9649,8 @@ def previsao_vaga_create(request):
     
     return redirect('militares:previsao_vaga_manage')
 
-@user_passes_test(lambda u: u.is_superuser or u.is_staff)
+@login_required
+@administracao_required
 def previsao_vaga_delete(request, pk):
     """Excluir previsão de vaga"""
     previsao = get_object_or_404(PrevisaoVaga, pk=pk)
@@ -8051,7 +9666,8 @@ def previsao_vaga_delete(request, pk):
     
     return render(request, 'militares/previsao_vaga_confirm_delete.html', context)
 
-@user_passes_test(lambda u: u.is_superuser or u.is_staff)
+@login_required
+@administracao_required
 def previsao_vaga_delete_ajax(request, pk):
     """Excluir previsão de vaga via AJAX"""
     if request.method == 'POST':
@@ -8141,16 +9757,15 @@ def assinar_documento(request, pk):
     documento = get_object_or_404(Documento, pk=pk)
     
     # Buscar funções do usuário para seleção
-    from militares.models import UsuarioFuncao
-    funcoes_usuario = UsuarioFuncao.objects.filter(
-        usuario=request.user,
-        status='ATIVO'
-    ).select_related('cargo_funcao').order_by('cargo_funcao__nome')
+    from militares.models import UsuarioFuncaoMilitar
+    funcoes_usuario = UsuarioFuncaoMilitar.objects.filter(
+        usuario=request.user
+    ).select_related('funcao_militar').order_by('funcao_militar__nome')
     
     # Função atual selecionada (da sessão ou primeira disponível)
     funcao_atual = request.session.get('funcao_atual_nome', '')
     if not funcao_atual and funcoes_usuario.exists():
-        funcao_atual = funcoes_usuario.first().cargo_funcao.nome
+        funcao_atual = funcoes_usuario.first().funcao_militar.nome
     
     if request.method == 'POST':
         senha = request.POST.get('senha')
@@ -8204,6 +9819,7 @@ def assinar_quadro_acesso(request, pk):
         senha = request.POST.get('senha')
         observacoes = request.POST.get('observacoes', '')
         tipo_assinatura = request.POST.get('tipo_assinatura', 'APROVACAO')
+        funcao_assinatura = request.POST.get('funcao_assinatura', '')
         membro_id = request.POST.get('membro_id')
         membro = membros_comissao.filter(id=membro_id).first() if membro_id else None
         
@@ -8231,23 +9847,27 @@ def assinar_quadro_acesso(request, pk):
             }
             return render(request, 'militares/assinar_quadro_acesso.html', context)
         
-        # Obter função atual do membro
-        if membro.cargo:
-            funcao_atual = f"{membro.get_tipo_display()} - {membro.cargo.nome}"
+        # Usar função selecionada no formulário ou obter função atual do membro
+        if funcao_assinatura:
+            funcao_atual = funcao_assinatura
         else:
-            funcao_atual = membro.get_tipo_display()
-        
-        # Se não conseguir obter função do membro, tentar buscar função ativa do usuário
-        if not funcao_atual or funcao_atual == " - ":
-            funcao_usuario = UsuarioFuncao.objects.filter(
-                usuario=membro.usuario,
-                status='ATIVO'
-            ).first()
-            
-            if funcao_usuario:
-                funcao_atual = funcao_usuario.cargo_funcao.nome
+            # Obter função atual do membro
+            if membro.cargo:
+                funcao_atual = f"{membro.get_tipo_display()} - {membro.cargo.nome}"
             else:
-                funcao_atual = "Usuário do Sistema"
+                funcao_atual = membro.get_tipo_display()
+            
+            # Se não conseguir obter função do membro, tentar buscar função ativa do usuário
+            if not funcao_atual or funcao_atual == " - ":
+                funcao_usuario = UsuarioFuncaoMilitar.objects.filter(
+                    usuario=membro.usuario,
+                    ativo=True
+                ).first()
+                
+                if funcao_usuario:
+                    funcao_atual = funcao_usuario.funcao_militar.nome
+                else:
+                    funcao_atual = "Usuário do Sistema"
         
         # Criar a assinatura
         assinatura = AssinaturaQuadroAcesso.objects.create(
@@ -8261,9 +9881,23 @@ def assinar_quadro_acesso(request, pk):
         messages.success(request, f'Quadro de acesso assinado com sucesso como "{assinatura.get_tipo_assinatura_display()}"!')
         return redirect('militares:quadro_acesso_detail', pk=quadro.pk)
     
+    # Obter funções ativas do usuário para o modal de assinatura
+    from militares.models import UsuarioFuncaoMilitar
+    funcoes_usuario = UsuarioFuncaoMilitar.objects.filter(
+        usuario=request.user
+    ).select_related('funcao_militar')
+    
+    # Obter função atual do usuário
+    funcao_atual = None
+    funcao_ativa = funcoes_usuario.filter(ativo=True).first()
+    if funcao_ativa:
+        funcao_atual = funcao_ativa.funcao_militar.nome
+    
     context = {
         'quadro': quadro,
         'membros_comissao': membros_comissao,
+        'funcoes_usuario': funcoes_usuario,
+        'funcao_atual': funcao_atual,
     }
     
     return render(request, 'militares/assinar_quadro_acesso.html', context)
@@ -8331,37 +9965,53 @@ def retirar_assinatura_quadro_acesso(request, pk, assinatura_pk):
 # ============================================================================
 
 @login_required
-@requer_perm_comissao_visualizar
 def comissao_list(request):
-    """Lista todas as comissões de promoção de oficiais"""
-    # Permissão especial para funções administrativas
-    cargos_especiais = ['Diretor de Gestão de Pessoas', 'Chefe da Seção de Promoções', 'Administrador do Sistema', 'Administrador']
-    funcoes_ativas = request.user.funcoes.filter(
-        cargo_funcao__nome__in=cargos_especiais,
-        status='ATIVO',
-    )
-    if funcoes_ativas.exists() or request.user.is_superuser or request.user.is_staff:
-        comissoes = ComissaoPromocao.objects.all()
-    else:
-        # Verificar se o usuário é membro de alguma comissão e aplicar filtro
-        membros_comissao = MembroComissao.objects.filter(
-            usuario=request.user,
-            ativo=True
-        )
-        if membros_comissao.exists():
-            tem_cpo = membros_comissao.filter(comissao__tipo='CPO').exists()
-            tem_cpp = membros_comissao.filter(comissao__tipo='CPP').exists()
-            if tem_cpo and tem_cpp:
-                comissoes = ComissaoPromocao.objects.all()
-            elif tem_cpo:
-                comissoes = ComissaoPromocao.objects.filter(tipo='CPO')
-            elif tem_cpp:
-                comissoes = ComissaoPromocao.objects.filter(tipo='CPP')
-            else:
-                comissoes = ComissaoPromocao.objects.none()
-        else:
-            comissoes = ComissaoPromocao.objects.none()
+    """Lista todas as comissões de promoção de oficiais e praças com filtros hierárquicos"""
+    from militares.permissoes_simples import tem_permissao
+    from militares.filtros_hierarquicos_adicionais import aplicar_filtro_hierarquico_comissoes
+    from militares.permissoes_hierarquicas import obter_funcao_militar_ativa
+    from militares.models import UsuarioFuncaoMilitar
     
+    # Obter função militar ativa
+    funcao_usuario = obter_funcao_militar_ativa(request.user)
+    
+    # Aplicar filtros hierárquicos baseados no acesso da função
+    if request.user.is_superuser:
+        comissoes = ComissaoPromocao.objects.all()
+    elif funcao_usuario and tem_permissao(request.user, 'comissoes', 'visualizar'):
+        # Aplicar filtro hierárquico primeiro
+        comissoes = aplicar_filtro_hierarquico_comissoes(ComissaoPromocao.objects.all(), funcao_usuario, request.user)
+        
+        # Depois aplicar filtro por tipo de comissão baseado na função
+        if funcao_usuario.funcao_militar:
+            funcao = funcao_usuario.funcao_militar
+            tipo_comissao = funcao.tipo_comissao
+            
+            if tipo_comissao == 'CPO':
+                comissoes = comissoes.filter(tipo='CPO')
+            elif tipo_comissao == 'CPP':
+                comissoes = comissoes.filter(tipo='CPP')
+            elif tipo_comissao == 'NENHUM':
+                comissoes = ComissaoPromocao.objects.none()
+    else:
+        comissoes = ComissaoPromocao.objects.none()
+        
+        # Fallback para permissões específicas por tipo de comissão (apenas se não há função militar)
+        if not comissoes.exists():
+            # Verificar permissão para comissões de oficiais
+            if tem_permissao(request.user, 'comissoes_oficiais', 'visualizar'):
+                comissoes_oficiais = ComissaoPromocao.objects.filter(tipo='CPO')
+                comissoes = comissoes.union(comissoes_oficiais)
+            
+            # Verificar permissão para comissões de praças
+            if tem_permissao(request.user, 'comissoes_pracas', 'visualizar'):
+                comissoes_pracas = ComissaoPromocao.objects.filter(tipo='CPP')
+                comissoes = comissoes.union(comissoes_pracas)
+        
+        # Fallback final para permissão genérica de comissões
+        if not comissoes.exists() and tem_permissao(request.user, 'comissoes', 'visualizar'):
+            comissoes = ComissaoPromocao.objects.all()
+
     # Filtros
     status = request.GET.get('status')
     if status:
@@ -8382,14 +10032,30 @@ def comissao_list(request):
     return render(request, 'militares/comissao/list.html', context)
 
 @login_required
-@requer_perm_comissao_visualizar
 def comissao_detail(request, pk):
     """Detalhes de uma comissão de promoção de oficiais"""
+    from militares.permissoes_simples import tem_permissao
+    
     try:
         comissao = ComissaoPromocao.objects.get(pk=pk)
     except ComissaoPromocao.DoesNotExist:
         messages.error(request, 'Comissão não encontrada.')
         return redirect('comissao_list')
+    
+    # Verificar permissão específica por tipo de comissão
+    tem_permissao_visualizar = False
+    if request.user.is_superuser or request.user.is_staff:
+        tem_permissao_visualizar = True
+    elif comissao.tipo == 'CPO' and tem_permissao(request.user, 'comissoes_oficiais', 'visualizar'):
+        tem_permissao_visualizar = True
+    elif comissao.tipo == 'CPP' and tem_permissao(request.user, 'comissoes_pracas', 'visualizar'):
+        tem_permissao_visualizar = True
+    elif tem_permissao(request.user, 'comissoes', 'visualizar'):
+        tem_permissao_visualizar = True
+    
+    if not tem_permissao_visualizar:
+        messages.error(request, 'Você não tem permissão para visualizar esta comissão.')
+        return redirect('militares:home')
     
     # Buscar quadros de acesso relacionados à comissão
     if comissao.tipo == 'CPO':
@@ -8473,9 +10139,16 @@ def comissao_detail(request, pk):
     return render(request, 'militares/comissao/detail.html', context)
 
 @login_required
-@requer_gerenciamento_comissoes
 def comissao_create(request):
     """Criar nova comissão de promoção de oficiais"""
+    from militares.permissoes_simples import tem_permissao
+    
+    # Verificar permissão genérica para criar comissões
+    if not (request.user.is_superuser or request.user.is_staff or 
+            tem_permissao(request.user, 'comissoes', 'criar')):
+        messages.error(request, 'Você não tem permissão para criar comissões.')
+        return redirect('militares:home')
+    
     if request.method == 'POST':
         form = ComissaoPromocaoForm(request.POST)
         if form.is_valid():
@@ -8498,14 +10171,30 @@ def comissao_create(request):
     return render(request, 'militares/comissao/form.html', context)
 
 @login_required
-@requer_perm_comissao_editar
 def comissao_update(request, pk):
     """Editar comissão de promoção de oficiais"""
+    from militares.permissoes_simples import tem_permissao
+    
     try:
         comissao = ComissaoPromocao.objects.get(pk=pk)
     except ComissaoPromocao.DoesNotExist:
         messages.error(request, 'Comissão não encontrada.')
         return redirect('comissao_list')
+    
+    # Verificar permissão específica por tipo de comissão
+    tem_permissao_editar = False
+    if request.user.is_superuser or request.user.is_staff:
+        tem_permissao_editar = True
+    elif comissao.tipo == 'CPO' and tem_permissao(request.user, 'comissoes_oficiais', 'editar'):
+        tem_permissao_editar = True
+    elif comissao.tipo == 'CPP' and tem_permissao(request.user, 'comissoes_pracas', 'editar'):
+        tem_permissao_editar = True
+    elif tem_permissao(request.user, 'comissoes', 'editar'):
+        tem_permissao_editar = True
+    
+    if not tem_permissao_editar:
+        messages.error(request, 'Você não tem permissão para editar esta comissão.')
+        return redirect('militares:home')
     
     if request.method == 'POST':
         form = ComissaoPromocaoForm(request.POST, instance=comissao)
@@ -8524,8 +10213,6 @@ def comissao_update(request, pk):
     return render(request, 'militares/comissao/form.html', context)
 
 @login_required
-@login_required
-@requer_perm_comissao_excluir
 def comissao_delete(request, pk):
     """Excluir comissão de promoção de oficiais"""
     try:
@@ -8534,23 +10221,22 @@ def comissao_delete(request, pk):
         messages.error(request, 'Comissão não encontrada.')
         return redirect('militares:comissao_list')
     
-    # Verificar permissões
-    def tem_permissao_exclusao(user):
-        # Superusuários e staff sempre podem excluir
-        if user.is_superuser or user.is_staff:
-            return True
-        
-        # Verificar se usuário tem função de Diretor de Gestão de Pessoas
-        funcoes_especiais = UsuarioFuncao.objects.filter(
-            usuario=user,
-            status='ATIVO',
-            cargo_funcao__nome__in=['Diretor de Gestão de Pessoas', 'Administrador do Sistema', 'Administrador']
-        )
-        return funcoes_especiais.exists()
+    # Verificar permissão específica por tipo de comissão
+    from militares.permissoes_simples import tem_permissao
     
-    if not tem_permissao_exclusao(request.user):
-        messages.error(request, 'Você não tem permissão para excluir comissões.')
-        return redirect('militares:comissao_list')
+    tem_permissao_excluir = False
+    if request.user.is_superuser or request.user.is_staff:
+        tem_permissao_excluir = True
+    elif comissao.tipo == 'CPO' and tem_permissao(request.user, 'comissoes_oficiais', 'excluir'):
+        tem_permissao_excluir = True
+    elif comissao.tipo == 'CPP' and tem_permissao(request.user, 'comissoes_pracas', 'excluir'):
+        tem_permissao_excluir = True
+    elif tem_permissao(request.user, 'comissoes', 'excluir'):
+        tem_permissao_excluir = True
+    
+    if not tem_permissao_excluir:
+        messages.error(request, 'Você não tem permissão para excluir esta comissão.')
+        return redirect('militares:home')
     
     # Verificar se a comissão tem sessões
     if comissao.sessoes.exists():
@@ -8599,8 +10285,25 @@ def membro_comissao_list(request, comissao_pk):
         'SD': 14,  # Soldado
     }
     
-    # Buscar membros e ordenar por hierarquia
-    membros = list(comissao.membros.all())
+    # Buscar todos os membros da comissão
+    todos_membros = comissao.membros.select_related('militar', 'usuario').all()
+    
+    # Mostrar todos os membros da comissão (sem filtro de funções)
+    membros = list(todos_membros)
+    
+    # Para cada membro, buscar suas funções do grupo COMISSAO compatíveis com o tipo da comissão
+    for membro in membros:
+        if membro.usuario:
+            # Buscar funções do grupo COMISSAO compatíveis com o tipo da comissão
+            # Considerar todas as funções como ativas (sem filtro de ativo/inativo)
+            funcoes_comissao = membro.usuario.funcoes_militares.filter(
+                funcao_militar__grupo='COMISSAO'
+            ).filter(
+                funcao_militar__tipo_comissao__in=[comissao.tipo, 'AMBOS']
+            ).select_related('funcao_militar')
+            membro.funcoes_comissao = funcoes_comissao
+        else:
+            membro.funcoes_comissao = []
     
     # Ordenar por tipo primeiro, depois por hierarquia de posto
     membros.sort(key=lambda x: (
@@ -8626,6 +10329,59 @@ def membro_comissao_list(request, comissao_pk):
 
 @login_required
 @comissao_acesso_total
+def sincronizar_membros_comissao(request, comissao_pk):
+    """Sincroniza membros da comissão baseado nas funções militares"""
+    try:
+        comissao = ComissaoPromocao.objects.get(pk=comissao_pk)
+    except ComissaoPromocao.DoesNotExist:
+        messages.error(request, 'Comissão não encontrada.')
+        return redirect('militares:comissao_list')
+    
+    if request.method == 'POST':
+        # Executar sincronização
+        resultado = MembroComissao.sincronizar_membros_por_funcoes(comissao)
+        
+        if resultado['criados'] > 0 or resultado['atualizados'] > 0:
+            messages.success(
+                request, 
+                f'Sincronização concluída! {resultado["criados"]} membros criados, '
+                f'{resultado["atualizados"]} membros atualizados.'
+            )
+        else:
+            messages.info(request, 'Nenhum membro foi adicionado ou atualizado.')
+        
+        return redirect('militares:membro_comissao_list', comissao_pk=comissao.pk)
+    
+    # Buscar usuários com funções específicas para o tipo de comissão
+    funcoes = FuncaoMilitar.objects.filter(
+        grupo='COMISSAO',
+        tipo_comissao__in=[comissao.tipo, 'AMBOS'],
+        ativo=True
+    )
+    
+    # Buscar usuários com essas funções
+    usuarios_com_funcoes = UsuarioFuncaoMilitar.objects.filter(
+        funcao_militar__in=funcoes,
+        ativo=True
+    ).select_related('usuario', 'usuario__militar', 'funcao_militar')
+    
+    # Filtrar usuários que têm militar vinculado
+    usuarios_validos = []
+    for usuario_funcao in usuarios_com_funcoes:
+        if hasattr(usuario_funcao.usuario, 'militar') and usuario_funcao.usuario.militar:
+            usuarios_validos.append(usuario_funcao)
+    
+    context = {
+        'comissao': comissao,
+        'usuarios_com_funcoes': usuarios_validos,
+        'funcoes': funcoes,
+        'title': f'Sincronizar Membros - {comissao.nome}'
+    }
+    
+    return render(request, 'militares/comissao/membros/sincronizar.html', context)
+
+@login_required
+@comissao_acesso_total
 def membro_comissao_add(request, comissao_pk):
     try:
         comissao = ComissaoPromocao.objects.get(pk=comissao_pk)
@@ -8640,30 +10396,55 @@ def membro_comissao_add(request, comissao_pk):
         return redirect('militares:selecionar_funcao')
     
     try:
-        funcao_atual = UsuarioFuncao.objects.get(
+        funcao_atual = UsuarioFuncaoMilitar.objects.get(
             id=funcao_atual_id,
             usuario=request.user,
-            status='ATIVO'
+            ativo=True
         )
-    except UsuarioFuncao.DoesNotExist:
+    except UsuarioFuncaoMilitar.DoesNotExist:
         messages.error(request, 'Função atual não encontrada ou inativa.')
         return redirect('militares:selecionar_funcao')
     
     if request.method == 'POST':
         form = MembroComissaoForm(request.POST, comissao_tipo=comissao.tipo)
+        # Definir o valor do campo comissao antes da validação
+        form.data = form.data.copy()
+        form.data['comissao'] = comissao.id
         if form.is_valid():
             membro = form.save(commit=False)
             membro.comissao = comissao
             # Definir o usuário automaticamente baseado no militar selecionado
             if membro.militar and membro.militar.user:
                 membro.usuario = membro.militar.user
+            
+            # Definir o tipo automaticamente baseado na função do militar
+            # Buscar a função de comissão do militar
+            funcao_comissao = UsuarioFuncaoMilitar.objects.filter(
+                usuario=membro.militar.user,
+                funcao_militar__grupo='COMISSAO',
+                ativo=True
+            ).first()
+            
+            if funcao_comissao:
+                # Definir tipo baseado no nome da função
+                nome_funcao = funcao_comissao.funcao_militar.nome.upper()
+                if 'PRESIDENTE' in nome_funcao:
+                    membro.tipo = 'PRESIDENTE'
+                elif 'SECRETARIO' in nome_funcao or 'SECRETÁRIO' in nome_funcao:
+                    membro.tipo = 'SECRETARIO'
+                elif 'NATO' in nome_funcao:
+                    membro.tipo = 'NATO'
+                else:
+                    membro.tipo = 'EFETIVO'
+                
+                # Definir a função militar
+                membro.funcao_militar = funcao_comissao.funcao_militar
 
             # Verificação de duplicidade
-            tipo = form.cleaned_data.get('tipo')
             existe = MembroComissao.objects.filter(
                 comissao=comissao,
                 militar=membro.militar,
-                tipo=tipo
+                tipo=membro.tipo
             ).exists()
             if existe:
                 messages.error(request, 'Já existe um membro com esse militar e tipo nesta comissão!')
@@ -8688,26 +10469,34 @@ def membro_comissao_add(request, comissao_pk):
                 })
     else:
         form = MembroComissaoForm(comissao_tipo=comissao.tipo)
+        # Definir o valor inicial do campo comissao
+        form.initial['comissao'] = comissao.id
         
-        # Filtrar militares baseado no tipo de comissão
-        if comissao.tipo == 'CPO':  # Comissão de Promoção de Oficiais
-            # Membros de comissão podem adicionar oficiais
-            form.fields['militar'].queryset = Militar.objects.filter(
-                situacao='AT',
-                posto_graduacao__in=['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS']  # Oficiais
-            ).order_by('nome_completo')
-                
-        elif comissao.tipo == 'CPP':  # Comissão de Promoções de Praças
-            # Membros de comissão podem adicionar oficiais (membros da comissão são sempre oficiais)
-            form.fields['militar'].queryset = Militar.objects.filter(
-                situacao='AT',
-                posto_graduacao__in=['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS']  # Oficiais
-            ).order_by('nome_completo')
+        # O campo militar agora é um CharField que aceita IDs
+        # A validação de posto será feita no modelo
+    
+    # Buscar militares com funções de comissão compatíveis com o tipo da comissão
+    print(f"DEBUG: Buscando militares com funções de comissão para {comissao.tipo}...")
+    
+    # Buscar militares que tenham função do grupo COMISSAO compatível com o tipo da comissão (todas as funções consideradas ativas)
+    militares_comissao = Militar.objects.filter(
+        user__isnull=False,
+        classificacao='ATIVO',
+        user__is_active=True,
+        user__funcoes_militares__funcao_militar__grupo='COMISSAO',
+        user__funcoes_militares__funcao_militar__tipo_comissao__in=[comissao.tipo, 'AMBOS']
+    ).distinct().order_by('nome_completo')
+    print(f"DEBUG: Mostrando apenas militares com funções de COMISSAO")
+    
+    print(f"DEBUG: Encontrados {militares_comissao.count()} militares com funções de comissão")
+    for militar in militares_comissao[:5]:  # Mostrar apenas os primeiros 5
+        print(f"DEBUG: - {militar.nome_completo} (ID: {militar.id})")
     
     context = {
         'form': form,
         'comissao': comissao,
         'funcao_atual': funcao_atual,
+        'militares_comissao': militares_comissao,
         'title': 'Adicionar Membro',
     }
     return render(request, 'militares/comissao/membros/form.html', context)
@@ -8730,12 +10519,12 @@ def membro_comissao_update(request, comissao_pk, pk):
         return redirect('militares:selecionar_funcao')
     
     try:
-        funcao_atual = UsuarioFuncao.objects.get(
+        funcao_atual = UsuarioFuncaoMilitar.objects.get(
             id=funcao_atual_id,
             usuario=request.user,
-            status='ATIVO'
+            ativo=True
         )
-    except UsuarioFuncao.DoesNotExist:
+    except UsuarioFuncaoMilitar.DoesNotExist:
         messages.error(request, 'Função atual não encontrada ou inativa.')
         return redirect('militares:selecionar_funcao')
     
@@ -8779,30 +10568,64 @@ def membro_comissao_update(request, comissao_pk, pk):
                 })
     else:
         form = MembroComissaoForm(instance=membro, comissao_tipo=comissao.tipo)
-        
-        # Filtrar militares baseado no tipo de comissão
-        if comissao.tipo == 'CPO':  # Comissão de Promoção de Oficiais
-            # Membros de comissão podem editar oficiais
-            form.fields['militar'].queryset = Militar.objects.filter(
-                situacao='AT',
-                posto_graduacao__in=['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS']  # Oficiais
-            ).order_by('nome_completo')
-                
-        elif comissao.tipo == 'CPP':  # Comissão de Promoção de Praças
-            # Membros de comissão podem editar oficiais (membros da comissão são sempre oficiais)
-            form.fields['militar'].queryset = Militar.objects.filter(
-                situacao='AT',
-                posto_graduacao__in=['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS']  # Oficiais
-            ).order_by('nome_completo')
+    
+    # Buscar militares com funções de comissão compatíveis com o tipo da comissão (todas as funções consideradas ativas)
+    militares_comissao = Militar.objects.filter(
+        user__isnull=False,
+        classificacao='ATIVO',
+        user__is_active=True,
+        user__funcoes_militares__funcao_militar__grupo='COMISSAO',
+        user__funcoes_militares__funcao_militar__tipo_comissao__in=[comissao.tipo, 'AMBOS']
+    ).distinct().order_by('nome_completo')
     
     context = {
         'form': form,
         'comissao': comissao,
         'membro': membro,
         'funcao_atual': funcao_atual,
+        'militares_comissao': militares_comissao,
         'title': 'Editar Membro da Comissão',
     }
     return render(request, 'militares/comissao/membros/form.html', context)
+
+@login_required
+@comissao_acesso_total
+def membro_comissao_autocomplete(request):
+    """View para autocomplete de militares com funções de comissão"""
+    query = request.GET.get('q', '')
+    
+    if len(query) < 2:
+        return JsonResponse({'results': []})
+    
+    # Buscar militares que possuem funções do grupo COMISSAO
+    # Nota: Esta view não tem acesso ao tipo da comissão, então mantém o filtro original
+    militares = Militar.objects.filter(
+        user__isnull=False,
+        classificacao='ATIVO',
+        user__is_active=True,
+        user__funcoes_militares__funcao_militar__grupo='COMISSAO',
+        nome_completo__icontains=query
+    ).distinct().order_by('nome_completo')[:10]
+    
+    results = []
+    for militar in militares:
+        # Buscar funções do grupo COMISSAO para este militar
+        funcoes_comissao = militar.user.funcoes_militares.filter(
+            funcao_militar__grupo='COMISSAO'
+        )
+        funcoes_nomes = []
+        for f in funcoes_comissao:
+            status = "✓" if f.ativo else "✗"
+            funcoes_nomes.append(f"{f.funcao_militar.nome} {status}")
+        
+        funcoes_text = f" ({', '.join(funcoes_nomes)})" if funcoes_nomes else ""
+        
+        results.append({
+            'id': militar.id,
+            'text': f"{militar.get_posto_graduacao_display()} {militar.nome_completo} - {militar.matricula}{funcoes_text}"
+        })
+    
+    return JsonResponse({'results': results})
 
 @login_required
 @comissao_acesso_total
@@ -9055,6 +10878,46 @@ def sessao_comissao_update(request, pk):
         'title': 'Editar Sessão da Comissão',
     }
     return render(request, 'militares/comissao/sessoes/form.html', context)
+
+@login_required
+@comissao_acesso_total
+def sessao_comissao_delete(request, pk):
+    """Deletar sessão da comissão"""
+    try:
+        sessao = SessaoComissao.objects.get(pk=pk)
+        comissao = sessao.comissao
+    except SessaoComissao.DoesNotExist:
+        messages.error(request, 'Sessão não encontrada.')
+        return redirect('militares:comissao_list')
+    
+    # Verificar se a sessão pode ser deletada
+    if sessao.status == 'CONCLUIDA':
+        messages.error(request, 'Não é possível deletar uma sessão que já foi concluída.')
+        return redirect(f'militares:sessao_comissao_list?comissao={comissao.pk}')
+    
+    # Verificar se há ata associada
+    try:
+        if sessao.ata_editada:
+            messages.error(request, 'Não é possível deletar uma sessão que possui ata.')
+            return redirect(f'militares:sessao_comissao_list?comissao={comissao.pk}')
+    except:
+        pass  # Não há ata associada
+    
+    if sessao.deliberacoes.exists():
+        messages.error(request, 'Não é possível deletar uma sessão que possui deliberações.')
+        return redirect(f'/militares/comissao/sessoes/?comissao={comissao.pk}')
+    
+    if request.method == 'POST':
+        sessao_numero = sessao.numero
+        sessao.delete()
+        messages.success(request, f'Sessão {sessao_numero} deletada com sucesso!')
+        return redirect(f'/militares/comissao/sessoes/?comissao={comissao.pk}')
+    
+    context = {
+        'sessao': sessao,
+        'comissao': comissao,
+    }
+    return render(request, 'militares/comissao/sessoes/delete.html', context)
 
 @login_required
 def presenca_sessao_update(request, sessao_pk):
@@ -9585,12 +11448,9 @@ def documento_sessao_update(request, pk):
     return render(request, 'militares/comissao/documentos/form.html', context)
 
 @login_required
+@administracao_required
 def documento_sessao_delete(request, pk):
-    """Excluir documento da sessão (apenas admin/staff)"""
-    if not request.user.is_superuser and not request.user.is_staff:
-        messages.error(request, 'Você não tem permissão para excluir documentos. Apenas administradores podem realizar esta ação.')
-        documento = get_object_or_404(DocumentoSessao, pk=pk)
-        return render(request, 'militares/comissao/documentos/delete.html', {'sessao': documento.sessao, 'documento': documento})
+    """Excluir documento da sessão (apenas administradores do sistema)"""
     documento = get_object_or_404(DocumentoSessao, pk=pk)
     sessao_pk = documento.sessao.pk
     titulo = documento.titulo
@@ -9844,11 +11704,11 @@ def sessao_gerar_ata(request, pk):
     # Adicionar dados para assinaturas (se houver ata editada)
     if ata_editada:
         # Buscar funções do usuário para o modal de assinatura
-        from militares.models import UsuarioFuncao
-        funcoes_usuario = UsuarioFuncao.objects.filter(
+        from militares.models import UsuarioFuncaoMilitar
+        funcoes_usuario = UsuarioFuncaoMilitar.objects.filter(
             usuario=request.user,
-            status='ATIVO'
-        ).order_by('cargo_funcao__nome')
+            ativo=True
+        ).order_by('funcao_militar__nome')
         
         context.update({
             'funcoes_usuario': funcoes_usuario,
@@ -10273,7 +12133,7 @@ def ata_gerar_pdf(request, pk):
         texto_simples = re.sub(r'<[^>]+>', '', ata.conteudo or '')
         texto_simples = unescape(texto_simples)
         story.append(Paragraph(texto_simples, style_html))
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 40))
     
     # Data da sessão centralizada após o conteúdo (sistema automático)
     if ata.sessao.data_sessao:
@@ -10333,7 +12193,7 @@ def ata_gerar_pdf(request, pk):
         story.append(Spacer(1, 10))
     
     # Rodapé com Assinaturas Eletrônicas e QR Code
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 40))
     story.append(HRFlowable(width="100%", thickness=1, spaceAfter=10, spaceBefore=10, color=colors.grey))
     
     # Buscar todas as assinaturas válidas da ata (da mais recente para a mais antiga)
@@ -10373,30 +12233,30 @@ def ata_gerar_pdf(request, pk):
             texto_assinatura = f"Documento assinado eletronicamente por {nome_posto_quadro} - {funcao_atual}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
             
             # Tabela das assinaturas: Logo + Texto de assinatura
+            from .utils import obter_caminho_assinatura_eletronica
             assinatura_data = [
-                [Image(logo_path, width=1.5*cm, height=1.5*cm), Paragraph(texto_assinatura, style_small)]
+                [Image(obter_caminho_assinatura_eletronica(), width=2.5*cm, height=1.8*cm), Paragraph(texto_assinatura, style_small)]
             ]
             
-            assinatura_table = Table(assinatura_data, colWidths=[2*cm, 14*cm])
+            assinatura_table = Table(assinatura_data, colWidths=[3*cm, 13*cm])
             assinatura_table.setStyle(TableStyle([
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # Logo centralizado
                 ('ALIGN', (1, 0), (1, 0), 'LEFT'),    # Texto alinhado à esquerda
-                ('LEFTPADDING', (0, 0), (-1, -1), 2),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-                ('TOPPADDING', (0, 0), (-1, -1), 2),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+                ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('BOX', (0, 0), (-1, -1), 1, colors.grey),  # Borda do retângulo
             ]))
             
             story.append(assinatura_table)
             
-            # Adicionar linha separadora entre assinaturas (exceto na última)
+            # Espaçamento entre assinaturas (exceto na última)
             if i < len(assinaturas_eletronicas) - 1:
-                story.append(Spacer(1, 8))
-                story.append(HRFlowable(width="100%", thickness=0.5, spaceAfter=8, spaceBefore=8, color=colors.lightgrey))
-                story.append(Spacer(1, 8))
-    else:
-        # Se não houver assinaturas eletrônicas, mostrar apenas documento gerado pelo usuário logado
+                story.append(Spacer(1, 12))
+        
+        # Mostrar apenas documento gerado pelo usuário logado
         agora = timezone.localtime(timezone.now())
         nome_usuario = request.user.get_full_name() or request.user.username
         if not nome_usuario or nome_usuario.strip() == '':
@@ -10407,7 +12267,7 @@ def ata_gerar_pdf(request, pk):
         story.append(Paragraph(texto_geracao, style_small))
     
     # Rodapé com QR Code para conferência de veracidade
-    story.append(Spacer(1, 13))
+    story.append(Spacer(1, 8))
     story.append(HRFlowable(width="100%", thickness=1, spaceAfter=10, spaceBefore=10, color=colors.grey))
     
     # Usar a função utilitária para gerar o autenticador
@@ -10419,15 +12279,15 @@ def ata_gerar_pdf(request, pk):
         [autenticador['qr_img'], Paragraph(autenticador['texto_autenticacao'], style_small)]
     ]
     
-    rodape_table = Table(rodape_data, colWidths=[2*cm, 14*cm])
+    rodape_table = Table(rodape_data, colWidths=[3*cm, 13*cm])
     rodape_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # QR centralizado
         ('ALIGN', (1, 0), (1, 0), 'LEFT'),    # Texto alinhado à esquerda
-        ('LEFTPADDING', (0, 0), (-1, -1), 2),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LEFTPADDING', (0, 0), (-1, -1), 1),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 1),
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
     ]))
     
     story.append(rodape_table)
@@ -11170,6 +13030,18 @@ def notificacao_delete(request, pk):
     
     return redirect('militares:notificacoes_list')
 
+@login_required
+def notificacoes_api_nao_lidas(request):
+    """API para retornar o total de notificações não lidas"""
+    total = NotificacaoSessao.objects.filter(
+        usuario=request.user,
+        lida=False
+    ).count()
+    
+    return JsonResponse({
+        'total': total
+    })
+
 # Views para gerenciar cargos da comissão
 @login_required
 @comissao_acesso_total
@@ -11270,37 +13142,21 @@ def cargo_comissao_delete(request, pk):
 @login_required
 def quadro_fixacao_vagas_list(request):
     """Lista todos os quadros de fixação de vagas de oficiais"""
-    # Permissão especial para superusuários, staff e funções administrativas
-    cargos_especiais = ['Diretor de Gestão de Pessoas', 'Chefe da Seção de Promoções', 'Administrador do Sistema', 'Administrador']
-    funcoes_ativas = request.user.funcoes.filter(
-        cargo_funcao__nome__in=cargos_especiais,
-        status='ATIVO',
-    )
+    from militares.permissoes_simples import tem_permissao
+    from militares.filtros_hierarquicos_adicionais import aplicar_filtro_hierarquico_quadros_fixacao
+    from militares.permissoes_hierarquicas import obter_funcao_militar_ativa
     
-    # Superusuários e staff podem ver todos os quadros
-    if request.user.is_superuser or request.user.is_staff or funcoes_ativas.exists():
+    # Obter função militar ativa
+    funcao_usuario = obter_funcao_militar_ativa(request.user)
+    
+    # Aplicar filtros hierárquicos baseados no acesso da função
+    if request.user.is_superuser or request.user.is_staff:
         quadros = QuadroFixacaoVagas.objects.all().order_by('-data_criacao')
+    elif funcao_usuario and tem_permissao(request.user, 'quadros_fixacao', 'visualizar'):
+        quadros = aplicar_filtro_hierarquico_quadros_fixacao(QuadroFixacaoVagas.objects.all(), funcao_usuario, request.user).order_by('-data_criacao')
     else:
-        # Verificar se o usuário é membro de alguma comissão e aplicar filtro
-        membros_comissao = MembroComissao.objects.filter(
-            usuario=request.user,
-            ativo=True,
-            comissao__status='ATIVA'
-        )
-        if membros_comissao.exists():
-            tem_cpo = membros_comissao.filter(comissao__tipo='CPO').exists()
-            tem_cpp = membros_comissao.filter(comissao__tipo='CPP').exists()
-            if tem_cpo and tem_cpp:
-                quadros = QuadroFixacaoVagas.objects.all().order_by('-data_criacao')
-            elif tem_cpo:
-                quadros = QuadroFixacaoVagas.objects.filter(tipo='OFICIAIS').order_by('-data_criacao')
-            elif tem_cpp:
-                quadros = QuadroFixacaoVagas.objects.filter(tipo='PRACAS').order_by('-data_criacao')
-            else:
-                quadros = QuadroFixacaoVagas.objects.none()
-        else:
-            quadros = QuadroFixacaoVagas.objects.none()
-    
+        quadros = QuadroFixacaoVagas.objects.none()
+
     # Filtros
     data_inicio = request.GET.get('data_inicio')
     if data_inicio:
@@ -11868,11 +13724,31 @@ def quadro_fixacao_vagas_pdf(request, pk):
         story.append(Image(logo_path, width=2.5*cm, height=2.5*cm, hAlign='CENTER'))
         story.append(Spacer(1, 6))
 
+    # Determinar local de geração baseado na função do usuário (hierarquia completa)
+    local_geracao = "DIRETORIA DE GESTÃO DE PESSOAS"
+    funcao_usuario = obter_funcao_militar_ativa(request.user)
+    if funcao_usuario and funcao_usuario.funcao_militar:
+        hierarquia = []
+        
+        # Construir hierarquia completa até a instância mais específica
+        if hasattr(funcao_usuario, 'orgao') and funcao_usuario.orgao:
+            hierarquia.append(funcao_usuario.orgao.nome.upper())
+        if hasattr(funcao_usuario, 'grande_comando') and funcao_usuario.grande_comando:
+            hierarquia.append(funcao_usuario.grande_comando.nome.upper())
+        if hasattr(funcao_usuario, 'unidade') and funcao_usuario.unidade:
+            hierarquia.append(funcao_usuario.unidade.nome.upper())
+        if hasattr(funcao_usuario, 'sub_unidade') and funcao_usuario.sub_unidade:
+            hierarquia.append(funcao_usuario.sub_unidade.nome.upper())
+        
+        # Se encontrou alguma instância, usar a mais específica (última da lista)
+        if hierarquia:
+            local_geracao = hierarquia[-1]
+    
     # Cabeçalho institucional
     cabecalho = [
         "GOVERNO DO ESTADO DO PIAUÍ",
         "CORPO DE BOMBEIROS MILITAR DO ESTADO DO PIAUÍ",
-        "DIRETORIA DE GESTÃO DE PESSOAS",
+        local_geracao,
         "Av. Miguel Rosa, 3515 - Bairro Piçarra, Teresina/PI, CEP 64001-490",
         "Telefone: (86)3216-1264 - http://www.cbm.pi.gov.br"
     ]
@@ -12039,11 +13915,11 @@ def quadro_fixacao_vagas_pdf(request, pk):
 
     # Data e local
     data_extenso = f"Teresina, {data_formatada}"
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 40))
     story.append(Paragraph(data_extenso, style_center))
     
     # Seção de Assinaturas Físicas (sem título)
-    story.append(Spacer(1, 13))
+    story.append(Spacer(1, 8))
 
     # Buscar todas as assinaturas válidas do quadro (da mais recente para a mais antiga)
     assinaturas = quadro.assinaturas.filter(assinado_por__isnull=False).order_by('-data_assinatura')
@@ -12067,16 +13943,16 @@ def quadro_fixacao_vagas_pdf(request, pk):
         tipo = assinatura.get_tipo_assinatura_display() or "Tipo não registrado"
         
         # Exibir no formato físico: Nome - Posto BM (negrito), Função (normal), Tipo (negrito menor)
-        story.append(Spacer(1, 13))
+        story.append(Spacer(1, 8))
         story.append(Paragraph(f"<b>{nome_completo}</b>", style_center))
         story.append(Paragraph(f"{funcao}", style_center))
         story.append(Paragraph(f"<b>{tipo}</b>", style_center))
-        story.append(Spacer(1, 13))
+        story.append(Spacer(1, 8))
 
     # Seção de Assinaturas Eletrônicas (sem título)
-    story.append(Spacer(1, 13))
-    story.append(HRFlowable(width="100%", thickness=0.5, spaceAfter=13, spaceBefore=13, color=colors.lightgrey))
-    story.append(Spacer(1, 13))
+    story.append(Spacer(1, 8))
+    story.append(HRFlowable(width="100%", thickness=0.5, spaceAfter=8, spaceBefore=8, color=colors.lightgrey))
+    story.append(Spacer(1, 8))
     
     # Buscar todas as assinaturas para exibir na seção eletrônica
     assinaturas_eletronicas = quadro.assinaturas.filter(
@@ -12110,35 +13986,38 @@ def quadro_fixacao_vagas_pdf(request, pk):
         texto_assinatura = f"Documento assinado eletronicamente por {nome_completo} - {funcao}, em {data_assinatura}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
         
         # Tabela das assinaturas: Logo + Texto de assinatura
+        from .utils import obter_caminho_assinatura_eletronica
         assinatura_data = [
-            [Image(logo_path, width=1.5*cm, height=1.5*cm), Paragraph(texto_assinatura, style_small)]
+            [Image(obter_caminho_assinatura_eletronica(), width=3.5*cm, height=2.0*cm), Paragraph(texto_assinatura, style_small)]
         ]
         
-        assinatura_table = Table(assinatura_data, colWidths=[2*cm, 14*cm])
+        assinatura_table = Table(assinatura_data, colWidths=[3*cm, 13*cm])
         assinatura_table.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # Logo centralizado
             ('ALIGN', (1, 0), (1, 0), 'LEFT'),    # Texto alinhado à esquerda
-            ('LEFTPADDING', (0, 0), (-1, -1), 2),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-            ('TOPPADDING', (0, 0), (-1, -1), 2),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+            ('LEFTPADDING', (0, 0), (-1, -1), 1),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 1),
+            ('TOPPADDING', (0, 0), (-1, -1), 1),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
         ]))
         
         story.append(assinatura_table)
         
         # Adicionar linha separadora entre assinaturas (exceto na última)
         if i < len(assinaturas_eletronicas) - 1:
-            story.append(Spacer(1, 13))
-            story.append(HRFlowable(width="100%", thickness=0.5, spaceAfter=13, spaceBefore=13, color=colors.lightgrey))
-            story.append(Spacer(1, 13))
+            story.append(Spacer(1, 8))
+            story.append(HRFlowable(width="100%", thickness=0.5, spaceAfter=8, spaceBefore=8, color=colors.lightgrey))
+            story.append(Spacer(1, 8))
     
     # Se não houver assinaturas, mostrar mensagem
     if not assinaturas.exists() and not assinaturas_eletronicas.exists():
         story.append(Paragraph("Nenhuma assinatura registrada", style_center))
     
+    
+    
     # Rodapé com QR Code para conferência de veracidade
-    story.append(Spacer(1, 13))
+    story.append(Spacer(1, 8))
     story.append(HRFlowable(width="100%", thickness=1, spaceAfter=10, spaceBefore=10, color=colors.grey))
     
     # Usar a função utilitária para gerar o autenticador
@@ -12150,15 +14029,15 @@ def quadro_fixacao_vagas_pdf(request, pk):
         [autenticador['qr_img'], Paragraph(autenticador['texto_autenticacao'], style_small)]
     ]
     
-    rodape_table = Table(rodape_data, colWidths=[2*cm, 14*cm])
+    rodape_table = Table(rodape_data, colWidths=[3*cm, 13*cm])
     rodape_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # QR centralizado
         ('ALIGN', (1, 0), (1, 0), 'LEFT'),    # Texto alinhado à esquerda
-        ('LEFTPADDING', (0, 0), (-1, -1), 2),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LEFTPADDING', (0, 0), (-1, -1), 1),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 1),
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
     ]))
     
     story.append(rodape_table)
@@ -12272,14 +14151,14 @@ def quadro_fixacao_vagas_oficiais_create(request):
             efetivo_atual = Militar.objects.filter(
                 posto_graduacao=previsao.posto,
                 quadro='COMP',
-                situacao='AT'
+                classificacao='ATIVO'
             ).count()
         else:
             # Para outros quadros, usar o quadro específico
             efetivo_atual = Militar.objects.filter(
                 posto_graduacao=previsao.posto,
                 quadro=previsao.quadro,
-                situacao='AT'
+                classificacao='ATIVO'
             ).count()
         
         # Atualizar o efetivo atual da previsão (apenas para exibição)
@@ -12406,13 +14285,29 @@ def assinar_quadro_fixacao_vagas(request, pk):
             }
             return render(request, 'militares/assinar_quadro_fixacao_vagas.html', context)
         
+        # Usar função selecionada no formulário ou obter função atual do usuário
+        if funcao_assinatura:
+            funcao_atual = funcao_assinatura
+        else:
+            # Obter função atual do usuário
+            from militares.models import UsuarioFuncaoMilitar
+            funcao_usuario = UsuarioFuncaoMilitar.objects.filter(
+                usuario=request.user,
+                ativo=True
+            ).first()
+            
+            if funcao_usuario:
+                funcao_atual = funcao_usuario.funcao_militar.nome
+            else:
+                funcao_atual = "Usuário do Sistema"
+        
         # Criar a assinatura
         assinatura = AssinaturaQuadroFixacaoVagas.objects.create(
             quadro_fixacao_vagas=quadro,
             assinado_por=request.user,
             observacoes=observacoes,
             tipo_assinatura=tipo_assinatura,
-            funcao_assinatura=funcao_assinatura
+            funcao_assinatura=funcao_atual
         )
         
         # Se a assinatura for de aprovação, mudar o status do quadro para APROVADO
@@ -12423,8 +14318,22 @@ def assinar_quadro_fixacao_vagas(request, pk):
         messages.success(request, f'Quadro de fixação de vagas assinado com sucesso como "{assinatura.get_tipo_assinatura_display()}"!')
         return redirect('militares:quadro_fixacao_vagas_visualizar_html', pk=quadro.pk)
     
+    # Obter funções ativas do usuário para o modal de assinatura
+    from militares.models import UsuarioFuncaoMilitar
+    funcoes_usuario = UsuarioFuncaoMilitar.objects.filter(
+        usuario=request.user
+    ).select_related('funcao_militar')
+    
+    # Obter função atual do usuário
+    funcao_atual = None
+    funcao_ativa = funcoes_usuario.filter(ativo=True).first()
+    if funcao_ativa:
+        funcao_atual = funcao_ativa.funcao_militar.nome
+    
     context = {
         'quadro': quadro,
+        'funcoes_usuario': funcoes_usuario,
+        'funcao_atual': funcao_atual,
     }
     
     return render(request, 'militares/assinar_quadro_fixacao_vagas.html', context)
@@ -12661,7 +14570,7 @@ def proxima_numeracao_disponivel(request):
         
         # Buscar todas as numerações existentes para o posto/quadro
         numeracoes_existentes = list(Militar.objects.filter(
-            situacao='AT',
+            classificacao='ATIVO',
             posto_graduacao=posto,
             quadro=quadro,
             numeracao_antiguidade__isnull=False
@@ -12691,7 +14600,7 @@ def reordenar_numeracoes_militares(posto):
     """
     # Buscar todos os militares ativos do posto, mantendo a ordem atual
     militares = Militar.objects.filter(
-        situacao='AT',
+        classificacao='ATIVO',
         posto_graduacao=posto
     ).order_by('numeracao_antiguidade', 'id')
 
@@ -12740,6 +14649,7 @@ def reordenar_numeracoes_militares(posto):
     return len(militares_para_atualizar)
 
 @login_required
+@requer_perm_reordenar_antiguidade
 def reordenar_numeracoes_view(request):
     """View para reordenar numerações de antiguidade por posto, baseado na data de promoção"""
     if request.method == 'POST':
@@ -12756,7 +14666,7 @@ def reordenar_numeracoes_view(request):
             
             # Contar total de militares do posto
             total_militares = Militar.objects.filter(
-                situacao='AT',
+                classificacao='ATIVO',
                 posto_graduacao=posto
             ).count()
             
@@ -12837,8 +14747,8 @@ def aplicar_promocao_view(request):
                         elogio_individual=ficha_pracas.elogio_individual,
                         elogio_coletivo=ficha_pracas.elogio_coletivo,
                         punicao_repreensao=ficha_pracas.punicao_repreensao,
-                        punicao_detencao=ficha_pracas.punicao_detencao,
-                        punicao_prisao=ficha_pracas.punicao_prisao,
+                        punicao_detencao=0,  # Campo não existe em praças, usar 0
+                        punicao_prisao=0,    # Campo não existe em praças, usar 0
                         falta_aproveitamento=ficha_pracas.falta_aproveitamento,
                         observacoes=f"Ficha convertida automaticamente da promoção de Subtenente para 2º Tenente. Original: {ficha_pracas.id}"
                     )
@@ -12871,17 +14781,17 @@ def aplicar_promocao_view(request):
 
 @login_required
 def militar_inativo_list(request):
-    """Lista militares inativos (transferidos, aposentados, exonerados)"""
+    """Lista militares inativos (transferidos, aposentados, exonerados) - excluindo NVRR"""
     
-    # Filtrar apenas militares inativos
+    # Filtrar apenas militares inativos, EXCETO NVRR (que tem lista própria)
     militares = Militar.objects.filter(
-        situacao__in=['IN', 'TR', 'AP', 'EX']
-    ).order_by('posto_graduacao', 'nome_completo')
+        classificacao__in=['INATIVO', 'AGREGADO', 'PRESO', 'RR', 'FALECIDO', 'LICENCIADO_A_PEDIDO', 'FUN_CIVIL', 'SAV']
+    ).exclude(quadro='NVRR').order_by('posto_graduacao', 'nome_completo')
     
     # Filtros
     situacao = request.GET.get('situacao')
     if situacao:
-        militares = militares.filter(situacao=situacao)
+        militares = militares.filter(classificacao=situacao)
     
     posto = request.GET.get('posto')
     if posto:
@@ -12911,6 +14821,18 @@ def militar_inativo_list(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
+    # Importar funções de permissão
+    from .permissoes_simples import (
+        pode_visualizar_inativos, pode_editar_inativos, 
+        pode_reativar_inativos, pode_excluir_inativos
+    )
+    
+    # Verificar permissões específicas para inativos
+    pode_visualizar = pode_visualizar_inativos(request.user)
+    pode_editar = pode_editar_inativos(request.user)
+    pode_reativar = pode_reativar_inativos(request.user)
+    pode_excluir = pode_excluir_inativos(request.user)
+    
     context = {
         'page_obj': page_obj,
         'militares': page_obj,
@@ -12926,7 +14848,11 @@ def militar_inativo_list(request):
         'estatisticas': {
             'total': total_inativos,
             'por_situacao': por_situacao
-        }
+        },
+        'pode_visualizar_militares': pode_visualizar,
+        'pode_editar_militares': pode_editar,
+        'pode_reativar_inativos': pode_reativar,
+        'pode_excluir_inativos': pode_excluir,
     }
     
     return render(request, 'militares/militar_inativo_list.html', context)
@@ -12937,62 +14863,306 @@ def militar_inativo_detail(request, pk):
     militar = get_object_or_404(Militar, pk=pk)
     
     # Verificar se é realmente inativo
-    if militar.situacao not in ['IN', 'TR', 'AP', 'EX']:
+    if militar.classificacao not in ['INATIVO', 'TRANSFERIDO', 'APOSENTADO', 'EXONERADO']:
         messages.warning(request, 'Este militar não está inativo.')
         return redirect('militares:militar_detail', pk=pk)
     
-    # Buscar histórico de promoções
-    promocoes = Promocao.objects.filter(militar=militar).order_by('-data_promocao')
+    # Buscar os mesmos dados que a view militar_detail busca
+    # Busca ficha de conceito
+    fichas_oficiais = list(militar.fichaconceitooficiais_set.all())
+    fichas_pracas = list(militar.fichaconceitopracas_set.all())
+    ficha_conceito = fichas_oficiais + fichas_pracas
+    ficha_conceito.sort(key=lambda x: x.data_registro, reverse=True)
     
-    # Buscar fichas de conceito
-    fichas_conceito = []
-    try:
-        ficha_oficiais = FichaConceitoOficiais.objects.get(militar=militar)
-        fichas_conceito.append(ficha_oficiais)
-    except FichaConceitoOficiais.DoesNotExist:
-        pass
+    # Busca promoções
+    promocoes = militar.promocao_set.all().order_by('-data_promocao')
     
-    try:
-        ficha_pracas = FichaConceitoPracas.objects.get(militar=militar)
-        fichas_conceito.append(ficha_pracas)
-    except FichaConceitoPracas.DoesNotExist:
-        pass
-    
-    # Buscar documentos
+    # Busca documentos
     documentos = Documento.objects.filter(militar=militar).order_by('-data_upload')
+    
+    # Busca lotações
+    lotacoes = militar.lotacoes.filter(ativo=True).order_by('-data_inicio', '-data_cadastro')
+    
+    # Verificar se há função PRINCIPAL ativa e promover ADICIONAL se necessário
+    tem_principal = militar.funcoes.filter(ativo=True, status='ATUAL', tipo_funcao='PRINCIPAL').exists()
+    if not tem_principal:
+        primeira_adicional = militar.funcoes.filter(ativo=True, status='ATUAL', tipo_funcao='ADICIONAL').order_by('-data_inicio', '-data_cadastro').first()
+        if primeira_adicional:
+            primeira_adicional.tipo_funcao = 'PRINCIPAL'
+            primeira_adicional.save()
+    
+    # Busca funções - ordenar por tipo (PRINCIPAL primeiro) e depois por data
+    from django.db.models import Case, When, Value, IntegerField
+    funcoes = militar.funcoes.filter(ativo=True, status__in=['ATUAL', 'ANTERIOR']).annotate(
+        tipo_ordem=Case(
+            When(tipo_funcao='PRINCIPAL', then=Value(1)),
+            When(tipo_funcao='ADICIONAL', then=Value(2)),
+            When(tipo_funcao='TEMPORARIA', then=Value(3)),
+            When(tipo_funcao='COMISSAO', then=Value(4)),
+            default=Value(5),
+            output_field=IntegerField(),
+        )
+    ).order_by('-status', 'tipo_ordem', '-data_inicio', '-data_cadastro')
+    
+    # Busca todas as funções (atuais e históricas)
+    funcoes_atuais = militar.funcoes.filter(status='ATUAL').order_by('-data_inicio')
+    funcoes_historicas = militar.funcoes.filter(status='ANTERIOR').order_by('-data_inicio')
+    todas_funcoes = militar.funcoes.all().order_by('-data_inicio')
+    
+    # Busca elogios e punições com verificação de permissão
+    from militares.permissoes_militares import pode_visualizar_punicoes_elogios, pode_editar_punicoes_elogios, pode_editar_militares
+    
+    elogios = []
+    punicoes = []
+    
+    # Verificar se pode visualizar punições e elogios
+    if pode_visualizar_punicoes_elogios(request.user, militar):
+        elogios = militar.elogios.filter(ativo=True).order_by('-data_elogio', '-data_registro')
+        punicoes = militar.punicoes.filter(ativo=True).order_by('-data_punicao', '-data_registro')
+    
+    # Busca afastamentos do militar
+    from militares.models import Afastamento
+    from militares.permissoes_hierarquicas import obter_funcao_militar_ativa
+    from militares.filtros_hierarquicos import aplicar_filtro_hierarquico_afastamentos
+    
+    # Verificar se o usuário é o próprio militar (verificar tanto user.militar quanto militar.user)
+    is_proprio_militar = False
+    try:
+        # Verificar se request.user.militar existe e é o mesmo militar
+        if hasattr(request.user, 'militar') and request.user.militar:
+            is_proprio_militar = (request.user.militar.pk == militar.pk)
+        # Verificar também se militar.user existe e é o mesmo usuário
+        if not is_proprio_militar and militar.user:
+            is_proprio_militar = (militar.user.pk == request.user.pk)
+    except Exception as e:
+        # Em caso de erro, assumir que não é o próprio militar
+        is_proprio_militar = False
+    
+    # Sempre mostrar afastamentos para o próprio militar ou superusuário
+    if is_proprio_militar or request.user.is_superuser:
+        # O próprio militar ou superusuário vê todos os seus afastamentos
+        afastamentos = list(militar.afastamentos.all().order_by('-data_inicio', '-data_cadastro'))
+    else:
+        # Para outros usuários, aplicar filtro hierárquico
+        queryset = militar.afastamentos.all()
+        funcao_usuario = obter_funcao_militar_ativa(request.user)
+        if funcao_usuario:
+            queryset = aplicar_filtro_hierarquico_afastamentos(queryset, funcao_usuario, request.user)
+            afastamentos = list(queryset.order_by('-data_inicio', '-data_cadastro'))
+        else:
+            # Se não tem função ativa, não mostrar afastamentos
+            afastamentos = []
+    
+    # Garantir que afastamentos seja sempre uma lista (não None)
+    if afastamentos is None:
+        afastamentos = []
+    
+    # Tipos de afastamento para o modal de certidão
+    tipos_afastamento = Afastamento.get_all_tipo_choices()
+    
+    # Busca férias do militar ordenadas por ano de referência (do mais atual para o mais distante)
+    # Inclui férias de todos os planos, mesmo que o plano esteja em RASCUNHO
+    from militares.models import Ferias, LicencaEspecial
+    ferias = list(Ferias.objects.filter(militar=militar).select_related('plano', 'militar').order_by('-ano_referencia', '-data_inicio'))
+    
+    # Busca licenças especiais do militar ordenadas por plano e data de início (do mais atual para o mais distante)
+    # IMPORTANTE: Para o regroup funcionar, precisa estar ordenado pelo campo que será agrupado (plano)
+    # Usar filtro direto para garantir que pegamos todas as licenças
+    licencas_especiais_qs = LicencaEspecial.objects.filter(militar=militar).select_related('militar', 'cadastrado_por', 'plano')
+    licencas_especiais = list(licencas_especiais_qs)
+    # Ordenar manualmente: primeiro por plano (para regroup funcionar), depois por data
+    # None será tratado como (9999, 9999) para vir por último quando ordenar reverso
+    licencas_especiais.sort(key=lambda x: (
+        x.plano.pk if x.plano else 9999,  # Agrupar por plano.pk primeiro (para regroup)
+        x.plano.ano_plano if x.plano else 9999,  # Depois por ano do plano
+        x.data_inicio if x.data_inicio else None,
+        x.data_cadastro if x.data_cadastro else None
+    ), reverse=True)
+    
+    # Busca cautelas de armas do militar
+    from militares.models import CautelaArma, CautelaArmaColetiva
+    cautelas_individuais = CautelaArma.objects.filter(militar=militar).select_related('arma', 'militar', 'entregue_por', 'devolvido_por').order_by('-data_entrega')
+    cautelas_coletivas = CautelaArmaColetiva.objects.filter(responsavel=militar).select_related('responsavel', 'criado_por', 'finalizado_por').order_by('-data_inicio')
+    total_cautelas = cautelas_individuais.count() + cautelas_coletivas.count()
+    
+    # Busca processos administrativos do militar
+    from militares.models import ProcessoAdministrativo
+    processos_envolvido = ProcessoAdministrativo.objects.filter(
+        militares_envolvidos=militar,
+        ativo=True
+    ).select_related('orgao', 'grande_comando', 'unidade', 'sub_unidade').order_by('-data_abertura', '-data_criacao')
+    
+    processos_encarregado = ProcessoAdministrativo.objects.filter(
+        militares_encarregados=militar,
+        ativo=True
+    ).select_related('orgao', 'grande_comando', 'unidade', 'sub_unidade').order_by('-data_abertura', '-data_criacao')
+    
+    processos_escriva = ProcessoAdministrativo.objects.filter(
+        escrivaos=militar,
+        ativo=True
+    ).select_related('orgao', 'grande_comando', 'unidade', 'sub_unidade').order_by('-data_abertura', '-data_criacao')
+    
+    # Combinar todos os processos únicos
+    processos_ids = set()
+    processos_todos = []
+    
+    for processo in processos_envolvido:
+        if processo.pk not in processos_ids:
+            processos_ids.add(processo.pk)
+            processos_todos.append(('envolvido', processo))
+    
+    for processo in processos_encarregado:
+        if processo.pk not in processos_ids:
+            processos_ids.add(processo.pk)
+            processos_todos.append(('encarregado', processo))
+    
+    for processo in processos_escriva:
+        if processo.pk not in processos_ids:
+            processos_ids.add(processo.pk)
+            processos_todos.append(('escriva', processo))
+    
+    # Ordenar por data de abertura (mais recente primeiro)
+    # Usar data_abertura se existir, senão usar data_criacao
+    from datetime import date
+    processos_todos.sort(key=lambda x: (
+        x[1].data_abertura if x[1].data_abertura else (x[1].data_criacao.date() if x[1].data_criacao else date.min)
+    ), reverse=True)
+    total_processos = len(processos_todos)
+    
+    # Extrair data de transferência para inatividade das observações
+    data_transferencia_inativo = None
+    if militar.observacoes:
+        import re
+        # Procurar por padrão "Transferido para Inativo em DD/MM/YYYY"
+        match = re.search(r'Transferido para Inativo em (\d{2}/\d{2}/\d{4})', militar.observacoes)
+        if match:
+            try:
+                from datetime import datetime
+                data_transferencia_inativo = datetime.strptime(match.group(1), '%d/%m/%Y').date()
+            except ValueError:
+                pass
+    
+    # Importar funções de permissão
+    from .permissoes_simples import (
+        pode_visualizar_inativos, pode_editar_inativos, 
+        pode_reativar_inativos, pode_excluir_inativos
+    )
+    
+    # Verificar permissões específicas para inativos
+    pode_visualizar = pode_visualizar_inativos(request.user)
+    pode_editar = pode_editar_inativos(request.user)
+    pode_reativar = pode_reativar_inativos(request.user)
+    pode_excluir = pode_excluir_inativos(request.user)
     
     context = {
         'militar': militar,
+        'ficha_conceito': ficha_conceito,
         'promocoes': promocoes,
-        'fichas_conceito': fichas_conceito,
         'documentos': documentos,
+        'lotacoes': lotacoes,
+        'funcoes': funcoes,
+        'funcoes_atuais': funcoes_atuais,
+        'funcoes_historicas': funcoes_historicas,
+        'todas_funcoes': todas_funcoes,
+        'elogios': elogios,
+        'punicoes': punicoes,
+        'afastamentos': afastamentos,
+        'tipos_afastamento': tipos_afastamento,
+        'ferias': ferias,
+        'licencas_especiais': licencas_especiais,
+        'averbacoes': list(militar.averbacoes.all().order_by('-data_averbacao', '-data_cadastro')),
+        'cautelas_individuais': cautelas_individuais,
+        'cautelas_coletivas': cautelas_coletivas,
+        'total_cautelas': total_cautelas,
+        'processos_todos': processos_todos,
+        'total_processos': total_processos,
+        'data_transferencia_inativo': data_transferencia_inativo,
+        'pode_visualizar_inativos': pode_visualizar,
+        'pode_editar_inativos': pode_editar,
+        'pode_reativar_inativos': pode_reativar,
+        'pode_excluir_inativos': pode_excluir,
+        'pode_editar_punicoes_elogios': pode_editar_punicoes_elogios(request.user, militar),
+        'pode_visualizar_punicoes_elogios': pode_visualizar_punicoes_elogios(request.user, militar),
+        'pode_editar_militares': pode_editar_militares(request.user),
     }
     
-    return render(request, 'militares/militar_inativo_detail.html', context)
+    return render(request, 'militares/militar_detail.html', context)
 
 @login_required
+@diretor_gestao_chefe_promocoes_required
 def militar_transferir_inativo(request, pk):
     """Transferir militar para situação inativa"""
     militar = get_object_or_404(Militar, pk=pk)
     
     if request.method == 'POST':
-        nova_situacao = request.POST.get('nova_situacao')
         data_transferencia = request.POST.get('data_transferencia')
         motivo = request.POST.get('motivo')
         
-        if nova_situacao and data_transferencia:
+        if data_transferencia and motivo:
             try:
                 # Validar data
                 from datetime import datetime
                 data_transferencia = datetime.strptime(data_transferencia, '%Y-%m-%d').date()
                 
-                # Atualizar situação do militar
+                # Salvar valores anteriores para histórico e restauração
                 situacao_anterior = militar.situacao
-                militar.situacao = nova_situacao
-                militar.observacoes = f"{militar.observacoes or ''}\n\nTransferido para {militar.get_situacao_display()} em {data_transferencia.strftime('%d/%m/%Y')}. Motivo: {motivo}"
+                quadro_anterior = militar.quadro
+                classificacao_anterior = militar.classificacao
+                
+                # Salvar quadro anterior nas observações para restauração na reativação
+                # Formato: "QUADRO_ANTERIOR:COMB" (será extraído na reativação)
+                observacao_quadro = f"\nQUADRO_ANTERIOR:{quadro_anterior}"
+                
+                # Calcular e salvar o tempo de serviço acumulado antes de transferir para inativo
+                from dateutil.relativedelta import relativedelta
+                from datetime import timedelta
+                
+                if militar.classificacao == 'ATIVO':
+                    # Se estava ativo, calcular tempo desde última reativação ou desde ingresso
+                    if militar.data_ultima_reativacao:
+                        # Calcular tempo desde última reativação (em dias exatos)
+                        dias_desde_reativacao = (data_transferencia - militar.data_ultima_reativacao).days
+                        # Somar com tempo acumulado anterior
+                        tempo_acumulado_anterior = militar.tempo_servico_acumulado_dias or 0
+                        militar.tempo_servico_acumulado_dias = tempo_acumulado_anterior + dias_desde_reativacao
+                    else:
+                        # Se não tem data de reativação, calcular desde ingresso (em dias exatos)
+                        dias_desde_ingresso = (data_transferencia - militar.data_ingresso).days
+                        militar.tempo_servico_acumulado_dias = dias_desde_ingresso
+                
+                # Salvar numeração de antiguidade anterior antes de inativar
+                if militar.numeracao_antiguidade:
+                    militar.numeracao_antiguidade_anterior = militar.numeracao_antiguidade
+                    # Limpar numeração atual (inativos não têm numeração)
+                    militar.numeracao_antiguidade = None
+                
+                # Salvar data de inativação
+                militar.data_ultima_inativacao = data_transferencia
+                
+                # Atualizar automaticamente os campos conforme solicitado
+                militar.quadro = 'RESERVA_REMUNERADA'  # Quadro: Reserva Remunerada
+                militar.classificacao = 'INATIVO'      # Classificação: Inativo
+                militar.situacao = 'INATIVO'           # Situação: Inativo
+                
+                # Adicionar observação com histórico
+                observacao_adicional = f"""
+Transferido para Inativo em {data_transferencia.strftime('%d/%m/%Y')} às {timezone.localtime(timezone.now()).strftime('%H:%M')}.
+
+ALTERAÇÕES REALIZADAS:
+- Quadro: {quadro_anterior} → {militar.get_quadro_display()}
+- Classificação: {classificacao_anterior} → {militar.get_classificacao_display()}
+- Situação: {situacao_anterior} → {militar.get_situacao_display()}
+
+MOTIVO: {motivo}
+
+Transferência realizada por: {request.user.get_full_name() or request.user.username}
+"""
+                
+                militar.observacoes = f"{militar.observacoes or ''}{observacao_quadro}\n{observacao_adicional}"
                 militar.save()
                 
-                messages.success(request, f'Militar {militar.nome_completo} transferido para {militar.get_situacao_display()} com sucesso!')
+                messages.success(request, f'Militar {militar.nome_completo} transferido para inativo com sucesso!')
+                messages.info(request, 'Quadro alterado para Reserva Remunerada, Classificação para Inativo e Situação para Inativo.')
                 return redirect('militares:militar_inativo_detail', pk=militar.pk)
                 
             except ValueError:
@@ -13002,12 +15172,6 @@ def militar_transferir_inativo(request, pk):
     
     context = {
         'militar': militar,
-        'situacoes_inativas': [
-            ('IN', 'Inativo'),
-            ('TR', 'Transferido'),
-            ('AP', 'Aposentado'),
-            ('EX', 'Exonerado'),
-        ]
     }
     
     return render(request, 'militares/militar_transferir_inativo.html', context)
@@ -13019,17 +15183,106 @@ def militar_reativar(request, pk):
     
     if request.method == 'POST':
         motivo = request.POST.get('motivo')
+        data_retorno = request.POST.get('data_retorno')
         
-        if motivo:
-            # Reativar militar
-            militar.situacao = 'AT'
-            militar.observacoes = f"{militar.observacoes or ''}\n\nReativado em {timezone.now().strftime('%d/%m/%Y %H:%M')}. Motivo: {motivo}"
-            militar.save()
-            
-            messages.success(request, f'Militar {militar.nome_completo} reativado com sucesso!')
-            return redirect('militares:militar_detail', pk=militar.pk)
+        if motivo and data_retorno:
+            try:
+                # Validar data
+                from datetime import datetime
+                data_retorno = datetime.strptime(data_retorno, '%Y-%m-%d').date()
+                
+                # Salvar data de reativação
+                militar.data_ultima_reativacao = data_retorno
+                
+                # Reativar militar
+                militar.classificacao = 'ATIVO'
+                
+                # Restaurar quadro anterior se não for RESERVA_REMUNERADA ou NVRR
+                # Extrair quadro anterior das observações se existir
+                quadro_anterior = None
+                if militar.observacoes:
+                    import re
+                    match = re.search(r'QUADRO_ANTERIOR:(\w+)', militar.observacoes)
+                    if match:
+                        quadro_anterior = match.group(1)
+                
+                # Se não encontrou nas observações, verificar se o quadro atual é RESERVA_REMUNERADA
+                # e tentar restaurar baseado no posto/graduação
+                if not quadro_anterior and militar.quadro == 'RESERVA_REMUNERADA':
+                    # Restaurar quadro baseado no posto/graduação
+                    if militar.is_oficial():
+                        # Oficiais: padrão é COMB, mas pode ser SAUDE, ENG, COMP
+                        # Tentar encontrar o quadro mais comum para o posto
+                        from .models import Militar as MilitarModel
+                        quadro_mais_comum = MilitarModel.objects.filter(
+                            classificacao='ATIVO',
+                            posto_graduacao=militar.posto_graduacao
+                        ).exclude(quadro__in=['RESERVA_REMUNERADA', 'NVRR', 'PRACAS']).values('quadro').annotate(
+                            count=models.Count('id')
+                        ).order_by('-count').first()
+                        quadro_anterior = quadro_mais_comum['quadro'] if quadro_mais_comum else 'COMB'
+                    else:
+                        # Praças: sempre PRACAS
+                        quadro_anterior = 'PRACAS'
+                
+                # Restaurar quadro se encontrado (nunca restaurar para NVRR)
+                if quadro_anterior and quadro_anterior not in ['RESERVA_REMUNERADA', 'NVRR']:
+                    militar.quadro = quadro_anterior
+                elif militar.quadro == 'NVRR':
+                    # Se o quadro atual é NVRR, restaurar baseado no posto
+                    if militar.is_oficial():
+                        militar.quadro = 'COMB'  # Padrão para oficiais
+                    else:
+                        militar.quadro = 'PRACAS'  # Padrão para praças
+                
+                # Restaurar numeração de antiguidade se existir anterior
+                if militar.numeracao_antiguidade_anterior:
+                    # Verificar se a numeração anterior ainda está disponível
+                    from .models import Militar as MilitarModel
+                    numeracao_ocupada = MilitarModel.objects.filter(
+                        classificacao='ATIVO',
+                        posto_graduacao=militar.posto_graduacao,
+                        quadro=militar.quadro,
+                        numeracao_antiguidade=militar.numeracao_antiguidade_anterior
+                    ).exclude(pk=militar.pk).exists()
+                    
+                    if not numeracao_ocupada:
+                        # Restaurar numeração anterior
+                        militar.numeracao_antiguidade = militar.numeracao_antiguidade_anterior
+                    else:
+                        # Se a numeração está ocupada, atribuir próxima disponível
+                        # Buscar a maior numeração existente para o posto e quadro
+                        from .models import Militar as MilitarModel
+                        max_numeracao = MilitarModel.objects.filter(
+                            classificacao='ATIVO',
+                            posto_graduacao=militar.posto_graduacao,
+                            quadro=militar.quadro
+                        ).exclude(pk=militar.pk).aggregate(
+                            models.Max('numeracao_antiguidade')
+                        )['numeracao_antiguidade__max']
+                        militar.numeracao_antiguidade = (max_numeracao or 0) + 1
+                elif not militar.numeracao_antiguidade:
+                    # Se não tem numeração anterior nem atual, atribuir próxima disponível
+                    # Buscar a maior numeração existente para o posto e quadro
+                    from .models import Militar as MilitarModel
+                    max_numeracao = MilitarModel.objects.filter(
+                        classificacao='ATIVO',
+                        posto_graduacao=militar.posto_graduacao,
+                        quadro=militar.quadro
+                    ).exclude(pk=militar.pk).aggregate(
+                        models.Max('numeracao_antiguidade')
+                    )['numeracao_antiguidade__max']
+                    militar.numeracao_antiguidade = (max_numeracao or 0) + 1
+                
+                militar.observacoes = f"{militar.observacoes or ''}\n\nReativado em {data_retorno.strftime('%d/%m/%Y')} às {timezone.now().strftime('%H:%M')}. Motivo: {motivo}"
+                militar.save()
+                
+                messages.success(request, f'Militar {militar.nome_completo} reativado com sucesso!')
+                return redirect('militares:militar_detail', pk=militar.pk)
+            except ValueError:
+                messages.error(request, 'Data inválida. Use o formato DD/MM/AAAA.')
         else:
-            messages.error(request, 'Motivo é obrigatório.')
+            messages.error(request, 'Todos os campos são obrigatórios.')
     
     context = {
         'militar': militar,
@@ -13073,7 +15326,7 @@ def militar_reativar(request, pk):
         return cleaned_data
 
 @login_required
-@permission_required('auth.add_user')
+@administracao_required
 def usuario_create(request):
     """Criar novo usuário"""
     if request.method == 'POST':
@@ -13124,109 +15377,11 @@ class GrupoForm(forms.ModelForm):
         }
 
 @login_required
-@permission_required('auth.view_user')
+@administracao_required
 def dashboard_permissoes(request):
-    """Dashboard com estatísticas do sistema de permissões"""
-    
-    # Estatísticas básicas
-    total_usuarios = User.objects.count()
-    usuarios_ativos = User.objects.filter(is_active=True).count()
-    total_grupos = Group.objects.count()
-    grupos_com_usuarios = Group.objects.filter(user__isnull=False).distinct().count()
-    total_permissoes = Permission.objects.count()
-    permissoes_utilizadas = Permission.objects.filter(group__isnull=False).distinct().count()
-    
-    # Aplicações e modelos
-    content_types = ContentType.objects.all()
-    total_apps = content_types.values('app_label').distinct().count()
-    modelos_por_app = content_types.count()
-    
-    # Estatísticas por grupo
-    grupos_estatisticas = {}
-    grupos_nomes = {
-        'admin': 'Administrador - Acesso total',
-        'superusuario': 'Super Usuário - Acesso total',
-        'membro_cpo': 'Membro CPO - Acesso a oficiais e comissões',
-        'membro_cpp': 'Membro CPP - Acesso a praças e comissões',
-        'comandante_geral': 'Comandante Geral - Acesso total exceto usuários e administração',
-        'subcomandante_geral': 'Subcomandante Geral - Acesso total exceto usuários e administração',
-        'diretor_gestao_pessoas': 'Diretor de Gestão de Pessoas - Acesso total exceto usuários e administração',
-        'chefe_secao_promocoes': 'Chefe da Seção de Promoções - Acesso total exceto usuários e administração',
-        'digitador': 'Digitador - Acesso total sem exclusão e sem usuários/administração',
-        'usuario': 'Usuário - Acesso a documentos específicos e visualização'
-    }
-    
-    for codigo, nome in grupos_nomes.items():
-        try:
-            grupo = Group.objects.get(name=nome)
-            usuarios_count = grupo.user_set.count()
-            permissoes_count = grupo.permissions.count()
-            grupos_estatisticas[codigo] = {
-                'usuarios': usuarios_count,
-                'permissoes': permissoes_count
-            }
-        except Group.DoesNotExist:
-            grupos_estatisticas[codigo] = {
-                'usuarios': 0,
-                'permissoes': 0
-            }
-    
-    # Atividades recentes (simuladas)
-    recent_activities = [
-        {
-            'icon': 'shield-alt',
-            'title': 'Sistema de permissões simplificado',
-            'description': 'Configuração de permissões por níveis de acesso concluída',
-            'time': '5 minutos atrás'
-        },
-        {
-            'icon': 'users-cog',
-            'title': 'Grupos criados',
-            'description': '10 grupos de permissões foram configurados',
-            'time': '10 minutos atrás'
-        },
-        {
-            'icon': 'key',
-            'title': 'Permissões atribuídas',
-            'description': 'Sistema de permissões organizado por níveis',
-            'time': '15 minutos atrás'
-        }
-    ]
-    
-    context = {
-        'total_usuarios': total_usuarios,
-        'usuarios_ativos': usuarios_ativos,
-        'total_grupos': total_grupos,
-        'grupos_com_usuarios': grupos_com_usuarios,
-        'total_permissoes': total_permissoes,
-        'permissoes_utilizadas': permissoes_utilizadas,
-        'total_apps': total_apps,
-        'modelos_por_app': modelos_por_app,
-        'recent_activities': recent_activities,
-        # Estatísticas por grupo
-        'admin_users': grupos_estatisticas.get('admin', {}).get('usuarios', 0),
-        'admin_permissions': grupos_estatisticas.get('admin', {}).get('permissoes', 88),
-        'super_users': grupos_estatisticas.get('superusuario', {}).get('usuarios', 0),
-        'super_permissions': grupos_estatisticas.get('superusuario', {}).get('permissoes', 88),
-        'cpo_users': grupos_estatisticas.get('membro_cpo', {}).get('usuarios', 0),
-        'cpo_permissions': grupos_estatisticas.get('membro_cpo', {}).get('permissoes', 44),
-        'cpp_users': grupos_estatisticas.get('membro_cpp', {}).get('usuarios', 0),
-        'cpp_permissions': grupos_estatisticas.get('membro_cpp', {}).get('permissoes', 44),
-        'comandante_users': grupos_estatisticas.get('comandante_geral', {}).get('usuarios', 0),
-        'comandante_permissions': grupos_estatisticas.get('comandante_geral', {}).get('permissoes', 76),
-        'subcomandante_users': grupos_estatisticas.get('subcomandante_geral', {}).get('usuarios', 0),
-        'subcomandante_permissions': grupos_estatisticas.get('subcomandante_geral', {}).get('permissoes', 76),
-        'diretor_users': grupos_estatisticas.get('diretor_gestao_pessoas', {}).get('usuarios', 0),
-        'diretor_permissions': grupos_estatisticas.get('diretor_gestao_pessoas', {}).get('permissoes', 76),
-        'chefe_users': grupos_estatisticas.get('chefe_secao_promocoes', {}).get('usuarios', 0),
-        'chefe_permissions': grupos_estatisticas.get('chefe_secao_promocoes', {}).get('permissoes', 76),
-        'digitador_users': grupos_estatisticas.get('digitador', {}).get('usuarios', 0),
-        'digitador_permissions': grupos_estatisticas.get('digitador', {}).get('permissoes', 57),
-        'usuario_users': grupos_estatisticas.get('usuario', {}).get('usuarios', 0),
-        'usuario_permissions': grupos_estatisticas.get('usuario', {}).get('permissoes', 2),
-    }
-    
-    return render(request, 'militares/usuarios/dashboard.html', context)
+    """Dashboard com estatísticas do sistema de permissões - REDIRECIONADO PARA PÁGINA UNIFICADA"""
+    # Redirecionar para a página unificada de gerenciamento de permissões
+    return redirect('militares:funcoes_militares_list')
 
 @login_required
 def meus_votos_list(request):
@@ -13493,7 +15648,7 @@ def status_efetivo_vagas(request):
     
     # Contar militares por posto e quadro
     efetivo_por_posto_quadro = {}
-    militares_ativos = Militar.objects.filter(situacao='AT')
+    militares_ativos = Militar.objects.filter(classificacao='ATIVO')
     
     for militar in militares_ativos:
         key = f"{militar.get_posto_graduacao_display()} - {militar.get_quadro_display()}"
@@ -13549,6 +15704,7 @@ def status_efetivo_vagas(request):
     return render(request, 'militares/status_efetivo_vagas.html', context)
 
 @login_required
+@requer_perm_reordenar_antiguidade
 def reordenar_antiguidade_apos_inativacao(request):
     """View para reordenar numerações de antiguidade após inativações"""
     if request.method == 'POST':
@@ -13702,6 +15858,51 @@ def promocao_subtenente_view(request):
 
 @login_required
 @administracao_required
+def replicar_funcoes_ativas(request):
+    """Replica funções ativas para todos os usuários, removendo funções antigas"""
+    if request.method == 'POST':
+        from django.core.management import call_command
+        from io import StringIO
+        import sys
+        
+        # Capturar output do comando
+        old_stdout = sys.stdout
+        sys.stdout = captured_output = StringIO()
+        
+        try:
+            # Executar comando de replicação
+            call_command('replicar_funcoes_ativas', '--forcar')
+            output = captured_output.getvalue()
+            
+            # Dividir output em linhas para exibir
+            linhas = output.split('\n')
+            messages.success(request, 'Replicação de funções ativas executada com sucesso!')
+            
+            # Adicionar detalhes do output
+            for linha in linhas:
+                if linha.strip() and not linha.startswith('=== '):
+                    messages.info(request, linha.strip())
+                    
+        except Exception as e:
+            messages.error(request, f'Erro ao executar replicação: {str(e)}')
+        finally:
+            sys.stdout = old_stdout
+        
+        return redirect('militares:usuarios_custom_list')
+    
+    # Se GET, mostrar página de confirmação
+    funcoes_ativas = FuncaoMilitar.objects.filter(ativo=True).count()
+    usuarios_ativos = User.objects.filter(is_active=True).count()
+    
+    context = {
+        'funcoes_ativas': funcoes_ativas,
+        'usuarios_ativos': usuarios_ativos,
+    }
+    
+    return render(request, 'militares/usuarios/replicar_funcoes.html', context)
+
+@login_required
+@administracao_required
 def usuarios_custom_list(request):
     # Parâmetros de filtro
     query = request.GET.get('q', '').strip()
@@ -13710,7 +15911,7 @@ def usuarios_custom_list(request):
     ordenacao = request.GET.get('ordenacao', 'nome')
     
     # Query base
-    usuarios = User.objects.all().select_related('militar').prefetch_related('groups', 'funcoes')
+    usuarios = User.objects.all().select_related('militar').prefetch_related('groups', 'funcoes_militares')
     
     # Aplicar filtros
     if query:
@@ -13754,7 +15955,7 @@ def usuarios_custom_list(request):
             funcoes_militar = [membro.get_tipo_display() for membro in membros_comissao]
         
         # Funções diretas do usuário
-        funcoes_usuario = usuario.funcoes.filter(status='ATIVO').order_by('tipo_funcao', 'cargo_funcao__nome')
+        funcoes_usuario = usuario.funcoes_militares.all().order_by('funcao_militar__nome')
         
         usuarios_info.append({
             'usuario': usuario,
@@ -13786,7 +15987,7 @@ def usuarios_custom_list(request):
     return render(request, 'militares/usuarios/custom_list.html', context)
 
 @login_required
-@permission_required('auth.view_user')
+@administracao_required
 def usuario_detail(request, pk):
     """Detalhes de um usuário"""
     usuario = get_object_or_404(User, pk=pk)
@@ -13800,7 +16001,7 @@ def usuario_detail(request, pk):
         funcoes_militar = [membro.get_tipo_display() for membro in membros_comissao]
     
     # Funções diretas do usuário
-    funcoes_usuario = usuario.funcoes.filter(status='ATIVO').order_by('tipo_funcao', 'cargo_funcao__nome')
+    funcoes_usuario = usuario.funcoes_militares.filter(ativo=True).order_by('funcao_militar__nome')
     
     # Permissões do usuário
     permissoes_usuario = usuario.user_permissions.all()
@@ -13823,7 +16024,7 @@ def usuario_detail(request, pk):
 # Views para gerenciamento de permissões
 
 @login_required
-@permission_required('auth.change_user')
+@administracao_required
 def usuario_update(request, pk):
     """Editar um usuário"""
     usuario = get_object_or_404(User, pk=pk)
@@ -13850,7 +16051,7 @@ def usuario_update(request, pk):
     return render(request, 'militares/usuarios/update.html', context)
 
 @login_required
-@permission_required('auth.delete_user')
+@administracao_required
 def usuario_delete(request, pk):
     """Excluir um usuário"""
     usuario = get_object_or_404(User, pk=pk)
@@ -13868,117 +16069,25 @@ def usuario_delete(request, pk):
 
 # Views para gerenciar funções dos usuários
 @login_required
-@permission_required('auth.view_user')
+@administracao_required
 def usuario_funcoes_list(request, pk):
-    """Lista todas as funções de um usuário"""
+    """Lista todas as funções militares de um usuário"""
     usuario = get_object_or_404(User, pk=pk)
-    funcoes = usuario.funcoes.all().order_by('-data_inicio')
+    funcoes = usuario.funcoes_militares.all().order_by('funcao_militar__nome')
     
     # Estatísticas
-    funcoes_ativas = funcoes.filter(status='AT')
-    funcoes_inativas = funcoes.filter(status='INATIVO')
-    funcoes_suspensas = funcoes.filter(status='SUSPENSO')
+    funcoes_ativas = funcoes.filter(ativo=True)
+    funcoes_inativas = funcoes.filter(ativo=False)
     
     context = {
         'usuario': usuario,
         'funcoes': funcoes,
         'funcoes_ativas': funcoes_ativas,
         'funcoes_inativas': funcoes_inativas,
-        'funcoes_suspensas': funcoes_suspensas,
+        'funcoes_suspensas': [],  # Não aplicável para funções militares
     }
     return render(request, 'militares/usuarios/funcoes/list.html', context)
 
-@login_required
-@permission_required('auth.change_user')
-def usuario_funcao_add(request, pk):
-    """Adiciona uma nova função ao usuário"""
-    usuario = get_object_or_404(User, pk=pk)
-    
-    if request.method == 'POST':
-        form = UsuarioFuncaoForm(request.POST)
-        if form.is_valid():
-            # Verificar se já existe uma função com a mesma combinação
-            cargo_funcao = form.cleaned_data['cargo_funcao']
-            data_inicio = form.cleaned_data['data_inicio']
-            
-            funcao_existente = UsuarioFuncao.objects.filter(
-                usuario=usuario,
-                cargo_funcao=cargo_funcao,
-                data_inicio=data_inicio
-            ).first()
-            
-            if funcao_existente:
-                messages.error(request, f'Já existe uma função "{cargo_funcao.nome}" para este usuário com a data de início {data_inicio}.')
-                context = {
-                    'form': form,
-                    'usuario': usuario,
-                }
-                return render(request, 'militares/usuarios/funcoes/form.html', context)
-            
-            funcao = form.save(commit=False)
-            funcao.usuario = usuario
-            funcao.save()
-            messages.success(request, f'Função "{funcao.cargo_funcao.nome}" adicionada com sucesso!')
-            return redirect('militares:usuario_funcoes_list', pk=usuario.pk)
-    else:
-        form = UsuarioFuncaoForm(initial={'usuario': usuario})
-    
-    context = {
-        'form': form,
-        'usuario': usuario,
-    }
-    return render(request, 'militares/usuarios/funcoes/form.html', context)
-
-@login_required
-@permission_required('auth.change_user')
-def usuario_funcao_edit(request, pk, funcao_pk):
-    """Edita uma função do usuário"""
-    usuario = get_object_or_404(User, pk=pk)
-    funcao = get_object_or_404(UsuarioFuncao, pk=funcao_pk, usuario=usuario)
-    
-    if request.method == 'POST':
-        form = UsuarioFuncaoForm(request.POST, instance=funcao)
-        if form.is_valid():
-            form.save()
-            messages.success(request, f'Função "{funcao.cargo_funcao.nome}" atualizada com sucesso!')
-            return redirect('militares:usuario_funcoes_list', pk=usuario.pk)
-    else:
-        form = UsuarioFuncaoForm(instance=funcao)
-    
-    context = {
-        'form': form,
-        'usuario': usuario,
-        'funcao': funcao,
-    }
-    return render(request, 'militares/usuarios/funcoes/form.html', context)
-
-@login_required
-@permission_required('auth.change_user')
-def usuario_funcao_delete(request, pk, funcao_pk):
-    """Remove uma função do usuário"""
-    usuario = get_object_or_404(User, pk=pk)
-    funcao = get_object_or_404(UsuarioFuncao, pk=funcao_pk, usuario=usuario)
-    
-    if request.method == 'POST':
-        nome_funcao = funcao.cargo_funcao.nome
-        
-        # Verificar se a função excluída é a mesma que está na sessão do usuário
-        funcao_na_sessao = request.session.get('funcao_atual_id')
-        if funcao_na_sessao and int(funcao_na_sessao) == funcao_pk:
-            # Se for a função da sessão, limpar a sessão antes de excluir
-            request.session.pop('funcao_atual_id', None)
-            request.session.pop('funcao_atual_nome', None)
-        
-        cargo_id = funcao.cargo_funcao.id
-        funcao.delete()
-        messages.success(request, f'Função "{nome_funcao}" removida com sucesso!')
-        return redirect('militares:cargo_funcao_detail', cargo_id=cargo_id)
-    
-    context = {
-        'usuario': usuario,
-        'funcao': funcao,
-    }
-    return render(request, 'militares/usuarios/funcoes/delete.html', context)
 
 # Views para seleção de função após login
 def selecionar_funcao(request):
@@ -13988,37 +16097,101 @@ def selecionar_funcao(request):
     if not request.user.is_authenticated:
         return redirect('login')
     
-    # Buscar funções ativas do usuário
-    funcoes_usuario = UsuarioFuncao.objects.filter(
+    # Superusuários vão direto para o dashboard
+    if request.user.is_superuser:
+        return redirect('militares:home')
+    
+    # Importar sistema de sincronização
+    from .sincronizar_funcoes_militar import sincronizar_funcoes_militar, obter_funcoes_militar_logado
+    
+    # Sincronizar funções do militar logado
+    resultado_sincronizacao = sincronizar_funcoes_militar(request.user)
+    
+    if not resultado_sincronizacao['sucesso']:
+        messages.error(request, f'Erro ao carregar funções: {resultado_sincronizacao["mensagem"]}')
+        return redirect('logout')
+    
+    # Verificar se já tem uma função ativa
+    funcao_ativa = UsuarioFuncaoMilitar.objects.filter(
         usuario=request.user,
-        status='ATIVO'
-    ).select_related('cargo_funcao')
+        ativo=True
+    ).first()
+    
+    if funcao_ativa:
+        # Se já tem função ativa, redirecionar para dashboard
+        return redirect('militares:home')
+    
+    # Buscar funções do usuário (agora sincronizadas com a ficha do militar)
+    funcoes_usuario = obter_funcoes_militar_logado(request.user)
+    
+    # Se não tem funções, redireciona para erro
+    if funcoes_usuario.count() == 0:
+        messages.error(request, 'Você não possui funções ativas cadastradas na sua ficha militar.')
+        return redirect('logout')
     
     # Se só tem uma função, seleciona automaticamente
     if funcoes_usuario.count() == 1:
         funcao = funcoes_usuario.first()
-        request.session['funcao_atual_id'] = funcao.id
-        request.session['funcao_atual_nome'] = funcao.cargo_funcao.nome
-        request.session['funcoes_disponiveis'] = list(funcoes_usuario.values('id', 'cargo_funcao__nome'))
-        messages.success(request, f'Função selecionada automaticamente: {funcao.cargo_funcao.nome}')
-        return redirect('militares:militar_dashboard')
-    
-    # Se não tem funções, redireciona para erro
-    if funcoes_usuario.count() == 0:
-        messages.error(request, 'Você não possui funções ativas no sistema.')
-        return redirect('logout')
+        
+        # Desativar todas as funções do usuário (tirar de "em andamento")
+        UsuarioFuncaoMilitar.objects.filter(usuario=request.user).update(ativo=False)
+        
+        # Ativar a função selecionada (colocar "em andamento")
+        funcao.ativo = True
+        funcao.save()
+        
+        # Desativar sessões anteriores
+        from militares.models import UsuarioSessao
+        UsuarioSessao.objects.filter(usuario=request.user, ativo=True).update(ativo=False)
+        
+        # Criar nova sessão
+        sessao = UsuarioSessao.objects.create(
+            usuario=request.user,
+            funcao_militar_usuario=funcao
+        )
+        
+        # Verificar se tem lotação definida
+        lotacao = sessao.get_nivel_lotacao()
+        if lotacao and lotacao != "Sem lotação definida":
+            messages.success(request, f'Função atual definida automaticamente: {funcao.funcao_militar.nome} - Lotação: {lotacao}')
+        else:
+            messages.success(request, f'Função atual definida automaticamente: {funcao.funcao_militar.nome}')
+        
+        return redirect('militares:home')
     
     if request.method == 'POST':
         funcao_id = request.POST.get('funcao_id')
         if funcao_id:
             try:
                 funcao = funcoes_usuario.get(id=funcao_id)
-                request.session['funcao_atual_id'] = funcao.id
-                request.session['funcao_atual_nome'] = funcao.cargo_funcao.nome
-                request.session['funcoes_disponiveis'] = list(funcoes_usuario.values('id', 'cargo_funcao__nome'))
-                messages.success(request, f'Função selecionada: {funcao.cargo_funcao.nome}')
-                return redirect('militares:militar_dashboard')
-            except UsuarioFuncao.DoesNotExist:
+                
+                # Desativar todas as funções do usuário (tirar de "em andamento")
+                UsuarioFuncaoMilitar.objects.filter(usuario=request.user).update(ativo=False)
+                
+                # Ativar a função selecionada (colocar "em andamento")
+                funcao.ativo = True
+                funcao.save()
+                
+                # Desativar sessões anteriores
+                from militares.models import UsuarioSessao
+                UsuarioSessao.objects.filter(usuario=request.user, ativo=True).update(ativo=False)
+                
+                # Criar nova sessão
+                sessao = UsuarioSessao.objects.create(
+                    usuario=request.user,
+                    funcao_militar_usuario=funcao
+                )
+                
+                # Verificar se tem lotação definida
+                lotacao = sessao.get_nivel_lotacao()
+                if lotacao and lotacao != "Sem lotação definida":
+                    messages.success(request, f'Função atual definida: {funcao.funcao_militar.nome} - Lotação: {lotacao}')
+                else:
+                    messages.success(request, f'Função atual definida: {funcao.funcao_militar.nome}')
+                
+                print(f"DEBUG - Redirecionando para dashboard após definir função: {funcao.funcao_militar.nome}")
+                return redirect('militares:home')
+            except UsuarioFuncaoMilitar.DoesNotExist:
                 messages.error(request, 'Função inválida selecionada.')
     
     context = {
@@ -14026,6 +16199,133 @@ def selecionar_funcao(request):
         'usuario': request.user,
     }
     return render(request, 'militares/usuarios/selecionar_funcao.html', context)
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def trocar_funcao_ajax(request):
+    """
+    View para trocar função via AJAX
+    Agora trabalha diretamente com MilitarFuncao
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'message': 'Usuário não autenticado'})
+    
+    try:
+        data = json.loads(request.body)
+        funcao_id = data.get('funcao_id')
+        
+        if not funcao_id:
+            return JsonResponse({'success': False, 'message': 'ID da função é obrigatório'})
+        
+        # Verificar se o usuário tem militar associado
+        if not hasattr(request.user, 'militar') or not request.user.militar:
+            return JsonResponse({'success': False, 'message': 'Usuário não possui militar associado'})
+        
+        # Buscar a função do militar
+        from militares.models import MilitarFuncao, UsuarioSessao, UsuarioFuncaoMilitar
+        
+        funcao_militar = MilitarFuncao.objects.get(
+            id=funcao_id,
+            militar=request.user.militar,
+            status='ATUAL',
+            ativo=True
+        )
+        
+        # Obter lotação atual do militar
+        lotacao_atual = request.user.militar.lotacao_atual()
+        
+        # Buscar lotação do militar para configurar os campos de acesso
+        from militares.models import Lotacao
+        lotacao_obj = Lotacao.objects.filter(
+            militar=request.user.militar,
+            status='ATUAL',
+            ativo=True
+        ).first()
+        
+        # Criar ou atualizar UsuarioFuncaoMilitar para compatibilidade com o sistema de sessões
+        usuario_funcao, created = UsuarioFuncaoMilitar.objects.get_or_create(
+            usuario=request.user,
+            funcao_militar=funcao_militar.funcao_militar,
+            defaults={
+                'tipo_funcao': funcao_militar.tipo_funcao,
+                'nivel_acesso': funcao_militar.funcao_militar.acesso,  # Usar o acesso da função militar
+                'orgao': lotacao_obj.orgao if lotacao_obj else None,
+                'grande_comando': lotacao_obj.grande_comando if lotacao_obj else None,
+                'unidade': lotacao_obj.unidade if lotacao_obj else None,
+                'sub_unidade': lotacao_obj.sub_unidade if lotacao_obj else None,
+                'ativo': True,
+            }
+        )
+        
+        if not created:
+            # Atualizar função existente
+            usuario_funcao.tipo_funcao = funcao_militar.tipo_funcao
+            usuario_funcao.nivel_acesso = funcao_militar.funcao_militar.acesso  # Atualizar também o nível de acesso
+            usuario_funcao.orgao = lotacao_obj.orgao if lotacao_obj else None
+            usuario_funcao.grande_comando = lotacao_obj.grande_comando if lotacao_obj else None
+            usuario_funcao.unidade = lotacao_obj.unidade if lotacao_obj else None
+            usuario_funcao.sub_unidade = lotacao_obj.sub_unidade if lotacao_obj else None
+            usuario_funcao.ativo = True
+            usuario_funcao.save()
+        
+        # Desativar todas as outras funções do usuário
+        UsuarioFuncaoMilitar.objects.filter(
+            usuario=request.user
+        ).exclude(id=usuario_funcao.id).update(ativo=False)
+        
+        # Desativar sessões anteriores
+        UsuarioSessao.objects.filter(usuario=request.user, ativo=True).update(ativo=False)
+        
+        # Criar nova sessão
+        sessao = UsuarioSessao.objects.create(
+            usuario=request.user,
+            funcao_militar_usuario=usuario_funcao
+        )
+        
+        # Atualizar sessão do Django com informações da função
+        request.session['funcao_atual_id'] = usuario_funcao.id
+        request.session['funcao_atual_nome'] = funcao_militar.funcao_militar.nome
+        request.session['sessao_militar_id'] = sessao.id
+        
+        # Forçar atualização do menu marcando a sessão como modificada
+        request.session.modified = True
+        
+        # Verificar se tem lotação definida
+        lotacao = request.user.militar.lotacao_atual()
+        
+        # Atualizar informações de lotação na sessão
+        if lotacao and lotacao != "Sem lotação definida":
+            request.session['funcao_lotacao'] = str(lotacao)
+        else:
+            request.session.pop('funcao_lotacao', None)
+        
+        # Obter permissões da nova função para debug
+        funcao_militar_obj = funcao_militar.funcao_militar
+        menu_permissions = funcao_militar_obj.get_menu_permissions()
+        
+        print(f"[TROCA] Função alterada para: {funcao_militar_obj.nome}")
+        print(f"   - Dashboard: {menu_permissions.get('show_dashboard', False)}")
+        print(f"   - Efetivo: {menu_permissions.get('show_efetivo', False)}")
+        print(f"   - Seção Promoções: {menu_permissions.get('show_secao_promocoes', False)}")
+        print(f"   - Administração: {menu_permissions.get('show_administracao', False)}")
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Função alterada para: {funcao_militar_obj.nome}',
+            'funcao_nome': funcao_militar_obj.nome,
+            'lotacao': str(lotacao) if lotacao and lotacao != "Sem lotação definida" else None,
+            'sessao_id': sessao.id,
+            'sincronizacao': {
+                'funcoes_criadas': 1 if created else 0,
+                'funcoes_atualizadas': 0 if created else 1,
+                'funcoes_desativadas': 0
+            }
+        })
+        
+    except MilitarFuncao.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Função não encontrada'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Erro: {str(e)}'})
 
 def trocar_funcao(request):
     """
@@ -14035,10 +16335,9 @@ def trocar_funcao(request):
         return redirect('login')
     
     # Buscar funções ativas do usuário
-    funcoes_usuario = UsuarioFuncao.objects.filter(
-        usuario=request.user,
-        status='ATIVO'
-    ).select_related('cargo_funcao')
+    funcoes_usuario = UsuarioFuncaoMilitar.objects.filter(
+        usuario=request.user
+    ).select_related('funcao_militar')
     
     if request.method == 'POST':
         funcao_id = request.POST.get('funcao_id')
@@ -14046,11 +16345,11 @@ def trocar_funcao(request):
             try:
                 funcao = funcoes_usuario.get(id=funcao_id)
                 request.session['funcao_atual_id'] = funcao.id
-                request.session['funcao_atual_nome'] = funcao.cargo_funcao.nome
-                request.session['funcoes_disponiveis'] = list(funcoes_usuario.values('id', 'cargo_funcao__nome'))
-                messages.success(request, f'Função alterada para: {funcao.cargo_funcao.nome}')
+                request.session['funcao_atual_nome'] = funcao.funcao_militar.nome
+                request.session['funcoes_disponiveis'] = list(funcoes_usuario.values('id', 'funcao_militar__nome'))
+                messages.success(request, f'Função alterada para: {funcao.funcao_militar.nome}')
                 return redirect(request.POST.get('next', 'militares:militar_dashboard'))
-            except UsuarioFuncao.DoesNotExist:
+            except UsuarioFuncaoMilitar.DoesNotExist:
                 messages.error(request, 'Função inválida selecionada.')
     
     context = {
@@ -14071,8 +16370,8 @@ def obter_funcao_atual(request):
     funcao_id = request.session.get('funcao_atual_id')
     if funcao_id:
         try:
-            return UsuarioFuncao.objects.get(id=funcao_id, usuario=request.user)
-        except UsuarioFuncao.DoesNotExist:
+            return UsuarioFuncaoMilitar.objects.get(id=funcao_id, usuario=request.user)
+        except UsuarioFuncaoMilitar.DoesNotExist:
             # Se a função não existe mais, limpa a sessão
             request.session.pop('funcao_atual_id', None)
             request.session.pop('funcao_atual_nome', None)
@@ -14101,7 +16400,7 @@ def alterar_senha(request):
     return render(request, 'militares/usuarios/alterar_senha.html', context)
 
 @login_required
-@permission_required('auth.change_user')
+@administracao_required
 def alterar_senha_usuario(request, pk):
     """View para administradores alterarem senha de outros usuários"""
     usuario = get_object_or_404(User, pk=pk)
@@ -14230,65 +16529,6 @@ class AlterarSenhaAdminForm(forms.Form):
             self.user.save()
         return self.user
 
-@login_required
-def cargo_funcao_delete(request, cargo_id):
-    """
-    Exclui um cargo/função e todas as suas relações
-    - Remove todas as funções de usuários vinculadas
-    - Remove todas as permissões vinculadas
-    - Exclui o cargo/função
-    """
-    cargo = get_object_or_404(CargoFuncao, pk=cargo_id)
-    erro_protegido = False
-    
-    # Buscar todas as relações
-    usuarios_com_funcao = UsuarioFuncao.objects.filter(cargo_funcao=cargo)
-    permissoes_vinculadas = PermissaoFuncao.objects.filter(cargo_funcao=cargo)
-    
-    if request.method == 'POST':
-        try:
-            # Contadores para feedback
-            usuarios_removidos = 0
-            permissoes_removidas = 0
-            
-            # 1. Remover todas as funções de usuários vinculadas
-            if usuarios_com_funcao.exists():
-                usuarios_removidos = usuarios_com_funcao.count()
-                usuarios_com_funcao.delete()
-                messages.warning(request, f'{usuarios_removidos} função(ões) de usuário(s) removida(s) automaticamente.')
-            
-            # 2. Remover todas as permissões vinculadas
-            if permissoes_vinculadas.exists():
-                permissoes_removidas = permissoes_vinculadas.count()
-                permissoes_vinculadas.delete()
-                messages.warning(request, f'{permissoes_removidas} permissão(ões) removida(s) automaticamente.')
-            
-            # 3. Excluir o cargo/função
-            nome_cargo = cargo.nome
-            cargo.delete()
-            
-            # Mensagem de sucesso
-            if usuarios_removidos > 0 or permissoes_removidas > 0:
-                messages.success(request, f'Cargo/Função "{nome_cargo}" excluído com sucesso! {usuarios_removidos} função(ões) de usuário(s) e {permissoes_removidas} permissão(ões) foram removidas automaticamente.')
-            else:
-                messages.success(request, f'Cargo/Função "{nome_cargo}" excluído com sucesso!')
-            
-            return redirect('militares:cargo_funcao_list')
-            
-        except Exception as e:
-            erro_protegido = True
-            messages.error(request, f'Erro ao excluir cargo/função: {str(e)}')
-    
-    context = {
-        'cargo': cargo,
-        'erro_protegido': erro_protegido,
-        'usuarios_com_funcao': usuarios_com_funcao,
-        'permissoes_vinculadas': permissoes_vinculadas,
-        'total_usuarios': usuarios_com_funcao.count(),
-        'total_permissoes': permissoes_vinculadas.count(),
-    }
-    return render(request, 'militares/cargos/cargo_funcao_confirm_delete.html', context)
-
 from django.contrib.auth.models import Group, Permission
 from django.contrib.auth.decorators import login_required, permission_required
 from django.shortcuts import render, redirect, get_object_or_404
@@ -14309,32 +16549,32 @@ def buscar_funcao_militar(request):
         funcao_militar = None
         if militar.user:
             # Buscar função ativa do usuário
-            funcao_usuario = UsuarioFuncao.objects.filter(
+            funcao_usuario = UsuarioFuncaoMilitar.objects.filter(
                 usuario=militar.user,
-                status='ATIVO'
-            ).select_related('cargo_funcao').first()
+                ativo=True
+            ).select_related('funcao_militar').first()
             
             if funcao_usuario:
                 funcao_militar = {
-                    'id': funcao_usuario.cargo_funcao.id,
-                    'nome': funcao_usuario.cargo_funcao.nome,
+                    'id': funcao_usuario.funcao_militar.id,
+                    'nome': funcao_usuario.funcao_militar.nome,
                     'tipo': funcao_usuario.get_tipo_funcao_display()
                 }
         
         # Se não encontrou função via usuário, buscar todas as funções do usuário
         if not funcao_militar and militar.user:
             # Buscar todas as funções ativas do usuário
-            funcoes_usuario = UsuarioFuncao.objects.filter(
+            funcoes_usuario = UsuarioFuncaoMilitar.objects.filter(
                 usuario=militar.user,
                 status='AT'
-            ).select_related('cargo_funcao').order_by('cargo_funcao__nome')
+            ).select_related('funcao_militar').order_by('funcao_militar__nome')
             
             if funcoes_usuario.exists():
                 # Se há múltiplas funções, retornar a primeira como padrão
                 funcao_usuario = funcoes_usuario.first()
                 funcao_militar = {
-                    'id': funcao_usuario.cargo_funcao.id,
-                    'nome': funcao_usuario.cargo_funcao.nome,
+                    'id': funcao_usuario.funcao_militar.id,
+                    'nome': funcao_usuario.funcao_militar.nome,
                     'tipo': funcao_usuario.get_tipo_funcao_display()
                 }
         
@@ -14366,18 +16606,18 @@ def buscar_funcoes_usuario(request):
         usuario = User.objects.get(pk=usuario_id)
         
         # Buscar todas as funções ativas do usuário
-        funcoes_usuario = UsuarioFuncao.objects.filter(
+        funcoes_usuario = UsuarioFuncaoMilitar.objects.filter(
             usuario=usuario,
             status='AT'
-        ).select_related('cargo_funcao').order_by('cargo_funcao__nome')
+        ).select_related('funcao_militar').order_by('funcao_militar__nome')
         
         funcoes = []
         for funcao in funcoes_usuario:
             funcoes.append({
-                'id': funcao.cargo_funcao.id,
-                'nome': funcao.cargo_funcao.nome,
+                'id': funcao.funcao_militar.id,
+                'nome': funcao.funcao_militar.nome,
                 'tipo': funcao.get_tipo_funcao_display(),
-                'descricao': funcao.cargo_funcao.descricao or '',
+                'descricao': funcao.funcao_militar.descricao or '',
                 'data_inicio': funcao.data_inicio.strftime('%d/%m/%Y'),
                 'data_fim': funcao.data_fim.strftime('%d/%m/%Y') if funcao.data_fim else None
             })
@@ -14698,13 +16938,23 @@ def quadro_fixacao_vagas_visualizar_html(request, pk):
     
     itens_por_quadro = itens_por_quadro_ordenado
     
-    # Obter funções do usuário para o modal de assinatura
-    funcoes_usuario = request.user.funcoes.all() if hasattr(request.user, 'funcoes') else []
+    # Obter funções ativas do usuário para o modal de assinatura
+    from militares.models import UsuarioFuncaoMilitar
+    funcoes_usuario = UsuarioFuncaoMilitar.objects.filter(
+        usuario=request.user
+    ).select_related('funcao_militar')
+    
+    # Obter função atual do usuário
+    funcao_atual = None
+    funcao_ativa = funcoes_usuario.filter(ativo=True).first()
+    if funcao_ativa:
+        funcao_atual = funcao_ativa.funcao_militar.nome
     
     context = {
         'quadro': quadro,
         'assinaturas': assinaturas,
         'funcoes_usuario': funcoes_usuario,
+        'funcao_atual': funcao_atual,
         'itens_por_quadro': itens_por_quadro,
     }
     
@@ -15026,7 +17276,7 @@ def voto_deliberacao_pdf(request, pk):
         [Paragraph('<b>Comissão:</b>', style_bold), Paragraph(voto.deliberacao.sessao.comissao.nome, styles['Normal'])],
         [Paragraph('<b>Data da Sessão:</b>', style_bold), Paragraph(voto.deliberacao.sessao.data_sessao.strftime('%d/%m/%Y'), styles['Normal'])],
         [Paragraph('<b>Membro:</b>', style_bold), Paragraph(voto.membro.militar.nome_completo, styles['Normal'])],
-        [Paragraph('<b>Função:</b>', style_bold), Paragraph(voto.membro.cargo.nome if hasattr(voto.membro, 'cargo') and voto.membro.cargo else 'Membro da Comissão', styles['Normal'])],
+        [Paragraph('<b>Função:</b>', style_bold), Paragraph(voto.funcao_assinatura or 'Membro da Comissão', styles['Normal'])],
         [Paragraph('<b>Opção de Voto:</b>', style_bold), Paragraph(voto.get_voto_display(), styles['Normal'])],
     ]
     info_table = Table(info_data, colWidths=[4*cm, 11*cm], hAlign='LEFT')
@@ -15035,12 +17285,12 @@ def voto_deliberacao_pdf(request, pk):
         ('ALIGN', (0, 0), (0, -1), 'LEFT'),
         ('ALIGN', (1, 0), (1, -1), 'LEFT'),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
         ('LEFTPADDING', (0, 0), (-1, -1), 0),
         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
     ]))
     story.append(info_table)
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 40))
 
     # Voto proferido (espaçamento 1,15 e justificado)
     if voto.voto_proferido:
@@ -15049,9 +17299,38 @@ def voto_deliberacao_pdf(request, pk):
         # Criar estilo com espaçamento 1,15 e justificado
         style_voto = ParagraphStyle('voto', parent=styles['Normal'], leading=15, alignment=4)
         story.append(Paragraph(voto.voto_proferido, style_voto))
-        story.append(Spacer(1, 20))
+        story.append(Spacer(1, 40))
 
-    # Assinatura Eletrônica (padrão dos quadros)
+    # Cidade, UF e Data (igual ao template)
+    story.append(Spacer(1, 20))
+    
+    # Mapear meses para português
+    meses = {
+        1: 'janeiro', 2: 'fevereiro', 3: 'março', 4: 'abril',
+        5: 'maio', 6: 'junho', 7: 'julho', 8: 'agosto',
+        9: 'setembro', 10: 'outubro', 11: 'novembro', 12: 'dezembro'
+    }
+    
+    data_registro = voto.data_registro
+    dia = data_registro.day
+    mes = meses[data_registro.month]
+    ano = data_registro.year
+    
+    data_texto = f"Teresina - PI, {dia} de {mes} de {ano}."
+    story.append(Paragraph(f"<center>{data_texto}</center>", style_center))
+    story.append(Spacer(1, 20))
+    
+    # Assinatura Física (igual ao template)
+    story.append(Paragraph(f"<center><b>{voto.membro.militar.nome_completo}</b></center>", style_center))
+    story.append(Spacer(1, 4))
+    
+    funcao_assinatura = voto.funcao_assinatura or "Membro da Comissão"
+    story.append(Paragraph(f"<center><font size='10' color='#888888'>{funcao_assinatura}</font></center>", style_center))
+    story.append(Spacer(1, 2))
+    story.append(Paragraph("<center><font size='8'><b>Voto</b></font></center>", style_center))
+    story.append(Spacer(1, 20))
+
+    # Assinatura Eletrônica (padrão dos quadros) - NO FINAL DA FOLHA
     if voto.assinado and voto.data_assinatura:
         # Informações de assinatura eletrônica
         nome_assinante = voto.membro.militar.nome_completo
@@ -15065,7 +17344,7 @@ def voto_deliberacao_pdf(request, pk):
             nome_assinante = f"{posto} {voto.membro.militar.nome_completo}"
         
         # Função da assinatura
-        funcao = voto.funcao_assinatura or voto.membro.cargo.nome if hasattr(voto.membro, 'cargo') and voto.membro.cargo else "Membro da Comissão"
+        funcao = voto.funcao_assinatura or "Membro da Comissão"
         
         # Data e hora da assinatura
         from django.utils import timezone
@@ -15075,31 +17354,30 @@ def voto_deliberacao_pdf(request, pk):
         
         texto_assinatura = f"Documento assinado eletronicamente por {nome_assinante} - {funcao}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
         
-        # Adicionar logo do CBMEPI
-        logo_path = os.path.join(settings.STATIC_ROOT, 'logo_cbmepi.png')
-        if not os.path.exists(logo_path):
-            logo_path = os.path.join(settings.STATICFILES_DIRS[0], 'logo_cbmepi.png') if settings.STATICFILES_DIRS else os.path.join(settings.BASE_DIR, 'static', 'logo_cbmepi.png')
+        # Adicionar logo da assinatura eletrônica
+        from .utils import obter_caminho_assinatura_eletronica
+        logo_path = obter_caminho_assinatura_eletronica()
         
         # Tabela das assinaturas: Logo + Texto de assinatura
         assinatura_data = [
-            [Image(logo_path, width=1.5*cm, height=1.5*cm), Paragraph(texto_assinatura, style_small)]
+            [Image(obter_caminho_assinatura_eletronica(), width=3.5*cm, height=2.0*cm), Paragraph(texto_assinatura, style_small)]
         ]
         
-        assinatura_table = Table(assinatura_data, colWidths=[2*cm, 14*cm])
+        assinatura_table = Table(assinatura_data, colWidths=[3*cm, 13*cm])
         assinatura_table.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # Logo centralizado
             ('ALIGN', (1, 0), (1, 0), 'LEFT'),    # Texto alinhado à esquerda
-            ('LEFTPADDING', (0, 0), (-1, -1), 2),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-            ('TOPPADDING', (0, 0), (-1, -1), 2),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+            ('LEFTPADDING', (0, 0), (-1, -1), 1),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 1),
+            ('TOPPADDING', (0, 0), (-1, -1), 1),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
         ]))
         
         story.append(assinatura_table)
         story.append(Spacer(1, 20))
 
-    # Rodapé com QR Code (padrão dos quadros)
+    # Rodapé com QR Code (padrão dos quadros) - NO FINAL DA FOLHA
     # Gerar URL de autenticação
     from django.urls import reverse
     from django.contrib.sites.shortcuts import get_current_site
@@ -15109,7 +17387,7 @@ def voto_deliberacao_pdf(request, pk):
     url_autenticacao = f"{protocol}://{current_site.domain}{reverse('militares:voto_visualizar_assinar', kwargs={'pk': voto.pk})}"
     
     # Rodapé com QR Code para conferência de veracidade
-    story.append(Spacer(1, 13))
+    story.append(Spacer(1, 8))
     story.append(HRFlowable(width="100%", thickness=1, spaceAfter=10, spaceBefore=10, color=colors.grey))
     
     # Usar a função utilitária para gerar o autenticador
@@ -15121,15 +17399,15 @@ def voto_deliberacao_pdf(request, pk):
         [autenticador['qr_img'], Paragraph(autenticador['texto_autenticacao'], style_small)]
     ]
     
-    rodape_table = Table(rodape_data, colWidths=[2*cm, 14*cm])
+    rodape_table = Table(rodape_data, colWidths=[3*cm, 13*cm])
     rodape_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # QR centralizado
         ('ALIGN', (1, 0), (1, 0), 'LEFT'),    # Texto alinhado à esquerda
-        ('LEFTPADDING', (0, 0), (-1, -1), 2),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LEFTPADDING', (0, 0), (-1, -1), 1),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 1),
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
     ]))
     
     story.append(rodape_table)
@@ -15147,19 +17425,36 @@ from django.contrib.auth.decorators import login_required
 
 @login_required
 def voto_visualizar_assinar(request, pk):
-    from .models import VotoDeliberacao, UsuarioFuncao
+    from .models import VotoDeliberacao, UsuarioFuncaoMilitar, MilitarFuncao
+    from django.utils import timezone
+    
     voto = get_object_or_404(VotoDeliberacao, pk=pk, membro__usuario=request.user)
     
-    # Buscar funções ativas do usuário
-    funcoes_usuario = UsuarioFuncao.objects.filter(
-        usuario=request.user,
-        status='ATIVO'
-    ).select_related('cargo_funcao').order_by('cargo_funcao__nome')
+    # Buscar todas as funções ATUAIS do usuário
+    # Todas as funções ficam ATUAIS até você marcar para parar de exercer
+    militar = None
+    if hasattr(request.user, 'militar') and request.user.militar:
+        militar = request.user.militar
+        
+        # Buscar APENAS funções ATUAIS do militar
+        funcoes_usuario = MilitarFuncao.objects.filter(
+            militar=militar,
+            status='ATUAL'
+        ).select_related('funcao_militar').order_by('funcao_militar__nome')
+        
+    else:
+        # Fallback: usar o método antigo se não houver militar vinculado
+        funcoes_usuario = UsuarioFuncaoMilitar.objects.filter(
+            usuario=request.user
+        ).select_related('funcao_militar').order_by('funcao_militar__nome')
     
     # Função atual selecionada (da sessão ou primeira disponível)
-    funcao_atual = request.session.get('funcao_atual_nome', )
-    if not funcao_atual and funcoes_usuario.exists():
-        funcao_atual = funcoes_usuario.first().cargo_funcao.nome
+    funcao_atual = request.session.get('funcao_atual_nome', '')
+    if not funcao_atual and funcoes_usuario:
+        if hasattr(funcoes_usuario[0], 'funcao_militar'):
+            funcao_atual = funcoes_usuario[0].funcao_militar.nome
+        else:
+            funcao_atual = funcoes_usuario[0].funcao_militar.nome
     
     context = {
         'voto': voto,
@@ -15213,7 +17508,6 @@ def verificar_autenticidade(request):
     if request.method == 'POST':
         codigo_verificador = request.POST.get('codigo_verificador', '').strip()
         codigo_crc = request.POST.get('codigo_crc', '').strip()
-        tipo_documento = request.POST.get('tipo_documento', '')
         
         if codigo_verificador and codigo_crc:
             try:
@@ -15225,49 +17519,139 @@ def verificar_autenticidade(request):
                     codigo_crc_esperado = f"{hash(str(documento_id)) % 0xFFFFFFF:07X}"
                     
                     if codigo_crc.upper() == codigo_crc_esperado:
-                        # Buscar o documento baseado no tipo
-                        if tipo_documento == 'quadro':
-                            documento = get_object_or_404(QuadroAcesso, pk=documento_id)
+                        # Buscar o documento automaticamente baseado no ID
+                        documento_encontrado = False
+                        
+                        # Tentar Quadro de Acesso
+                        try:
+                            documento = QuadroAcesso.objects.get(pk=documento_id)
                             resultado = {
                                 'tipo': 'Quadro de Acesso',
                                 'titulo': f'Quadro de Acesso - {documento.get_tipo_display()}',
                                 'data_criacao': documento.data_criacao,
                                 'assinaturas': documento.assinaturas.count()
                             }
-                        elif tipo_documento == 'ata':
-                            documento = get_object_or_404(AtaSessao, pk=documento_id)
-                            resultado = {
-                                'tipo': 'Ata de Sessão',
-                                'titulo': f'Ata da Sessão {documento.sessao.numero}',
-                                'data_criacao': documento.sessao.data_sessao,
-                                'assinaturas': documento.assinaturas.count()
-                            }
-                        elif tipo_documento == 'voto':
-                            documento = get_object_or_404(VotoDeliberacao, pk=documento_id)
-                            resultado = {
-                                'tipo': 'Voto de Deliberação',
-                                'titulo': f'Voto de {documento.membro.militar.nome_completo}',
-                                'data_criacao': documento.data_registro,
-                                'assinaturas': 1 if documento.assinado else 0
-                            }
-                        elif tipo_documento == 'quadro_fixacao':
-                            documento = get_object_or_404(QuadroFixacaoVagas, pk=documento_id)
-                            resultado = {
-                                'tipo': 'Quadro de Fixação de Vagas',
-                                'titulo': f'Quadro de Fixação - {documento.get_tipo_display()}',
-                                'data_criacao': documento.data_criacao,
-                                'assinaturas': documento.assinaturas.count()
-                            }
-                        elif tipo_documento == 'calendario_promocao':
-                            documento = get_object_or_404(CalendarioPromocao, pk=documento_id)
-                            resultado = {
-                                'tipo': 'Calendário de Promoção',
-                                'titulo': documento.get_titulo_completo(),
-                                'data_criacao': documento.data_criacao,
-                                'assinaturas': documento.assinaturas.count()
-                            }
-                        else:
-                            erro = "Tipo de documento não reconhecido."
+                            documento_encontrado = True
+                        except QuadroAcesso.DoesNotExist:
+                            pass
+                        
+                        # Tentar Quadro de Fixação de Vagas
+                        if not documento_encontrado:
+                            try:
+                                documento = QuadroFixacaoVagas.objects.get(pk=documento_id)
+                                resultado = {
+                                    'tipo': 'Quadro de Fixação de Vagas',
+                                    'titulo': f'Quadro de Fixação - {documento.get_tipo_display()}',
+                                    'data_criacao': documento.data_criacao,
+                                    'assinaturas': documento.assinaturas.count()
+                                }
+                                documento_encontrado = True
+                            except QuadroFixacaoVagas.DoesNotExist:
+                                pass
+                        
+                        # Tentar Nota de Serviço
+                        if not documento_encontrado:
+                            try:
+                                from .models import Publicacao
+                                documento = Publicacao.objects.get(pk=documento_id, tipo='NOTA')
+                                resultado = {
+                                    'tipo': 'Nota de Serviço',
+                                    'titulo': f'Nota {documento.numero} - {documento.titulo}',
+                                    'data_criacao': documento.data_criacao,
+                                    'assinaturas': documento.assinaturas.count()
+                                }
+                                documento_encontrado = True
+                            except Publicacao.DoesNotExist:
+                                pass
+                        
+                        # Tentar Boletim Ostensivo
+                        if not documento_encontrado:
+                            try:
+                                from .models import Publicacao
+                                documento = Publicacao.objects.get(pk=documento_id, tipo='BOLETIM_OSTENSIVO')
+                                resultado = {
+                                    'tipo': 'Boletim Ostensivo',
+                                    'titulo': f'Boletim Nº {documento.numero} - {documento.titulo}',
+                                    'data_criacao': documento.data_criacao,
+                                    'assinaturas': documento.assinaturas.count()
+                                }
+                                documento_encontrado = True
+                            except Publicacao.DoesNotExist:
+                                pass
+                        
+                        # Tentar Ata de Sessão
+                        if not documento_encontrado:
+                            try:
+                                documento = AtaSessao.objects.get(pk=documento_id)
+                                resultado = {
+                                    'tipo': 'Ata de Sessão',
+                                    'titulo': f'Ata da Sessão {documento.sessao.numero}',
+                                    'data_criacao': documento.sessao.data_sessao,
+                                    'assinaturas': documento.assinaturas.count()
+                                }
+                                documento_encontrado = True
+                            except AtaSessao.DoesNotExist:
+                                pass
+                        
+                        # Tentar Voto de Deliberação
+                        if not documento_encontrado:
+                            try:
+                                documento = VotoDeliberacao.objects.get(pk=documento_id)
+                                resultado = {
+                                    'tipo': 'Voto de Deliberação',
+                                    'titulo': f'Voto de {documento.membro.militar.nome_completo}',
+                                    'data_criacao': documento.data_registro,
+                                    'assinaturas': 1 if documento.assinado else 0
+                                }
+                                documento_encontrado = True
+                            except VotoDeliberacao.DoesNotExist:
+                                pass
+                        
+                        # Tentar Calendário de Promoção
+                        if not documento_encontrado:
+                            try:
+                                documento = CalendarioPromocao.objects.get(pk=documento_id)
+                                resultado = {
+                                    'tipo': 'Calendário de Promoção',
+                                    'titulo': documento.get_titulo_completo(),
+                                    'data_criacao': documento.data_criacao,
+                                    'assinaturas': documento.assinaturas.count()
+                                }
+                                documento_encontrado = True
+                            except CalendarioPromocao.DoesNotExist:
+                                pass
+                        
+                        # Tentar Almanaque Militar
+                        if not documento_encontrado:
+                            try:
+                                documento = AlmanaqueMilitar.objects.get(pk=documento_id)
+                                resultado = {
+                                    'tipo': 'Almanaque Militar',
+                                    'titulo': f'{documento.numero} - {documento.titulo}',
+                                    'data_criacao': documento.data_geracao,
+                                    'assinaturas': documento.assinaturas.count()
+                                }
+                                documento_encontrado = True
+                            except AlmanaqueMilitar.DoesNotExist:
+                                pass
+                        
+                        # Tentar Proposta de Medalhas
+                        if not documento_encontrado:
+                            try:
+                                from .models import PropostaMedalha
+                                documento = PropostaMedalha.objects.get(pk=documento_id)
+                                resultado = {
+                                    'tipo': 'Proposta de Medalhas',
+                                    'titulo': f'Proposta {documento.numero_proposta}',
+                                    'data_criacao': documento.criado_em,
+                                    'assinaturas': documento.assinaturas.count()
+                                }
+                                documento_encontrado = True
+                            except PropostaMedalha.DoesNotExist:
+                                pass
+                        
+                        if not documento_encontrado:
+                            erro = "Documento não encontrado com o código informado."
                     else:
                         erro = "Código CRC inválido. Verifique os códigos informados."
                 else:
@@ -15285,6 +17669,12 @@ def verificar_autenticidade(request):
                 erro = "Quadro de Fixação de Vagas não encontrado com o código informado."
             except CalendarioPromocao.DoesNotExist:
                 erro = "Calendário de Promoção não encontrado com o código informado."
+            except AlmanaqueMilitar.DoesNotExist:
+                erro = "Almanaque Militar não encontrado com o código informado."
+            except PropostaMedalha.DoesNotExist:
+                erro = "Proposta de Medalha não encontrada com o código informado."
+            except Publicacao.DoesNotExist:
+                erro = "Nota de Serviço não encontrada com o código informado."
             except Exception as e:
                 erro = f"Erro interno do sistema. Tente novamente ou entre em contato com o suporte."
         else:
@@ -15293,14 +17683,7 @@ def verificar_autenticidade(request):
     context = {
         'resultado': resultado,
         'documento': documento,
-        'erro': erro,
-        'tipos_documento': [
-            ('quadro', 'Quadro de Acesso'),
-            ('ata', 'Ata de Sessão'),
-            ('voto', 'Voto de Deliberação'),
-            ('quadro_fixacao', 'Quadro de Fixação de Vagas'),
-            ('calendario_promocao', 'Calendário de Promoção'),
-        ]
+        'erro': erro
     }
     
     return render(request, 'militares/verificar_autenticidade.html', context)
@@ -15314,15 +17697,25 @@ def calendario_promocao_list(request):
     from functools import wraps
     
     def has_crud_permission(user):
-        cargos_especiais = ['Diretor de Gestão de Pessoas', 'Chefe da Seção de Promoções']
-        funcoes_especiais = UsuarioFuncao.objects.filter(
+        cargos_especiais = [
+        'Diretor de Gestão de Pessoas', 
+        'Chefe da Seção de Promoções',
+        'Membro Efetivo da Comissão de Promoções de Oficiais',
+        'Membro Efetivo da Comissão de Promoções de Praças'
+    ]
+        funcoes_especiais = UsuarioFuncaoMilitar.objects.filter(
             usuario=user,
-            status='ATIVO',
-            cargo_funcao__nome__in=cargos_especiais
+            ativo=True,
+            funcao_militar__nome__in=cargos_especiais
         )
         return user.is_superuser or user.is_staff or funcoes_especiais.exists()
     
     calendarios = CalendarioPromocao.objects.all().order_by('-ano', '-semestre')
+    
+    # Adicionar alertas para cada calendário
+    for calendario in calendarios:
+        calendario.alertas = calendario.get_alertas_datas()
+        calendario.tem_alertas = len(calendario.alertas) > 0
     
     context = {
         'calendarios': calendarios,
@@ -15342,20 +17735,29 @@ def calendario_promocao_detail(request, pk):
     
     # Verificar se usuário tem permissão para CRUD completo
     def has_crud_permission(user):
-        cargos_especiais = ['Diretor de Gestão de Pessoas', 'Chefe da Seção de Promoções']
-        funcoes_especiais = UsuarioFuncao.objects.filter(
+        cargos_especiais = [
+        'Diretor de Gestão de Pessoas', 
+        'Chefe da Seção de Promoções',
+        'Membro Efetivo da Comissão de Promoções de Oficiais',
+        'Membro Efetivo da Comissão de Promoções de Praças'
+    ]
+        funcoes_especiais = UsuarioFuncaoMilitar.objects.filter(
             usuario=user,
-            status='ATIVO',
-            cargo_funcao__nome__in=cargos_especiais
+            ativo=True,
+            funcao_militar__nome__in=cargos_especiais
         )
         return user.is_superuser or user.is_staff or funcoes_especiais.exists()
     
     itens = calendario.itens.all().order_by('ordem')
     
+    # Adicionar alertas para o calendário
+    alertas = calendario.get_alertas_datas()
+    
     context = {
         'calendario': calendario,
         'itens': itens,
-        'title': f'Calendário {calendario.periodo_completo}',
+        'alertas': alertas,
+        'title': f'Calendário {calendario.numero}',
         'can_edit': has_crud_permission(request.user),
         'active_menu': 'calendario_promocao',
     }
@@ -15372,10 +17774,8 @@ def calendario_promocao_create(request):
         observacoes = request.POST.get('observacoes', '')
         
         if ano and semestre and tipo:
-            # Verificar se já existe um calendário para este ano/semestre/tipo
-            if CalendarioPromocao.objects.filter(ano=ano, semestre=semestre, tipo=tipo).exists():
-                messages.error(request, f'Já existe um calendário para {semestre}º semestre de {ano} - {dict(CalendarioPromocao.TIPO_CHOICES)[tipo]}.')
-                return redirect('militares:calendario_promocao_create')
+            # Permitir múltiplos calendários para o mesmo período
+            # A numeração será gerada automaticamente (CAL-OF-2025/1, CAL-OF-2025/1-A01, etc.)
             
             calendario = CalendarioPromocao.objects.create(
                 ano=ano,
@@ -15384,14 +17784,13 @@ def calendario_promocao_create(request):
                 observacoes=observacoes
             )
             
-            messages.success(request, f'Calendário {calendario.periodo_completo} criado com sucesso!')
+            messages.success(request, f'Calendário {calendario.numero} criado com sucesso!')
             return redirect('militares:calendario_promocao_detail', pk=calendario.pk)
         else:
             messages.error(request, 'Ano, semestre e tipo são obrigatórios.')
     
     context = {
         'title': 'Criar Calendário de Promoção',
-        'anos': [(str(year), str(year)) for year in range(2020, 2031)],
         'semestres': [('1', '1º Semestre'), ('2', '2º Semestre')],
         'tipos': CalendarioPromocao.TIPO_CHOICES,
     }
@@ -15415,10 +17814,8 @@ def calendario_promocao_update(request, pk):
         ativo = request.POST.get('ativo') == 'on'
         
         if ano and semestre and tipo:
-            # Verificar se já existe outro calendário para este ano/semestre/tipo
-            if CalendarioPromocao.objects.filter(ano=ano, semestre=semestre, tipo=tipo).exclude(pk=calendario.pk).exists():
-                messages.error(request, f'Já existe um calendário para {semestre}º semestre de {ano} - {dict(CalendarioPromocao.TIPO_CHOICES)[tipo]}.')
-                return redirect('militares:calendario_promocao_update', pk=pk)
+            # Permitir múltiplos calendários para o mesmo período
+            # A numeração será gerada automaticamente se necessário
             
             calendario.ano = ano
             calendario.semestre = semestre
@@ -15427,7 +17824,7 @@ def calendario_promocao_update(request, pk):
             calendario.ativo = ativo
             calendario.save()
             
-            messages.success(request, f'Calendário {calendario.periodo_completo} atualizado com sucesso!')
+            messages.success(request, f'Calendário {calendario.numero} atualizado com sucesso!')
             return redirect('militares:calendario_promocao_detail', pk=calendario.pk)
         else:
             messages.error(request, 'Ano, semestre e tipo são obrigatórios.')
@@ -15435,7 +17832,6 @@ def calendario_promocao_update(request, pk):
     context = {
         'calendario': calendario,
         'title': f'Editar Calendário {calendario.periodo_completo}',
-        'anos': [(str(year), str(year)) for year in range(2020, 2031)],
         'semestres': [('1', '1º Semestre'), ('2', '2º Semestre')],
         'tipos': CalendarioPromocao.TIPO_CHOICES,
     }
@@ -15691,9 +18087,9 @@ def calendario_promocao_visualizar_assinatura(request, pk):
         ]
         
         # Verificar se tem funções ativas
-        funcoes_ativas = UsuarioFuncao.objects.filter(
+        funcoes_ativas = UsuarioFuncaoMilitar.objects.filter(
             usuario=request.user,
-            status='ATIVO',
+            ativo=True,
             data_fim__isnull=True
         )
         
@@ -15707,7 +18103,7 @@ def calendario_promocao_visualizar_assinatura(request, pk):
         # Verificar se tem funções específicas ou é membro de comissão
         tem_funcao_especifica = False
         for funcao in funcoes_ativas:
-            if any(nome in funcao.cargo_funcao.nome for nome in funcoes_especificas):
+            if any(nome in funcao.funcao_militar.nome for nome in funcoes_especificas):
                 tem_funcao_especifica = True
                 break
         
@@ -15740,9 +18136,9 @@ def calendario_promocao_visualizar_assinatura(request, pk):
                     funcoes_adicionadas.add(nome_funcao)
         
         # Buscar TODAS as funções específicas do usuário (sem filtrar)
-        funcoes_especificas = UsuarioFuncao.objects.filter(
+        funcoes_especificas = UsuarioFuncaoMilitar.objects.filter(
             usuario=request.user,
-            status='ATIVO',
+            ativo=True,
             data_fim__isnull=True
         )
         
@@ -15750,7 +18146,7 @@ def calendario_promocao_visualizar_assinatura(request, pk):
         
         # Adicionar TODAS as funções específicas do usuário (sem filtrar)
         for funcao in funcoes_especificas:
-            nome_funcao = funcao.cargo_funcao.nome
+            nome_funcao = funcao.funcao_militar.nome
             if nome_funcao not in funcoes_adicionadas:
                 print(f"DEBUG: Adicionando função específica: {nome_funcao}")
                 funcoes_usuario.append({
@@ -15814,9 +18210,9 @@ def calendario_promocao_assinar(request, pk):
     ]
     
     # Verificar se tem funções ativas
-    funcoes_ativas = UsuarioFuncao.objects.filter(
+    funcoes_ativas = UsuarioFuncaoMilitar.objects.filter(
         usuario=request.user,
-        status='ATIVO',
+        ativo=True,
         data_fim__isnull=True
     )
     
@@ -15830,7 +18226,7 @@ def calendario_promocao_assinar(request, pk):
     # Verificar se tem funções específicas ou é membro de comissão
     tem_funcao_especifica = False
     for funcao in funcoes_ativas:
-        if any(nome in funcao.cargo_funcao.nome for nome in funcoes_especificas):
+        if any(nome in funcao.funcao_militar.nome for nome in funcoes_especificas):
             tem_funcao_especifica = True
             break
     
@@ -15983,11 +18379,31 @@ def calendario_promocao_gerar_pdf(request, pk):
         story.append(Image(logo_path, width=2.5*cm, height=2.5*cm, hAlign='CENTER'))
         story.append(Spacer(1, 6))
 
+    # Determinar local de geração baseado na função do usuário (hierarquia completa)
+    local_geracao = "DIRETORIA DE GESTÃO DE PESSOAS"
+    funcao_usuario = obter_funcao_militar_ativa(request.user)
+    if funcao_usuario and funcao_usuario.funcao_militar:
+        hierarquia = []
+        
+        # Construir hierarquia completa até a instância mais específica
+        if hasattr(funcao_usuario, 'orgao') and funcao_usuario.orgao:
+            hierarquia.append(funcao_usuario.orgao.nome.upper())
+        if hasattr(funcao_usuario, 'grande_comando') and funcao_usuario.grande_comando:
+            hierarquia.append(funcao_usuario.grande_comando.nome.upper())
+        if hasattr(funcao_usuario, 'unidade') and funcao_usuario.unidade:
+            hierarquia.append(funcao_usuario.unidade.nome.upper())
+        if hasattr(funcao_usuario, 'sub_unidade') and funcao_usuario.sub_unidade:
+            hierarquia.append(funcao_usuario.sub_unidade.nome.upper())
+        
+        # Se encontrou alguma instância, usar a mais específica (última da lista)
+        if hierarquia:
+            local_geracao = hierarquia[-1]
+    
     # Cabeçalho institucional
     cabecalho = [
         "GOVERNO DO ESTADO DO PIAUÍ",
         "CORPO DE BOMBEIROS MILITAR DO ESTADO DO PIAUÍ",
-        "DIRETORIA DE GESTÃO DE PESSOAS",
+        local_geracao,
         "Av. Miguel Rosa, 3515 - Bairro Piçarra, Teresina/PI, CEP 64001-490",
         "Telefone: (86)3216-1264 - http://www.cbm.pi.gov.br"
     ]
@@ -16023,12 +18439,12 @@ def calendario_promocao_gerar_pdf(request, pk):
         ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('FONTSIZE', (0, 0), (-1, -1), 12),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
     ]))
     story.append(info_table)
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 40))
 
     # Itens do calendário
     if calendario.itens.exists():
@@ -16055,21 +18471,22 @@ def calendario_promocao_gerar_pdf(request, pk):
             ('GRID', (0, 0), (-1, -1), 1, colors.black),
         ]))
         story.append(items_table)
-        story.append(Spacer(1, 20))
+        story.append(Spacer(1, 40))
 
     # Data e local
-    data_atual = datetime.now()
+    from django.utils import timezone
+    data_atual = timezone.localtime(timezone.now())
     meses_pt = {
         1: 'janeiro', 2: 'fevereiro', 3: 'março', 4: 'abril', 5: 'maio', 6: 'junho',
         7: 'julho', 8: 'agosto', 9: 'setembro', 10: 'outubro', 11: 'novembro', 12: 'dezembro'
     }
     data_formatada = f"{data_atual.day} de {meses_pt[data_atual.month]} de {data_atual.year}"
     data_extenso = f"Teresina, {data_formatada}"
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 40))
     story.append(Paragraph(data_extenso, style_center))
     
     # Seção de Assinaturas Físicas (sem título)
-    story.append(Spacer(1, 13))
+    story.append(Spacer(1, 8))
 
     # Buscar todas as assinaturas válidas do calendário (da mais recente para a mais antiga)
     assinaturas = calendario.assinaturas.filter(assinado_por__isnull=False).order_by('-data_assinatura')
@@ -16090,19 +18507,19 @@ def calendario_promocao_gerar_pdf(request, pk):
         funcao = assinatura.funcao_assinatura or "Função não registrada"
         
         # Exibir no formato físico: Nome - Posto BM (negrito), Função (normal)
-        story.append(Spacer(1, 13))
+        story.append(Spacer(1, 8))
         story.append(Paragraph(f"<b>{nome_completo}</b>", style_center))
         story.append(Paragraph(f"{funcao}", style_center))
-        story.append(Spacer(1, 13))
+        story.append(Spacer(1, 8))
 
     # Se não houver assinaturas, mostrar mensagem
     if not assinaturas.exists():
         story.append(Paragraph("Nenhuma assinatura registrada", style_center))
 
     # Seção de Assinaturas Eletrônicas (sem título)
-    story.append(Spacer(1, 13))
-    story.append(HRFlowable(width="100%", thickness=0.5, spaceAfter=13, spaceBefore=13, color=colors.lightgrey))
-    story.append(Spacer(1, 13))
+    story.append(Spacer(1, 8))
+    story.append(HRFlowable(width="100%", thickness=0.5, spaceAfter=8, spaceBefore=8, color=colors.lightgrey))
+    story.append(Spacer(1, 8))
     
     # Buscar todas as assinaturas para exibir na seção eletrônica
     assinaturas_eletronicas = calendario.assinaturas.filter(
@@ -16131,33 +18548,35 @@ def calendario_promocao_gerar_pdf(request, pk):
         
         # Texto da assinatura eletrônica no padrão solicitado
         texto_assinatura = f"Documento assinado eletronicamente por {nome_completo} - {funcao}, em {data_assinatura}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
-        
+        from .utils import obter_caminho_assinatura_eletronica
         # Tabela das assinaturas: Logo + Texto de assinatura
         assinatura_data = [
-            [Image(logo_path, width=1.5*cm, height=1.5*cm), Paragraph(texto_assinatura, style_small)]
+            [Image(obter_caminho_assinatura_eletronica(), width=3.5*cm, height=2.0*cm), Paragraph(texto_assinatura, style_small)]
         ]
         
-        assinatura_table = Table(assinatura_data, colWidths=[2*cm, 14*cm])
+        assinatura_table = Table(assinatura_data, colWidths=[3*cm, 13*cm])
         assinatura_table.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # Logo centralizado
             ('ALIGN', (1, 0), (1, 0), 'LEFT'),    # Texto alinhado à esquerda
-            ('LEFTPADDING', (0, 0), (-1, -1), 2),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-            ('TOPPADDING', (0, 0), (-1, -1), 2),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+            ('LEFTPADDING', (0, 0), (-1, -1), 1),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 1),
+            ('TOPPADDING', (0, 0), (-1, -1), 1),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
         ]))
         
         story.append(assinatura_table)
         
         # Adicionar linha separadora entre assinaturas (exceto na última)
         if i < len(assinaturas_eletronicas) - 1:
-            story.append(Spacer(1, 13))
-            story.append(HRFlowable(width="100%", thickness=0.5, spaceAfter=13, spaceBefore=13, color=colors.lightgrey))
-            story.append(Spacer(1, 13))
+            story.append(Spacer(1, 8))
+            story.append(HRFlowable(width="100%", thickness=0.5, spaceAfter=8, spaceBefore=8, color=colors.lightgrey))
+            story.append(Spacer(1, 8))
+    
+    
     
     # Rodapé com QR Code para conferência de veracidade
-    story.append(Spacer(1, 13))
+    story.append(Spacer(1, 8))
     story.append(HRFlowable(width="100%", thickness=1, spaceAfter=10, spaceBefore=10, color=colors.grey))
     
     # Usar a função utilitária para gerar o autenticador
@@ -16169,15 +18588,15 @@ def calendario_promocao_gerar_pdf(request, pk):
         [autenticador['qr_img'], Paragraph(autenticador['texto_autenticacao'], style_small)]
     ]
     
-    rodape_table = Table(rodape_data, colWidths=[2*cm, 14*cm])
+    rodape_table = Table(rodape_data, colWidths=[3*cm, 13*cm])
     rodape_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # QR centralizado
         ('ALIGN', (1, 0), (1, 0), 'LEFT'),    # Texto alinhado à esquerda
-        ('LEFTPADDING', (0, 0), (-1, -1), 2),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LEFTPADDING', (0, 0), (-1, -1), 1),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 1),
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
     ]))
     
     story.append(rodape_table)
@@ -16228,7 +18647,7 @@ def calendario_promocao_visualizar(request):
 from django.core.files.base import ContentFile
 from django.http import HttpResponse
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, HRFlowable
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm, inch
 from reportlab.lib import colors
@@ -16243,7 +18662,7 @@ def almanaque_militares(request):
     ordem_postos_pracas = ['ST', '1S', '2S', '3S', 'CAB', 'SD']
     
     # Buscar todos os militares ativos
-    militares_ativos = Militar.objects.filter(situacao='AT').order_by('posto_graduacao', 'numeracao_antiguidade', 'nome_completo')
+    militares_ativos = Militar.objects.filter(classificacao='ATIVO').order_by('posto_graduacao', 'numeracao_antiguidade', 'nome_completo')
     
     # Separar oficiais, praças e NVRR
     oficiais = []
@@ -16320,37 +18739,18 @@ def almanaque_militares(request):
 @login_required
 def almanaque_list(request):
     """Lista todos os almanaques seguindo o padrão dos quadros de fixação de vagas"""
-    # Permissão especial para superusuários, staff e funções administrativas
-    cargos_especiais = ['Diretor de Gestão de Pessoas', 'Chefe da Seção de Promoções', 'Administrador do Sistema', 'Administrador']
-    funcoes_ativas = request.user.funcoes.filter(
-        cargo_funcao__nome__in=cargos_especiais,
-        status='ATIVO',
-    )
+    from militares.permissoes_simples import tem_permissao
     
-    # Superusuários e staff podem ver todos os almanaques
-    if request.user.is_superuser or request.user.is_staff or funcoes_ativas.exists():
+    # Superusuários e staff têm acesso total
+    if request.user.is_superuser or request.user.is_staff:
         almanaques = AlmanaqueMilitar.objects.filter(ativo=True).order_by('-data_geracao')
     else:
-        # Verificar se o usuário é membro de alguma comissão e aplicar filtro
-        membros_comissao = MembroComissao.objects.filter(
-            usuario=request.user,
-            ativo=True,
-            comissao__status='ATIVA'
-        )
-        if membros_comissao.exists():
-            tem_cpo = membros_comissao.filter(comissao__tipo='CPO').exists()
-            tem_cpp = membros_comissao.filter(comissao__tipo='CPP').exists()
-            if tem_cpo and tem_cpp:
-                almanaques = AlmanaqueMilitar.objects.filter(ativo=True).order_by('-data_geracao')
-            elif tem_cpo:
-                almanaques = AlmanaqueMilitar.objects.filter(tipo='OFICIAIS', ativo=True).order_by('-data_geracao')
-            elif tem_cpp:
-                almanaques = AlmanaqueMilitar.objects.filter(tipo='PRACAS', ativo=True).order_by('-data_geracao')
-            else:
-                almanaques = AlmanaqueMilitar.objects.none()
+        # Verificar permissão baseada no sistema de permissões granulares
+        if tem_permissao(request.user, 'almanaques', 'visualizar'):
+            almanaques = AlmanaqueMilitar.objects.filter(ativo=True).order_by('-data_geracao')
         else:
             almanaques = AlmanaqueMilitar.objects.none()
-    
+
     # Filtros
     data_inicio = request.GET.get('data_inicio')
     if data_inicio:
@@ -16408,7 +18808,7 @@ def almanaque_create(request):
         
         try:
             # 1. Obter dados dos militares
-            militares_ativos = Militar.objects.filter(situacao='AT').exclude(quadro='NVRR')
+            militares_ativos = Militar.objects.filter(classificacao='ATIVO').exclude(quadro='NVRR')
             
             # 2. Separar oficiais e praças
             oficiais = [m for m in militares_ativos if m.is_oficial()]
@@ -16565,16 +18965,16 @@ def almanaque_visualizar_html(request, pk):
     assinaturas = almanaque.get_assinaturas_ordenadas()
     
     # Buscar funções do usuário para o modal de assinatura
-    from .models import UsuarioFuncao
-    funcoes_usuario = UsuarioFuncao.objects.filter(
+    from .models import UsuarioFuncaoMilitar
+    funcoes_usuario = UsuarioFuncaoMilitar.objects.filter(
         usuario=request.user,
-        status='ATIVO'
-    ).order_by('cargo_funcao__nome')
+        ativo=True
+    ).order_by('funcao_militar__nome')
     
     # Função atual do usuário (se houver)
     funcao_atual = None
     if funcoes_usuario.exists():
-        funcao_atual = funcoes_usuario.first().cargo_funcao.nome
+        funcao_atual = funcoes_usuario.first().funcao_militar.nome
     
     context = {
         'almanaque': almanaque,
@@ -16597,20 +18997,250 @@ def almanaque_gerar_pdf(request, pk):
         
         # Retornar o PDF para visualização em nova guia (mesmo padrão dos quadros)
         from io import BytesIO
-        from django.http import FileResponse
-        
-        buffer = BytesIO(pdf_content)
-        buffer.seek(0)
-        
-        return FileResponse(
-            buffer, 
-            content_type='application/pdf', 
-            filename=f'almanaque_{almanaque.tipo}_{almanaque.pk}.pdf'
-        )
-        
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="almanaque_{almanaque.ano}.pdf"'
+        response.write(pdf_content)
+        return response
     except Exception as e:
-        messages.error(request, f'Erro ao gerar PDF: {str(e)}')
-        return redirect('militares:almanaque_detail', pk=almanaque.pk)
+        messages.error(request, f'Erro ao gerar PDF: {e}')
+        return redirect('militares:almanaque_detail', pk=pk)
+
+# =============================================================================
+# VIEWS PARA LOGS DO SISTEMA
+# =============================================================================
+
+
+@login_required
+@administracao_required
+def logs_sistema_list(request):
+    """Lista de logs do sistema"""
+    from .models import LogSistema
+    from django.core.paginator import Paginator
+    
+    logs = LogSistema.objects.all().order_by('-timestamp')
+    
+    # Filtros
+    nivel = request.GET.get('nivel')
+    modulo = request.GET.get('modulo')
+    acao = request.GET.get('acao')
+    usuario = request.GET.get('usuario')
+    data_inicio = request.GET.get('data_inicio')
+    data_fim = request.GET.get('data_fim')
+    
+    if nivel:
+        logs = logs.filter(nivel=nivel)
+    if modulo:
+        logs = logs.filter(modulo=modulo)
+    if acao:
+        logs = logs.filter(acao=acao)
+    if usuario:
+        logs = logs.filter(usuario__username__icontains=usuario)
+    if data_inicio:
+        logs = logs.filter(timestamp__date__gte=data_inicio)
+    if data_fim:
+        logs = logs.filter(timestamp__date__lte=data_fim)
+    
+    # Paginação
+    paginator = Paginator(logs, 50)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Estatísticas
+    estatisticas = LogSistema.get_estatisticas()
+    
+    context = {
+        'page_obj': page_obj,
+        'is_paginated': page_obj.has_other_pages,
+        'estatisticas': estatisticas,
+        'total_logs': logs.count(),
+        'filtros': {
+            'nivel': nivel,
+            'modulo': modulo,
+            'acao': acao,
+            'usuario': usuario,
+            'data_inicio': data_inicio,
+            'data_fim': data_fim,
+        },
+        'niveis': LogSistema.NIVEL_CHOICES,
+        'modulos': LogSistema.MODULO_CHOICES,
+        'acoes': LogSistema.ACAO_CHOICES,
+    }
+    
+    return render(request, 'militares/logs/list.html', context)
+
+
+@login_required
+@administracao_required
+def logs_sistema_detail(request, pk):
+    """Detalhes de um log específico"""
+    try:
+        log = LogSistema.objects.get(pk=pk)
+    except LogSistema.DoesNotExist:
+        messages.error(request, 'Log não encontrado.')
+        return redirect('militares:logs_sistema_list')
+    
+    context = {
+        'log': log,
+    }
+    
+    return render(request, 'militares/logs/detail.html', context)
+
+
+@login_required
+@administracao_required
+def logs_sistema_marcar_processado(request, pk):
+    """Marca um log como processado"""
+    try:
+        log = LogSistema.objects.get(pk=pk)
+        log.marcar_como_processado()
+        messages.success(request, 'Log marcado como processado.')
+    except LogSistema.DoesNotExist:
+        messages.error(request, 'Log não encontrado.')
+    
+    return redirect('militares:logs_sistema_detail', pk=pk)
+
+
+@login_required
+@administracao_required
+def logs_sistema_marcar_notificado(request, pk):
+    """Marca um log como notificado"""
+    try:
+        log = LogSistema.objects.get(pk=pk)
+        log.marcar_como_notificado()
+        messages.success(request, 'Log marcado como notificado.')
+    except LogSistema.DoesNotExist:
+        messages.error(request, 'Log não encontrado.')
+    
+    return redirect('militares:logs_sistema_detail', pk=pk)
+
+
+@login_required
+@administracao_required
+def logs_sistema_limpar_antigos(request):
+    """Remove logs antigos"""
+    if request.method == 'POST':
+        dias = int(request.POST.get('dias', 30))
+        logs_removidos = LogSistema.limpar_logs_antigos(dias)
+        messages.success(request, f'{logs_removidos} logs antigos removidos.')
+        return redirect('militares:logs_sistema_list')
+    
+    return render(request, 'militares/logs/limpar_antigos.html')
+
+
+@login_required
+@administracao_required
+def logs_sistema_estatisticas(request):
+    """Estatísticas dos logs"""
+    data_inicio = request.GET.get('data_inicio')
+    data_fim = request.GET.get('data_fim')
+    
+    if data_inicio:
+        data_inicio = datetime.strptime(data_inicio, '%Y-%m-%d').date()
+    if data_fim:
+        data_fim = datetime.strptime(data_fim, '%Y-%m-%d').date()
+    
+    estatisticas = LogSistema.get_estatisticas(data_inicio, data_fim)
+    
+    # Logs por hora (últimas 24 horas)
+    from django.utils import timezone
+    from datetime import timedelta
+    
+    agora = timezone.now()
+    ontem = agora - timedelta(days=1)
+    
+    logs_por_hora = LogSistema.objects.filter(
+        timestamp__gte=ontem
+    ).extra(
+        select={'hora': "EXTRACT(hour FROM timestamp)"}
+    ).values('hora').annotate(
+        count=Count('id')
+    ).order_by('hora')
+    
+    # Logs por nível (últimos 7 dias)
+    ultima_semana = agora - timedelta(days=7)
+    logs_por_nivel = LogSistema.objects.filter(
+        timestamp__gte=ultima_semana
+    ).values('nivel').annotate(
+        count=Count('id')
+    ).order_by('-count')
+    
+    # Logs por módulo (últimos 7 dias)
+    logs_por_modulo = LogSistema.objects.filter(
+        timestamp__gte=ultima_semana
+    ).values('modulo').annotate(
+        count=Count('id')
+    ).order_by('-count')
+    
+    context = {
+        'estatisticas': estatisticas,
+        'logs_por_hora': logs_por_hora,
+        'logs_por_nivel': logs_por_nivel,
+        'logs_por_modulo': logs_por_modulo,
+        'data_inicio': data_inicio,
+        'data_fim': data_fim,
+    }
+    
+    return render(request, 'militares/logs/estatisticas.html', context)
+
+
+@login_required
+@administracao_required
+def logs_sistema_exportar(request):
+    """Exporta logs para CSV"""
+    from django.http import HttpResponse
+    import csv
+    
+    logs = LogSistema.objects.all()
+    
+    # Aplicar filtros
+    nivel = request.GET.get('nivel')
+    modulo = request.GET.get('modulo')
+    acao = request.GET.get('acao')
+    data_inicio = request.GET.get('data_inicio')
+    data_fim = request.GET.get('data_fim')
+    
+    if nivel:
+        logs = logs.filter(nivel=nivel)
+    if modulo:
+        logs = logs.filter(modulo=modulo)
+    if acao:
+        logs = logs.filter(acao=acao)
+    if data_inicio:
+        logs = logs.filter(timestamp__date__gte=data_inicio)
+    if data_fim:
+        logs = logs.filter(timestamp__date__lte=data_fim)
+    
+    # Criar resposta CSV
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="logs_sistema_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+    
+    writer = csv.writer(response)
+    writer.writerow([
+        'Data/Hora', 'Nível', 'Módulo', 'Ação', 'Usuário', 'Descrição',
+        'Modelo Afetado', 'ID Objeto', 'IP', 'URL', 'Método HTTP',
+        'Tempo Execução', 'Erro', 'Processado', 'Notificado'
+    ])
+    
+    for log in logs:
+        writer.writerow([
+            log.timestamp.strftime('%d/%m/%Y %H:%M:%S'),
+            log.get_nivel_display(),
+            log.get_modulo_display(),
+            log.get_acao_display(),
+            log.usuario.username if log.usuario else '',
+            log.descricao,
+            log.modelo_afetado or '',
+            log.objeto_id or '',
+            log.ip_address or '',
+            log.url or '',
+            log.metodo_http or '',
+            log.tempo_execucao or '',
+            log.erro or '',
+            'Sim' if log.processado else 'Não',
+            'Sim' if log.notificado else 'Não',
+        ])
+    
+    return response
 
 @login_required
 def almanaque_assinatura_create(request, pk):
@@ -16623,7 +19253,7 @@ def almanaque_assinatura_create(request, pk):
     
     if request.method == 'POST':
         tipo_assinatura = request.POST.get('tipo_assinatura', 'APROVACAO')
-        cargo_funcao = request.POST.get('cargo_funcao', '')
+        funcao_militar = request.POST.get('funcao_militar', '')
         observacoes = request.POST.get('observacoes', '')
         senha = request.POST.get('senha', '')
         
@@ -16647,7 +19277,7 @@ def almanaque_assinatura_create(request, pk):
                 almanaque=almanaque,
                 assinado_por=request.user,
                 tipo_assinatura=tipo_assinatura,
-                cargo_funcao=cargo_funcao,
+                funcao_militar=funcao_militar,
                 observacoes=observacoes
             )
             
@@ -16723,7 +19353,7 @@ def gerar_pdf_almanaque(tipo):
     ordem_postos_pracas = ['ST', '1S', '2S', '3S', 'CAB', 'SD']
     
     # Buscar todos os militares ativos (excluindo NVRR)
-    militares_ativos = Militar.objects.filter(situacao='AT').exclude(quadro='NVRR').order_by('posto_graduacao', 'numeracao_antiguidade', 'data_promocao_atual')
+    militares_ativos = Militar.objects.filter(classificacao='ATIVO').exclude(quadro='NVRR').order_by('posto_graduacao', 'numeracao_antiguidade', 'data_promocao_atual')
     
     # Separar oficiais e praças (excluindo NVRR)
     oficiais = []
@@ -16791,11 +19421,31 @@ def gerar_pdf_almanaque(tipo):
         story.append(Image(logo_path, width=2.5*cm, height=2.5*cm, hAlign='CENTER'))
         story.append(Spacer(1, 6))
 
+    # Determinar local de geração baseado na função do usuário (hierarquia completa)
+    local_geracao = "DIRETORIA DE GESTÃO DE PESSOAS"
+    funcao_usuario = obter_funcao_militar_ativa(request.user)
+    if funcao_usuario and funcao_usuario.funcao_militar:
+        hierarquia = []
+        
+        # Construir hierarquia completa até a instância mais específica
+        if hasattr(funcao_usuario, 'orgao') and funcao_usuario.orgao:
+            hierarquia.append(funcao_usuario.orgao.nome.upper())
+        if hasattr(funcao_usuario, 'grande_comando') and funcao_usuario.grande_comando:
+            hierarquia.append(funcao_usuario.grande_comando.nome.upper())
+        if hasattr(funcao_usuario, 'unidade') and funcao_usuario.unidade:
+            hierarquia.append(funcao_usuario.unidade.nome.upper())
+        if hasattr(funcao_usuario, 'sub_unidade') and funcao_usuario.sub_unidade:
+            hierarquia.append(funcao_usuario.sub_unidade.nome.upper())
+        
+        # Se encontrou alguma instância, usar a mais específica (última da lista)
+        if hierarquia:
+            local_geracao = hierarquia[-1]
+    
     # Cabeçalho institucional
     cabecalho = [
         "GOVERNO DO ESTADO DO PIAUÍ",
         "CORPO DE BOMBEIROS MILITAR DO ESTADO DO PIAUÍ",
-        "DIRETORIA DE GESTÃO DE PESSOAS",
+        local_geracao,
         "Av. Miguel Rosa, 3515 - Bairro Piçarra, Teresina/PI, CEP 64001-490",
         "Telefone: (86)3216-1264 - http://www.cbm.pi.gov.br"
     ]
@@ -16828,7 +19478,8 @@ def gerar_pdf_almanaque(tipo):
     }
     
     # Definir datas de promoção conforme o tipo e data de geração
-    data_atual = datetime.now()
+    from django.utils import timezone
+    data_atual = timezone.localtime(timezone.now())
     
     if tipo == 'OFICIAIS':
         tipo_militar = '<b><u>OFICIAIS</u></b>'
@@ -16928,7 +19579,7 @@ def gerar_pdf_almanaque(tipo):
             story.append(Spacer(1, 15))
 
     # Estatísticas
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 40))
     stats_data = [
         ['ESTATÍSTICAS', ''],
         ['Total de Militares', str(total)],
@@ -16957,8 +19608,10 @@ def gerar_pdf_almanaque(tipo):
     # Data e local
     story.append(Paragraph(f"Teresina, {data_formatada}", style_center))
     
+    
+    
     # Rodapé com QR Code para conferência de veracidade
-    story.append(Spacer(1, 13))
+    story.append(Spacer(1, 8))
     story.append(HRFlowable(width="100%", thickness=1, spaceAfter=10, spaceBefore=10, color=colors.grey))
     
     # Gerar QR Code com informações do documento
@@ -17024,7 +19677,7 @@ def almanaque_assinar(request, pk):
         assinatura = AssinaturaAlmanaque.objects.create(
             almanaque=almanaque,
             assinado_por=request.user,
-            cargo_funcao=request.POST.get('cargo_funcao', ''),
+            funcao_militar=request.POST.get('funcao_militar', ''),
             observacoes=request.POST.get('observacoes', '')
         )
         
@@ -17032,7 +19685,7 @@ def almanaque_assinar(request, pk):
         return redirect('militares:almanaque_visualizar', pk=pk)
     
     # Buscar cargos/funções do usuário
-    cargos_funcoes = UsuarioFuncao.objects.filter(usuario=request.user, ativo=True)
+    cargos_funcoes = UsuarioFuncaoMilitar.objects.filter(usuario=request.user, ativo=True)
     
     context = {
         'almanaque': almanaque,
@@ -17089,7 +19742,7 @@ def gerar_pdf_almanaque_com_assinaturas(almanaque, assinaturas):
     story.append(Paragraph(f"Título: {almanaque.titulo}", subtitle_style))
     story.append(Paragraph(f"Tipo: {almanaque.get_tipo_display()}", subtitle_style))
     story.append(Paragraph(f"Data de Geração: {almanaque.data_geracao.strftime('%d/%m/%Y às %H:%M')}", subtitle_style))
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 40))
     
     # Estatísticas
     story.append(Paragraph("ESTATÍSTICAS", subtitle_style))
@@ -17113,12 +19766,12 @@ def gerar_pdf_almanaque_com_assinaturas(almanaque, assinaturas):
     ]))
     
     story.append(stats_table)
-    story.append(PageBreak())
+
     
     # Seção de assinaturas
     if assinaturas.exists():
         story.append(Paragraph("ASSINATURAS", subtitle_style))
-        story.append(Spacer(1, 20))
+        story.append(Spacer(1, 40))
         
         # Tabela de assinaturas
         assinaturas_data = [['Assinado por', 'Cargo/Função', 'Data', 'Observações']]
@@ -17126,7 +19779,7 @@ def gerar_pdf_almanaque_com_assinaturas(almanaque, assinaturas):
         for assinatura in assinaturas:
             assinaturas_data.append([
                 assinatura.assinado_por.get_full_name() or assinatura.assinado_por.username,
-                assinatura.cargo_funcao,
+                assinatura.funcao_militar,
                 assinatura.data_assinatura.strftime('%d/%m/%Y às %H:%M'),
                 assinatura.observacoes or '-'
             ])
@@ -17146,6 +19799,32 @@ def gerar_pdf_almanaque_com_assinaturas(almanaque, assinaturas):
         story.append(assinaturas_table)
     else:
         story.append(Paragraph("Nenhuma assinatura registrada.", subtitle_style))
+    
+    # Adicionar autenticador de veracidade
+    story.append(Spacer(1, 20))
+    story.append(HRFlowable(width="100%", thickness=1, spaceAfter=10, spaceBefore=10, color=colors.grey))
+    
+    # Usar a função utilitária para gerar o autenticador
+    from .utils import gerar_autenticador_veracidade
+    autenticador = gerar_autenticador_veracidade(almanaque, None, tipo_documento='almanaque')
+    
+    # Tabela do rodapé: QR + Texto de autenticação
+    rodape_data = [
+        [autenticador['qr_img'], Paragraph(autenticador['texto_autenticacao'], styles['Normal'])]
+    ]
+    
+    rodape_table = Table(rodape_data, colWidths=[2*inch, 4*inch])
+    rodape_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # QR centralizado
+        ('ALIGN', (1, 0), (1, 0), 'LEFT'),    # Texto alinhado à esquerda
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    
+    story.append(rodape_table)
     
     # Construir PDF
     doc.build(story)
@@ -17202,7 +19881,7 @@ def criar_usuario_admin_web(request):
                 user.groups.add(grupo)
             
             # Configurar função de administrador
-            cargo_admin = CargoFuncao.objects.get_or_create(
+            cargo_admin = FuncaoMilitar.objects.get_or_create(
                 nome='Administrador',
                 defaults={
                     'descricao': 'Administrador do sistema com acesso total',
@@ -17210,9 +19889,9 @@ def criar_usuario_admin_web(request):
                 }
             )[0]
             
-            UsuarioFuncao.objects.get_or_create(
+            UsuarioFuncaoMilitar.objects.get_or_create(
                 usuario=user,
-                cargo_funcao=cargo_admin,
+                funcao_militar=cargo_admin,
                 defaults={
                     'tipo_funcao': 'EFETIVA',
                     'status': 'ATIVO',
@@ -17237,9 +19916,9 @@ def listar_usuarios_admin_web(request):
     
     # Buscar funções de cada admin
     for admin in admins:
-        admin.funcao_ativa = UsuarioFuncao.objects.filter(
+        admin.funcao_ativa = UsuarioFuncaoMilitar.objects.filter(
             usuario=admin,
-            status='ATIVO'
+            ativo=True
         ).first()
     
     context = {
@@ -17288,11 +19967,11 @@ def gerenciar_usuarios_admin(request):
     return render(request, 'militares/usuarios/gerenciar_usuarios_admin.html', context)
 
 @login_required
-@requer_perm_militares_visualizar
+@requer_funcao_ativa
 def militar_list_paginada(request):
     """Lista todos os militares ativos com paginação simples"""
     # Buscar todos os militares ativos
-    militares = Militar.objects.filter(situacao='AT').order_by('nome_completo')
+    militares = Militar.objects.filter(classificacao='ATIVO').order_by('nome_completo')
     
     # Paginação
     itens_por_pagina = request.GET.get('itens_por_pagina', 20)
@@ -17368,7 +20047,7 @@ def obter_dados_almanaque(tipo):
     ordem_postos_pracas = ['ST', '1S', '2S', '3S', 'CAB', 'SD']
     
     # Buscar todos os militares ativos (excluindo NVRR)
-    militares_ativos = Militar.objects.filter(situacao='AT').exclude(quadro='NVRR').order_by('posto_graduacao', 'numeracao_antiguidade', 'data_promocao_atual')
+    militares_ativos = Militar.objects.filter(classificacao='ATIVO').exclude(quadro='NVRR').order_by('posto_graduacao', 'numeracao_antiguidade', 'data_promocao_atual')
     
     # Separar oficiais e praças (excluindo NVRR)
     oficiais = []
@@ -17574,7 +20253,7 @@ def almanaque_gerar_html_pdf(request):
             )
             
             # Atualizar estatísticas
-            militares_ativos = Militar.objects.filter(situacao='AT')
+            militares_ativos = Militar.objects.filter(classificacao='ATIVO')
             oficiais = [m for m in militares_ativos if m.is_oficial()]
             pracas = [m for m in militares_ativos if not m.is_oficial()]
             
@@ -17607,7 +20286,7 @@ def exportar_militares_excel(request):
     from datetime import datetime
     
     # Obter militares ativos (mesma lógica da view de listagem)
-    militares = Militar.objects.filter(situacao='AT')
+    militares = Militar.objects.filter(classificacao='ATIVO')
     
     # Aplicar filtros se fornecidos
     query = request.GET.get('q')
@@ -17633,10 +20312,10 @@ def exportar_militares_excel(request):
     
     situacao = request.GET.get('situacao')
     if situacao:
-        situacao_mapping = {'at': 'AT', 'in': 'IN'}
+        situacao_mapping = {'at': 'ATIVO', 'in': 'INATIVO'}
         situacao_codigo = situacao_mapping.get(situacao.lower())
         if situacao_codigo:
-            militares = militares.filter(situacao=situacao_codigo)
+            militares = militares.filter(classificacao=situacao_codigo)
     
     quadro = request.GET.get('quadro')
     if quadro:
@@ -17656,7 +20335,7 @@ def exportar_militares_excel(request):
     
     # Criar resposta HTTP
     response = HttpResponse(content_type='text/csv; charset=utf-8')
-    response['Content-Disposition'] = f'attachment; filename="militares_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+    response['Content-Disposition'] = f'attachment; filename="militares_{timezone.localtime(timezone.now()).strftime("%Y%m%d_%H%M%S")}.csv"'
     
     # Adicionar BOM para UTF-8 (importante para Excel)
     response.write('\ufeff')
@@ -17723,161 +20402,11780 @@ def exportar_militares_excel(request):
         writer.writerow(row)
     
     return response
-# ============================================================================
-# VIEWS PARA GERENCIAMENTO DE CARGOS/FUN  ES
 @login_required
-def cargo_funcao_list(request):
-    """Lista todos os cargos/funções do sistema"""
-    cargos = CargoFuncao.objects.all().order_by('ordem', 'nome')
+def debug_funcoes_usuario(request):
+    """View para debug das funções do usuário logado"""
+    from .models import UsuarioFuncaoMilitar
     
-    # Adicionar contadores para cada cargo
-    for cargo in cargos:
-        cargo.permissoes_count = PermissaoFuncao.objects.filter(cargo_funcao=cargo, ativo=True).count()
-        cargo.usuarios_count = UsuarioFuncao.objects.filter(cargo_funcao=cargo).count()
+    # Buscar todas as funções do usuário (considerando todas como ativas)
+    funcoes_ativas = UsuarioFuncaoMilitar.objects.filter(
+        usuario=request.user
+    ).select_related('funcao_militar')
+    
+    # Verificar se tem funções especiais para editar fichas de conceito
+    funcoes_especiais = funcoes_ativas.filter(
+        funcao_militar__nome__in=['Diretor de Gestão de Pessoas', 'Chefe da Seção de Promoções', 'Administrador do Sistema', 'Administrador', 'Operador do Sistema']
+    )
+    
+    # Verificar se é superusuário
+    is_superuser = request.user.is_superuser
+    
+    context = {
+        'usuario': request.user,
+        'funcoes_ativas': funcoes_ativas,
+        'funcoes_especiais': funcoes_especiais,
+        'is_superuser': is_superuser,
+        'pode_editar_fichas': is_superuser or funcoes_especiais.exists(),
+    }
+    
+    return render(request, 'militares/debug_funcoes.html', context)
+
+
+# Views para Qualificações
+@login_required
+@requer_funcao_ativa
+def qualificacoes_militar(request, militar_id):
+    """Lista as qualificações de um militar específico"""
+    militar = get_object_or_404(Militar, id=militar_id)
+    qualificacoes = militar.qualificacoes.all()
+    
+    context = {
+        'militar': militar,
+        'qualificacoes': qualificacoes,
+    }
+    return render(request, 'militares/qualificacoes_militar.html', context)
+
+
+@login_required
+@requer_perm_militares_editar
+def adicionar_qualificacao(request, militar_id):
+    """Adiciona uma nova qualificação para um militar"""
+    militar = get_object_or_404(Militar, id=militar_id)
+    
+    if request.method == 'POST':
+        form = QualificacaoForm(request.POST, request.FILES)
+        if form.is_valid():
+            qualificacao = form.save(commit=False)
+            qualificacao.militar = militar
+            qualificacao.save()
+            messages.success(request, 'Qualificação adicionada com sucesso!')
+            return redirect('militares:qualificacoes_militar', militar_id=militar.id)
+        else:
+            messages.error(request, 'Por favor, corrija os erros no formulário.')
+    else:
+        form = QualificacaoForm()
+    
+    context = {
+        'militar': militar,
+        'form': form,
+    }
+    return render(request, 'militares/adicionar_qualificacao.html', context)
+
+
+@login_required
+@requer_funcao_ativa
+def visualizar_qualificacao(request, qualificacao_id):
+    """Visualiza uma qualificação (apenas leitura)"""
+    qualificacao = get_object_or_404(Qualificacao, id=qualificacao_id)
+    
+    context = {
+        'qualificacao': qualificacao,
+    }
+    return render(request, 'militares/visualizar_qualificacao.html', context)
+
+
+@login_required
+@requer_funcao_ativa
+def visualizar_documento_qualificacao(request, qualificacao_id):
+    """Visualiza o documento da qualificação"""
+    qualificacao = get_object_or_404(Qualificacao, id=qualificacao_id)
+    
+    if not qualificacao.arquivo_certificado:
+        messages.error(request, 'Esta qualificação não possui arquivo de certificado anexado.')
+        return redirect('militares:qualificacoes_militar', militar_id=qualificacao.militar.id)
+    
+    context = {
+        'qualificacao': qualificacao,
+    }
+    return render(request, 'militares/visualizar_documento_qualificacao.html', context)
+
+
+@login_required
+@requer_perm_militares_editar
+def editar_qualificacao(request, qualificacao_id):
+    """Edita uma qualificação existente"""
+    qualificacao = get_object_or_404(Qualificacao, id=qualificacao_id)
+    
+    if request.method == 'POST':
+        form = QualificacaoForm(request.POST, request.FILES, instance=qualificacao)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Qualificação atualizada com sucesso!')
+            return redirect('militares:qualificacoes_militar', militar_id=qualificacao.militar.id)
+        else:
+            messages.error(request, 'Por favor, corrija os erros no formulário.')
+    else:
+        form = QualificacaoForm(instance=qualificacao)
+    
+    context = {
+        'qualificacao': qualificacao,
+        'form': form,
+    }
+    return render(request, 'militares/editar_qualificacao.html', context)
+
+
+@login_required
+@requer_perm_militares_excluir
+def excluir_qualificacao(request, qualificacao_id):
+    """Exclui uma qualificação"""
+    qualificacao = get_object_or_404(Qualificacao, id=qualificacao_id)
+    militar_id = qualificacao.militar.id
+    
+    if request.method == 'POST':
+        qualificacao.delete()
+        messages.success(request, 'Qualificação excluída com sucesso!')
+        return redirect('militares:qualificacoes_militar', militar_id=militar_id)
+    
+    context = {
+        'qualificacao': qualificacao,
+    }
+    return render(request, 'militares/excluir_qualificacao.html', context)
+
+
+@login_required
+@requer_perm_militares_editar
+def verificar_qualificacao(request, qualificacao_id):
+    """Marca uma qualificação como verificada"""
+    qualificacao = get_object_or_404(Qualificacao, id=qualificacao_id)
+    
+    if request.method == 'POST':
+        status = request.POST.get('status')
+        observacoes = request.POST.get('observacoes', '')
+        
+        qualificacao.status_verificacao = status
+        qualificacao.observacoes = observacoes
+        qualificacao.save()
+        
+        status_display = qualificacao.get_status_verificacao_display()
+        messages.success(request, f'Qualificação marcada como {status_display}!')
+        return redirect('militares:qualificacoes_militar', militar_id=qualificacao.militar.id)
+    
+    context = {
+        'qualificacao': qualificacao,
+    }
+    return render(request, 'militares/verificar_qualificacao.html', context)
+
+
+# ==================== VIEWS PARA FUNÇÕES MILITARES ====================
+
+@login_required
+def funcoes_militares_list(request):
+    """Lista todas as funções militares"""
+    funcoes = FuncaoMilitar.objects.all().order_by('ordem', 'nome')
+    
+    # Aplicar filtros
+    grupo_filtro = request.GET.get('grupo')
+    if grupo_filtro:
+        funcoes = funcoes.filter(grupo=grupo_filtro)
+    
+    status_filtro = request.GET.get('status')
+    if status_filtro == 'ativo':
+        funcoes = funcoes.filter(ativo=True)
+    elif status_filtro == 'inativo':
+        funcoes = funcoes.filter(ativo=False)
+    
+    # Pesquisa por nome
+    pesquisa = request.GET.get('pesquisa')
+    if pesquisa:
+        funcoes = funcoes.filter(nome__icontains=pesquisa)
+    
+    # Estatísticas
+    total_funcoes = FuncaoMilitar.objects.count()
+    funcoes_ativas = FuncaoMilitar.objects.filter(ativo=True).count()
+    funcoes_inativas = FuncaoMilitar.objects.filter(ativo=False).count()
+    
+    context = {
+        'funcoes': funcoes,
+        'total_funcoes': total_funcoes,
+        'funcoes_ativas': funcoes_ativas,
+        'funcoes_inativas': funcoes_inativas,
+        'grupo_filtro': grupo_filtro,
+        'status_filtro': status_filtro,
+        'pesquisa': pesquisa,
+        'title': 'Funções Militares',
+    }
+    return render(request, 'militares/funcoes/funcoes_militares_list.html', context)
+
+
+@login_required
+@administracao_required
+def funcoes_militares_create(request):
+    """Cria uma nova função militar com sistema de permissões - apenas administradores do sistema"""
+    from .models import PermissaoFuncao, FuncaoMenuConfig
+    
+    if request.method == 'POST':
+        form = FuncaoMilitarForm(request.POST)
+        if form.is_valid():
+            funcao = form.save()
+            
+            # Criar configuração de menu padrão baseada no grupo
+            menu_config = FuncaoMenuConfig.objects.create(
+                funcao_militar=funcao,
+                ativo=True
+            )
+            
+            # Processar permissões do formulário
+            # Campos de menu principal
+            menu_fields = [
+                'show_dashboard', 'show_efetivo', 'show_secao_promocoes', 
+                'show_medalhas', 'show_administracao', 'show_notas'
+            ]
+            
+            # Atualizar campos de menu
+            for field in menu_fields:
+                valor = field in request.POST
+                setattr(menu_config, field, valor)
+            
+            menu_config.save()
+            
+            # Limpar permissões de submenu existentes
+            PermissaoFuncao.objects.filter(funcao_militar=funcao).delete()
+            
+            # Mapear campos do formulário para módulos
+            submenu_mapping = {
+                'show_ativos': 'SUBMENU_ATIVOS',
+                'show_inativos': 'SUBMENU_INATIVOS',
+                'show_lotacoes': 'SUBMENU_LOTACOES',
+                'show_fichas_oficiais': 'SUBMENU_FICHAS_OFICIAIS',
+                'show_fichas_pracas': 'SUBMENU_FICHAS_PRACAS',
+                'show_quadros_acesso': 'SUBMENU_QUADROS_ACESSO',
+                'show_quadros_fixacao': 'SUBMENU_QUADROS_FIXACAO',
+                'show_almanaques': 'SUBMENU_ALMANAQUES',
+                'show_promocoes': 'SUBMENU_PROMOCOES',
+                'show_calendarios': 'SUBMENU_CALENDARIOS',
+                'show_comissoes': 'SUBMENU_COMISSOES',
+                'show_meus_votos': 'SUBMENU_MEUS_VOTOS',
+                'show_intersticios': 'SUBMENU_INTERSTICIOS',
+                'show_gerenciar_intersticios': 'SUBMENU_GERENCIAR_INTERSTICIOS',
+                'show_gerenciar_previsao': 'SUBMENU_GERENCIAR_PREVISAO',
+                'show_medalhas_concessoes': 'SUBMENU_MEDALHAS_CONCESSOES',
+                'show_medalhas_propostas': 'SUBMENU_MEDALHAS_PROPOSTAS',
+                'show_elegiveis': 'SUBMENU_ELEGIVEIS',
+                'show_propostas': 'SUBMENU_PROPOSTAS',
+                'notas_visualizar': 'NOTAS_VISUALIZAR',
+                'notas_criar': 'NOTAS_CRIAR',
+                'notas_editar': 'NOTAS_EDITAR',
+                'notas_lista': 'SUBMENU_NOTAS_LISTA',
+                'notas_excluir': 'NOTAS_EXCLUIR',
+                'show_usuarios': 'SUBMENU_USUARIOS',
+                'show_permissoes': 'SUBMENU_PERMISSOES',
+                'show_logs': 'SUBMENU_LOGS',
+                'show_administracao': 'SUBMENU_ADMINISTRACAO',
+                'show_planejadas': 'MENU_PLANEJADAS',
+                'show_operador_planejadas': 'SUBMENU_OPERADOR_PLANEJADAS',
+                'show_fiscal_planejadas': 'SUBMENU_FISCAL_PLANEJADAS',
+            }
+            
+            # Mapear permissões específicas de ações
+            acoes_mapping = {
+                # Ativos
+                'ativos_visualizar': 'ATIVOS_VISUALIZAR',
+                'ativos_criar': 'ATIVOS_CRIAR',
+                'ativos_editar': 'ATIVOS_EDITAR',
+                'ativos_excluir': 'ATIVOS_EXCLUIR',
+                'ativos_transferir': 'ATIVOS_TRANSFERIR',
+                'ativos_promover': 'ATIVOS_PROMOVER',
+                'ativos_inativar': 'ATIVOS_INATIVAR',
+                'ativos_ficha_conceito': 'ATIVOS_FICHA_CONCEITO',
+                'ativos_exportar': 'ATIVOS_EXPORTAR',
+                'ativos_dashboard': 'ATIVOS_DASHBOARD',
+                'ativos_reordenar': 'ATIVOS_REORDENAR',
+                
+                # Inativos
+                'inativos_visualizar': 'INATIVOS_VISUALIZAR',
+                'inativos_editar': 'INATIVOS_EDITAR',
+                'inativos_excluir': 'INATIVOS_EXCLUIR',
+                'inativos_reativar': 'INATIVOS_REATIVAR',
+                
+                # Lotações
+                'lotacoes_visualizar': 'LOTACOES_VISUALIZAR',
+                'lotacoes_criar': 'LOTACOES_CRIAR',
+                'lotacoes_editar': 'LOTACOES_EDITAR',
+                'lotacoes_excluir': 'LOTACOES_EXCLUIR',
+                
+                # Botões granulares - Lotações
+                'botao_lotacao_nova': 'BOTAO_LOTACAO_NOVA',
+                'botao_lotacao_editar': 'BOTAO_LOTACAO_EDITAR',
+                'botao_lotacao_excluir': 'BOTAO_LOTACAO_EXCLUIR',
+                'botao_lotacao_estatisticas': 'BOTAO_LOTACAO_ESTATISTICAS',
+                
+                
+                # Botões granulares - Publicações
+                'botao_publicacao_nova': 'BOTAO_PUBLICACAO_NOVA',
+                'botao_publicacao_editar': 'BOTAO_PUBLICACAO_EDITAR',
+                'botao_publicacao_publicar': 'BOTAO_PUBLICACAO_PUBLICAR',
+                'botao_publicacao_assinar': 'BOTAO_PUBLICACAO_ASSINAR',
+                
+                # Detalhes do Militar
+                'detail_fichas_conceito': 'DETAIL_FICHAS_CONCEITO',
+                'detail_punicoes': 'DETAIL_PUNICOES',
+
+                # Elogios/Punições - Ações
+                'elogios_visualizar': 'ELOGIOS_VISUALIZAR',
+                'elogios_criar': 'ELOGIOS_CRIAR',
+                'elogios_editar': 'ELOGIOS_EDITAR',
+                'punicoes_visualizar': 'PUNICOES_VISUALIZAR',
+                'punicoes_criar': 'PUNICOES_CRIAR',
+                'punicoes_editar': 'PUNICOES_EDITAR',
+                
+                # Seção de Promoções - Fichas de Oficiais
+                'fichas_oficiais_visualizar': 'FICHAS_OFICIAIS_VISUALIZAR',
+                'fichas_oficiais_criar': 'FICHAS_OFICIAIS_CRIAR',
+                'fichas_oficiais_editar': 'FICHAS_OFICIAIS_EDITAR',
+                'fichas_oficiais_excluir': 'FICHAS_OFICIAIS_EXCLUIR',
+                
+                # Seção de Promoções - Fichas de Praças
+                'fichas_pracas_visualizar': 'FICHAS_PRACAS_VISUALIZAR',
+                'fichas_pracas_criar': 'FICHAS_PRACAS_CRIAR',
+                'fichas_pracas_editar': 'FICHAS_PRACAS_EDITAR',
+                'fichas_pracas_excluir': 'FICHAS_PRACAS_EXCLUIR',
+                
+                # Seção de Promoções - Calendários
+                'calendarios_visualizar': 'CALENDARIOS_VISUALIZAR',
+                'calendarios_criar': 'CALENDARIOS_CRIAR',
+                'calendarios_editar': 'CALENDARIOS_EDITAR',
+                'calendarios_excluir': 'CALENDARIOS_EXCLUIR',
+                
+                # Seção de Promoções - Quadros de Fixação
+                'quadros_fixacao_visualizar': 'QUADROS_FIXACAO_VISUALIZAR',
+                'quadros_fixacao_criar': 'QUADROS_FIXACAO_CRIAR',
+                'quadros_fixacao_editar': 'QUADROS_FIXACAO_EDITAR',
+                'quadros_fixacao_excluir': 'QUADROS_FIXACAO_EXCLUIR',
+                'quadros_fixacao_assinar': 'QUADROS_FIXACAO_ASSINAR',
+                'quadros_fixacao_gerar_pdf': 'QUADROS_FIXACAO_GERAR_PDF',
+                
+                # Seção de Promoções - Quadros de Acesso
+                'quadros_acesso_visualizar': 'QUADROS_ACESSO_VISUALIZAR',
+                'quadros_acesso_criar': 'QUADROS_ACESSO_CRIAR',
+                'quadros_acesso_editar': 'QUADROS_ACESSO_EDITAR',
+                'quadros_acesso_excluir': 'QUADROS_ACESSO_EXCLUIR',
+                'quadros_acesso_assinar': 'QUADROS_ACESSO_ASSINAR',
+                'quadros_acesso_homologar': 'QUADROS_ACESSO_HOMOLOGAR',
+                'quadros_acesso_deshomologar': 'QUADROS_ACESSO_DESHOMOLOGAR',
+                'quadros_acesso_elaborar': 'QUADROS_ACESSO_ELABORAR',
+                'quadros_acesso_regenerar': 'QUADROS_ACESSO_REGENERAR',
+                'quadros_acesso_gerar_pdf': 'QUADROS_ACESSO_GERAR_PDF',
+                
+                # Seção de Promoções - Comissões (genéricas)
+                'comissoes_visualizar': 'COMISSOES_VISUALIZAR',
+                'comissoes_criar': 'COMISSOES_CRIAR',
+                'comissoes_editar': 'COMISSOES_EDITAR',
+                'comissoes_excluir': 'COMISSOES_EXCLUIR',
+                
+                # Seção de Promoções - Comissões de Oficiais
+                'comissoes_oficiais_visualizar': 'COMISSOES_OFICIAIS_VISUALIZAR',
+                'comissoes_oficiais_criar': 'COMISSOES_OFICIAIS_CRIAR',
+                'comissoes_oficiais_editar': 'COMISSOES_OFICIAIS_EDITAR',
+                'comissoes_oficiais_excluir': 'COMISSOES_OFICIAIS_EXCLUIR',
+                
+                # Seção de Promoções - Comissões de Praças
+                'comissoes_pracas_visualizar': 'COMISSOES_PRACAS_VISUALIZAR',
+                'comissoes_pracas_criar': 'COMISSOES_PRACAS_CRIAR',
+                'comissoes_pracas_editar': 'COMISSOES_PRACAS_EDITAR',
+                'comissoes_pracas_excluir': 'COMISSOES_PRACAS_EXCLUIR',
+                
+                # Seção de Promoções - Meus Votos
+                'meus_votos_visualizar': 'MEUS_VOTOS_VISUALIZAR',
+                'meus_votos_votar': 'MEUS_VOTOS_VOTAR',
+                
+                # Seção de Promoções - Promoções
+                'promocoes_visualizar': 'PROMOCOES_VISUALIZAR',
+                'promocoes_criar': 'PROMOCOES_CRIAR',
+                'promocoes_editar': 'PROMOCOES_EDITAR',
+                'promocoes_excluir': 'PROMOCOES_EXCLUIR',
+                
+                # Seção de Promoções - Almanaques
+                'almanaques_visualizar': 'ALMANAQUES_VISUALIZAR',
+                'almanaques_criar': 'ALMANAQUES_CRIAR',
+                'almanaques_editar': 'ALMANAQUES_EDITAR',
+                'almanaques_excluir': 'ALMANAQUES_EXCLUIR',
+                'almanaques_assinar': 'ALMANAQUES_ASSINAR',
+                'almanaques_gerar_pdf': 'ALMANAQUES_GERAR_PDF',
+                
+                # Medalhas - Concessões
+                'medalhas_concessoes_visualizar': 'MEDALHAS_CONCESSOES_VISUALIZAR',
+                'medalhas_concessoes_criar': 'MEDALHAS_CONCESSOES_CRIAR',
+                'medalhas_concessoes_editar': 'MEDALHAS_CONCESSOES_EDITAR',
+                'medalhas_concessoes_excluir': 'MEDALHAS_CONCESSOES_EXCLUIR',
+                
+                # Medalhas - Propostas
+                'medalhas_propostas_visualizar': 'MEDALHAS_PROPOSTAS_VISUALIZAR',
+                'medalhas_propostas_criar': 'MEDALHAS_PROPOSTAS_CRIAR',
+                'medalhas_propostas_editar': 'MEDALHAS_PROPOSTAS_EDITAR',
+                'medalhas_propostas_excluir': 'MEDALHAS_PROPOSTAS_EXCLUIR',
+                
+                # Medalhas - Elegíveis
+                'elegiveis_visualizar': 'ELEGIVEIS_VISUALIZAR',
+                'elegiveis_gerar': 'ELEGIVEIS_GERAR',
+                'elegiveis_exportar': 'ELEGIVEIS_EXPORTAR',
+                
+                # Medalhas - Propostas (Lista)
+                'propostas_visualizar': 'PROPOSTAS_VISUALIZAR',
+                'propostas_criar': 'PROPOSTAS_CRIAR',
+                'propostas_editar': 'PROPOSTAS_EDITAR',
+                'propostas_excluir': 'PROPOSTAS_EXCLUIR',
+                
+                # Configurações - Usuários
+                'usuarios_visualizar': 'USUARIOS_VISUALIZAR',
+                'usuarios_criar': 'USUARIOS_CRIAR',
+                'usuarios_editar': 'USUARIOS_EDITAR',
+                'usuarios_excluir': 'USUARIOS_EXCLUIR',
+                
+                # Configurações - Permissões
+                'permissoes_visualizar': 'PERMISSOES_VISUALIZAR',
+                'permissoes_editar': 'PERMISSOES_EDITAR',
+                'permissoes_administrar': 'PERMISSOES_ADMINISTRAR',
+                
+                # Configurações - Logs
+                'logs_visualizar': 'LOGS_VISUALIZAR',
+                'logs_exportar': 'LOGS_EXPORTAR',
+                'logs_limpar': 'LOGS_LIMPAR',
+                
+                # Planejadas
+                'PLANEJADAS_VISUALIZAR': 'PLANEJADAS_VISUALIZAR',
+                'PLANEJADAS_CRIAR': 'PLANEJADAS_CRIAR',
+                'PLANEJADAS_EDITAR': 'PLANEJADAS_EDITAR',
+                'PLANEJADAS_EXCLUIR': 'PLANEJADAS_EXCLUIR',
+                'PLANEJADAS_ADICIONAR_MILITAR': 'PLANEJADAS_ADICIONAR_MILITAR',
+                'PLANEJADAS_REMOVER_MILITAR': 'PLANEJADAS_REMOVER_MILITAR',
+                'PLANEJADAS_ASSINAR_OPERADOR': 'PLANEJADAS_ASSINAR_OPERADOR',
+                'PLANEJADAS_ASSINAR_FISCAL': 'PLANEJADAS_ASSINAR_FISCAL',
+                'MENU_PLANEJADAS': 'MENU_PLANEJADAS',
+                'SUBMENU_PLANEJADAS': 'SUBMENU_PLANEJADAS',
+                'SUBMENU_OPERADOR_PLANEJADAS': 'SUBMENU_OPERADOR_PLANEJADAS',
+                'SUBMENU_FISCAL_PLANEJADAS': 'SUBMENU_FISCAL_PLANEJADAS',
+            }
+            
+            # Criar permissões de submenu
+            permissoes_criadas = 0
+            for campo_form, modulo in submenu_mapping.items():
+                if campo_form in request.POST:
+                    PermissaoFuncao.objects.create(
+                        funcao_militar=funcao,
+                        modulo=modulo,
+                        acesso='VISUALIZAR',
+                        ativo=True
+                    )
+                    permissoes_criadas += 1
+            
+            # Criar permissões específicas de ações
+            acoes_criadas = 0
+            for campo_form, modulo in acoes_mapping.items():
+                if campo_form in request.POST:
+                    PermissaoFuncao.objects.create(
+                        funcao_militar=funcao,
+                        modulo=modulo,
+                        acesso='EXECUTAR',
+                        ativo=True
+                    )
+                    acoes_criadas += 1
+            
+            # Se não foram selecionadas permissões específicas, aplicar configuração padrão por grupo
+            if permissoes_criadas == 0:
+                aplicar_configuracoes_por_grupo(funcao, menu_config)
+            
+            messages.success(
+                request, 
+                f'Função militar "{funcao.nome}" criada com sucesso! '
+                f'Configurados {len([f for f in menu_fields if f in request.POST])} menus principais '
+                f'e {permissoes_criadas} submenus com {acoes_criadas} ações específicas.'
+            )
+            return redirect('militares:funcoes_militares_list')
+        else:
+            messages.error(request, 'Por favor, corrija os erros no formulário.')
+    else:
+        form = FuncaoMilitarForm()
+    
+    context = {
+        'form': form,
+        'action': 'Nova',
+        'title': 'Nova Função Militar',
+    }
+    return render(request, 'militares/funcoes/funcoes_militares_form.html', context)
+
+
+def aplicar_configuracao_padrao(tipo_config):
+    """Aplica configuração padrão baseada no tipo"""
+    from .forms_permissoes_funcoes import PermissaoFuncaoFormSet
+    
+    # Configurações padrão para cada tipo
+    configuracoes = {
+        'basico': {
+            'modulos': ['MENU_DASHBOARD', 'MENU_EFETIVO'],
+            'acesso': 'VISUALIZAR'
+        },
+        'operacional': {
+            'modulos': ['MENU_DASHBOARD', 'MENU_EFETIVO', 'MENU_SECAO_PROMOCOES', 'MENU_ESCALAS'],
+            'acesso': 'CRIAR'
+        },
+        'gerencial': {
+            'modulos': ['MENU_DASHBOARD', 'MENU_EFETIVO', 'MENU_SECAO_PROMOCOES', 'MENU_MEDALHAS', 'MENU_ESCALAS'],
+            'acesso': 'EDITAR'
+        },
+        'administrativo': {
+            'modulos': ['MENU_DASHBOARD', 'MENU_EFETIVO', 'MENU_SECAO_PROMOCOES', 'MENU_MEDALHAS', 'MENU_ESCALAS', 'MENU_CONFIGURACOES'],
+            'acesso': 'ADMINISTRAR'
+        }
+    }
+    
+    if tipo_config in configuracoes:
+        config = configuracoes[tipo_config]
+        # Criar formset com configurações padrão
+        formset = PermissaoFuncaoFormSet()
+        # Aqui você pode adicionar lógica para preencher o formset com as configurações padrão
+        return formset
+    
+    return PermissaoFuncaoFormSet()
+
+
+def aplicar_configuracoes_por_grupo(funcao, menu_config):
+    """Aplica configurações de menu baseadas no grupo da função"""
+    from .models import PermissaoFuncao
+    
+    # Configurações por grupo
+    configuracoes_grupo = {
+        'ADMINISTRATIVO': {
+            'menu': {
+                'show_dashboard': True,
+                'show_efetivo': True,
+                'show_secao_promocoes': True,
+                'show_medalhas': True,
+                'show_administracao': True,
+                'show_logs': True,
+            },
+            'permissoes': [
+                ('MENU_DASHBOARD', 'VISUALIZAR'),
+                ('MENU_EFETIVO', 'VISUALIZAR'),
+                ('MENU_SECAO_PROMOCOES', 'ADMINISTRAR'),
+                ('MENU_MEDALHAS', 'ADMINISTRAR'),
+                ('MENU_ESCALAS', 'ADMINISTRAR'),
+                ('SUBMENU_ESCALAS_DASHBOARD', 'VISUALIZAR'),
+                ('SUBMENU_ESCALAS_LISTA', 'ADMINISTRAR'),
+                ('SUBMENU_ESCALAS_CONFIGURACAO', 'ADMINISTRAR'),
+                ('SUBMENU_ESCALAS_BANCO_HORAS', 'ADMINISTRAR'),
+                ('SUBMENU_ESCALAS_OPERACOES', 'ADMINISTRAR'),
+                ('MENU_CONFIGURACOES', 'ADMINISTRAR'),
+                ('SUBMENU_ATIVOS', 'VISUALIZAR'),
+                ('SUBMENU_INATIVOS', 'VISUALIZAR'),
+                ('SUBMENU_LOTACOES', 'VISUALIZAR'),
+                ('SUBMENU_FICHAS_OFICIAIS', 'ADMINISTRAR'),
+                ('SUBMENU_FICHAS_PRACAS', 'ADMINISTRAR'),
+                ('SUBMENU_QUADROS_ACESSO', 'ADMINISTRAR'),
+                ('SUBMENU_QUADROS_FIXACAO', 'ADMINISTRAR'),
+                ('SUBMENU_ALMANAQUES', 'ADMINISTRAR'),
+                ('SUBMENU_PROMOCOES', 'ADMINISTRAR'),
+                ('SUBMENU_CALENDARIOS', 'ADMINISTRAR'),
+                ('SUBMENU_COMISSOES', 'ADMINISTRAR'),
+                ('SUBMENU_MEUS_VOTOS', 'VISUALIZAR'),
+                ('SUBMENU_INTERSTICIOS', 'ADMINISTRAR'),
+                ('SUBMENU_GERENCIAR_INTERSTICIOS', 'ADMINISTRAR'),
+                ('SUBMENU_GERENCIAR_PREVISAO', 'ADMINISTRAR'),
+                ('SUBMENU_MEDALHAS_CONCESSOES', 'ADMINISTRAR'),
+                ('SUBMENU_MEDALHAS_PROPOSTAS', 'ADMINISTRAR'),
+                ('SUBMENU_ELEGIVEIS', 'VISUALIZAR'),
+                ('SUBMENU_PROPOSTAS', 'VISUALIZAR'),
+                ('SUBMENU_USUARIOS', 'ADMINISTRAR'),
+                ('SUBMENU_PERMISSOES', 'ADMINISTRAR'),
+                ('SUBMENU_LOGS', 'VISUALIZAR'),
+                ('SUBMENU_ADMINISTRACAO', 'ADMINISTRAR'),
+            ]
+        },
+        'GESTAO': {
+            'menu': {
+                'show_dashboard': True,
+                'show_efetivo': True,
+                'show_secao_promocoes': True,
+                'show_medalhas': True,
+                'show_administracao': False,
+                'show_logs': False,
+            },
+            'permissoes': [
+                ('MENU_DASHBOARD', 'VISUALIZAR'),
+                ('MENU_EFETIVO', 'VISUALIZAR'),
+                ('MENU_SECAO_PROMOCOES', 'EDITAR'),
+                ('MENU_MEDALHAS', 'EDITAR'),
+                ('MENU_ESCALAS', 'EDITAR'),
+                ('SUBMENU_ESCALAS_DASHBOARD', 'VISUALIZAR'),
+                ('SUBMENU_ESCALAS_LISTA', 'EDITAR'),
+                ('SUBMENU_ESCALAS_CONFIGURACAO', 'EDITAR'),
+                ('SUBMENU_ESCALAS_BANCO_HORAS', 'EDITAR'),
+                ('SUBMENU_ESCALAS_OPERACOES', 'EDITAR'),
+                ('SUBMENU_ATIVOS', 'VISUALIZAR'),
+                ('SUBMENU_INATIVOS', 'VISUALIZAR'),
+                ('SUBMENU_LOTACOES', 'VISUALIZAR'),
+                ('SUBMENU_FICHAS_OFICIAIS', 'EDITAR'),
+                ('SUBMENU_FICHAS_PRACAS', 'EDITAR'),
+                ('SUBMENU_QUADROS_ACESSO', 'EDITAR'),
+                ('SUBMENU_QUADROS_FIXACAO', 'EDITAR'),
+                ('SUBMENU_ALMANAQUES', 'EDITAR'),
+                ('SUBMENU_PROMOCOES', 'EDITAR'),
+                ('SUBMENU_CALENDARIOS', 'EDITAR'),
+                ('SUBMENU_COMISSOES', 'EDITAR'),
+                ('SUBMENU_MEUS_VOTOS', 'VISUALIZAR'),
+                ('SUBMENU_INTERSTICIOS', 'EDITAR'),
+                ('SUBMENU_GERENCIAR_INTERSTICIOS', 'EDITAR'),
+                ('SUBMENU_GERENCIAR_PREVISAO', 'EDITAR'),
+                ('SUBMENU_MEDALHAS_CONCESSOES', 'EDITAR'),
+                ('SUBMENU_MEDALHAS_PROPOSTAS', 'EDITAR'),
+                ('SUBMENU_ELEGIVEIS', 'VISUALIZAR'),
+                ('SUBMENU_PROPOSTAS', 'VISUALIZAR'),
+            ]
+        },
+        'COMISSAO': {
+            'menu': {
+                'show_dashboard': True,
+                'show_efetivo': False,
+                'show_secao_promocoes': True,
+                'show_medalhas': False,
+                'show_administracao': False,
+                'show_logs': False,
+            },
+            'permissoes': [
+                ('MENU_DASHBOARD', 'VISUALIZAR'),
+                ('MENU_SECAO_PROMOCOES', 'VISUALIZAR'),
+                ('SUBMENU_FICHAS_OFICIAIS', 'VISUALIZAR'),
+                ('SUBMENU_FICHAS_PRACAS', 'VISUALIZAR'),
+                ('SUBMENU_QUADROS_ACESSO', 'VISUALIZAR'),
+                ('SUBMENU_QUADROS_FIXACAO', 'VISUALIZAR'),
+                ('SUBMENU_ALMANAQUES', 'VISUALIZAR'),
+                ('SUBMENU_PROMOCOES', 'VISUALIZAR'),
+                ('SUBMENU_CALENDARIOS', 'VISUALIZAR'),
+                ('SUBMENU_COMISSOES', 'VISUALIZAR'),
+                ('SUBMENU_MEUS_VOTOS', 'VISUALIZAR'),
+                ('SUBMENU_INTERSTICIOS', 'VISUALIZAR'),
+                ('SUBMENU_ELEGIVEIS', 'VISUALIZAR'),
+                ('SUBMENU_PROPOSTAS', 'VISUALIZAR'),
+            ]
+        },
+        'OPERACIONAL': {
+            'menu': {
+                'show_dashboard': True,
+                'show_efetivo': True,
+                'show_escalas': True,
+                'show_secao_promocoes': False,
+                'show_medalhas': False,
+                'show_administracao': False,
+                'show_logs': False,
+            },
+            'permissoes': [
+                ('MENU_DASHBOARD', 'VISUALIZAR'),
+                ('MENU_EFETIVO', 'VISUALIZAR'),
+                ('SUBMENU_ATIVOS', 'VISUALIZAR'),
+                ('SUBMENU_INATIVOS', 'VISUALIZAR'),
+                ('SUBMENU_LOTACOES', 'VISUALIZAR'),
+                ('MENU_ESCALAS', 'VISUALIZAR'),
+                ('SUBMENU_ESCALAS_DASHBOARD', 'VISUALIZAR'),
+                ('SUBMENU_ESCALAS_LISTA', 'VISUALIZAR'),
+            ]
+        }
+    }
+    
+    # Aplicar configurações baseadas no grupo
+    if funcao.grupo in configuracoes_grupo:
+        config = configuracoes_grupo[funcao.grupo]
+        
+        # Aplicar configurações de menu
+        for campo, valor in config['menu'].items():
+            setattr(menu_config, campo, valor)
+        
+        # Criar permissões
+        for modulo, acesso in config['permissoes']:
+            PermissaoFuncao.objects.create(
+                funcao_militar=funcao,
+                modulo=modulo,
+                acesso=acesso,
+                ativo=True
+            )
+    
+    menu_config.save()
+
+
+@login_required
+def teste_template(request):
+    """View de teste para verificar se o template está funcionando"""
+    return render(request, 'militares/funcoes/teste_template.html')
+
+@login_required
+# @administracao_required
+def gerenciar_permissoes_unificado(request, funcao_id):
+    """
+    Interface unificada e moderna para gerenciar todas as permissões de uma função militar.
+    
+    Funcionalidades:
+    - Configuração de menus visíveis
+    - Permissões granulares por módulo
+    - Aplicação de perfis predefinidos
+    - Validação de permissões
+    - Interface responsiva e intuitiva
+    """
+    from .models import FuncaoMilitar, FuncaoMenuConfig, PermissaoFuncao, PerfilAcesso
+    from django.contrib.auth.models import User, Group, Permission
+    from django.contrib.contenttypes.models import ContentType
+    from django.db.models import Count, Q
+    from django.contrib import messages
+    from django.http import JsonResponse
+    from django.shortcuts import render, get_object_or_404, redirect
+    import json
+    
+    funcao = get_object_or_404(FuncaoMilitar, pk=funcao_id)
+    
+    if request.method == 'POST':
+        print(f"🔍 DEBUG: Requisição POST recebida para função {funcao.nome}")
+        print(f"🔍 DEBUG: Dados POST: {dict(request.POST)}")
+        try:
+            # Verificar se é uma requisição AJAX para aplicar perfil
+            if request.headers.get('Content-Type') == 'application/json':
+                data = json.loads(request.body)
+                if data.get('action') == 'aplicar_perfil':
+                    perfil_id = data.get('perfil_id')
+                    perfil = get_object_or_404(PerfilAcesso, pk=perfil_id)
+                    perfil.aplicar_perfil(funcao)
+                    
+                    # Aplicar configurações de menu do perfil
+                    menu_config, created = FuncaoMenuConfig.objects.get_or_create(
+                        funcao_militar=funcao,
+                        defaults={'ativo': True}
+                    )
+                    
+                    # Configurações padrão baseadas no perfil
+                    if 'ADMINISTRADOR' in perfil.nome.upper():
+                        menu_config.show_dashboard = True
+                        menu_config.show_efetivo = True
+                        menu_config.show_publicacoes = True
+                        menu_config.show_secao_promocoes = True
+                        menu_config.show_medalhas = True
+                        menu_config.show_configuracoes = True
+                        menu_config.show_administracao = True
+                        menu_config.show_logs = True
+                    elif 'COMANDANTE' in perfil.nome.upper():
+                        menu_config.show_dashboard = True
+                        menu_config.show_efetivo = True
+                        menu_config.show_publicacoes = True
+                        menu_config.show_secao_promocoes = True
+                        menu_config.show_medalhas = True
+                        menu_config.show_configuracoes = False
+                        menu_config.show_administracao = False
+                        menu_config.show_logs = False
+                    elif 'SARGENTEANTE' in perfil.nome.upper():
+                        menu_config.show_dashboard = True
+                        menu_config.show_efetivo = True
+                        menu_config.show_publicacoes = True
+                        menu_config.show_secao_promocoes = False
+                        menu_config.show_medalhas = False
+                        menu_config.show_configuracoes = False
+                        menu_config.show_administracao = False
+                        menu_config.show_logs = False
+                    
+                    menu_config.save()
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'message': f'Perfil "{perfil.nome}" aplicado com sucesso!'
+                    })
+            
+            # Processar configurações de menu
+            menu_config, created = FuncaoMenuConfig.objects.get_or_create(
+                funcao_militar=funcao,
+                defaults={'ativo': True}
+            )
+            
+            # Atualizar configurações de menu - todos os campos do FuncaoMenuConfig
+            menu_fields = [
+                'show_dashboard', 'show_efetivo', 'show_publicacoes', 'show_escalas',
+                'show_secao_promocoes', 'show_medalhas', 'show_configuracoes', 'show_administracao', 'show_logs',
+                'show_pessoal', 'show_relatorios', 'show_planejadas', 'show_afastamentos', 'show_ferias',
+                # Submenus - Efetivo
+                'show_ativos', 'show_inativos', 'show_lotacoes', 'show_averbacoes',
+                # Submenus - Publicações
+                'show_notas', 'show_boletins_ostensivos', 'show_boletins_reservados', 'show_boletins_especiais',
+                'show_avisos', 'show_ordens_servico',
+                # Submenus - Seção de Promoções
+                'show_fichas_oficiais', 'show_fichas_pracas', 'show_calendarios', 'show_quadros_fixacao',
+                'show_quadros_acesso', 'show_comissoes', 'show_meus_votos', 'show_promocoes', 'show_almanaques',
+                # Submenus - Medalhas
+                'show_medalhas_concessoes', 'show_medalhas_propostas', 'show_elegiveis', 'show_propostas',
+                # Submenus - Escalas
+                'show_escalas_dashboard', 'show_escalas_lista', 'show_escalas_configuracao', 'show_escalas_banco_horas', 'show_escalas_operacoes',
+                # Submenus - Planejadas
+                'show_operador_planejadas', 'show_fiscal_planejadas', 'show_liquidacao',
+                # Submenus - Configurações
+                'show_intersticios', 'show_gerenciar_intersticios', 'show_gerenciar_previsao', 'show_usuarios',
+                'show_permissoes', 'show_orgaos', 'show_organograma', 'show_logs', 'show_titulos_publicacao',
+                'show_grandes_comandos', 'show_unidades', 'show_sub_unidades',
+                # Submenus - Pessoal
+                'show_minhas_informacoes', 'show_minha_ficha_cadastro', 'show_minha_ficha_conceito_oficial',
+                'show_minha_ficha_conceito_praca', 'show_criar_ficha_conceito_oficial', 'show_criar_ficha_conceito_praca',
+                # Submenus - Relatórios
+                'show_relatorios_militares', 'show_relatorios_promocoes', 'show_relatorios_medalhas',
+                'show_relatorios_publicacoes', 'show_relatorios_gerais',
+                # Menus e Submenus - Frota
+                'show_viaturas', 'show_frota', 'show_equipamentos_operacionais', 'show_equipamentos_operacionais_combustivel', 'show_equipamentos_operacionais_manutencoes', 'show_equipamentos_operacionais_trocas_oleo', 'show_equipamentos_operacionais_tempos_uso', 'show_controle_combustivel', 'show_manutencoes',
+                'show_trocas_oleo', 'show_licenciamentos', 'show_rodagens', 'show_painel_guarda',
+                # Menus e Submenus - Material Bélico
+                'show_material_belico', 'show_armas_instituicao', 'show_armas_particulares',
+                'show_cautelas_armas', 'show_controle_movimentacoes', 'show_controle_municao', 'show_cautelas_municoes',
+                # Menus e Submenus - Bens Móveis
+                'show_bens_moveis',
+                # Menus e Submenus - Almoxarifado
+                'show_almoxarifado',
+                'show_processos'
+            ]
+            
+            # Atualizar configurações de menu - todos os campos do FuncaoMenuConfig
+            for field in menu_fields:
+                setattr(menu_config, field, field in request.POST)
+            
+            # Mapeamento de campos do formulário para campos do menu_config
+            campo_form_to_menu_field = {
+                'MENU_AFASTAMENTOS': 'show_afastamentos',
+                'MENU_FERIAS': 'show_ferias',
+                'MENU_PLANEJADAS': 'show_planejadas',
+                'MENU_DASHBOARD': 'show_dashboard',
+                'MENU_EFETIVO': 'show_efetivo',
+                'MENU_PUBLICACOES': 'show_publicacoes',
+                'MENU_ESCALAS': 'show_escalas',
+                'MENU_SECAO_PROMOCOES': 'show_secao_promocoes',
+                'MENU_MEDALHAS': 'show_medalhas',
+                'MENU_CONFIGURACOES': 'show_configuracoes',
+                'MENU_RELATORIOS': 'show_relatorios',
+                'MENU_PESSOAL': 'show_pessoal',
+                'MENU_FROTA': 'show_viaturas',
+                'MENU_MATERIAL_BELICO': 'show_material_belico',
+                'MENU_BENS_MOVEIS': 'show_bens_moveis',
+                'MENU_ALMOXARIFADO': 'show_almoxarifado',
+                'MENU_PROCESSOS': 'show_processos',
+                'SUBMENU_AVERBACOES': 'show_averbacoes',
+            }
+            
+            # Atualizar menu_config com campos do formulário
+            for campo_form, campo_menu in campo_form_to_menu_field.items():
+                if campo_form in request.POST and hasattr(menu_config, campo_menu):
+                    setattr(menu_config, campo_menu, True)
+            
+            menu_config.save()
+            
+            # Debug: verificar o que foi salvo
+            print(f"DEBUG: Salvando permissões para função {funcao.nome}")
+            print(f"DEBUG: Campos salvos: {[field for field in menu_fields if field in request.POST]}")
+            print(f"DEBUG: Total de campos marcados: {len([field for field in menu_fields if field in request.POST])}")
+            print(f"DEBUG: Todos os campos POST: {list(request.POST.keys())}")
+            print(f"DEBUG: Método da requisição: {request.method}")
+            print(f"DEBUG: Content-Type: {request.headers.get('Content-Type')}")
+            
+            # Primeiro, marcar todas as permissões existentes como inativas
+            PermissaoFuncao.objects.filter(funcao_militar=funcao).update(ativo=False)
+            
+            # Depois, criar/reativar permissões baseadas no formulário
+            permissoes_criadas = 0
+            
+            # Definir estrutura de permissões por módulo
+            modulos_permissoes = {
+                # Menus principais
+                'MENU_DASHBOARD': 'VISUALIZAR',
+                'MENU_EFETIVO': 'VISUALIZAR', 
+                'MENU_SECAO_PROMOCOES': 'VISUALIZAR',
+                'MENU_MEDALHAS': 'VISUALIZAR',
+                'MENU_PUBLICACOES': 'VISUALIZAR',
+                'MENU_ESCALAS': 'VISUALIZAR',
+                'MENU_CONFIGURACOES': 'VISUALIZAR',
+                'MENU_RELATORIOS': 'VISUALIZAR',
+                'MENU_PESSOAL': 'VISUALIZAR',
+                'MENU_AFASTAMENTOS': 'VISUALIZAR',
+                'MENU_FERIAS': 'VISUALIZAR',
+            
+                # Submenus - Pessoal
+                'SUBMENU_MINHAS_INFORMACOES': 'VISUALIZAR',
+                'SUBMENU_MINHA_FICHA_CADASTRO': 'VISUALIZAR',
+                'SUBMENU_MINHA_FICHA_CONCEITO_OFICIAL': 'VISUALIZAR',
+                'SUBMENU_MINHA_FICHA_CONCEITO_PRACA': 'VISUALIZAR',
+                'SUBMENU_CRIAR_FICHA_CONCEITO_OFICIAL': 'CRIAR',
+                'SUBMENU_CRIAR_FICHA_CONCEITO_PRACA': 'CRIAR',
+                
+                # Submenus - Efetivo
+                'SUBMENU_ATIVOS': 'VISUALIZAR',
+                'SUBMENU_INATIVOS': 'VISUALIZAR',
+                'SUBMENU_LOTACOES': 'VISUALIZAR',
+                'SUBMENU_AVERBACOES': 'VISUALIZAR',
+                
+                # Submenus - Seção de Promoções
+                'SUBMENU_FICHAS_OFICIAIS': 'VISUALIZAR',
+                'SUBMENU_FICHAS_PRACAS': 'VISUALIZAR',
+                'SUBMENU_QUADROS_ACESSO': 'VISUALIZAR',
+                'SUBMENU_QUADROS_FIXACAO': 'VISUALIZAR',
+                'SUBMENU_ALMANAQUES': 'VISUALIZAR',
+                'SUBMENU_PROMOCOES': 'VISUALIZAR',
+                'SUBMENU_CALENDARIOS': 'VISUALIZAR',
+                'SUBMENU_COMISSOES': 'VISUALIZAR',
+                'SUBMENU_MEUS_VOTOS': 'VISUALIZAR',
+                'SUBMENU_INTERSTICIOS': 'VISUALIZAR',
+                'SUBMENU_GERENCIAR_INTERSTICIOS': 'VISUALIZAR',
+                'SUBMENU_GERENCIAR_PREVISAO': 'VISUALIZAR',
+                
+                # Submenus - Medalhas
+                'SUBMENU_MEDALHAS_CONCESSOES': 'VISUALIZAR',
+                'SUBMENU_MEDALHAS_PROPOSTAS': 'VISUALIZAR',
+                'SUBMENU_ELEGIVEIS': 'VISUALIZAR',
+                'SUBMENU_PROPOSTAS': 'VISUALIZAR',
+                'SUBMENU_CONCEDER_MEDALHA': 'CRIAR',
+                
+                # Submenus - Publicações
+                'SUBMENU_NOTAS': 'VISUALIZAR',
+                'SUBMENU_NOTAS_RESERVADAS': 'VISUALIZAR',
+                'SUBMENU_BOLETINS_OSTENSIVOS': 'VISUALIZAR',
+                'SUBMENU_BOLETINS_RESERVADOS': 'VISUALIZAR',
+                'SUBMENU_BOLETINS_ESPECIAIS': 'VISUALIZAR',
+                'SUBMENU_AVISOS': 'VISUALIZAR',
+                'SUBMENU_ORDENS_SERVICO': 'VISUALIZAR',
+                
+                # Submenus - Escalas de Serviço
+                'SUBMENU_ESCALAS_DASHBOARD': 'VISUALIZAR',
+                'SUBMENU_ESCALAS_LISTA': 'VISUALIZAR',
+                'SUBMENU_ESCALAS_CONFIGURACAO': 'VISUALIZAR',
+                'SUBMENU_ESCALAS_BANCO_HORAS': 'VISUALIZAR',
+                'SUBMENU_ESCALAS_OPERACOES': 'VISUALIZAR',
+                
+                # Submenus - Configurações/Sistema
+                'SUBMENU_USUARIOS': 'VISUALIZAR',
+                'SUBMENU_PERMISSOES': 'VISUALIZAR',
+                'SUBMENU_ORGAOS': 'VISUALIZAR',
+                'SUBMENU_ORGANOGRAMA': 'VISUALIZAR',
+                'SUBMENU_LOGS': 'VISUALIZAR',
+                'SUBMENU_TITULOS_PUBLICACAO': 'VISUALIZAR',
+                'SUBMENU_ADMINISTRACAO': 'VISUALIZAR',
+                'SUBMENU_GRANDES_COMANDOS': 'VISUALIZAR',
+                'SUBMENU_UNIDADES': 'VISUALIZAR',
+                'SUBMENU_SUB_UNIDADES': 'VISUALIZAR',
+                
+                # Submenus - Relatórios
+                'SUBMENU_RELATORIOS_MILITARES': 'VISUALIZAR',
+                'SUBMENU_RELATORIOS_PROMOCOES': 'VISUALIZAR',
+                'SUBMENU_RELATORIOS_MEDALHAS': 'VISUALIZAR',
+                'SUBMENU_RELATORIOS_PUBLICACOES': 'VISUALIZAR',
+                'SUBMENU_RELATORIOS_GERAIS': 'VISUALIZAR',
+                
+                # Submenus - Planejadas
+                'MENU_PLANEJADAS': 'VISUALIZAR',
+                'SUBMENU_OPERADOR_PLANEJADAS': 'VISUALIZAR',
+                'SUBMENU_FISCAL_PLANEJADAS': 'VISUALIZAR',
+                'SUBMENU_LIQUIDACAO': 'VISUALIZAR',
+                
+                # Menus e Submenus - Elogios
+                'MENU_ELOGIOS': 'VISUALIZAR',
+                'SUBMENU_ELOGIOS_OFICIAIS': 'VISUALIZAR',
+                'SUBMENU_ELOGIOS_PRACAS': 'VISUALIZAR',
+                
+                # Menus e Submenus - Punições
+                'MENU_PUNICOES': 'VISUALIZAR',
+                'SUBMENU_PUNICOES_OFICIAIS': 'VISUALIZAR',
+                'SUBMENU_PUNICOES_PRACAS': 'VISUALIZAR',
+                
+                # Menus e Submenus - Frota
+                'MENU_FROTA': 'VISUALIZAR',
+                'SUBMENU_VIATURAS': 'VISUALIZAR',
+                'MENU_EQUIPAMENTOS_OPERACIONAIS': 'VISUALIZAR',
+                'SUBMENU_EQUIPAMENTOS_OPERACIONAIS': 'VISUALIZAR',
+                'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_COMBUSTIVEL': 'VISUALIZAR',
+                'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_MANUTENCOES': 'VISUALIZAR',
+                'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_TROCAS_OLEO': 'VISUALIZAR',
+                'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_TEMPOS_USO': 'VISUALIZAR',
+                'SUBMENU_CONTROLE_COMBUSTIVEL': 'VISUALIZAR',
+                'SUBMENU_MANUTENCOES': 'VISUALIZAR',
+                'SUBMENU_TROCAS_OLEO': 'VISUALIZAR',
+                'SUBMENU_LICENCIAMENTOS': 'VISUALIZAR',
+                'SUBMENU_RODAGENS': 'VISUALIZAR',
+                'SUBMENU_PAINEL_GUARDA': 'VISUALIZAR',
+                
+                # Menus e Submenus - Material Bélico
+                'MENU_MATERIAL_BELICO': 'VISUALIZAR',
+                'SUBMENU_ARMAS_INSTITUICAO': 'VISUALIZAR',
+                'SUBMENU_ARMAS_PARTICULARES': 'VISUALIZAR',
+                'SUBMENU_CAUTELAS_ARMAS': 'VISUALIZAR',
+                'SUBMENU_CONTROLE_MOVIMENTACOES': 'VISUALIZAR',
+                'SUBMENU_CONTROLE_MUNICAO': 'VISUALIZAR',
+                'SUBMENU_CAUTELAS_MUNICOES': 'VISUALIZAR',
+                
+                # Menus e Submenus - Processos Administrativos
+                'MENU_PROCESSOS': 'VISUALIZAR',
+                
+                # Menus e Submenus - Almoxarifado
+                'MENU_ALMOXARIFADO': 'VISUALIZAR',
+                'SUBMENU_ALMOXARIFADO_ITENS': 'VISUALIZAR',
+                'SUBMENU_ALMOXARIFADO_ENTRADAS': 'VISUALIZAR',
+                'SUBMENU_ALMOXARIFADO_SAIDAS': 'VISUALIZAR',
+                'SUBMENU_ALMOXARIFADO_REQUISICOES': 'VISUALIZAR',
+            }
+            
+            # Mapeamento de campos do template para módulos
+            template_to_modulo = {
+                'show_dashboard': 'MENU_DASHBOARD',
+                'show_efetivo': 'MENU_EFETIVO',
+                'show_secao_promocoes': 'MENU_SECAO_PROMOCOES',
+                'show_medalhas': 'MENU_MEDALHAS',
+                'show_publicacoes': 'MENU_PUBLICACOES',
+                'show_escalas': 'MENU_ESCALAS',
+                'show_configuracoes': 'MENU_CONFIGURACOES',
+                'show_relatorios': 'MENU_RELATORIOS',
+                'show_pessoal': 'MENU_PESSOAL',
+                'show_afastamentos': 'MENU_AFASTAMENTOS',
+                'show_ferias': 'MENU_FERIAS',
+                
+                # Submenus - Pessoal
+                'show_minhas_informacoes': 'SUBMENU_MINHAS_INFORMACOES',
+                'show_minha_ficha_cadastro': 'SUBMENU_MINHA_FICHA_CADASTRO',
+                'show_minha_ficha_conceito_oficial': 'SUBMENU_MINHA_FICHA_CONCEITO_OFICIAL',
+                'show_minha_ficha_conceito_praca': 'SUBMENU_MINHA_FICHA_CONCEITO_PRACA',
+                'show_criar_ficha_conceito_oficial': 'SUBMENU_CRIAR_FICHA_CONCEITO_OFICIAL',
+                'show_criar_ficha_conceito_praca': 'SUBMENU_CRIAR_FICHA_CONCEITO_PRACA',
+                
+                # Submenus - Efetivo
+                'show_ativos': 'SUBMENU_ATIVOS',
+                'show_inativos': 'SUBMENU_INATIVOS',
+                'show_lotacoes': 'SUBMENU_LOTACOES',
+                'show_averbacoes': 'SUBMENU_AVERBACOES',
+                
+                # Submenus - Seção de Promoções
+                'show_fichas_oficiais': 'SUBMENU_FICHAS_OFICIAIS',
+                'show_fichas_pracas': 'SUBMENU_FICHAS_PRACAS',
+                'show_quadros_acesso': 'SUBMENU_QUADROS_ACESSO',
+                'show_quadros_fixacao': 'SUBMENU_QUADROS_FIXACAO',
+                'show_almanaques': 'SUBMENU_ALMANAQUES',
+                'show_promocoes': 'SUBMENU_PROMOCOES',
+                'show_calendarios': 'SUBMENU_CALENDARIOS',
+                'show_comissoes': 'SUBMENU_COMISSOES',
+                'show_meus_votos': 'SUBMENU_MEUS_VOTOS',
+                'show_intersticios': 'SUBMENU_INTERSTICIOS',
+                'show_gerenciar_intersticios': 'SUBMENU_GERENCIAR_INTERSTICIOS',
+                'show_gerenciar_previsao': 'SUBMENU_GERENCIAR_PREVISAO',
+                
+                # Submenus - Medalhas
+                'show_medalhas_concessoes': 'SUBMENU_MEDALHAS_CONCESSOES',
+                'show_medalhas_propostas': 'SUBMENU_MEDALHAS_PROPOSTAS',
+                'show_elegiveis': 'SUBMENU_ELEGIVEIS',
+                'show_propostas': 'SUBMENU_PROPOSTAS',
+                
+                # Submenus - Publicações
+                'show_notas': 'SUBMENU_NOTAS',
+                'show_boletins_ostensivos': 'SUBMENU_BOLETINS_OSTENSIVOS',
+                'show_boletins_reservados': 'SUBMENU_BOLETINS_RESERVADOS',
+                'show_boletins_especiais': 'SUBMENU_BOLETINS_ESPECIAIS',
+                'show_avisos': 'SUBMENU_AVISOS',
+                'show_ordens_servico': 'SUBMENU_ORDENS_SERVICO',
+                
+                # Submenus - Escalas de Serviço
+                'show_escalas_dashboard': 'SUBMENU_ESCALAS_DASHBOARD',
+                'show_escalas_lista': 'SUBMENU_ESCALAS_LISTA',
+                'show_escalas_configuracao': 'SUBMENU_ESCALAS_CONFIGURACAO',
+                'show_escalas_banco_horas': 'SUBMENU_ESCALAS_BANCO_HORAS',
+                'show_escalas_operacoes': 'SUBMENU_ESCALAS_OPERACOES',
+                
+                # Submenus - Configurações/Sistema
+                'show_usuarios': 'SUBMENU_USUARIOS',
+                'show_permissoes': 'SUBMENU_PERMISSOES',
+                'show_orgaos': 'SUBMENU_ORGAOS',
+                'show_organograma': 'SUBMENU_ORGANOGRAMA',
+                'show_logs': 'SUBMENU_LOGS',
+                'show_titulos_publicacao': 'SUBMENU_TITULOS_PUBLICACAO',
+                'show_administracao': 'SUBMENU_ADMINISTRACAO',
+                'show_grandes_comandos': 'SUBMENU_GRANDES_COMANDOS',
+                'show_unidades': 'SUBMENU_UNIDADES',
+                'show_sub_unidades': 'SUBMENU_SUB_UNIDADES',
+                
+                # Submenus - Relatórios
+                'show_relatorios_militares': 'SUBMENU_RELATORIOS_MILITARES',
+                'show_relatorios_promocoes': 'SUBMENU_RELATORIOS_PROMOCOES',
+                'show_relatorios_medalhas': 'SUBMENU_RELATORIOS_MEDALHAS',
+                'show_relatorios_publicacoes': 'SUBMENU_RELATORIOS_PUBLICACOES',
+                'show_relatorios_gerais': 'SUBMENU_RELATORIOS_GERAIS',
+                
+                # Submenus - Planejadas
+                'show_planejadas': 'MENU_PLANEJADAS',
+                'show_operador_planejadas': 'SUBMENU_OPERADOR_PLANEJADAS',
+                'show_fiscal_planejadas': 'SUBMENU_FISCAL_PLANEJADAS',
+                'show_liquidacao': 'SUBMENU_LIQUIDACAO',
+                
+                # Menus e Submenus - Frota
+                'show_viaturas': 'MENU_FROTA',
+                'show_frota': 'MENU_FROTA',
+                'show_viaturas_submenu': 'SUBMENU_VIATURAS',
+                'show_equipamentos_operacionais': 'MENU_EQUIPAMENTOS_OPERACIONAIS',
+                'show_equipamentos_operacionais_combustivel': 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_COMBUSTIVEL',
+                'show_equipamentos_operacionais_manutencoes': 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_MANUTENCOES',
+                'show_equipamentos_operacionais_trocas_oleo': 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_TROCAS_OLEO',
+                'show_equipamentos_operacionais_tempos_uso': 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_TEMPOS_USO',
+                'show_controle_combustivel': 'SUBMENU_CONTROLE_COMBUSTIVEL',
+                'show_manutencoes': 'SUBMENU_MANUTENCOES',
+                'show_trocas_oleo': 'SUBMENU_TROCAS_OLEO',
+                'show_licenciamentos': 'SUBMENU_LICENCIAMENTOS',
+                'show_rodagens': 'SUBMENU_RODAGENS',
+                'show_painel_guarda': 'SUBMENU_PAINEL_GUARDA',
+                
+                # Menus e Submenus - Material Bélico
+                'show_material_belico': 'MENU_MATERIAL_BELICO',
+                
+                # Menus e Submenus - Bens Móveis
+                'show_bens_moveis': 'MENU_BENS_MOVEIS',
+                
+                # Menus e Submenus - Almoxarifado
+                'show_almoxarifado': 'MENU_ALMOXARIFADO',
+                'show_processos': 'MENU_PROCESSOS',
+                
+                'show_armas_instituicao': 'SUBMENU_ARMAS_INSTITUICAO',
+                'show_armas_particulares': 'SUBMENU_ARMAS_PARTICULARES',
+                'show_cautelas_armas': 'SUBMENU_CAUTELAS_ARMAS',
+                'show_controle_movimentacoes': 'SUBMENU_CONTROLE_MOVIMENTACOES',
+                'show_controle_municao': 'SUBMENU_CONTROLE_MUNICAO',
+                'show_cautelas_municoes': 'SUBMENU_CAUTELAS_MUNICOES',
+            }
+            
+            # Processar permissões de menus baseadas nas configurações
+            # Guardar quais campos foram realmente salvos para não processar novamente
+            campos_salvos_com_sucesso = set()
+            
+            # Processar também campos diretos do formulário (MENU_*, SUBMENU_*)
+            campos_diretos = {
+                'MENU_FROTA', 'MENU_EQUIPAMENTOS_OPERACIONAIS', 'MENU_MATERIAL_BELICO', 'SUBMENU_AVERBACOES',
+                'SUBMENU_VIATURAS', 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS', 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_COMBUSTIVEL', 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_MANUTENCOES', 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_TROCAS_OLEO', 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_TEMPOS_USO', 'SUBMENU_CONTROLE_COMBUSTIVEL', 'SUBMENU_MANUTENCOES',
+                'SUBMENU_TROCAS_OLEO', 'SUBMENU_LICENCIAMENTOS', 'SUBMENU_RODAGENS',
+                'SUBMENU_PAINEL_GUARDA', 'SUBMENU_ARMAS_INSTITUICAO', 'SUBMENU_ARMAS_PARTICULARES',
+                'SUBMENU_CAUTELAS_ARMAS', 'SUBMENU_CONTROLE_MOVIMENTACOES', 'SUBMENU_CONTROLE_MUNICAO',
+                'SUBMENU_CAUTELAS_MUNICOES'
+            }
+            
+            for campo_direto in campos_diretos:
+                if campo_direto in request.POST:
+                    modulo = campo_direto
+                    acesso = modulos_permissoes.get(modulo, 'VISUALIZAR')
+                    try:
+                        permissao, created = PermissaoFuncao.objects.get_or_create(
+                            funcao_militar=funcao,
+                            modulo=modulo,
+                            acesso=acesso,
+                            defaults={'ativo': True}
+                        )
+                        if not created:
+                            permissao.ativo = True
+                            permissao.save()
+                        campos_salvos_com_sucesso.add(modulo)
+                        permissoes_criadas += 1
+                    except Exception as e:
+                        print(f"Erro ao criar permissão {modulo}: {e}")
+            
+            for campo_template, modulo in template_to_modulo.items():
+                if campo_template in request.POST:
+                    # Encontrar o acesso correspondente
+                    acesso = modulos_permissoes.get(modulo, 'VISUALIZAR')
+                    # Verificar se já existe e reativar, ou criar nova
+                    try:
+                        permissao, created = PermissaoFuncao.objects.get_or_create(
+                            funcao_militar=funcao,
+                            modulo=modulo,
+                            acesso=acesso,
+                            defaults={'ativo': True}
+                        )
+                        if not created:
+                            # Reativar se estava inativa
+                            permissao.ativo = True
+                            permissao.save()
+                        permissoes_criadas += 1
+                        campos_salvos_com_sucesso.add(campo_template)
+                        campos_salvos_com_sucesso.add(modulo)  # Também marcar o módulo como salvo
+                        print(f"DEBUG: Permissão de menu {'criada' if created else 'reativada'} - {campo_template} -> {modulo}: {acesso}")
+                    except Exception as e:
+                        print(f"DEBUG: Erro ao salvar permissão {campo_template}: {str(e)}")
+            
+            # Processar também os campos que vêm diretamente do formulário (ex: MENU_AFASTAMENTOS, MENU_PESSOAL, SUBMENU_ATIVOS, etc)
+            # Verificar se campos com nome direto de módulo foram enviados
+            modulos_diretos_do_form = {
+                'MENU_AFASTAMENTOS': 'MENU_AFASTAMENTOS',
+                'MENU_FERIAS': 'MENU_FERIAS',
+                'MENU_PLANEJADAS': 'MENU_PLANEJADAS',
+                'MENU_PESSOAL': 'MENU_PESSOAL',
+                'MENU_EFETIVO': 'MENU_EFETIVO',
+                'MENU_SECAO_PROMOCOES': 'MENU_SECAO_PROMOCOES',
+                'MENU_MEDALHAS': 'MENU_MEDALHAS',
+                'MENU_PUBLICACOES': 'MENU_PUBLICACOES',
+                'MENU_ESCALAS': 'MENU_ESCALAS',
+                'MENU_CONFIGURACOES': 'MENU_CONFIGURACOES',
+                'MENU_RELATORIOS': 'MENU_RELATORIOS',
+                'SUBMENU_PLANEJADAS': 'SUBMENU_PLANEJADAS',
+                'SUBMENU_MINHAS_INFORMACOES': 'SUBMENU_MINHAS_INFORMACOES',
+                'SUBMENU_MINHA_FICHA_CADASTRO': 'SUBMENU_MINHA_FICHA_CADASTRO',
+                'SUBMENU_MINHA_FICHA_CONCEITO_OFICIAL': 'SUBMENU_MINHA_FICHA_CONCEITO_OFICIAL',
+                'SUBMENU_MINHA_FICHA_CONCEITO_PRACA': 'SUBMENU_MINHA_FICHA_CONCEITO_PRACA',
+                'SUBMENU_CRIAR_FICHA_CONCEITO_OFICIAL': 'SUBMENU_CRIAR_FICHA_CONCEITO_OFICIAL',
+                'SUBMENU_CRIAR_FICHA_CONCEITO_PRACA': 'SUBMENU_CRIAR_FICHA_CONCEITO_PRACA',
+                'SUBMENU_ATIVOS': 'SUBMENU_ATIVOS',
+                'SUBMENU_INATIVOS': 'SUBMENU_INATIVOS',
+                'SUBMENU_LOTACOES': 'SUBMENU_LOTACOES',
+                'SUBMENU_AVERBACOES': 'SUBMENU_AVERBACOES',
+                'SUBMENU_FICHAS_OFICIAIS': 'SUBMENU_FICHAS_OFICIAIS',
+                'SUBMENU_FICHAS_PRACAS': 'SUBMENU_FICHAS_PRACAS',
+                'SUBMENU_QUADROS_ACESSO': 'SUBMENU_QUADROS_ACESSO',
+                'SUBMENU_QUADROS_FIXACAO': 'SUBMENU_QUADROS_FIXACAO',
+                'SUBMENU_ALMANAQUES': 'SUBMENU_ALMANAQUES',
+                'SUBMENU_PROMOCOES': 'SUBMENU_PROMOCOES',
+                'SUBMENU_CALENDARIOS': 'SUBMENU_CALENDARIOS',
+                'SUBMENU_COMISSOES': 'SUBMENU_COMISSOES',
+                'SUBMENU_MEUS_VOTOS': 'SUBMENU_MEUS_VOTOS',
+                'SUBMENU_INTERSTICIOS': 'SUBMENU_INTERSTICIOS',
+                'SUBMENU_GERENCIAR_INTERSTICIOS': 'SUBMENU_GERENCIAR_INTERSTICIOS',
+                'SUBMENU_GERENCIAR_PREVISAO': 'SUBMENU_GERENCIAR_PREVISAO',
+                'SUBMENU_MEDALHAS_CONCESSOES': 'SUBMENU_MEDALHAS_CONCESSOES',
+                'SUBMENU_MEDALHAS_PROPOSTAS': 'SUBMENU_MEDALHAS_PROPOSTAS',
+                'SUBMENU_ELEGIVEIS': 'SUBMENU_ELEGIVEIS',
+                'SUBMENU_PROPOSTAS': 'SUBMENU_PROPOSTAS',
+                'SUBMENU_CONCEDER_MEDALHA': 'SUBMENU_CONCEDER_MEDALHA',
+                'SUBMENU_NOTAS': 'SUBMENU_NOTAS',
+                'SUBMENU_BOLETINS_OSTENSIVOS': 'SUBMENU_BOLETINS_OSTENSIVOS',
+                'SUBMENU_BOLETINS_RESERVADOS': 'SUBMENU_BOLETINS_RESERVADOS',
+                'SUBMENU_BOLETINS_ESPECIAIS': 'SUBMENU_BOLETINS_ESPECIAIS',
+                'SUBMENU_AVISOS': 'SUBMENU_AVISOS',
+                'SUBMENU_ORDENS_SERVICO': 'SUBMENU_ORDENS_SERVICO',
+                'SUBMENU_ESCALAS_DASHBOARD': 'SUBMENU_ESCALAS_DASHBOARD',
+                'SUBMENU_ESCALAS_LISTA': 'SUBMENU_ESCALAS_LISTA',
+                'SUBMENU_ESCALAS_CONFIGURACAO': 'SUBMENU_ESCALAS_CONFIGURACAO',
+                'SUBMENU_ESCALAS_BANCO_HORAS': 'SUBMENU_ESCALAS_BANCO_HORAS',
+                'SUBMENU_ESCALAS_OPERACOES': 'SUBMENU_ESCALAS_OPERACOES',
+                'SUBMENU_USUARIOS': 'SUBMENU_USUARIOS',
+                'SUBMENU_PERMISSOES': 'SUBMENU_PERMISSOES',
+                'SUBMENU_ORGAOS': 'SUBMENU_ORGAOS',
+                'SUBMENU_ORGANOGRAMA': 'SUBMENU_ORGANOGRAMA',
+                'SUBMENU_LOGS': 'SUBMENU_LOGS',
+                'SUBMENU_TITULOS_PUBLICACAO': 'SUBMENU_TITULOS_PUBLICACAO',
+                'SUBMENU_ADMINISTRACAO': 'SUBMENU_ADMINISTRACAO',
+                'SUBMENU_GRANDES_COMANDOS': 'SUBMENU_GRANDES_COMANDOS',
+                'SUBMENU_UNIDADES': 'SUBMENU_UNIDADES',
+                'SUBMENU_SUB_UNIDADES': 'SUBMENU_SUB_UNIDADES',
+                'SUBMENU_RELATORIOS_MILITARES': 'SUBMENU_RELATORIOS_MILITARES',
+                'SUBMENU_RELATORIOS_PROMOCOES': 'SUBMENU_RELATORIOS_PROMOCOES',
+                'SUBMENU_RELATORIOS_MEDALHAS': 'SUBMENU_RELATORIOS_MEDALHAS',
+                'SUBMENU_RELATORIOS_PUBLICACOES': 'SUBMENU_RELATORIOS_PUBLICACOES',
+                'SUBMENU_RELATORIOS_GERAIS': 'SUBMENU_RELATORIOS_GERAIS',
+                'SUBMENU_OPERADOR_PLANEJADAS': 'SUBMENU_OPERADOR_PLANEJADAS',
+                'SUBMENU_FISCAL_PLANEJADAS': 'SUBMENU_FISCAL_PLANEJADAS',
+                'SUBMENU_LIQUIDACAO': 'SUBMENU_LIQUIDACAO',
+                
+                # Menus e Submenus - Elogios
+                'MENU_ELOGIOS': 'MENU_ELOGIOS',
+                'SUBMENU_ELOGIOS_OFICIAIS': 'SUBMENU_ELOGIOS_OFICIAIS',
+                'SUBMENU_ELOGIOS_PRACAS': 'SUBMENU_ELOGIOS_PRACAS',
+                
+                # Menus e Submenus - Punições
+                'MENU_PUNICOES': 'MENU_PUNICOES',
+                'SUBMENU_PUNICOES_OFICIAIS': 'SUBMENU_PUNICOES_OFICIAIS',
+                'SUBMENU_PUNICOES_PRACAS': 'SUBMENU_PUNICOES_PRACAS',
+                
+                # Menus e Submenus - Frota
+                'MENU_FROTA': 'MENU_FROTA',
+                'SUBMENU_VIATURAS': 'SUBMENU_VIATURAS',
+                'SUBMENU_CONTROLE_COMBUSTIVEL': 'SUBMENU_CONTROLE_COMBUSTIVEL',
+                
+                # Menus e Submenus - Equipamentos Operacionais
+                'MENU_EQUIPAMENTOS_OPERACIONAIS': 'MENU_EQUIPAMENTOS_OPERACIONAIS',
+                'SUBMENU_EQUIPAMENTOS_OPERACIONAIS': 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS',
+                'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_COMBUSTIVEL': 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_COMBUSTIVEL',
+                'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_MANUTENCOES': 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_MANUTENCOES',
+                'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_TROCAS_OLEO': 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_TROCAS_OLEO',
+                'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_TEMPOS_USO': 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_TEMPOS_USO',
+                'SUBMENU_MANUTENCOES': 'SUBMENU_MANUTENCOES',
+                'SUBMENU_TROCAS_OLEO': 'SUBMENU_TROCAS_OLEO',
+                'SUBMENU_LICENCIAMENTOS': 'SUBMENU_LICENCIAMENTOS',
+                'SUBMENU_RODAGENS': 'SUBMENU_RODAGENS',
+                'SUBMENU_PAINEL_GUARDA': 'SUBMENU_PAINEL_GUARDA',
+                
+                # Menus e Submenus - Material Bélico
+                'MENU_MATERIAL_BELICO': 'MENU_MATERIAL_BELICO',
+                'SUBMENU_ARMAS_INSTITUICAO': 'SUBMENU_ARMAS_INSTITUICAO',
+                'SUBMENU_ARMAS_PARTICULARES': 'SUBMENU_ARMAS_PARTICULARES',
+                'SUBMENU_CAUTELAS_ARMAS': 'SUBMENU_CAUTELAS_ARMAS',
+                'SUBMENU_CONTROLE_MOVIMENTACOES': 'SUBMENU_CONTROLE_MOVIMENTACOES',
+                'SUBMENU_CONTROLE_MUNICAO': 'SUBMENU_CONTROLE_MUNICAO',
+                'SUBMENU_CAUTELAS_MUNICOES': 'SUBMENU_CAUTELAS_MUNICOES',
+                
+                # Menus e Submenus - Processos Administrativos
+                'MENU_PROCESSOS': 'MENU_PROCESSOS',
+                
+                # Menus e Submenus - Almoxarifado
+                'MENU_ALMOXARIFADO': 'MENU_ALMOXARIFADO',
+                'SUBMENU_ALMOXARIFADO_ITENS': 'SUBMENU_ALMOXARIFADO_ITENS',
+                'SUBMENU_ALMOXARIFADO_ENTRADAS': 'SUBMENU_ALMOXARIFADO_ENTRADAS',
+                'SUBMENU_ALMOXARIFADO_SAIDAS': 'SUBMENU_ALMOXARIFADO_SAIDAS',
+                'SUBMENU_ALMOXARIFADO_REQUISICOES': 'SUBMENU_ALMOXARIFADO_REQUISICOES',
+            }
+            for campo_form, modulo_direto in modulos_diretos_do_form.items():
+                if campo_form in request.POST and campo_form not in campos_salvos_com_sucesso:
+                    # Verificar se já foi processado pelo template_to_modulo
+                    ja_processado = False
+                    for campo_tpl, mod_tpl in template_to_modulo.items():
+                        if campo_tpl in request.POST and mod_tpl == modulo_direto:
+                            ja_processado = True
+                            break
+                    
+                    if not ja_processado:
+                        acesso = modulos_permissoes.get(modulo_direto, 'VISUALIZAR')
+                        # Verificar se já existe e reativar, ou criar nova
+                        try:
+                            permissao, created = PermissaoFuncao.objects.get_or_create(
+                                funcao_militar=funcao,
+                                modulo=modulo_direto,
+                                acesso=acesso,
+                                defaults={'ativo': True}
+                            )
+                            if not created:
+                                permissao.ativo = True
+                                permissao.save()
+                            permissoes_criadas += 1
+                            campos_salvos_com_sucesso.add(campo_form)
+                            campos_salvos_com_sucesso.add(modulo_direto)
+                            print(f"DEBUG: Permissão de menu {'criada' if created else 'reativada'} diretamente - {campo_form} -> {modulo_direto}: {acesso}")
+                        except Exception as e:
+                            print(f"DEBUG: Erro ao salvar permissão {campo_form}: {str(e)}")
+            
+            # Mapeamento de permissões específicas por módulo
+            permissoes_especificas = {
+                # Militares
+                'MILITARES_VISUALIZAR': ('MILITARES', 'VISUALIZAR'),
+                'MILITARES_CRIAR': ('MILITARES', 'CRIAR'),
+                'MILITARES_EDITAR': ('MILITARES', 'EDITAR'),
+                'MILITARES_EXCLUIR': ('MILITARES', 'EXCLUIR'),
+                'MILITARES_TRANSFERIR': ('MILITARES', 'TRANSFERIR'),
+                'MILITARES_PROMOVER': ('MILITARES', 'PROMOVER'),
+                'MILITARES_INATIVAR': ('MILITARES', 'INATIVAR'),
+                'MILITARES_FICHA_CONCEITO': ('MILITARES', 'FICHA_CONCEITO'),
+                'MILITARES_EXPORTAR': ('MILITARES', 'EXPORTAR'),
+                
+                # Submenus - Ativos
+                'SUBMENU_ATIVOS_visualizar': ('SUBMENU_ATIVOS', 'VISUALIZAR'),
+                'SUBMENU_ATIVOS_criar': ('SUBMENU_ATIVOS', 'CRIAR'),
+                'SUBMENU_ATIVOS_editar': ('SUBMENU_ATIVOS', 'EDITAR'),
+                'SUBMENU_ATIVOS_excluir': ('SUBMENU_ATIVOS', 'EXCLUIR'),
+                
+                # Submenus - Inativos
+                'SUBMENU_INATIVOS_visualizar': ('SUBMENU_INATIVOS', 'VISUALIZAR'),
+                'SUBMENU_INATIVOS_editar': ('SUBMENU_INATIVOS', 'EDITAR'),
+                'SUBMENU_INATIVOS_excluir': ('SUBMENU_INATIVOS', 'EXCLUIR'),
+                
+                # Submenus - Lotações
+                'SUBMENU_LOTACOES_visualizar': ('SUBMENU_LOTACOES', 'VISUALIZAR'),
+                'SUBMENU_LOTACOES_criar': ('SUBMENU_LOTACOES', 'CRIAR'),
+                'SUBMENU_LOTACOES_editar': ('SUBMENU_LOTACOES', 'EDITAR'),
+                'SUBMENU_LOTACOES_excluir': ('SUBMENU_LOTACOES', 'EXCLUIR'),
+                
+                # Inativos
+                'INATIVOS_VISUALIZAR': ('INATIVOS', 'VISUALIZAR'),
+                'INATIVOS_EDITAR': ('INATIVOS', 'EDITAR'),
+                'INATIVOS_EXCLUIR': ('INATIVOS', 'EXCLUIR'),
+                'INATIVOS_REATIVAR': ('INATIVOS', 'REATIVAR'),
+                
+                # Notas
+                'NOTAS_VISUALIZAR': ('NOTAS', 'VISUALIZAR'),
+                'NOTAS_CRIAR': ('NOTAS', 'CRIAR'),
+                'NOTAS_EDITAR': ('NOTAS', 'EDITAR'),
+                'NOTAS_EXCLUIR': ('NOTAS', 'EXCLUIR'),
+                'NOTAS_PUBLICAR': ('NOTAS', 'PUBLICAR'),
+                'NOTAS_APROVAR': ('NOTAS', 'APROVAR'),
+                'NOTAS_REVISAR': ('NOTAS', 'REVISAR'),
+                
+                # Notas Reservadas
+                'NOTAS_RESERVADAS_VISUALIZAR': ('NOTAS_RESERVADAS', 'VISUALIZAR'),
+                'NOTAS_RESERVADAS_CRIAR': ('NOTAS_RESERVADAS', 'CRIAR'),
+                'NOTAS_RESERVADAS_EDITAR': ('NOTAS_RESERVADAS', 'EDITAR'),
+                'NOTAS_RESERVADAS_EXCLUIR': ('NOTAS_RESERVADAS', 'EXCLUIR'),
+                'NOTAS_RESERVADAS_PUBLICAR': ('NOTAS_RESERVADAS', 'PUBLICAR'),
+                'NOTAS_RESERVADAS_APROVAR': ('NOTAS_RESERVADAS', 'APROVAR'),
+                'NOTAS_RESERVADAS_REVISAR': ('NOTAS_RESERVADAS', 'REVISAR'),
+                
+                # Submenus - Notas Reservadas
+                'SUBMENU_NOTAS_RESERVADAS_visualizar': ('SUBMENU_NOTAS_RESERVADAS', 'VISUALIZAR'),
+                'SUBMENU_NOTAS_RESERVADAS_criar': ('SUBMENU_NOTAS_RESERVADAS', 'CRIAR'),
+                'SUBMENU_NOTAS_RESERVADAS_editar': ('SUBMENU_NOTAS_RESERVADAS', 'EDITAR'),
+                'SUBMENU_NOTAS_RESERVADAS_excluir': ('SUBMENU_NOTAS_RESERVADAS', 'EXCLUIR'),
+                
+                # Boletins Ostensivos
+                'BOLETINS_OSTENSIVOS_VISUALIZAR': ('BOLETINS_OSTENSIVOS', 'VISUALIZAR'),
+                'BOLETINS_OSTENSIVOS_CRIAR': ('BOLETINS_OSTENSIVOS', 'CRIAR'),
+                'BOLETINS_OSTENSIVOS_EDITAR': ('BOLETINS_OSTENSIVOS', 'EDITAR'),
+                'BOLETINS_OSTENSIVOS_EXCLUIR': ('BOLETINS_OSTENSIVOS', 'EXCLUIR'),
+                'BOLETINS_OSTENSIVOS_PUBLICAR': ('BOLETINS_OSTENSIVOS', 'PUBLICAR'),
+                'BOLETINS_OSTENSIVOS_APROVAR': ('BOLETINS_OSTENSIVOS', 'APROVAR'),
+                'BOLETINS_OSTENSIVOS_REVISAR': ('BOLETINS_OSTENSIVOS', 'REVISAR'),
+                
+                # Boletins Reservados
+                'BOLETINS_RESERVADOS_VISUALIZAR': ('BOLETINS_RESERVADOS', 'VISUALIZAR'),
+                'BOLETINS_RESERVADOS_CRIAR': ('BOLETINS_RESERVADOS', 'CRIAR'),
+                'BOLETINS_RESERVADOS_EDITAR': ('BOLETINS_RESERVADOS', 'EDITAR'),
+                'BOLETINS_RESERVADOS_EXCLUIR': ('BOLETINS_RESERVADOS', 'EXCLUIR'),
+                'BOLETINS_RESERVADOS_PUBLICAR': ('BOLETINS_RESERVADOS', 'PUBLICAR'),
+                'BOLETINS_RESERVADOS_APROVAR': ('BOLETINS_RESERVADOS', 'APROVAR'),
+                'BOLETINS_RESERVADOS_REVISAR': ('BOLETINS_RESERVADOS', 'REVISAR'),
+                
+                # Submenus - Boletins Reservados
+                'SUBMENU_BOLETINS_RESERVADOS_visualizar': ('SUBMENU_BOLETINS_RESERVADOS', 'VISUALIZAR'),
+                'SUBMENU_BOLETINS_RESERVADOS_criar': ('SUBMENU_BOLETINS_RESERVADOS', 'CRIAR'),
+                'SUBMENU_BOLETINS_RESERVADOS_editar': ('SUBMENU_BOLETINS_RESERVADOS', 'EDITAR'),
+                'SUBMENU_BOLETINS_RESERVADOS_excluir': ('SUBMENU_BOLETINS_RESERVADOS', 'EXCLUIR'),
+                
+                # Escalas de Serviço
+                'ESCALAS_VISUALIZAR': ('ESCALAS', 'VISUALIZAR'),
+                'ESCALAS_CRIAR': ('ESCALAS', 'CRIAR'),
+                'ESCALAS_EDITAR': ('ESCALAS', 'EDITAR'),
+                'ESCALAS_EXCLUIR': ('ESCALAS', 'EXCLUIR'),
+                'ESCALAS_GERAR_PDF': ('ESCALAS', 'GERAR_PDF'),
+                'ESCALAS_ADICIONAR_MILITAR': ('ESCALAS', 'ADICIONAR_MILITAR'),
+                'ESCALAS_REMOVER_MILITAR': ('ESCALAS', 'REMOVER_MILITAR'),
+                'ESCALAS_CONFIGURAR_HORAS': ('ESCALAS', 'CONFIGURAR_HORAS'),
+                'ESCALAS_OPERACOES_PLANEJADAS': ('ESCALAS', 'OPERACOES_PLANEJADAS'),
+                
+                # Quadros de Acesso
+                'QUADROS_ACESSO_VISUALIZAR': ('QUADROS_ACESSO', 'VISUALIZAR'),
+                'QUADROS_ACESSO_CRIAR': ('QUADROS_ACESSO', 'CRIAR'),
+                'QUADROS_ACESSO_EDITAR': ('QUADROS_ACESSO', 'EDITAR'),
+                'QUADROS_ACESSO_EXCLUIR': ('QUADROS_ACESSO', 'EXCLUIR'),
+                'QUADROS_ACESSO_GERAR_PDF': ('QUADROS_ACESSO', 'GERAR_PDF'),
+                'QUADROS_ACESSO_HOMOLOGAR': ('QUADROS_ACESSO', 'HOMOLOGAR'),
+                'QUADROS_ACESSO_ELABORAR': ('QUADROS_ACESSO', 'ELABORAR'),
+                
+                # Medalhas
+                'MEDALHAS_VISUALIZAR': ('MEDALHAS', 'VISUALIZAR'),
+                'MEDALHAS_CRIAR': ('MEDALHAS', 'CRIAR'),
+                'MEDALHAS_EDITAR': ('MEDALHAS', 'EDITAR'),
+                'MEDALHAS_EXCLUIR': ('MEDALHAS', 'EXCLUIR'),
+                
+                # Processos Administrativos
+                'PROCESSOS_VISUALIZAR': ('PROCESSOS', 'VISUALIZAR'),
+                'PROCESSOS_CRIAR': ('PROCESSOS', 'CRIAR'),
+                'PROCESSOS_EDITAR': ('PROCESSOS', 'EDITAR'),
+                'PROCESSOS_EXCLUIR': ('PROCESSOS', 'EXCLUIR'),
+                'PROCESSOS_GERAR_PDF': ('PROCESSOS', 'GERAR_PDF'),
+                # Almoxarifado
+                'ALMOXARIFADO_VISUALIZAR': ('ALMOXARIFADO', 'VISUALIZAR'),
+                'ALMOXARIFADO_CRIAR': ('ALMOXARIFADO', 'CRIAR'),
+                'ALMOXARIFADO_EDITAR': ('ALMOXARIFADO', 'EDITAR'),
+                'ALMOXARIFADO_EXCLUIR': ('ALMOXARIFADO', 'EXCLUIR'),
+                'MEDALHAS_APROVAR': ('MEDALHAS', 'APROVAR'),
+                'MEDALHAS_HOMOLOGAR': ('MEDALHAS', 'HOMOLOGAR'),
+                'MEDALHAS_CONCEDER': ('MEDALHAS', 'CONCEDER'),
+                
+                # Usuários
+                'USUARIOS_VISUALIZAR': ('USUARIOS', 'VISUALIZAR'),
+                'USUARIOS_CRIAR': ('USUARIOS', 'CRIAR'),
+                'USUARIOS_EDITAR': ('USUARIOS', 'EDITAR'),
+                'USUARIOS_EXCLUIR': ('USUARIOS', 'EXCLUIR'),
+                'USUARIOS_ALTERAR_SENHA': ('USUARIOS', 'ALTERAR_SENHA'),
+                'USUARIOS_GERENCIAR_FUNCOES': ('USUARIOS', 'GERENCIAR_FUNCOES'),
+                
+                # Relatórios
+                'RELATORIOS_VISUALIZAR': ('RELATORIOS', 'VISUALIZAR'),
+                'RELATORIOS_GERAR': ('RELATORIOS', 'GERAR'),
+                'RELATORIOS_EXPORTAR': ('RELATORIOS', 'EXPORTAR'),
+                'RELATORIOS_IMPRIMIR': ('RELATORIOS', 'IMPRIMIR'),
+                
+                # Operações Planejadas
+                'PLANEJADAS_VISUALIZAR': ('PLANEJADAS', 'VISUALIZAR'),
+                'PLANEJADAS_CRIAR': ('PLANEJADAS', 'CRIAR'),
+                'PLANEJADAS_EDITAR': ('PLANEJADAS', 'EDITAR'),
+                'PLANEJADAS_EXCLUIR': ('PLANEJADAS', 'EXCLUIR'),
+                'PLANEJADAS_ADICIONAR_MILITAR': ('PLANEJADAS', 'ADICIONAR_MILITAR'),
+                'PLANEJADAS_REMOVER_MILITAR': ('PLANEJADAS', 'REMOVER_MILITAR'),
+                'PLANEJADAS_ASSINAR_OPERADOR': ('PLANEJADAS', 'ASSINAR_OPERADOR'),
+                'PLANEJADAS_ASSINAR_FISCAL': ('PLANEJADAS', 'ASSINAR_FISCAL'),
+                
+                # Afastamentos
+                'AFASTAMENTOS_VISUALIZAR': ('AFASTAMENTOS', 'VISUALIZAR'),
+                'AFASTAMENTOS_CRIAR': ('AFASTAMENTOS', 'CRIAR'),
+                'AFASTAMENTOS_EDITAR': ('AFASTAMENTOS', 'EDITAR'),
+                'AFASTAMENTOS_EXCLUIR': ('AFASTAMENTOS', 'EXCLUIR'),
+                
+                # Frota/Viaturas
+                'VIATURAS_VISUALIZAR': ('VIATURAS', 'VISUALIZAR'),
+                'VIATURAS_CRIAR': ('VIATURAS', 'CRIAR'),
+                'VIATURAS_EDITAR': ('VIATURAS', 'EDITAR'),
+                'VIATURAS_EXCLUIR': ('VIATURAS', 'EXCLUIR'),
+                
+                # Equipamentos Operacionais
+                'EQUIPAMENTOS_OPERACIONAIS_VISUALIZAR': ('EQUIPAMENTOS_OPERACIONAIS', 'VISUALIZAR'),
+                'EQUIPAMENTOS_OPERACIONAIS_CRIAR': ('EQUIPAMENTOS_OPERACIONAIS', 'CRIAR'),
+                'EQUIPAMENTOS_OPERACIONAIS_EDITAR': ('EQUIPAMENTOS_OPERACIONAIS', 'EDITAR'),
+                'EQUIPAMENTOS_OPERACIONAIS_EXCLUIR': ('EQUIPAMENTOS_OPERACIONAIS', 'EXCLUIR'),
+                
+                # Material Bélico/Armas
+                'ARMAS_VISUALIZAR': ('ARMAS', 'VISUALIZAR'),
+                'ARMAS_CRIAR': ('ARMAS', 'CRIAR'),
+                'ARMAS_EDITAR': ('ARMAS', 'EDITAR'),
+                'ARMAS_EXCLUIR': ('ARMAS', 'EXCLUIR'),
+                
+                # Bens Móveis
+                'BENS_MOVEIS_VISUALIZAR': ('BENS_MOVEIS', 'VISUALIZAR'),
+                'BENS_MOVEIS_CRIAR': ('BENS_MOVEIS', 'CRIAR'),
+                'BENS_MOVEIS_EDITAR': ('BENS_MOVEIS', 'EDITAR'),
+                'BENS_MOVEIS_EXCLUIR': ('BENS_MOVEIS', 'EXCLUIR'),
+                
+                # Elogios
+                'elogios_visualizar': ('ELOGIOS', 'VISUALIZAR'),
+                'elogios_criar': ('ELOGIOS', 'CRIAR'),
+                'elogios_editar': ('ELOGIOS', 'EDITAR'),
+                'ELOGIOS_VISUALIZAR': ('ELOGIOS', 'VISUALIZAR'),
+                'ELOGIOS_CRIAR': ('ELOGIOS', 'CRIAR'),
+                'ELOGIOS_EDITAR': ('ELOGIOS', 'EDITAR'),
+                'ELOGIOS_EXCLUIR': ('ELOGIOS', 'EXCLUIR'),
+                
+                # Punições
+                'punicoes_visualizar': ('PUNICOES', 'VISUALIZAR'),
+                'punicoes_criar': ('PUNICOES', 'CRIAR'),
+                'punicoes_editar': ('PUNICOES', 'EDITAR'),
+                'PUNICOES_VISUALIZAR': ('PUNICOES', 'VISUALIZAR'),
+                'PUNICOES_CRIAR': ('PUNICOES', 'CRIAR'),
+                'PUNICOES_EDITAR': ('PUNICOES', 'EDITAR'),
+                'PUNICOES_EXCLUIR': ('PUNICOES', 'EXCLUIR'),
+                
+                # Fichas de Conceito
+                'FICHAS_CONCEITO_VISUALIZAR': ('FICHAS_CONCEITO', 'VISUALIZAR'),
+                'FICHAS_CONCEITO_CRIAR': ('FICHAS_CONCEITO', 'CRIAR'),
+                'FICHAS_CONCEITO_EDITAR': ('FICHAS_CONCEITO', 'EDITAR'),
+                'FICHAS_CONCEITO_EXCLUIR': ('FICHAS_CONCEITO', 'EXCLUIR'),
+                
+                # Quadros de Fixação
+                'QUADROS_FIXACAO_VISUALIZAR': ('QUADROS_FIXACAO', 'VISUALIZAR'),
+                'QUADROS_FIXACAO_CRIAR': ('QUADROS_FIXACAO', 'CRIAR'),
+                'QUADROS_FIXACAO_EDITAR': ('QUADROS_FIXACAO', 'EDITAR'),
+                'QUADROS_FIXACAO_EXCLUIR': ('QUADROS_FIXACAO', 'EXCLUIR'),
+                
+                # Comissões
+                'COMISSOES_VISUALIZAR': ('COMISSOES', 'VISUALIZAR'),
+                'COMISSOES_CRIAR': ('COMISSOES', 'CRIAR'),
+                'COMISSOES_EDITAR': ('COMISSOES', 'EDITAR'),
+                'COMISSOES_EXCLUIR': ('COMISSOES', 'EXCLUIR'),
+                
+                # Avisos
+                'AVISOS_VISUALIZAR': ('AVISOS', 'VISUALIZAR'),
+                'AVISOS_CRIAR': ('AVISOS', 'CRIAR'),
+                'AVISOS_EDITAR': ('AVISOS', 'EDITAR'),
+                'AVISOS_EXCLUIR': ('AVISOS', 'EXCLUIR'),
+                'AVISOS_PUBLICAR': ('AVISOS', 'PUBLICAR'),
+                
+                # Ordens de Serviço
+                'ORDENS_SERVICO_VISUALIZAR': ('ORDENS_SERVICO', 'VISUALIZAR'),
+                'ORDENS_SERVICO_CRIAR': ('ORDENS_SERVICO', 'CRIAR'),
+                'ORDENS_SERVICO_EDITAR': ('ORDENS_SERVICO', 'EDITAR'),
+                'ORDENS_SERVICO_EXCLUIR': ('ORDENS_SERVICO', 'EXCLUIR'),
+                'ORDENS_SERVICO_PUBLICAR': ('ORDENS_SERVICO', 'PUBLICAR'),
+                
+                # Boletins Especiais
+                'BOLETINS_ESPECIAIS_VISUALIZAR': ('BOLETINS_ESPECIAIS', 'VISUALIZAR'),
+                'BOLETINS_ESPECIAIS_CRIAR': ('BOLETINS_ESPECIAIS', 'CRIAR'),
+                'BOLETINS_ESPECIAIS_EDITAR': ('BOLETINS_ESPECIAIS', 'EDITAR'),
+                'BOLETINS_ESPECIAIS_EXCLUIR': ('BOLETINS_ESPECIAIS', 'EXCLUIR'),
+                'BOLETINS_ESPECIAIS_PUBLICAR': ('BOLETINS_ESPECIAIS', 'PUBLICAR'),
+                
+                # Submenus de Planejadas
+                'SUBMENU_PLANEJADAS': ('SUBMENU_PLANEJADAS', 'VISUALIZAR'),
+                'SUBMENU_OPERADOR_PLANEJADAS': ('SUBMENU_OPERADOR_PLANEJADAS', 'VISUALIZAR'),
+                'SUBMENU_FISCAL_PLANEJADAS': ('SUBMENU_FISCAL_PLANEJADAS', 'VISUALIZAR'),
+            }
+            
+            # Processar permissões específicas com hierarquia
+            # Hierarquia: VISUALIZAR < CRIAR < EDITAR < EXCLUIR
+            hierarquia_acessos = ['VISUALIZAR', 'CRIAR', 'EDITAR', 'EXCLUIR']
+            
+            # Agrupar permissões por módulo para aplicar hierarquia
+            permissoes_por_modulo = {}
+            for campo, (modulo, acesso) in permissoes_especificas.items():
+                if campo in request.POST:
+                    if modulo not in permissoes_por_modulo:
+                        permissoes_por_modulo[modulo] = []
+                    permissoes_por_modulo[modulo].append((campo, acesso))
+            
+            # Processar cada módulo aplicando hierarquia
+            for modulo, permissoes_modulo in permissoes_por_modulo.items():
+                # Encontrar o nível mais alto de acesso marcado
+                niveis_marcados = []
+                for campo, acesso in permissoes_modulo:
+                    if acesso in hierarquia_acessos:
+                        niveis_marcados.append(hierarquia_acessos.index(acesso))
+                
+                if niveis_marcados:
+                    # Pegar o nível mais alto
+                    nivel_maximo = max(niveis_marcados)
+                    
+                    # Criar/ativar todas as permissões até o nível máximo
+                    for i in range(nivel_maximo + 1):
+                        acesso_hierarquico = hierarquia_acessos[i]
+                        
+                        # Encontrar o campo correspondente
+                        campo_correspondente = None
+                        for campo, acesso in permissoes_especificas.items():
+                            if permissoes_especificas[campo][0] == modulo and permissoes_especificas[campo][1] == acesso_hierarquico:
+                                campo_correspondente = campo
+                                break
+                        
+                        if campo_correspondente and campo_correspondente not in campos_salvos_com_sucesso:
+                            try:
+                                permissao, created = PermissaoFuncao.objects.get_or_create(
+                                    funcao_militar=funcao,
+                                    modulo=modulo,
+                                    acesso=acesso_hierarquico,
+                                    defaults={'ativo': True}
+                                )
+                                if not created:
+                                    permissao.ativo = True
+                                    permissao.save()
+                                permissoes_criadas += 1
+                                campos_salvos_com_sucesso.add(campo_correspondente)
+                                print(f"DEBUG: Permissão hierárquica {'criada' if created else 'reativada'} - {campo_correspondente} -> {modulo}: {acesso_hierarquico}")
+                            except Exception as e:
+                                print(f"DEBUG: Erro ao salvar permissão hierárquica {campo_correspondente}: {str(e)}")
+                
+                # Processar permissões que não estão na hierarquia (ex: PUBLICAR, APROVAR, etc)
+                for campo, acesso in permissoes_modulo:
+                    if acesso not in hierarquia_acessos and campo not in campos_salvos_com_sucesso:
+                        try:
+                            permissao, created = PermissaoFuncao.objects.get_or_create(
+                                funcao_militar=funcao,
+                                modulo=modulo,
+                                acesso=acesso,
+                                defaults={'ativo': True}
+                            )
+                            if not created:
+                                permissao.ativo = True
+                                permissao.save()
+                            permissoes_criadas += 1
+                            campos_salvos_com_sucesso.add(campo)
+                            print(f"DEBUG: Permissão específica {'criada' if created else 'reativada'} - {campo} -> {modulo}: {acesso}")
+                        except Exception as e:
+                            print(f"DEBUG: Erro ao salvar permissão específica {campo}: {str(e)}")
+            
+            # Debug: verificar se campos de afastamentos foram enviados
+            afastamentos_campos = ['MENU_AFASTAMENTOS', 'AFASTAMENTOS_VISUALIZAR', 'AFASTAMENTOS_CRIAR', 'AFASTAMENTOS_EDITAR', 'AFASTAMENTOS_EXCLUIR']
+            print(f"DEBUG: Campos de afastamentos no POST:")
+            for campo_afast in afastamentos_campos:
+                if campo_afast in request.POST:
+                    print(f"  - {campo_afast}: presente")
+                else:
+                    print(f"  - {campo_afast}: ausente")
+            
+            # Processar permissões granulares de botões
+            permissoes_botoes = {
+                'BOTAO_LOTACAO_NOVA': ('BOTAO_LOTACAO_NOVA', 'TOTAL'),
+                'BOTAO_LOTACAO_EDITAR': ('BOTAO_LOTACAO_EDITAR', 'TOTAL'),
+                'BOTAO_LOTACAO_EXCLUIR': ('BOTAO_LOTACAO_EXCLUIR', 'TOTAL'),
+                'BOTAO_LOTACAO_ESTATISTICAS': ('BOTAO_LOTACAO_ESTATISTICAS', 'TOTAL'),
+                'BOTAO_PUBLICACAO_NOVA': ('BOTAO_PUBLICACAO_NOVA', 'TOTAL'),
+                'BOTAO_PUBLICACAO_EDITAR': ('BOTAO_PUBLICACAO_EDITAR', 'TOTAL'),
+                'BOTAO_PUBLICACAO_PUBLICAR': ('BOTAO_PUBLICACAO_PUBLICAR', 'TOTAL'),
+                'BOTAO_PUBLICACAO_ASSINAR': ('BOTAO_PUBLICACAO_ASSINAR', 'TOTAL'),
+                'BOTAO_AFASTAMENTO_NOVO': ('BOTAO_AFASTAMENTO_NOVO', 'TOTAL'),
+                'BOTAO_AFASTAMENTO_EDITAR': ('BOTAO_AFASTAMENTO_EDITAR', 'TOTAL'),
+                'BOTAO_AFASTAMENTO_EXCLUIR': ('BOTAO_AFASTAMENTO_EXCLUIR', 'TOTAL'),
+                'BOTAO_AFASTAMENTO_VISUALIZAR': ('BOTAO_AFASTAMENTO_VISUALIZAR', 'TOTAL'),
+                'BOTAO_PLANO_LICENCA_ESPECIAL_VISUALIZAR': ('BOTAO_PLANO_LICENCA_ESPECIAL_VISUALIZAR', 'TOTAL'),
+            }
+            
+            for campo, (modulo, acesso) in permissoes_botoes.items():
+                if campo in request.POST and campo not in campos_salvos_com_sucesso:
+                    try:
+                        permissao, created = PermissaoFuncao.objects.get_or_create(
+                            funcao_militar=funcao,
+                            modulo=modulo,
+                            acesso=acesso,
+                            defaults={'ativo': True}
+                        )
+                        if not created:
+                            permissao.ativo = True
+                            permissao.save()
+                        permissoes_criadas += 1
+                        campos_salvos_com_sucesso.add(campo)
+                        print(f"DEBUG: Permissão de botão {'criada' if created else 'reativada'} - {campo} -> {modulo}: {acesso}")
+                    except Exception as e:
+                        print(f"DEBUG: Erro ao salvar permissão de botão {campo}: {str(e)}")
+            
+            # Processar TODOS os campos restantes do POST que não foram processados
+            # Isso garante que nenhum checkbox marcado seja perdido
+            campos_processados = set()
+            
+            # Usar o conjunto de campos já salvos com sucesso como base
+            campos_processados.update(campos_salvos_com_sucesso)
+            
+            # Processar todos os outros campos do POST que são checkboxes
+            todos_campos_post = set(request.POST.keys())
+            campos_ignorados = {'csrfmiddlewaretoken', 'submit', 'action'}
+            campos_nao_processados = todos_campos_post - campos_processados - campos_ignorados
+            
+            print(f"DEBUG: Total de campos no POST: {len(todos_campos_post)}")
+            print(f"DEBUG: Campos processados: {len(campos_processados)}")
+            print(f"DEBUG: Campos não processados (serão processados agora): {len(campos_nao_processados)}")
+            
+            # Processar campos MENU_ e SUBMENU_ que vieram diretamente do template (sem show_)
+            for campo in campos_nao_processados:
+                # Processar campos MENU_* e SUBMENU_* diretamente
+                if (campo.startswith('MENU_') or campo.startswith('SUBMENU_')) and campo not in campos_salvos_com_sucesso:
+                    # Se for MENU_XXX ou SUBMENU_XXX sem sufixo de acesso, assumir VISUALIZAR
+                    modulo = campo
+                    acesso = 'VISUALIZAR'
+                    
+                    # Verificar se está em modulos_permissoes para obter acesso correto
+                    if modulo in modulos_permissoes:
+                        acesso = modulos_permissoes[modulo]
+                    
+                    # Criar ou reativar permissão
+                    try:
+                        permissao, created = PermissaoFuncao.objects.get_or_create(
+                            funcao_militar=funcao,
+                            modulo=modulo,
+                            acesso=acesso,
+                            defaults={'ativo': True}
+                        )
+                        if not created:
+                            permissao.ativo = True
+                            permissao.save()
+                        permissoes_criadas += 1
+                        campos_salvos_com_sucesso.add(campo)
+                        campos_processados.add(campo)
+                        print(f"DEBUG: Permissão de menu/submenu {'criada' if created else 'reativada'} - {campo} -> {modulo}: {acesso}")
+                    except Exception as e:
+                        print(f"DEBUG: Erro ao salvar permissão {campo}: {str(e)}")
+            
+            # Atualizar lista de campos não processados após processar MENU_ e SUBMENU_
+            campos_nao_processados = todos_campos_post - campos_processados - campos_ignorados
+            
+            # Processar demais campos genéricos (ex: BOTAO_*, CAMPOS_MODULO_ACESSO, etc)
+            for campo in campos_nao_processados:
+                # Pular se já foi salvo
+                if campo in campos_salvos_com_sucesso:
+                    continue
+                    
+                # Primeiro verificar se o campo está no dicionário de permissões específicas
+                if campo in permissoes_especificas:
+                    modulo, acesso = permissoes_especificas[campo]
+                    # Criar ou reativar permissão
+                    try:
+                        permissao, created = PermissaoFuncao.objects.get_or_create(
+                            funcao_militar=funcao,
+                            modulo=modulo,
+                            acesso=acesso,
+                            defaults={'ativo': True}
+                        )
+                        if not created:
+                            permissao.ativo = True
+                            permissao.save()
+                        permissoes_criadas += 1
+                        campos_salvos_com_sucesso.add(campo)
+                        print(f"DEBUG: Permissão específica {'criada' if created else 'reativada'} - {campo} -> {modulo}: {acesso}")
+                    except Exception as e:
+                        print(f"DEBUG: Erro ao processar campo {campo}: {str(e)}")
+                    continue
+                
+                # Tentar processar como permissão genérica
+                # Se o campo parece ser um módulo (ex: BOTAO_XXX, MODULO_ACESSO, etc)
+                partes = campo.split('_')
+                if len(partes) >= 2:
+                    # Verificar tipos de acesso compostos primeiro (do mais específico para o menos específico)
+                    acesso_tipos_compostos = [
+                        'ASSINAR_OPERADOR', 'ASSINAR_FISCAL', 'ADICIONAR_MILITAR', 'REMOVER_MILITAR',
+                        'OPERACOES_PLANEJADAS', 'CONFIGURAR_HORAS', 'ALTERAR_SENHA', 'GERENCIAR_FUNCOES',
+                        'GERAR_PDF', 'FICHA_CONCEITO'
+                    ]
+                    
+                    acesso = None
+                    modulo = None
+                    
+                    # Verificar tipos de acesso compostos
+                    for tipo_composto in acesso_tipos_compostos:
+                        if campo.endswith('_' + tipo_composto):
+                            modulo = campo[:-len('_' + tipo_composto)]
+                            acesso = tipo_composto
+                            break
+                    
+                    # Se não encontrou tipo composto, verificar tipos simples
+                    if not acesso:
+                        acesso_tipo = partes[-1].upper()
+                        tipos_simples = ['VISUALIZAR', 'CRIAR', 'EDITAR', 'EXCLUIR', 'TOTAL', 'ASSINAR', 'PUBLICAR', 
+                                         'APROVAR', 'REVISAR', 'EXPORTAR', 'TRANSFERIR', 'PROMOVER', 'INATIVAR', 
+                                         'REATIVAR', 'HOMOLOGAR', 'ELABORAR', 'GERAR', 'IMPRIMIR', 'CONCEDER']
+                        
+                        if acesso_tipo in tipos_simples:
+                            modulo = '_'.join(partes[:-1])
+                            acesso = acesso_tipo
+                        elif campo.startswith('BOTAO_'):
+                            # Botões sem tipo de acesso explícito recebem TOTAL
+                            modulo = campo
+                            acesso = 'TOTAL'
+                        else:
+                            # Se não tem tipo de acesso explícito, assumir VISUALIZAR
+                            modulo = campo
+                            acesso = 'VISUALIZAR'
+                    
+                    # Criar ou reativar permissão
+                    if modulo and acesso:
+                        try:
+                            permissao, created = PermissaoFuncao.objects.get_or_create(
+                                funcao_militar=funcao,
+                                modulo=modulo,
+                                acesso=acesso,
+                                defaults={'ativo': True}
+                            )
+                            if not created:
+                                permissao.ativo = True
+                                permissao.save()
+                            permissoes_criadas += 1
+                            campos_salvos_com_sucesso.add(campo)
+                            campos_processados.add(campo)
+                            print(f"DEBUG: Permissão genérica {'criada' if created else 'reativada'} - {campo} -> {modulo}: {acesso}")
+                        except Exception as e:
+                            print(f"DEBUG: Erro ao processar campo {campo}: {str(e)}")
+                    else:
+                        print(f"DEBUG: Não foi possível processar campo {campo} - módulo ou acesso não definido")
+            
+            print(f"DEBUG: Total de permissões criadas/reativadas: {permissoes_criadas}")
+            
+            # Verificar se as permissões foram salvas corretamente
+            permissoes_salvas = PermissaoFuncao.objects.filter(funcao_militar=funcao, ativo=True)
+            print(f"DEBUG: Permissões salvas no banco: {permissoes_salvas.count()}")
+            
+            # Verificar especificamente permissões de reservados
+            reservados_salvas = permissoes_salvas.filter(
+                Q(modulo__contains='RESERVADOS') | Q(modulo__contains='NOTAS_RESERVADAS')
+            )
+            print(f"DEBUG: Permissões de reservados salvas: {reservados_salvas.count()}")
+            
+            # Verificar se é uma requisição AJAX
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'message': f'Permissões atualizadas com sucesso! {permissoes_criadas} permissões configuradas.'
+                })
+            else:
+                # Adicionar mensagem de sucesso
+                messages.success(
+                    request, 
+                    f'Permissões atualizadas com sucesso! {permissoes_criadas} permissões configuradas.'
+                )
+                # Redirecionar para evitar reenvio do formulário
+                return redirect('militares:gerenciar_permissoes_unificado', funcao_id=funcao.id)
+            
+        except Exception as e:
+            # Verificar se é uma requisição AJAX
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Erro ao salvar permissões: {str(e)}'
+                })
+            else:
+                messages.error(
+                    request, 
+                    f'Erro ao salvar permissões: {str(e)}'
+                )
+            
+    # Preparar dados para o template
+    try:
+        # Obter configuração de menu atual
+        menu_config, created = FuncaoMenuConfig.objects.get_or_create(
+            funcao_militar=funcao,
+            defaults={'ativo': True}
+        )
+    
+        # Obter permissões atuais
+        permissoes_atuais = PermissaoFuncao.objects.filter(
+            funcao_militar=funcao,
+            ativo=True
+        ).values_list('modulo', 'acesso')
+        
+        # Mapeamento reverso: módulos para campos do template
+        modulo_to_template = {
+            'MENU_DASHBOARD': 'show_dashboard',
+            'MENU_EFETIVO': 'show_efetivo',
+            'MENU_EFETIVO_ELOGIOS': 'show_efetivo_elogios',
+            'MENU_EFETIVO_PUNICOES': 'show_efetivo_punicoes',
+            'MENU_ELOGIOS': 'show_elogios',
+            'SUBMENU_ELOGIOS_OFICIAIS': 'show_elogios_oficiais',
+            'SUBMENU_ELOGIOS_PRACAS': 'show_elogios_pracas',
+            'MENU_PUNICOES': 'show_punicoes',
+            'SUBMENU_PUNICOES_OFICIAIS': 'show_punicoes_oficiais',
+            'SUBMENU_PUNICOES_PRACAS': 'show_punicoes_pracas',
+            'MENU_SECAO_PROMOCOES': 'show_secao_promocoes',
+            'MENU_MEDALHAS': 'show_medalhas',
+            'MENU_PUBLICACOES': 'show_publicacoes',
+            'MENU_ESCALAS': 'show_escalas',
+            'MENU_CONFIGURACOES': 'show_configuracoes',
+            'MENU_RELATORIOS': 'show_relatorios',
+            'MENU_PESSOAL': 'show_pessoal',
+            'MENU_PLANEJADAS': 'show_planejadas',
+            'MENU_AFASTAMENTOS': 'show_afastamentos',
+            
+            # Submenus - Pessoal
+            'SUBMENU_MINHAS_INFORMACOES': 'show_minhas_informacoes',
+            'SUBMENU_MINHA_FICHA_CADASTRO': 'show_minha_ficha_cadastro',
+            'SUBMENU_MINHA_FICHA_CONCEITO_OFICIAL': 'show_minha_ficha_conceito_oficial',
+            'SUBMENU_MINHA_FICHA_CONCEITO_PRACA': 'show_minha_ficha_conceito_praca',
+            'SUBMENU_CRIAR_FICHA_CONCEITO_OFICIAL': 'show_criar_ficha_conceito_oficial',
+            'SUBMENU_CRIAR_FICHA_CONCEITO_PRACA': 'show_criar_ficha_conceito_praca',
+            
+                # Submenus - Efetivo
+                'SUBMENU_ATIVOS': 'show_ativos',
+                'SUBMENU_INATIVOS': 'show_inativos',
+                'SUBMENU_LOTACOES': 'show_lotacoes',
+                'SUBMENU_AVERBACOES': 'show_averbacoes',
+            
+            # Submenus - Seção de Promoções
+            'SUBMENU_FICHAS_OFICIAIS': 'show_fichas_oficiais',
+            'SUBMENU_FICHAS_PRACAS': 'show_fichas_pracas',
+            'SUBMENU_QUADROS_ACESSO': 'show_quadros_acesso',
+            'SUBMENU_QUADROS_FIXACAO': 'show_quadros_fixacao',
+            'SUBMENU_ALMANAQUES': 'show_almanaques',
+            'SUBMENU_PROMOCOES': 'show_promocoes',
+            'SUBMENU_CALENDARIOS': 'show_calendarios',
+            'SUBMENU_COMISSOES': 'show_comissoes',
+            'SUBMENU_MEUS_VOTOS': 'show_meus_votos',
+            'SUBMENU_INTERSTICIOS': 'show_intersticios',
+            'SUBMENU_GERENCIAR_INTERSTICIOS': 'show_gerenciar_intersticios',
+            'SUBMENU_GERENCIAR_PREVISAO': 'show_gerenciar_previsao',
+            
+            # Submenus - Medalhas
+            'SUBMENU_MEDALHAS_CONCESSOES': 'show_medalhas_concessoes',
+            'SUBMENU_MEDALHAS_PROPOSTAS': 'show_medalhas_propostas',
+            'SUBMENU_ELEGIVEIS': 'show_elegiveis',
+            'SUBMENU_PROPOSTAS': 'show_propostas',
+            
+            # Submenus - Publicações
+            'SUBMENU_NOTAS': 'show_notas',
+            'SUBMENU_BOLETINS_OSTENSIVOS': 'show_boletins_ostensivos',
+            'SUBMENU_BOLETINS_RESERVADOS': 'show_boletins_reservados',
+            'SUBMENU_BOLETINS_ESPECIAIS': 'show_boletins_especiais',
+            'SUBMENU_AVISOS': 'show_avisos',
+            'SUBMENU_ORDENS_SERVICO': 'show_ordens_servico',
+            
+            # Submenus - Escalas de Serviço
+            'SUBMENU_ESCALAS_DASHBOARD': 'show_escalas_dashboard',
+            'SUBMENU_ESCALAS_LISTA': 'show_escalas_lista',
+            'SUBMENU_ESCALAS_CONFIGURACAO': 'show_escalas_configuracao',
+            'SUBMENU_ESCALAS_BANCO_HORAS': 'show_escalas_banco_horas',
+            'SUBMENU_ESCALAS_OPERACOES': 'show_escalas_operacoes',
+            
+            # Submenus - Configurações/Sistema
+            'SUBMENU_USUARIOS': 'show_usuarios',
+            'SUBMENU_PERMISSOES': 'show_permissoes',
+            'SUBMENU_ORGAOS': 'show_orgaos',
+            'SUBMENU_ORGANOGRAMA': 'show_organograma',
+            'SUBMENU_LOGS': 'show_logs',
+            'SUBMENU_TITULOS_PUBLICACAO': 'show_titulos_publicacao',
+            'SUBMENU_ADMINISTRACAO': 'show_administracao',
+            'SUBMENU_GRANDES_COMANDOS': 'show_grandes_comandos',
+            'SUBMENU_UNIDADES': 'show_unidades',
+            'SUBMENU_SUB_UNIDADES': 'show_sub_unidades',
+            
+            # Submenus - Relatórios
+            'SUBMENU_RELATORIOS_MILITARES': 'show_relatorios_militares',
+            'SUBMENU_RELATORIOS_PROMOCOES': 'show_relatorios_promocoes',
+            'SUBMENU_RELATORIOS_MEDALHAS': 'show_relatorios_medalhas',
+            'SUBMENU_RELATORIOS_PUBLICACOES': 'show_relatorios_publicacoes',
+            'SUBMENU_RELATORIOS_GERAIS': 'show_relatorios_gerais',
+            
+                # Submenus - Planejadas
+                'MENU_PLANEJADAS': 'show_planejadas',
+                'SUBMENU_OPERADOR_PLANEJADAS': 'show_operador_planejadas',
+                'SUBMENU_FISCAL_PLANEJADAS': 'show_fiscal_planejadas',
+                'SUBMENU_LIQUIDACAO': 'show_liquidacao',
+                
+                # Menus e Submenus - Frota
+                'MENU_FROTA': 'show_viaturas',
+                'SUBMENU_VIATURAS': 'show_viaturas',
+                'SUBMENU_CONTROLE_COMBUSTIVEL': 'show_controle_combustivel',
+                
+                # Menus e Submenus - Equipamentos Operacionais
+                'MENU_EQUIPAMENTOS_OPERACIONAIS': 'show_equipamentos_operacionais',
+                'SUBMENU_EQUIPAMENTOS_OPERACIONAIS': 'show_equipamentos_operacionais',
+                'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_COMBUSTIVEL': 'show_equipamentos_operacionais_combustivel',
+                'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_MANUTENCOES': 'show_equipamentos_operacionais_manutencoes',
+                'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_TROCAS_OLEO': 'show_equipamentos_operacionais_trocas_oleo',
+                'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_TEMPOS_USO': 'show_equipamentos_operacionais_tempos_uso',
+                'SUBMENU_MANUTENCOES': 'show_manutencoes',
+                'SUBMENU_TROCAS_OLEO': 'show_trocas_oleo',
+                'SUBMENU_LICENCIAMENTOS': 'show_licenciamentos',
+                'SUBMENU_RODAGENS': 'show_rodagens',
+                'SUBMENU_PAINEL_GUARDA': 'show_painel_guarda',
+                
+                # Menus e Submenus - Material Bélico
+                'MENU_MATERIAL_BELICO': 'show_material_belico',
+                'SUBMENU_ARMAS_INSTITUICAO': 'show_armas_instituicao',
+                'SUBMENU_ARMAS_PARTICULARES': 'show_armas_particulares',
+                'SUBMENU_CAUTELAS_ARMAS': 'show_cautelas_armas',
+                'SUBMENU_CONTROLE_MOVIMENTACOES': 'show_controle_movimentacoes',
+                'SUBMENU_CONTROLE_MUNICAO': 'show_controle_municao',
+                'SUBMENU_CAUTELAS_MUNICOES': 'show_cautelas_municoes',
+                
+                # Menus e Submenus - Bens Móveis
+                'MENU_BENS_MOVEIS': 'show_bens_moveis',
+                
+                # Menus e Submenus - Almoxarifado
+                'MENU_ALMOXARIFADO': 'show_almoxarifado',
+                'MENU_PROCESSOS': 'show_processos',
+        }
+        
+        # Converter para dicionário para facilitar verificação no template
+        permissoes_dict = {}
+        for modulo, acesso in permissoes_atuais:
+            # Adicionar sempre no formato {MODULO}_{ACESSO} para verificação direta no template
+            # Ex: MENU_PESSOAL:VISUALIZAR -> 'MENU_PESSOAL_VISUALIZAR'
+            chave_modulo_acesso = f"{modulo}_{acesso}"
+            permissoes_dict[chave_modulo_acesso] = True
+            
+            # Adicionar também apenas o módulo (sem sufixo de acesso) para casos onde o template verifica apenas o nome
+            # Ex: 'MENU_PESSOAL'
+            permissoes_dict[modulo] = True
+            
+            # Mapear módulo para campo do template (show_*)
+            campo_template = modulo_to_template.get(modulo)
+            if campo_template:
+                permissoes_dict[campo_template] = True
+                # Também adicionar no formato show_*_ACESSO caso o template verifique dessa forma
+                permissoes_dict[f"{campo_template}_{acesso}"] = True
+                print(f"DEBUG: Mapeando permissão - {modulo}:{acesso} -> {campo_template}, {chave_modulo_acesso}, {modulo}")
+            else:
+                print(f"DEBUG: Módulo não mapeado - {modulo}:{acesso}, adicionando {chave_modulo_acesso} e {modulo}")
+        
+        # IMPORTANTE: Adicionar também as chaves que correspondem aos nomes dos campos no template
+        # Quando salvamos MENU_PESSOAL com acesso VISUALIZAR, o template verifica 'MENU_PESSOAL_VISUALIZAR'
+        # Mas também pode verificar apenas 'MENU_PESSOAL' se o campo tem esse nome
+        for modulo, acesso in permissoes_atuais:
+            # Garantir que existe a chave {MODULO}_{ACESSO} para qualquer combinação
+            chave_full = f"{modulo}_{acesso}"
+            if chave_full not in permissoes_dict:
+                permissoes_dict[chave_full] = True
+        
+        # Debug: Verificar se as permissões estão sendo carregadas corretamente
+        print(f"DEBUG: Permissões carregadas para exibição: {len(permissoes_dict)}")
+        print(f"DEBUG: Verificando permissões de reservados:")
+        print(f"  - SUBMENU_NOTAS_RESERVADAS: {'SUBMENU_NOTAS_RESERVADAS' in permissoes_dict}")
+        print(f"  - SUBMENU_BOLETINS_RESERVADOS: {'SUBMENU_BOLETINS_RESERVADOS' in permissoes_dict}")
+        print(f"  - NOTAS_RESERVADAS_VISUALIZAR: {'NOTAS_RESERVADAS_VISUALIZAR' in permissoes_dict}")
+        print(f"  - BOLETINS_RESERVADOS_VISUALIZAR: {'BOLETINS_RESERVADOS_VISUALIZAR' in permissoes_dict}")
+        
+        # Obter perfis de acesso disponíveis
+        perfis_disponiveis = PerfilAcesso.objects.filter(ativo=True).order_by('nome')
+        
+        # Estatísticas
+        total_permissoes = permissoes_atuais.count()
+        usuarios_com_funcao = UsuarioFuncaoMilitar.objects.filter(
+            funcao_militar=funcao,
+            ativo=True
+        ).count()
+        
+        print(f"DEBUG: Total de permissões: {total_permissoes}")
+        print(f"DEBUG: Usuários com função: {usuarios_com_funcao}")
+        
+        # Verificar especificamente permissões de reservados para estatísticas
+        reservados_count = permissoes_atuais.filter(
+            Q(modulo__contains='RESERVADOS') | Q(modulo__contains='NOTAS_RESERVADAS')
+        ).count()
+        print(f"DEBUG: Permissões de reservados para estatísticas: {reservados_count}")
+        
+        # Agrupar permissões por módulo para exibição organizada
+        permissoes_por_modulo = {}
+        for modulo, acesso in permissoes_atuais:
+            if modulo not in permissoes_por_modulo:
+                permissoes_por_modulo[modulo] = []
+            permissoes_por_modulo[modulo].append(acesso)
+        
+        # Log específico para permissões de reservados agrupadas
+        print(f"DEBUG: Permissões de reservados agrupadas:")
+        for modulo, acessos in permissoes_por_modulo.items():
+            if 'RESERVADOS' in modulo or 'NOTAS_RESERVADAS' in modulo:
+                print(f"  - {modulo}: {acessos}")
+        
+        context = {
+            'funcao': funcao,
+            'menu_config': menu_config,
+            'permissoes_dict': permissoes_dict,
+            'permissoes_por_modulo': permissoes_por_modulo,
+            'perfis_disponiveis': perfis_disponiveis,
+            'total_permissoes': total_permissoes,
+            'usuarios_com_funcao': usuarios_com_funcao,
+            'titulo_pagina': f'Gerenciar Permissões - {funcao.nome}',
+        }
+        
+        print(f"DEBUG: Contexto enviado para o template:")
+        print(f"  - Total de permissões: {total_permissoes}")
+        print(f"  - Permissões de reservados: {reservados_count}")
+        print(f"  - Permissões no dict: {len(permissoes_dict)}")
+        
+        return render(request, 'militares/funcoes/gerenciar_permissoes_unificado.html', context)
+        
+    except Exception as e:
+        messages.error(request, f'Erro ao carregar dados: {str(e)}')
+        return redirect('militares:funcoes_militares_list')
+
+
+@login_required
+@administracao_required
+def debug_permissoes(request, funcao_id):
+    """View de debug para permissões"""
+    from .models import FuncaoMilitar, FuncaoMenuConfig, PermissaoFuncao
+    from django.contrib import messages
+    
+    funcao = get_object_or_404(FuncaoMilitar, pk=funcao_id)
+    
+    if request.method == 'POST':
+        print(f"🔍 DEBUG DEBUG: Requisição POST recebida para função {funcao.nome}")
+        print(f"🔍 DEBUG DEBUG: Dados POST: {dict(request.POST)}")
+        print(f"🔍 DEBUG DEBUG: Headers: {dict(request.headers)}")
+        
+        try:
+            menu_config, created = FuncaoMenuConfig.objects.get_or_create(
+                funcao_militar=funcao,
+                defaults={'ativo': True}
+            )
+            
+            # Testar campos simples
+            campos_teste = ['teste_campo1', 'teste_campo2', 'teste_campo3']
+            campos_reais = ['show_dashboard', 'show_efetivo', 'show_ativos']
+            
+            print(f"🔍 DEBUG DEBUG: Campos de teste encontrados: {[c for c in campos_teste if c in request.POST]}")
+            print(f"🔍 DEBUG DEBUG: Campos reais encontrados: {[c for c in campos_reais if c in request.POST]}")
+            
+            # Salvar campos reais
+            for campo in campos_reais:
+                if campo in request.POST:
+                    setattr(menu_config, campo, True)
+                    print(f"✅ DEBUG: {campo} = True")
+                else:
+                    setattr(menu_config, campo, False)
+                    print(f"❌ DEBUG: {campo} = False")
+            
+            menu_config.save()
+            print(f"✅ DEBUG: Menu config salvo com sucesso!")
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Debug salvo com sucesso!',
+                    'campos_teste': [c for c in campos_teste if c in request.POST],
+                    'campos_reais': [c for c in campos_reais if c in request.POST]
+                })
+            else:
+                messages.success(request, 'Debug salvo com sucesso!')
+                return redirect('militares:debug_permissoes', funcao_id=funcao.id)
+                
+        except Exception as e:
+            print(f"❌ ERRO DEBUG: {str(e)}")
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': str(e)})
+            else:
+                messages.error(request, f'Erro no debug: {str(e)}')
+    
+    try:
+        menu_config, created = FuncaoMenuConfig.objects.get_or_create(
+            funcao_militar=funcao,
+            defaults={'ativo': True}
+        )
+        
+        permissoes_dict = {}
+        if menu_config.show_dashboard:
+            permissoes_dict['show_dashboard'] = True
+        if menu_config.show_efetivo:
+            permissoes_dict['show_efetivo'] = True
+        if menu_config.show_ativos:
+            permissoes_dict['show_ativos'] = True
+        
+        context = {
+            'funcao': funcao,
+            'permissoes_dict': permissoes_dict,
+            'total_permissoes': len(permissoes_dict),
+            'permissoes_ativas': len([p for p in permissoes_dict.values() if p]),
+        }
+        
+        return render(request, 'militares/funcoes/debug_permissoes.html', context)
+        
+    except Exception as e:
+        messages.error(request, f'Erro ao carregar dados: {str(e)}')
+        return redirect('militares:funcoes_militares_list')
+
+@login_required
+@administracao_required
+def teste_permissoes_simples(request, funcao_id):
+    """View de teste para permissões granulares"""
+    from .models import FuncaoMilitar, FuncaoMenuConfig, PermissaoFuncao
+    from django.contrib import messages
+    
+    funcao = get_object_or_404(FuncaoMilitar, pk=funcao_id)
+    
+    if request.method == 'POST':
+        print(f"🔍 DEBUG TESTE: Requisição POST recebida para função {funcao.nome}")
+        print(f"🔍 DEBUG TESTE: Dados POST: {dict(request.POST)}")
+        
+        try:
+            # Processar configurações de menu
+            menu_config, created = FuncaoMenuConfig.objects.get_or_create(
+                funcao_militar=funcao,
+                defaults={'ativo': True}
+            )
+            
+            # Atualizar configurações de menu
+            menu_fields = [
+                'show_dashboard', 'show_efetivo', 'show_ativos', 'show_inativos', 'show_lotacoes'
+            ]
+            
+            campos_marcados = []
+            for field in menu_fields:
+                if field in request.POST:
+                    setattr(menu_config, field, True)
+                    campos_marcados.append(field)
+                else:
+                    setattr(menu_config, field, False)
+            
+            menu_config.save()
+            
+            print(f"✅ TESTE: {len(campos_marcados)} campos salvos: {campos_marcados}")
+            
+            # Limpar permissões existentes
+            PermissaoFuncao.objects.filter(funcao_militar=funcao).delete()
+            
+            # Criar permissões de teste
+            permissoes_teste = [
+                ('MENU_DASHBOARD', 'VISUALIZAR'),
+                ('MENU_EFETIVO', 'VISUALIZAR'),
+                ('SUBMENU_ATIVOS', 'VISUALIZAR'),
+                ('SUBMENU_INATIVOS', 'VISUALIZAR'),
+                ('SUBMENU_LOTACOES', 'VISUALIZAR'),
+            ]
+            
+            for modulo, acesso in permissoes_teste:
+                if modulo.replace('MENU_', 'show_').replace('SUBMENU_', 'show_').lower() in request.POST:
+                    PermissaoFuncao.objects.create(
+                        funcao_militar=funcao,
+                        modulo=modulo,
+                        acesso=acesso,
+                        ativo=True
+                    )
+            
+            messages.success(request, f'Teste de permissões salvo com sucesso! {len(campos_marcados)} campos configurados.')
+            return redirect('militares:teste_permissoes_simples', funcao_id=funcao.id)
+            
+        except Exception as e:
+            messages.error(request, f'Erro no teste: {str(e)}')
+            print(f"❌ ERRO TESTE: {str(e)}")
+    
+    # Preparar dados para o template
+    try:
+        menu_config, created = FuncaoMenuConfig.objects.get_or_create(
+            funcao_militar=funcao,
+            defaults={'ativo': True}
+        )
+        
+        # Obter permissões atuais
+        permissoes = PermissaoFuncao.objects.filter(funcao_militar=funcao, ativo=True)
+        # Incluir tanto MODULO_ACESSO quanto apenas MODULO para facilitar checagens no template
+        permissoes_dict = {}
+        for p in permissoes:
+            permissoes_dict[f"{p.modulo}_{p.acesso}"] = True
+            permissoes_dict[p.modulo] = True
+        
+        # Adicionar permissões de menu
+        if menu_config.show_dashboard:
+            permissoes_dict['show_dashboard'] = True
+        if menu_config.show_efetivo:
+            permissoes_dict['show_efetivo'] = True
+        if menu_config.show_ativos:
+            permissoes_dict['show_ativos'] = True
+        if menu_config.show_inativos:
+            permissoes_dict['show_inativos'] = True
+        if menu_config.show_lotacoes:
+            permissoes_dict['show_lotacoes'] = True
+        
+        context = {
+            'funcao': funcao,
+            'permissoes_dict': permissoes_dict,
+            'total_permissoes': len(permissoes_dict),
+            'permissoes_ativas': len([p for p in permissoes_dict.values() if p]),
+        }
+        
+        return render(request, 'militares/funcoes/teste_permissoes_simples.html', context)
+        
+    except Exception as e:
+        messages.error(request, f'Erro ao carregar dados: {str(e)}')
+        return redirect('militares:funcoes_militares_list')
+
+@login_required
+@administracao_required
+def configurar_permissoes_automaticas(request, funcao_id):
+    """Configurar permissões automáticas baseadas no tipo de função"""
+    from .models import FuncaoMilitar, PermissaoFuncao, FuncaoMenuConfig
+    from django.contrib import messages
+    
+    funcao = get_object_or_404(FuncaoMilitar, pk=funcao_id)
+    
+    if request.method == 'POST':
+        try:
+            # Limpar permissões existentes
+            PermissaoFuncao.objects.filter(funcao_militar=funcao).delete()
+            
+            # Aplicar permissões baseadas no tipo de função
+            permissoes_aplicadas = 0
+            
+            # Configurações baseadas no nome da função
+            nome_funcao = funcao.nome.upper()
+            
+            if 'COMANDANTE' in nome_funcao or 'COMANDO' in nome_funcao:
+                # Permissões para comandantes
+                permissoes_comandante = [
+                    ('MENU_DASHBOARD', 'VISUALIZAR'),
+                    ('MENU_EFETIVO', 'VISUALIZAR'),
+                    ('MENU_PUBLICACOES', 'VISUALIZAR'),
+                    ('MENU_SECAO_PROMOCOES', 'VISUALIZAR'),
+                    ('MENU_MEDALHAS', 'VISUALIZAR'),
+                    ('MILITARES', 'VISUALIZAR'),
+                    ('MILITARES', 'EDITAR'),
+                    ('MILITARES', 'PROMOVER'),
+                    ('NOTAS', 'VISUALIZAR'),
+                    ('NOTAS', 'APROVAR'),
+                    ('BOLETINS_OSTENSIVOS', 'VISUALIZAR'),
+                    ('BOLETINS_OSTENSIVOS', 'APROVAR'),
+                ]
+                
+                for modulo, acesso in permissoes_comandante:
+                    PermissaoFuncao.objects.create(
+                        funcao_militar=funcao,
+                        modulo=modulo,
+                        acesso=acesso,
+                        ativo=True
+                    )
+                    permissoes_aplicadas += 1
+                    
+            elif 'SARGENTEANTE' in nome_funcao or 'SARGENTE' in nome_funcao:
+                # Permissões para sargenteantes
+                permissoes_sargenteante = [
+                    ('MENU_DASHBOARD', 'VISUALIZAR'),
+                    ('MENU_EFETIVO', 'VISUALIZAR'),
+                    ('MENU_PUBLICACOES', 'VISUALIZAR'),
+                    ('MILITARES', 'VISUALIZAR'),
+                    ('MILITARES', 'EDITAR'),
+                    ('NOTAS', 'VISUALIZAR'),
+                    ('NOTAS', 'CRIAR'),
+                    ('NOTAS', 'EDITAR'),
+                ]
+                
+                for modulo, acesso in permissoes_sargenteante:
+                    PermissaoFuncao.objects.create(
+                        funcao_militar=funcao,
+                        modulo=modulo,
+                        acesso=acesso,
+                        ativo=True
+                    )
+                    permissoes_aplicadas += 1
+                    
+            elif 'ADMINISTRADOR' in nome_funcao or 'ADMIN' in nome_funcao:
+                # Permissões para administradores
+                permissoes_admin = [
+                    ('MENU_DASHBOARD', 'VISUALIZAR'),
+                    ('MENU_EFETIVO', 'VISUALIZAR'),
+                    ('MENU_PUBLICACOES', 'VISUALIZAR'),
+                    ('MENU_SECAO_PROMOCOES', 'VISUALIZAR'),
+                    ('MENU_MEDALHAS', 'VISUALIZAR'),
+                    ('MENU_CONFIGURACOES', 'VISUALIZAR'),
+                    ('MENU_RELATORIOS', 'VISUALIZAR'),
+                    ('MILITARES', 'VISUALIZAR'),
+                    ('MILITARES', 'CRIAR'),
+                    ('MILITARES', 'EDITAR'),
+                    ('MILITARES', 'EXCLUIR'),
+                    ('USUARIOS', 'VISUALIZAR'),
+                    ('USUARIOS', 'CRIAR'),
+                    ('USUARIOS', 'EDITAR'),
+                    ('USUARIOS', 'EXCLUIR'),
+                ]
+                
+                for modulo, acesso in permissoes_admin:
+                    PermissaoFuncao.objects.create(
+                        funcao_militar=funcao,
+                        modulo=modulo,
+                        acesso=acesso,
+                        ativo=True
+                    )
+                    permissoes_aplicadas += 1
+            
+            # Atualizar configuração de menu
+            menu_config, created = FuncaoMenuConfig.objects.get_or_create(
+                funcao_militar=funcao,
+                defaults={'ativo': True}
+            )
+            
+            # Configurar menus baseados nas permissões aplicadas
+            if 'COMANDANTE' in nome_funcao or 'COMANDO' in nome_funcao:
+                menu_config.show_dashboard = True
+                menu_config.show_efetivo = True
+                menu_config.show_publicacoes = True
+                menu_config.show_secao_promocoes = True
+                menu_config.show_medalhas = True
+                menu_config.show_configuracoes = False
+            elif 'SARGENTEANTE' in nome_funcao or 'SARGENTE' in nome_funcao:
+                menu_config.show_dashboard = True
+                menu_config.show_efetivo = True
+                menu_config.show_publicacoes = True
+                menu_config.show_secao_promocoes = False
+                menu_config.show_medalhas = False
+                menu_config.show_configuracoes = False
+            elif 'ADMINISTRADOR' in nome_funcao or 'ADMIN' in nome_funcao:
+                menu_config.show_dashboard = True
+                menu_config.show_efetivo = True
+                menu_config.show_publicacoes = True
+                menu_config.show_secao_promocoes = True
+                menu_config.show_medalhas = True
+                menu_config.show_configuracoes = True
+                menu_config.show_administracao = True
+                menu_config.show_logs = True
+            
+            menu_config.save()
+            
+            messages.success(
+                request, 
+                f'Permissões automáticas aplicadas com sucesso! {permissoes_aplicadas} permissões configuradas.'
+            )
+            
+        except Exception as e:
+            messages.error(request, f'Erro ao aplicar permissões automáticas: {str(e)}')
+    
+    return redirect('militares:gerenciar_permissoes_unificado', funcao_id=funcao_id)
+
+
+@login_required
+def funcoes_militares_sincronizar(request):
+    """Sincronizar funções militares com usuários"""
+    from .models import FuncaoMilitar, UsuarioFuncaoMilitar
+    from django.contrib import messages
+    
+    try:
+        # Obter todas as funções militares
+        funcoes = FuncaoMilitar.objects.filter(ativo=True)
+        total_sincronizado = 0
+        
+        for funcao in funcoes:
+            # Verificar se já existe configuração de menu
+            from .models import FuncaoMenuConfig
+            menu_config, created = FuncaoMenuConfig.objects.get_or_create(
+                funcao_militar=funcao,
+                defaults={'ativo': True}
+            )
+            
+            if created:
+                total_sincronizado += 1
+        
+        messages.success(
+            request, 
+            f'Sincronização concluída! {total_sincronizado} funções sincronizadas.'
+        )
+        
+    except Exception as e:
+        messages.error(request, f'Erro durante a sincronização: {str(e)}')
+    
+    return redirect('militares:funcoes_militares_list')
+
+
+@login_required
+def funcoes_militares_tempo_atual(request):
+    """Gera relatório de tempo atual na função"""
+    from django.http import HttpResponse
+    from datetime import datetime, date
+    import io
+    import xlsxwriter
+    
+    # Criar arquivo Excel em memória
+    output = io.BytesIO()
+    workbook = xlsxwriter.Workbook(output)
+    worksheet = workbook.add_worksheet('Tempo Atual na Função')
+    
+    # Cabeçalhos
+    headers = ['Militar', 'Função Atual', 'Data Início', 'Tempo Atual (dias)']
+    for col, header in enumerate(headers):
+        worksheet.write(0, col, header)
+    
+    # Obter dados
+    from .models import UsuarioFuncaoMilitar
+    funcoes_ativas = UsuarioFuncaoMilitar.objects.filter(
+        ativo=True,
+        funcao_militar__isnull=False
+    ).select_related('usuario', 'funcao_militar')
+    
+    row = 1
+    for funcao_usuario in funcoes_ativas:
+        if funcao_usuario.data_inicio:
+            tempo_atual = (date.today() - funcao_usuario.data_inicio).days
+            worksheet.write(row, 0, funcao_usuario.usuario.get_full_name() or funcao_usuario.usuario.username)
+            worksheet.write(row, 1, funcao_usuario.funcao_militar.nome)
+            worksheet.write(row, 2, funcao_usuario.data_inicio.strftime('%d/%m/%Y'))
+            worksheet.write(row, 3, tempo_atual)
+            row += 1
+    
+    workbook.close()
+    output.seek(0)
+    
+    # Preparar resposta
+    response = HttpResponse(
+        output.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="tempo_atual_funcoes_{date.today().strftime("%Y%m%d")}.xlsx"'
+    
+    return response
+
+
+@login_required
+def funcoes_militares_media_tempo(request):
+    """Gera relatório de tempo médio nas funções"""
+    from django.http import HttpResponse
+    from datetime import datetime, date
+    import io
+    import xlsxwriter
+    
+    # Criar arquivo Excel em memória
+    output = io.BytesIO()
+    workbook = xlsxwriter.Workbook(output)
+    worksheet = workbook.add_worksheet('Tempo Médio nas Funções')
+    
+    # Cabeçalhos
+    headers = ['Função', 'Tempo Médio (dias)', 'Total de Usuários', 'Última Atualização']
+    for col, header in enumerate(headers):
+        worksheet.write(0, col, header)
+    
+    # Obter dados
+    from .models import FuncaoMilitar, UsuarioFuncaoMilitar
+    from django.db.models import Avg, Count
+    
+    funcoes = FuncaoMilitar.objects.filter(ativo=True).annotate(
+        tempo_medio=Avg('usuario_funcao_militar__tempo_funcao'),
+        total_usuarios=Count('usuario_funcao_militar', filter=Q(usuario_funcao_militar__ativo=True))
+    )
+    
+    row = 1
+    for funcao in funcoes:
+        worksheet.write(row, 0, funcao.nome)
+        worksheet.write(row, 1, funcao.tempo_medio or 0)
+        worksheet.write(row, 2, funcao.total_usuarios)
+        worksheet.write(row, 3, funcao.data_atualizacao.strftime('%d/%m/%Y %H:%M'))
+        row += 1
+    
+    workbook.close()
+    output.seek(0)
+    
+    # Preparar resposta
+    response = HttpResponse(
+        output.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="tempo_medio_funcoes_{date.today().strftime("%Y%m%d")}.xlsx"'
+    
+    return response
+
+
+# =============================================================================
+# LOGS DO SISTEMA
+# =============================================================================
+
+
+@login_required
+@administracao_required
+def logs_sistema_marcar_processado(request, pk):
+    """Marcar log como processado"""
+    from .models import LogSistema
+    from django.contrib import messages
+    
+    log = get_object_or_404(LogSistema, pk=pk)
+    log.processado = True
+    log.save()
+    
+    messages.success(request, 'Log marcado como processado!')
+    return redirect('militares:logs_sistema_detail', pk=pk)
+
+
+@login_required
+@administracao_required
+def logs_sistema_marcar_notificado(request, pk):
+    """Marcar log como notificado"""
+    from .models import LogSistema
+    from django.contrib import messages
+    
+    log = get_object_or_404(LogSistema, pk=pk)
+    log.notificado = True
+    log.save()
+    
+    messages.success(request, 'Log marcado como notificado!')
+    return redirect('militares:logs_sistema_detail', pk=pk)
+
+
+@login_required
+@administracao_required
+def logs_sistema_limpar_antigos(request):
+    """Limpar logs antigos do sistema"""
+    from .models import LogSistema
+    from django.contrib import messages
+    from datetime import datetime, timedelta
+    
+    try:
+        # Limpar logs com mais de 90 dias
+        data_limite = datetime.now() - timedelta(days=90)
+        logs_removidos = LogSistema.objects.filter(
+            data_criacao__lt=data_limite
+        ).delete()[0]
+        
+        messages.success(
+            request, 
+            f'{logs_removidos} logs antigos foram removidos com sucesso!'
+        )
+        
+    except Exception as e:
+        messages.error(request, f'Erro ao limpar logs antigos: {str(e)}')
+    
+    return redirect('militares:logs_sistema_list')
+
+
+@login_required
+@administracao_required
+def logs_sistema_estatisticas(request):
+    """Estatísticas dos logs do sistema"""
+    from .models import LogSistema
+    from django.db.models import Count
+    from datetime import datetime, timedelta
     
     # Estatísticas gerais
-    total_cargos = cargos.count()
-    cargos_ativos = cargos.filter(ativo=True).count()
-    total_permissoes = PermissaoFuncao.objects.filter(ativo=True).count()
-    total_usuarios = UsuarioFuncao.objects.count()
+    total_logs = LogSistema.objects.count()
+    logs_hoje = LogSistema.objects.filter(
+        data_criacao__date=datetime.now().date()
+    ).count()
+    
+    # Logs por nível
+    logs_por_nivel = LogSistema.objects.values('nivel').annotate(
+        total=Count('id')
+    ).order_by('nivel')
+    
+    # Logs por usuário (top 10)
+    logs_por_usuario = LogSistema.objects.values(
+        'usuario__username', 'usuario__first_name', 'usuario__last_name'
+    ).annotate(
+        total=Count('id')
+    ).order_by('-total')[:10]
+    
+    # Logs por dia (últimos 30 dias)
+    data_inicio = datetime.now() - timedelta(days=30)
+    logs_por_dia = LogSistema.objects.filter(
+        data_criacao__gte=data_inicio
+    ).extra(
+        select={'dia': 'date(data_criacao)'}
+    ).values('dia').annotate(
+        total=Count('id')
+    ).order_by('dia')
     
     context = {
-        'cargos': cargos,
-        'total_cargos': total_cargos,
-        'cargos_ativos': cargos_ativos,
-        'total_permissoes': total_permissoes,
-        'total_usuarios': total_usuarios,
-        'title': 'Cargos e Funções',
+        'total_logs': total_logs,
+        'logs_hoje': logs_hoje,
+        'logs_por_nivel': logs_por_nivel,
+        'logs_por_usuario': logs_por_usuario,
+        'logs_por_dia': logs_por_dia,
     }
-    return render(request, 'militares/cargos/cargo_funcao_list.html', context) 
+    
+    return render(request, 'militares/logs/logs_sistema_estatisticas.html', context)
+
+
 @login_required
-def cargo_funcao_create(request):
-    """Cria um novo cargo/função do sistema"""
+@administracao_required
+def logs_sistema_exportar(request):
+    """Exportar logs do sistema para Excel"""
+    from .models import LogSistema
+    from django.http import HttpResponse
+    from datetime import datetime, timedelta
+    import io
+    import xlsxwriter
+    
+    # Filtros
+    data_inicio = request.GET.get('data_inicio', '')
+    data_fim = request.GET.get('data_fim', '')
+    nivel = request.GET.get('nivel', '')
+    
+    # Query base
+    logs = LogSistema.objects.all().order_by('-data_criacao')
+    
+    # Aplicar filtros
+    if data_inicio:
+        logs = logs.filter(data_criacao__date__gte=data_inicio)
+    
+    if data_fim:
+        logs = logs.filter(data_criacao__date__lte=data_fim)
+    
+    if nivel:
+        logs = logs.filter(nivel=nivel)
+    
+    # Limitar a 10000 registros para evitar problemas de memória
+    logs = logs[:10000]
+    
+    # Criar arquivo Excel em memória
+    output = io.BytesIO()
+    workbook = xlsxwriter.Workbook(output)
+    worksheet = workbook.add_worksheet('Logs do Sistema')
+    
+    # Cabeçalhos
+    headers = ['ID', 'Usuário', 'Ação', 'Nível', 'Data', 'Processado', 'Notificado', 'Detalhes']
+    for col, header in enumerate(headers):
+        worksheet.write(0, col, header)
+    
+    # Dados
+    row = 1
+    for log in logs:
+        worksheet.write(row, 0, log.id)
+        worksheet.write(row, 1, log.usuario.username if log.usuario else 'Sistema')
+        worksheet.write(row, 2, log.acao)
+        worksheet.write(row, 3, log.get_nivel_display())
+        worksheet.write(row, 4, log.data_criacao.strftime('%d/%m/%Y %H:%M:%S'))
+        worksheet.write(row, 5, 'Sim' if log.processado else 'Não')
+        worksheet.write(row, 6, 'Sim' if log.notificado else 'Não')
+        worksheet.write(row, 7, log.detalhes or '')
+        row += 1
+    
+    workbook.close()
+    output.seek(0)
+    
+    # Preparar resposta
+    response = HttpResponse(
+        output.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="logs_sistema_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx"'
+    
+    return response
+
+
+# ==================== VIEWS PARA ESCALAS DE SERVIÇO ====================
+
+
+
+@login_required
+def gerar_escalas_mes(request):
+    """Gerar escalas de serviço para um mês específico"""
+    from .models import EscalaServico, Militar
+    from django.contrib import messages
+    from datetime import datetime, date
+    import calendar
+    
     if request.method == 'POST':
-        form = CargoFuncaoForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Cargo/Função criado com sucesso!')
-            return redirect('militares:cargo_funcao_list')
-    else:
-        form = CargoFuncaoForm()
+        try:
+            mes = int(request.POST.get('mes'))
+            ano = int(request.POST.get('ano'))
+            nome_escala = request.POST.get('nome_escala', f'Escala {mes}/{ano}')
+            
+            # Verificar se já existe escala para o mês
+            if EscalaServico.objects.filter(
+                data_inicio__month=mes,
+                data_inicio__year=ano
+            ).exists():
+                messages.warning(request, f'Já existe uma escala para {mes}/{ano}!')
+                return redirect('militares:escalas_list')
+            
+            # Calcular datas do mês
+            primeiro_dia = date(ano, mes, 1)
+            ultimo_dia = date(ano, mes, calendar.monthrange(ano, mes)[1])
+            
+            # Criar escala
+            escala = EscalaServico.objects.create(
+                nome=nome_escala,
+                data_inicio=primeiro_dia,
+                data_fim=ultimo_dia,
+                descricao=f'Escala de serviço para {mes}/{ano}',
+                ativo=True
+            )
+            
+            messages.success(request, f'Escala "{nome_escala}" criada com sucesso!')
+            return redirect('militares:escala_detail', pk=escala.pk)
+            
+        except Exception as e:
+            messages.error(request, f'Erro ao gerar escala: {str(e)}')
+    
     context = {
-        'form': form,
-        'action': 'Novo',
-        'title': 'Novo Cargo/Função',
+        'meses': [
+            (1, 'Janeiro'), (2, 'Fevereiro'), (3, 'Março'), (4, 'Abril'),
+            (5, 'Maio'), (6, 'Junho'), (7, 'Julho'), (8, 'Agosto'),
+            (9, 'Setembro'), (10, 'Outubro'), (11, 'Novembro'), (12, 'Dezembro')
+        ],
+        'anos': range(2020, datetime.now().year + 2),
     }
-    return render(request, 'militares/cargos/cargo_funcao_form.html', context)
+    
+    return render(request, 'militares/escalas/gerar_escalas_mes.html', context)
+
+
+
+
+
+
+def calcular_estatisticas_banco_horas(banco_horas, periodo='todos', data_inicio=None, data_fim=None, militar_id=None, search=None):
+    """Função auxiliar para calcular estatísticas do banco de horas"""
+    from decimal import Decimal
+    from datetime import datetime, timedelta
+    from django.db.models import Sum
+    from .models import BancoHoras
+    
+    estatisticas = {}
+    
+    if banco_horas.exists():
+        # Total de horas por tipo
+        estatisticas['entradas'] = banco_horas.filter(tipo_movimentacao__in=['ENTRADA', 'COMPENSACAO']).aggregate(
+            total=Sum('horas')
+        )['total'] or Decimal('0')
+        
+        estatisticas['saidas'] = banco_horas.filter(tipo_movimentacao__in=['SAIDA', 'AJUSTE']).aggregate(
+            total=Sum('horas')
+        )['total'] or Decimal('0')
+        
+        estatisticas['saldo_periodo'] = estatisticas['entradas'] - estatisticas['saidas']
+        estatisticas['total_movimentacoes'] = banco_horas.count()
+    
+    return estatisticas
+
+
 @login_required
-def cargo_funcao_detail(request, cargo_id):
-    """Exibe os detalhes de um cargo/função do sistema"""
-    cargo = get_object_or_404(CargoFuncao, pk=cargo_id)
+def escalas_banco_horas(request):
+    """Banco de horas das escalas de serviço"""
+    from .models import BancoHoras, Militar
+    from django.contrib import messages
+    from django.core.paginator import Paginator
+    from django.http import JsonResponse
+    from django.db import transaction
+    from decimal import Decimal
+    from datetime import datetime, timedelta
+    from django.db.models import Sum, Q
+    from .filtros_hierarquicos import aplicar_filtro_hierarquico_militares, aplicar_filtro_hierarquico_lotacoes, aplicar_filtro_hierarquico_escala_abonar, obter_opcoes_filtro_hierarquico_escalas_abonar
+    from .permissoes_simples import obter_funcao_militar_ativa
     
-    # Buscar permissões do cargo
-    permissoes = PermissaoFuncao.objects.filter(cargo_funcao=cargo, ativo=True).order_by('modulo', 'acesso')
+    if request.method == 'POST':
+        try:
+            # Processar adição de nova movimentação
+            militar_id = request.POST.get('militar')
+            data_movimentacao = request.POST.get('data_movimentacao')
+            tipo_movimentacao = request.POST.get('tipo_movimentacao')
+            horas = Decimal(request.POST.get('horas', 0))
+            observacoes = request.POST.get('observacoes', '')
+            
+            if not all([militar_id, data_movimentacao, tipo_movimentacao, horas]):
+                return JsonResponse({'success': False, 'error': 'Todos os campos obrigatórios devem ser preenchidos'})
+            
+            militar = Militar.objects.get(id=militar_id)
+            
+            # Calcular saldo anterior
+            saldo_anterior = BancoHoras.calcular_saldo_militar(militar, data_movimentacao)
+            
+            # Calcular saldo atual
+            if tipo_movimentacao in ['ENTRADA', 'COMPENSACAO']:
+                saldo_atual = saldo_anterior + horas
+            else:  # SAIDA, AJUSTE
+                saldo_atual = saldo_anterior - horas
+            
+            with transaction.atomic():
+                # Criar movimentação
+                movimentacao = BancoHoras.objects.create(
+                    militar=militar,
+                    data_movimentacao=data_movimentacao,
+                    tipo_movimentacao=tipo_movimentacao,
+                    horas=horas,
+                    saldo_anterior=saldo_anterior,
+                    saldo_atual=saldo_atual,
+                    observacoes=observacoes,
+                    criado_por=request.user
+                )
+                
+                # Atualizar saldos de movimentações posteriores
+                movimentacoes_posteriores = BancoHoras.objects.filter(
+                    militar=militar,
+                    data_movimentacao__gt=data_movimentacao
+                ).order_by('data_movimentacao', 'id')
+                
+                saldo_atual_geral = saldo_atual
+                for mov in movimentacoes_posteriores:
+                    mov.saldo_anterior = saldo_atual_geral
+                    if mov.tipo_movimentacao in ['ENTRADA', 'COMPENSACAO']:
+                        saldo_atual_geral += mov.horas
+                    else:
+                        saldo_atual_geral -= mov.horas
+                    mov.saldo_atual = saldo_atual_geral
+                    mov.save()
+            
+            return JsonResponse({'success': True, 'message': 'Movimentação adicionada com sucesso'})
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
     
-    # Agrupar permissões por módulo
-    permissoes_por_modulo = {}
-    for permissao in permissoes:
-        if permissao.modulo not in permissoes_por_modulo:
-            permissoes_por_modulo[permissao.modulo] = []
-        permissoes_por_modulo[permissao.modulo].append(permissao)
+    # GET - Listar movimentações
+    # Filtros
+    search = request.GET.get('search', '')
+    organizacao_filtro = request.GET.get('organizacao_filtro', '')
+    mes = request.GET.get('mes', '')
+    ano = request.GET.get('ano', '')
+    data_inicio = request.GET.get('data_inicio', '')
+    data_fim = request.GET.get('data_fim', '')
     
-    # Buscar usuários com esta função (total, sem filtros)
-    usuarios_com_funcao_total = UsuarioFuncao.objects.filter(
-        cargo_funcao=cargo
-    ).select_related('usuario').order_by('usuario__first_name')
+    # Query base
+    banco_horas = BancoHoras.objects.select_related('militar', 'escala').order_by('-data_movimentacao', '-id')
     
-    # Contar usuários total (para decisão de mostrar botão delete)
-    usuarios_count_total = usuarios_com_funcao_total.count()
+    # Aplicar filtro hierárquico baseado na função do usuário (mesmo princípio das notas)
+    funcao_usuario = obter_funcao_militar_ativa(request.user)
     
-    # Aplicar filtros para exibição
-    usuarios_com_funcao = usuarios_com_funcao_total
+    if request.user.is_superuser:
+        # Superusuário vê todos os dados
+        pass
+    elif funcao_usuario:
+        # Verificar se há filtro de organização específico selecionado
+        if organizacao_filtro:
+            # Se há organização selecionada no filtro, mostrar apenas dados dessa organização específica
+            from .filtros_hierarquicos_pesquisa import aplicar_filtro_hierarquico_banco_horas_especifico
+            banco_horas = aplicar_filtro_hierarquico_banco_horas_especifico(banco_horas, funcao_usuario, request.user, organizacao_filtro)
+        else:
+            # Sem filtro específico, usar filtro restritivo (apenas o próprio nível)
+            from .filtros_hierarquicos_pesquisa import aplicar_filtro_hierarquico_banco_horas_restritivo
+            banco_horas = aplicar_filtro_hierarquico_banco_horas_restritivo(banco_horas, funcao_usuario, request.user)
+    else:
+        # Se não há função ativa, não mostrar dados
+        banco_horas = banco_horas.none()
+    
+    # Aplicar filtros
+    if search:
+        from django.db.models import Q
+        banco_horas = banco_horas.filter(
+            Q(militar__nome_completo__icontains=search) |
+            Q(militar__nome_guerra__icontains=search) |
+            Q(militar__matricula__icontains=search) |
+            Q(militar__cpf__icontains=search)
+        )
+    
+    
+    if mes:
+        banco_horas = banco_horas.filter(data_movimentacao__month=mes)
+    
+    if ano:
+        banco_horas = banco_horas.filter(data_movimentacao__year=ano)
+    
+    # Filtro por data personalizada
+    if data_inicio and data_fim:
+        try:
+            data_inicio_periodo = datetime.strptime(data_inicio, '%Y-%m-%d').date()
+            data_fim_periodo = datetime.strptime(data_fim, '%Y-%m-%d').date()
+            banco_horas = banco_horas.filter(
+                data_movimentacao__gte=data_inicio_periodo,
+                data_movimentacao__lte=data_fim_periodo
+            )
+        except ValueError:
+            pass
+    
+    # Calcular estatísticas usando função auxiliar
+    estatisticas = calcular_estatisticas_banco_horas(banco_horas, 'todos', data_inicio, data_fim, None, search)
+    
+    # Lista de todos os militares (com e sem horas trabalhadas)
+    militares_com_saldo = []
+    
+    # Buscar todos os militares ativos (situação diferente de INATIVO)
+    todos_militares = Militar.objects.exclude(classificacao='INATIVO').order_by('nome_completo')
+    
+    # Aplicar filtro hierárquico baseado na função do usuário - APENAS organização principal da função
+    funcao_usuario = obter_funcao_militar_ativa(request.user)
+    if funcao_usuario:
+        todos_militares = aplicar_filtro_hierarquico_escala_abonar(todos_militares, funcao_usuario, request.user)
+        
+        # Aplicar filtro de organização se especificado
+        if organizacao_filtro:
+            from .models import Orgao, GrandeComando, Unidade, SubUnidade
+            
+            # Determinar o tipo de organização baseado no ID
+            if organizacao_filtro.startswith('orgao_'):
+                orgao_id = organizacao_filtro.replace('orgao_', '')
+                try:
+                    orgao = Orgao.objects.get(id=orgao_id)
+                    todos_militares = todos_militares.filter(
+                        lotacoes__orgao=orgao,
+                        lotacoes__status='ATUAL',
+                        lotacoes__ativo=True
+                    )
+                except Orgao.DoesNotExist:
+                    pass
+            elif organizacao_filtro.startswith('gc_'):
+                gc_id = organizacao_filtro.replace('gc_', '')
+                try:
+                    grande_comando = GrandeComando.objects.get(id=gc_id)
+                    todos_militares = todos_militares.filter(
+                        lotacoes__grande_comando=grande_comando,
+                        lotacoes__status='ATUAL',
+                        lotacoes__ativo=True
+                    )
+                except GrandeComando.DoesNotExist:
+                    pass
+            elif organizacao_filtro.startswith('unidade_'):
+                unidade_id = organizacao_filtro.replace('unidade_', '')
+                try:
+                    unidade = Unidade.objects.get(id=unidade_id)
+                    todos_militares = todos_militares.filter(
+                        lotacoes__unidade=unidade,
+                        lotacoes__status='ATUAL',
+                        lotacoes__ativo=True
+                    )
+                except Unidade.DoesNotExist:
+                    pass
+            elif organizacao_filtro.startswith('sub_'):
+                sub_id = organizacao_filtro.replace('sub_', '')
+                try:
+                    subunidade = SubUnidade.objects.get(id=sub_id)
+                    todos_militares = todos_militares.filter(
+                        lotacoes__sub_unidade=subunidade,
+                        lotacoes__status='ATUAL',
+                        lotacoes__ativo=True
+                    )
+                except SubUnidade.DoesNotExist:
+                    pass
+    
+    # Aplicar filtros adicionais aos militares
+    if search:
+        from django.db.models import Q
+        todos_militares = todos_militares.filter(
+            Q(nome_completo__icontains=search) |
+            Q(nome_guerra__icontains=search) |
+            Q(matricula__icontains=search) |
+            Q(cpf__icontains=search)
+        )
+    
+    
+    # Calcular período do mês atual para verificar quem não tem horas
+    hoje = datetime.now().date()
+    inicio_mes_atual = datetime(hoje.year, hoje.month, 1).date()
+    fim_mes_atual = hoje
+    
+    for militar in todos_militares:
+        # Calcular saldo total do militar
+        saldo_atual = BancoHoras.calcular_saldo_militar(militar)
+        
+        # Calcular acumulado do ano atual
+        inicio_ano_atual = datetime(hoje.year, 1, 1).date()
+        fim_ano_atual = datetime(hoje.year, 12, 31).date()
+        
+        movimentacoes_ano_atual = banco_horas.filter(
+            militar=militar,
+            data_movimentacao__gte=inicio_ano_atual,
+            data_movimentacao__lte=fim_ano_atual
+        )
+        
+        # Calcular horas acumuladas no ano (entradas - saídas)
+        entradas_ano = movimentacoes_ano_atual.filter(
+            tipo_movimentacao__in=['ENTRADA', 'COMPENSACAO']
+        ).aggregate(total=Sum('horas'))['total'] or Decimal('0')
+        
+        saidas_ano = movimentacoes_ano_atual.filter(
+            tipo_movimentacao__in=['SAIDA', 'AJUSTE']
+        ).aggregate(total=Sum('horas'))['total'] or Decimal('0')
+        
+        acumulado_ano = entradas_ano - saidas_ano
+        
+        # Verificar se tem movimentações no mês atual
+        movimentacoes_mes_atual = banco_horas.filter(
+            militar=militar,
+            data_movimentacao__gte=inicio_mes_atual,
+            data_movimentacao__lte=fim_mes_atual
+        )
+        
+        # Calcular horas do mês atual (entradas - saídas)
+        entradas_mes = movimentacoes_mes_atual.filter(
+            tipo_movimentacao__in=['ENTRADA', 'COMPENSACAO']
+        ).aggregate(total=Sum('horas'))['total'] or Decimal('0')
+        
+        saidas_mes = movimentacoes_mes_atual.filter(
+            tipo_movimentacao__in=['SAIDA', 'AJUSTE']
+        ).aggregate(total=Sum('horas'))['total'] or Decimal('0')
+        
+        horas_mes = entradas_mes - saidas_mes
+        
+        # Verificar se tem horas trabalhadas no mês atual
+        tem_horas_mes_atual = movimentacoes_mes_atual.filter(
+            tipo_movimentacao__in=['ENTRADA', 'COMPENSACAO']
+        ).exists()
+        
+        # Buscar última movimentação geral
+        ultima_movimentacao = banco_horas.filter(militar=militar).first()
+        
+        militares_com_saldo.append({
+            'militar': militar,
+            'saldo_atual': saldo_atual,
+            'horas_mes': horas_mes,
+            'acumulado_ano': acumulado_ano,
+            'ultima_movimentacao': ultima_movimentacao,
+            'tem_horas_mes_atual': tem_horas_mes_atual,
+            'movimentacoes_mes_atual': movimentacoes_mes_atual.count()
+        })
+    
+    # Definir hierarquia de postos para ordenação
+    HIERARQUIA_POSTOS = {
+        'CB': 1,    # Coronel
+        'TC': 2,    # Tenente Coronel
+        'MJ': 3,    # Major
+        'CP': 4,    # Capitão
+        '1T': 5,    # 1º Tenente
+        '2T': 6,    # 2º Tenente
+        'AS': 7,    # Aspirante a Oficial
+        'AA': 8,    # Aluno de Adaptação
+        'NVRR': 9,  # Navegador
+        'ST': 10,   # Subtenente
+        '1S': 11,   # 1º Sargento
+        '2S': 12,   # 2º Sargento
+        '3S': 13,   # 3º Sargento
+        'CAB': 14,  # Cabo
+        'SD': 15,   # Soldado
+    }
+    
+    # Ordenar por hierarquia: primeiro por posto (menor número = maior hierarquia), 
+    # depois por numeração de antiguidade (menor número = maior antiguidade),
+    # depois por nome completo
+    militares_com_saldo.sort(key=lambda x: (
+        HIERARQUIA_POSTOS.get(x['militar'].posto_graduacao, 999),  # Posto (hierarquia)
+        x['militar'].numeracao_antiguidade or 999,  # Numeração de antiguidade
+        x['militar'].nome_completo  # Nome completo
+    ))
+    
+    # Buscar dados para os filtros
+    from .models import Lotacao
+    from django.db.models import Count
+    
+    # Usar organograma hierárquico para o filtro de lotação
+    lotacoes = []
+    funcao_usuario = obter_funcao_militar_ativa(request.user)
+    if funcao_usuario:
+        # Obter opções hierárquicas baseadas na função do usuário
+        opcoes_hierarquicas = obter_opcoes_filtro_hierarquico_escalas_abonar(funcao_usuario, request.user)
+        
+        # Converter para formato de lotações
+        for opcao in opcoes_hierarquicas:
+            lotacoes.append({
+                'id': opcao['id'],
+                'lotacao': opcao['nome'],
+                'nivel': opcao['nivel']
+            })
+    else:
+        # Se não tem função, buscar todas as lotações
+        from .models import Militar
+        militares_permitidos = Militar.objects.exclude(classificacao='INATIVO')
+        
+        lotacoes_distintas = Lotacao.objects.filter(
+            militar__in=militares_permitidos,
+            status='ATUAL',
+            ativo=True
+        ).values('lotacao').distinct().order_by('lotacao')
+        
+        # Adicionar IDs únicos para cada lotação
+        for lotacao in lotacoes_distintas:
+            primeiro_id = Lotacao.objects.filter(
+                lotacao=lotacao['lotacao'],
+                militar__in=militares_permitidos,
+                status='ATUAL',
+                ativo=True
+            ).first().id
+            lotacoes.append({
+                'id': primeiro_id,
+                'lotacao': lotacao['lotacao']
+            })
+    
+    # Gerar lista de anos disponíveis de 2015 até 2050
+    anos_disponiveis = list(range(2015, 2051))
+    
+    # Obter opções de filtro hierárquico para banco de horas
+    opcoes_filtro_hierarquico = []
+    if funcao_usuario:
+        from .filtros_hierarquicos_pesquisa import obter_opcoes_filtro_hierarquico_notas
+        opcoes_filtro_hierarquico = obter_opcoes_filtro_hierarquico_notas(funcao_usuario, request.user)
+    
+    context = {
+        'search': search,
+        'organizacao_filtro': organizacao_filtro,
+        'mes': mes,
+        'ano': ano,
+        'data_inicio': data_inicio,
+        'data_fim': data_fim,
+        'estatisticas': estatisticas,
+        'militares_com_saldo': militares_com_saldo,
+        'opcoes_filtro_hierarquico': opcoes_filtro_hierarquico,
+        'anos_disponiveis': anos_disponiveis,
+        'title': 'Banco de Horas',
+        'page_title': 'Banco de Horas - Escalas de Serviço',
+        'data_inicio_padrao': datetime.now().strftime('%Y-%m-%d'),
+        'data_fim_padrao': datetime.now().strftime('%Y-%m-%d'),
+    }
+    
+    return render(request, 'militares/escalas/escalas_banco_horas.html', context)
+
+
+@login_required
+def banco_horas_editar(request, pk):
+    """Editar movimentação do banco de horas"""
+    from .models import BancoHoras, Militar
+    from django.http import JsonResponse
+    from django.db import transaction
+    from decimal import Decimal
+    from django.shortcuts import get_object_or_404
+    
+    movimentacao = get_object_or_404(BancoHoras, pk=pk)
+    
+    if request.method == 'POST':
+        try:
+            militar_id = request.POST.get('militar')
+            data_movimentacao = request.POST.get('data_movimentacao')
+            tipo_movimentacao = request.POST.get('tipo_movimentacao')
+            horas = Decimal(request.POST.get('horas', 0))
+            observacoes = request.POST.get('observacoes', '')
+            
+            if not all([militar_id, data_movimentacao, tipo_movimentacao, horas]):
+                return JsonResponse({'success': False, 'error': 'Todos os campos obrigatórios devem ser preenchidos'})
+            
+            militar = Militar.objects.get(id=militar_id)
+            
+            with transaction.atomic():
+                # Atualizar movimentação
+                movimentacao.militar = militar
+                movimentacao.data_movimentacao = data_movimentacao
+                movimentacao.tipo_movimentacao = tipo_movimentacao
+                movimentacao.horas = horas
+                movimentacao.observacoes = observacoes
+                movimentacao.save()
+                
+                # Recalcular todos os saldos do militar
+                movimentacoes = BancoHoras.objects.filter(
+                    militar=militar
+                ).order_by('data_movimentacao', 'id')
+                
+                saldo_atual = Decimal('0')
+                for mov in movimentacoes:
+                    mov.saldo_anterior = saldo_atual
+                    if mov.tipo_movimentacao in ['ENTRADA', 'COMPENSACAO']:
+                        saldo_atual += mov.horas
+                    else:
+                        saldo_atual -= mov.horas
+                    mov.saldo_atual = saldo_atual
+                    mov.save()
+            
+            return JsonResponse({'success': True, 'message': 'Movimentação atualizada com sucesso'})
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    # GET - Retornar dados da movimentação
+    return JsonResponse({
+        'success': True,
+        'data': {
+            'militar_id': movimentacao.militar.id,
+            'data_movimentacao': movimentacao.data_movimentacao.strftime('%Y-%m-%d'),
+            'tipo_movimentacao': movimentacao.tipo_movimentacao,
+            'horas': float(movimentacao.horas),
+            'observacoes': movimentacao.observacoes or ''
+        }
+    })
+
+
+@login_required
+def api_banco_horas_detalhes_militar(request):
+    """Retorna detalhes do banco de horas de um militar (JSON)"""
+    from .models import BancoHoras, Militar
+    from django.http import JsonResponse
+    from django.db.models import Sum
+    from decimal import Decimal
+    from datetime import datetime
+    
+    try:
+        militar_id = request.GET.get('militar_id')
+        ano = request.GET.get('ano')
+        mes = request.GET.get('mes')
+        data_inicio = request.GET.get('data_inicio')
+        data_fim = request.GET.get('data_fim')
+        
+        if not militar_id:
+            return JsonResponse({'success': False, 'message': 'Parâmetro militar_id é obrigatório'}, status=400)
+        
+        militar = Militar.objects.get(id=militar_id)
+        qs = BancoHoras.objects.select_related('escala', 'escala_militar').filter(militar=militar).order_by('-data_movimentacao', '-id')
+        
+        # Filtros opcionais
+        if ano:
+            qs = qs.filter(data_movimentacao__year=ano)
+        if mes:
+            qs = qs.filter(data_movimentacao__month=mes)
+        if data_inicio and data_fim:
+            try:
+                di = datetime.strptime(data_inicio, '%Y-%m-%d').date()
+                df = datetime.strptime(data_fim, '%Y-%m-%d').date()
+                qs = qs.filter(data_movimentacao__gte=di, data_movimentacao__lte=df)
+            except ValueError:
+                pass
+        
+        # Montar lista de movimentações
+        movimentacoes = []
+        for mov in qs[:300]:  # limitar para evitar payload grande
+            movimentacoes.append({
+                'data': mov.data_movimentacao.strftime('%d/%m/%Y'),
+                'tipo': mov.get_tipo_movimentacao_display(),
+                'horas': float(mov.horas),
+                'saldo_anterior': float(mov.saldo_anterior),
+                'saldo_atual': float(mov.saldo_atual),
+                'escala': str(mov.escala) if mov.escala else None,
+                'turno': f"{mov.escala_militar.hora_inicio.strftime('%H:%M')} - {mov.escala_militar.hora_fim.strftime('%H:%M')}" if mov.escala_militar and mov.escala_militar.hora_inicio and mov.escala_militar.hora_fim else None,
+                'observacoes': mov.observacoes or ''
+            })
+        
+        # Estatísticas
+        entradas = qs.filter(tipo_movimentacao__in=['ENTRADA', 'COMPENSACAO']).aggregate(total=Sum('horas'))['total'] or Decimal('0')
+        saidas = qs.filter(tipo_movimentacao__in=['SAIDA', 'AJUSTE']).aggregate(total=Sum('horas'))['total'] or Decimal('0')
+        saldo_periodo = entradas - saidas
+        
+        # Saldo atual geral
+        saldo_atual = BancoHoras.calcular_saldo_militar(militar)
+        
+        return JsonResponse({
+            'success': True,
+            'militar': {
+                'id': militar.id,
+                'nome': militar.nome_completo,
+                'posto_graduacao': militar.get_posto_graduacao_display(),
+            },
+            'estatisticas': {
+                'entradas': float(entradas),
+                'saidas': float(saidas),
+                'saldo_periodo': float(saldo_periodo),
+                'saldo_atual': float(saldo_atual),
+                'total_movimentacoes': qs.count(),
+            },
+            'movimentacoes': movimentacoes
+        })
+    except Militar.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Militar não encontrado'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+@login_required
+def banco_horas_excluir(request, pk):
+    """Excluir movimentação do banco de horas"""
+    from .models import BancoHoras
+    from django.http import JsonResponse
+    from django.db import transaction
+    from django.shortcuts import get_object_or_404
+    from decimal import Decimal
+    
+    movimentacao = get_object_or_404(BancoHoras, pk=pk)
+    
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                militar = movimentacao.militar
+                # Excluir movimentação
+                movimentacao.delete()
+                
+                # Recalcular todos os saldos do militar
+                movimentacoes = BancoHoras.objects.filter(
+                    militar=militar
+                ).order_by('data_movimentacao', 'id')
+                
+                saldo_atual = Decimal('0')
+                for mov in movimentacoes:
+                    mov.saldo_anterior = saldo_atual
+                    if mov.tipo_movimentacao in ['ENTRADA', 'COMPENSACAO']:
+                        saldo_atual += mov.horas
+                    else:
+                        saldo_atual -= mov.horas
+                    mov.saldo_atual = saldo_atual
+                    mov.save()
+            
+            return JsonResponse({'success': True, 'message': 'Movimentação excluída com sucesso'})
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Método não permitido'})
+
+
+@login_required
+def banco_horas_relatorio_pdf(request):
+    """Gerar relatório PDF do banco de horas por período"""
+    from .models import BancoHoras
+    from django.http import HttpResponse
+    from django.template.loader import get_template
+    from django.template import Context
+    from datetime import datetime, timedelta
+    from django.db.models import Sum
+    from decimal import Decimal
+    import io
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import inch
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, HRFlowable
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from .permissoes_simples import obter_funcao_militar_ativa
+    from django.utils import timezone
+    import pytz
+    import locale
+    
+    # Configurar locale para português brasileiro
+    try:
+        locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
+    except:
+        try:
+            locale.setlocale(locale.LC_TIME, 'Portuguese_Brazil.1252')
+        except:
+            pass
+    
+    # Parâmetros
+    periodo = request.GET.get('periodo', 'todos')
+    data_inicio = request.GET.get('data_inicio', '')
+    data_fim = request.GET.get('data_fim', '')
+    tipo = request.GET.get('tipo', '')
+    ano = request.GET.get('ano', '')
+    mes = request.GET.get('mes', '')
+    funcao = request.GET.get('funcao', '')  # Função para assinatura
+    
+    # Se for relatório completo, usar lógica específica
+    if tipo == 'completo':
+        return gerar_relatorio_pdf_completo(request, ano, mes)
+    
+    # Query base
+    banco_horas = BancoHoras.objects.select_related('militar', 'escala').order_by('-data_movimentacao', '-id')
+    
+    # Aplicar filtros de período
+    hoje = datetime.now().date()
+    
+    if periodo == 'semanal':
+        data_inicio_periodo = hoje - timedelta(days=7)
+        banco_horas = banco_horas.filter(data_movimentacao__gte=data_inicio_periodo)
+        titulo_periodo = f"Relatório Semanal - {data_inicio_periodo.strftime('%d/%m/%Y')} a {hoje.strftime('%d/%m/%Y')}"
+    elif periodo == 'mensal':
+        if hoje.month == 1:
+            data_inicio_periodo = datetime(hoje.year - 1, 12, 1).date()
+        else:
+            data_inicio_periodo = datetime(hoje.year, hoje.month - 1, 1).date()
+        banco_horas = banco_horas.filter(data_movimentacao__gte=data_inicio_periodo)
+        titulo_periodo = f"Relatório Mensal - {data_inicio_periodo.strftime('%m/%Y')}"
+    elif periodo == 'anual':
+        data_inicio_periodo = datetime(hoje.year - 1, 1, 1).date()
+        banco_horas = banco_horas.filter(data_movimentacao__gte=data_inicio_periodo)
+        titulo_periodo = f"Relatório Anual - {hoje.year - 1}"
+    elif data_inicio and data_fim:
+        try:
+            data_inicio_periodo = datetime.strptime(data_inicio, '%Y-%m-%d').date()
+            data_fim_periodo = datetime.strptime(data_fim, '%Y-%m-%d').date()
+            banco_horas = banco_horas.filter(
+                data_movimentacao__gte=data_inicio_periodo,
+                data_movimentacao__lte=data_fim_periodo
+            )
+            titulo_periodo = f"Relatório Personalizado - {data_inicio_periodo.strftime('%d/%m/%Y')} a {data_fim_periodo.strftime('%d/%m/%Y')}"
+        except ValueError:
+            titulo_periodo = "Relatório - Todos os Períodos"
+    else:
+        titulo_periodo = "Relatório - Todos os Períodos"
+    
+    # Calcular estatísticas usando função auxiliar
+    estatisticas = calcular_estatisticas_banco_horas(banco_horas, periodo, data_inicio, data_fim)
+    
+    # Criar PDF
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="banco_horas_{periodo}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
+    
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=2*cm, bottomMargin=2*cm)
+    
+    # Estilos
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=16,
+        spaceAfter=20,
+        alignment=TA_CENTER,
+        textColor=colors.black
+    )
+    style_center = ParagraphStyle('center', parent=styles['Normal'], alignment=1, fontSize=12)
+    
+    # Conteúdo do PDF
+    story = []
+    
+    # Logo/Brasão centralizado
+    import os
+    logo_path = os.path.join('staticfiles', 'logo_cbmepi.png')
+    if os.path.exists(logo_path):
+        from reportlab.platypus import Image
+        story.append(Image(logo_path, width=2.5*cm, height=2.5*cm, hAlign='CENTER'))
+        story.append(Spacer(1, 6))
+    
+    # Determinar local de geração baseado na função do usuário (hierarquia completa)
+    local_geracao = "DIRETORIA DE GESTÃO DE PESSOAS"
+    funcao_usuario = obter_funcao_militar_ativa(request.user)
+    if funcao_usuario and funcao_usuario.funcao_militar:
+        hierarquia = []
+        
+        # Construir hierarquia completa até a instância mais específica
+        if hasattr(funcao_usuario, 'orgao') and funcao_usuario.orgao:
+            hierarquia.append(funcao_usuario.orgao.nome.upper())
+        if hasattr(funcao_usuario, 'grande_comando') and funcao_usuario.grande_comando:
+            hierarquia.append(funcao_usuario.grande_comando.nome.upper())
+        if hasattr(funcao_usuario, 'unidade') and funcao_usuario.unidade:
+            hierarquia.append(funcao_usuario.unidade.nome.upper())
+        if hasattr(funcao_usuario, 'sub_unidade') and funcao_usuario.sub_unidade:
+            hierarquia.append(funcao_usuario.sub_unidade.nome.upper())
+        
+        # Se encontrou alguma instância, usar a mais específica (última da lista)
+        if hierarquia:
+            local_geracao = hierarquia[-1]
+    
+    # Cabeçalho institucional
+    cabecalho = [
+        "GOVERNO DO ESTADO DO PIAUÍ",
+        "CORPO DE BOMBEIROS MILITAR DO ESTADO DO PIAUÍ",
+        local_geracao,
+        "Av. Miguel Rosa, 3515 - Bairro Piçarra, Teresina/PI, CEP 64001-490",
+        "Telefone: (86)3216-1264 - http://www.cbm.pi.gov.br"
+    ]
+    for linha in cabecalho:
+        story.append(Paragraph(linha, style_center))
+    story.append(Spacer(1, 10))
+    
+    # Título principal centralizado e sublinhado
+    story.append(Paragraph("<u>BANCO DE HORAS - ESCALAS DE SERVIÇO</u>", title_style))
+    story.append(Paragraph(titulo_periodo, styles['Heading2']))
+    story.append(Spacer(1, 20))
+    
+    # Estatísticas
+    if estatisticas:
+        stats_data = [
+            ['Estatísticas do Período', ''],
+            ['Total de Entradas', f"{estatisticas['entradas']}h"],
+            ['Total de Saídas', f"{estatisticas['saidas']}h"],
+            ['Saldo do Período', f"{estatisticas['saldo_periodo']}h"],
+            ['Total de Movimentações', str(estatisticas['total_movimentacoes'])],
+        ]
+        
+        stats_table = Table(stats_data, colWidths=[3*inch, 2*inch])
+        stats_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        
+        story.append(stats_table)
+        story.append(Spacer(1, 20))
+    
+    # Tabela de movimentações
+    if banco_horas.exists():
+        # Cabeçalho da tabela
+        data = [['Militar', 'Data', 'Tipo', 'Horas', 'Saldo Anterior', 'Saldo Atual', 'Observações']]
+        
+        # Dados das movimentações
+        for mov in banco_horas[:100]:  # Limitar a 100 registros por PDF
+            data.append([
+                mov.militar.nome_completo,
+                mov.data_movimentacao.strftime('%d/%m/%Y'),
+                mov.get_tipo_movimentacao_display(),
+                f"{mov.horas}h",
+                f"{mov.saldo_anterior}h",
+                f"{mov.saldo_atual}h",
+                mov.observacoes or '-'
+            ])
+        
+        # Criar tabela
+        table = Table(data, colWidths=[1.5*inch, 0.8*inch, 0.8*inch, 0.6*inch, 0.8*inch, 0.8*inch, 1.5*inch])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('FONTSIZE', (0, 1), (-1, -1), 7),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        
+        story.append(Paragraph("Movimentações do Banco de Horas", styles['Heading3']))
+        story.append(Spacer(1, 12))
+        story.append(table)
+        
+        if banco_horas.count() > 100:
+            story.append(Spacer(1, 12))
+            story.append(Paragraph(f"* Mostrando apenas os primeiros 100 registros de {banco_horas.count()} total", styles['Normal']))
+    else:
+        story.append(Paragraph("Nenhuma movimentação encontrada para o período selecionado.", styles['Normal']))
+    
+    # Rodapé
+    story.append(Spacer(1, 20))
+    story.append(Paragraph(f"Relatório gerado em: {datetime.now().strftime('%d/%m/%Y às %H:%M')}", styles['Normal']))
+    
+    # Adicionar assinatura eletrônica se função fornecida
+    if funcao:
+        story.append(Spacer(1, 1*cm))
+        
+        # Obter assinante (usuário logado)
+        try:
+            militar_logado = request.user.militar if hasattr(request.user, 'militar') else None
+            nome_assinante = militar_logado.nome_completo if militar_logado else request.user.get_full_name() or request.user.username
+        except:
+            nome_assinante = request.user.get_full_name() or request.user.username
+        
+        # Data por extenso - usar timezone de Brasília
+        brasilia_tz = pytz.timezone('America/Sao_Paulo')
+        data_atual = timezone.now().astimezone(brasilia_tz) if timezone.is_aware(timezone.now()) else brasilia_tz.localize(timezone.now())
+        
+        meses_extenso = {
+            1: 'janeiro', 2: 'fevereiro', 3: 'março', 4: 'abril',
+            5: 'maio', 6: 'junho', 7: 'julho', 8: 'agosto',
+            9: 'setembro', 10: 'outubro', 11: 'novembro', 12: 'dezembro'
+        }
+        data_formatada_extenso = f"{data_atual.day} de {meses_extenso[data_atual.month]} de {data_atual.year}"
+        
+        # Função selecionada
+        funcao_display = funcao if funcao else "Operador de Banco de Horas"
+        
+        # Construir texto
+        texto_info = f"Teresina - PI, {data_formatada_extenso}.<br/><br/>{nome_assinante}<br/>{funcao_display}"
+        
+        # Estilo para o texto
+        style_info = ParagraphStyle('info', parent=styles['Normal'], fontSize=9, fontName='Helvetica', 
+                                     alignment=1, textColor=colors.HexColor('#2c3e50'), spaceAfter=8,
+                                     leading=12)
+        
+        story.append(Paragraph(texto_info, style_info))
+        
+        # Adicionar assinatura eletrônica
+        from .utils import obter_caminho_assinatura_eletronica
+        
+        story.append(Spacer(1, 0.5*cm))
+        
+        # Obter assinante (usuário logado)
+        try:
+            militar_logado = request.user.militar if hasattr(request.user, 'militar') else None
+            nome_assinante = militar_logado.nome_completo if militar_logado else request.user.get_full_name() or request.user.username
+        except:
+            nome_assinante = request.user.get_full_name() or request.user.username
+        
+        # Data e hora formatadas
+        from .utils import formatar_data_assinatura
+        data_formatada, hora_formatada = formatar_data_assinatura(data_atual)
+        
+        # Texto da assinatura eletrônica
+        texto_assinatura = f"Documento assinado eletronicamente por {nome_assinante}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
+        
+        # Estilo para texto justificado
+        style_assinatura_texto = ParagraphStyle('assinatura_texto', parent=styles['Normal'], fontSize=10, fontName='Helvetica', alignment=4, spaceAfter=1, spaceBefore=1, leading=14)
+        
+        # Tabela das assinaturas: Logo + Texto de assinatura
+        # Largura ajustada para ter margem de 0,02cm de cada lado (largura total - 0,04cm)
+        largura_disponivel = A4[0] - (1.5*inch * 2) - 0.04*inch  # total - margens documento - margem extra 0,02cm cada lado
+        largura_texto = largura_disponivel - 2.5*inch  # menos logo
+        
+        assinatura_data = [
+            [Image(obter_caminho_assinatura_eletronica(), width=2.5*inch, height=1.8*inch), Paragraph(texto_assinatura, style_assinatura_texto)]
+        ]
+        
+        assinatura_table = Table(assinatura_data, colWidths=[2.5*inch, largura_texto])
+        assinatura_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # Logo centralizado
+            ('LEFTPADDING', (0, 0), (0, -1), 0),  # Logo sem padding esquerdo
+            ('LEFTPADDING', (1, 0), (1, -1), 15),  # Texto com padding esquerdo para afastar da logo
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('BOX', (0, 0), (-1, -1), 1, colors.grey),  # Borda do retângulo
+        ]))
+        
+        story.append(assinatura_table)
+    
+    # Construir PDF
+    doc.build(story)
+    
+    # Retornar PDF
+    pdf = buffer.getvalue()
+    buffer.close()
+    response.write(pdf)
+    
+    return response
+
+
+@login_required
+def banco_horas_sincronizar(request):
+    """Sincronizar banco de horas com as escalas de serviço"""
+    from .models import BancoHoras
+    from datetime import datetime, timedelta
+    from django.contrib import messages
+    from django.http import JsonResponse
+    
+    if request.method == 'POST':
+        try:
+            # Parâmetros do período
+            data_inicio = request.POST.get('data_inicio')
+            data_fim = request.POST.get('data_fim')
+            
+            # Converter datas se fornecidas
+            if data_inicio:
+                data_inicio = datetime.strptime(data_inicio, '%Y-%m-%d').date()
+            if data_fim:
+                data_fim = datetime.strptime(data_fim, '%Y-%m-%d').date()
+            
+            # Sincronizar banco de horas
+            resultado = BancoHoras.sincronizar_banco_horas_escalas(data_inicio, data_fim)
+            
+            # Verificar se é uma requisição AJAX
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', ''):
+                return JsonResponse({
+                    'success': True,
+                    'message': f'Sincronização concluída! {resultado["movimentacoes_criadas"]} movimentações criadas, {resultado["movimentacoes_atualizadas"]} atualizadas.',
+                    'resultado': resultado
+                })
+            else:
+                messages.success(request, f'Sincronização concluída! {resultado["movimentacoes_criadas"]} movimentações criadas, {resultado["movimentacoes_atualizadas"]} atualizadas.')
+                return redirect('militares:escalas_banco_horas')
+                
+        except Exception as e:
+            # Verificar se é uma requisição AJAX
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', ''):
+                return JsonResponse({
+                    'success': False,
+                    'error': str(e)
+                })
+            else:
+                messages.error(request, f'Erro na sincronização: {str(e)}')
+                return redirect('militares:escalas_banco_horas')
+    
+    # GET - Mostrar formulário de sincronização
+    context = {
+        'title': 'Sincronizar Banco de Horas',
+        'data_inicio_padrao': (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'),
+        'data_fim_padrao': datetime.now().strftime('%Y-%m-%d'),
+    }
+    return render(request, 'militares/escalas/banco_horas_sincronizar.html', context)
+
+
+def consolidar_banco_horas_militar_escala(militar, escala):
+    """
+    Registra cada turno do militar separadamente no banco de horas.
+    Retorna o número de movimentações criadas/atualizadas.
+    """
+    from .models import BancoHoras
+    from datetime import datetime, timedelta
+    from decimal import Decimal
+    
+    try:
+        # Buscar todas as escalas do militar nesta data
+        escalas_militares = EscalaMilitar.objects.filter(
+            militar=militar,
+            escala__data=escala.data
+        )
+        
+        movimentacoes_processadas = 0
+        
+        # Processar cada turno individualmente
+        for escala_militar in escalas_militares:
+            if escala_militar.hora_fim and escala_militar.hora_inicio:
+                inicio = datetime.combine(escala.data, escala_militar.hora_inicio)
+                fim = datetime.combine(escala.data, escala_militar.hora_fim)
+                
+                # Se a hora fim for menor que a hora início, assumir que é no dia seguinte
+                if fim <= inicio:
+                    fim += timedelta(days=1)
+                
+                duracao = fim - inicio
+                horas_turno = Decimal(str(duracao.total_seconds() / 3600))
+                
+                if horas_turno <= 0:
+                    continue
+                
+                # Verificar se já existe movimentação para este turno específico
+                movimentacao_existente = BancoHoras.objects.filter(
+                    militar=militar,
+                    data_movimentacao=escala.data,
+                    tipo_movimentacao='ENTRADA',
+                    escala_militar=escala_militar
+                ).first()
+                
+                if movimentacao_existente:
+                    # Atualizar movimentação existente
+                    saldo_anterior = BancoHoras.calcular_saldo_militar(militar, escala.data)
+                    saldo_atual = saldo_anterior + horas_turno
+                    
+                    movimentacao_existente.horas = horas_turno
+                    movimentacao_existente.saldo_anterior = saldo_anterior
+                    movimentacao_existente.saldo_atual = saldo_atual
+                    movimentacao_existente.observacoes = f"Turno {escala_militar.hora_inicio} - {escala_militar.hora_fim} da escala {escala}"
+                    movimentacao_existente.save()
+                else:
+                    # Criar nova movimentação para este turno
+                    saldo_anterior = BancoHoras.calcular_saldo_militar(militar, escala.data)
+                    saldo_atual = saldo_anterior + horas_turno
+                    
+                    BancoHoras.objects.create(
+                        militar=militar,
+                        data_movimentacao=escala.data,
+                        tipo_movimentacao='ENTRADA',
+                        horas=horas_turno,
+                        saldo_anterior=saldo_anterior,
+                        saldo_atual=saldo_atual,
+                        escala=escala,
+                        escala_militar=escala_militar,
+                        observacoes=f"Turno {escala_militar.hora_inicio} - {escala_militar.hora_fim} da escala {escala}",
+                        criado_por=escala.criado_por
+                    )
+                
+                movimentacoes_processadas += 1
+        
+        return movimentacoes_processadas
+        
+    except Exception as e:
+        print(f"Erro ao consolidar banco de horas para {militar.nome_completo}: {str(e)}")
+        return 0
+
+
+@login_required
+def sincronizar_escala_abonar(request, pk):
+    """Sincronizar escala de abonar com base nas escalas de serviço"""
+    from .models import EscalaServico, BancoHoras
+    from django.shortcuts import get_object_or_404
+    from django.http import JsonResponse
+    from django.contrib import messages
+    from datetime import datetime
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Método não permitido'})
+    
+    try:
+        escala = get_object_or_404(EscalaServico, pk=pk)
+        
+        # Verificar se a escala tem militares
+        if not escala.militares.exists():
+            return JsonResponse({
+                'success': False, 
+                'message': 'Esta escala não possui militares para sincronizar.'
+            })
+        
+        # Sincronizar banco de horas para esta escala específica
+        movimentacoes_criadas = 0
+        movimentacoes_atualizadas = 0
+        
+        # Processar cada turno individualmente
+        for escala_militar in escala.militares.all():
+            try:
+                if escala_militar.hora_fim and escala_militar.hora_inicio:
+                    from datetime import datetime, timedelta
+                    from decimal import Decimal
+                    
+                    inicio = datetime.combine(escala.data, escala_militar.hora_inicio)
+                    fim = datetime.combine(escala.data, escala_militar.hora_fim)
+                    
+                    # Se a hora fim for menor que a hora início, assumir que é no dia seguinte
+                    if fim <= inicio:
+                        fim += timedelta(days=1)
+                    
+                    duracao = fim - inicio
+                    horas_turno = Decimal(str(duracao.total_seconds() / 3600))
+                    
+                    if horas_turno > 0:
+                        # Verificar se já existe movimentação para este turno específico
+                        movimentacao_existente = BancoHoras.objects.filter(
+                            militar=escala_militar.militar,
+                            data_movimentacao=escala.data,
+                            tipo_movimentacao='ENTRADA',
+                            escala_militar=escala_militar
+                        ).first()
+                        
+                        if movimentacao_existente:
+                            # Atualizar movimentação existente
+                            saldo_anterior = BancoHoras.calcular_saldo_militar(escala_militar.militar, escala.data)
+                            saldo_atual = saldo_anterior + horas_turno
+                            
+                            movimentacao_existente.horas = horas_turno
+                            movimentacao_existente.saldo_anterior = saldo_anterior
+                            movimentacao_existente.saldo_atual = saldo_atual
+                            movimentacao_existente.observacoes = f"Turno {escala_militar.hora_inicio} - {escala_militar.hora_fim} da escala {escala}"
+                            movimentacao_existente.save()
+                            movimentacoes_atualizadas += 1
+                        else:
+                            # Criar nova movimentação para este turno
+                            saldo_anterior = BancoHoras.calcular_saldo_militar(escala_militar.militar, escala.data)
+                            saldo_atual = saldo_anterior + horas_turno
+                            
+                            BancoHoras.objects.create(
+                                militar=escala_militar.militar,
+                                data_movimentacao=escala.data,
+                                tipo_movimentacao='ENTRADA',
+                                horas=horas_turno,
+                                saldo_anterior=saldo_anterior,
+                                saldo_atual=saldo_atual,
+                                escala=escala,
+                                escala_militar=escala_militar,
+                                observacoes=f"Turno {escala_militar.hora_inicio} - {escala_militar.hora_fim} da escala {escala}",
+                                criado_por=escala.criado_por
+                            )
+                            movimentacoes_criadas += 1
+                        
+            except Exception as e:
+                print(f"Erro ao sincronizar turno para {escala_militar.militar.nome_completo}: {str(e)}")
+                continue
+        
+        # Recalcular todos os saldos
+        BancoHoras.recalcular_todos_saldos()
+        
+        total_movimentacoes = movimentacoes_criadas + movimentacoes_atualizadas
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Escala de abonar sincronizada com sucesso! {movimentacoes_criadas} movimentações criadas, {movimentacoes_atualizadas} atualizadas. Total: {total_movimentacoes} movimentações.',
+            'resultado': {
+                'movimentacoes_criadas': movimentacoes_criadas,
+                'movimentacoes_atualizadas': movimentacoes_atualizadas,
+                'total': total_movimentacoes
+            }
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erro ao sincronizar escala de abonar: {str(e)}'
+        })
+
+
+@login_required
+def banco_horas_relatorio_pdf_militar(request):
+    """Gerar relatório PDF do banco de horas por militar e ano"""
+    from .models import BancoHoras, Militar
+    from django.http import HttpResponse
+    from django.template.loader import get_template
+    from django.template import Context
+    from datetime import datetime, timedelta
+    from django.db.models import Sum
+    from decimal import Decimal
+    import io
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import inch
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    from .filtros_hierarquicos import aplicar_filtro_hierarquico_militares
+    from .permissoes_simples import obter_funcao_militar_ativa
+    
+    # Parâmetros
+    militar_id = request.GET.get('militar_id', '')
+    ano = request.GET.get('ano', '')
+    mes = request.GET.get('mes', '')
+    funcao = request.GET.get('funcao', '')  # Função para assinatura
+    
+    if not militar_id or not ano:
+        return HttpResponse("Parâmetros militar_id e ano são obrigatórios", status=400)
+    
+    try:
+        militar = Militar.objects.get(id=militar_id)
+        ano = int(ano)
+    except (Militar.DoesNotExist, ValueError):
+        return HttpResponse("Militar ou ano inválido", status=400)
+    
+    # Aplicar filtro hierárquico
+    funcao_usuario = obter_funcao_militar_ativa(request.user)
+    if funcao_usuario:
+        militares_permitidos = Militar.objects.exclude(situacao='INATIVO')
+        militares_permitidos = aplicar_filtro_hierarquico_militares(militares_permitidos, funcao_usuario, request.user)
+        if militar not in militares_permitidos:
+            return HttpResponse("Acesso negado para este militar", status=403)
+    
+    # Buscar movimentações do militar no ano
+    data_inicio_ano = datetime(ano, 1, 1).date()
+    data_fim_ano = datetime(ano, 12, 31).date()
+    
+    # Se mês especificado, filtrar apenas esse mês
+    if mes:
+        try:
+            mes_int = int(mes)
+            data_inicio_ano = datetime(ano, mes_int, 1).date()
+            if mes_int == 12:
+                data_fim_ano = datetime(ano, 12, 31).date()
+            else:
+                data_fim_ano = datetime(ano, mes_int + 1, 1).date() - timedelta(days=1)
+        except ValueError:
+            pass  # Usar filtro do ano inteiro se mês inválido
+    
+    movimentacoes = BancoHoras.objects.filter(
+        militar=militar,
+        data_movimentacao__gte=data_inicio_ano,
+        data_movimentacao__lte=data_fim_ano
+    ).order_by('data_movimentacao', 'id')
+    
+    # Calcular estatísticas do ano
+    entradas = movimentacoes.filter(
+        tipo_movimentacao__in=['ENTRADA', 'COMPENSACAO']
+    ).aggregate(total=Sum('horas'))['total'] or Decimal('0')
+    
+    saidas = movimentacoes.filter(
+        tipo_movimentacao__in=['SAIDA', 'AJUSTE']
+    ).aggregate(total=Sum('horas'))['total'] or Decimal('0')
+    
+    saldo_ano = entradas - saidas
+    
+    # Calcular saldo por mês
+    meses_stats = []
+    
+    if mes:
+        # Se mês específico foi selecionado, mostrar apenas esse mês
+        mes_int = int(mes)
+        data_inicio_mes = datetime(ano, mes_int, 1).date()
+        if mes_int == 12:
+            data_fim_mes = datetime(ano, 12, 31).date()
+        else:
+            data_fim_mes = datetime(ano, mes_int + 1, 1).date() - timedelta(days=1)
+        
+        mov_mes = movimentacoes.filter(
+            data_movimentacao__gte=data_inicio_mes,
+            data_movimentacao__lte=data_fim_mes
+        )
+        
+        entradas_mes = mov_mes.filter(
+            tipo_movimentacao__in=['ENTRADA', 'COMPENSACAO']
+        ).aggregate(total=Sum('horas'))['total'] or Decimal('0')
+        
+        saidas_mes = mov_mes.filter(
+            tipo_movimentacao__in=['SAIDA', 'AJUSTE']
+        ).aggregate(total=Sum('horas'))['total'] or Decimal('0')
+        
+        saldo_mes = entradas_mes - saidas_mes
+        
+        meses_stats.append({
+            'mes': mes_int,
+            'nome_mes': datetime(ano, mes_int, 1).strftime('%B').title(),
+            'entradas': entradas_mes,
+            'saidas': saidas_mes,
+            'saldo': saldo_mes,
+            'movimentacoes': mov_mes.count()
+        })
+    else:
+        # Se não especificou mês, mostrar todos os 12 meses
+        for mes in range(1, 13):
+            data_inicio_mes = datetime(ano, mes, 1).date()
+            if mes == 12:
+                data_fim_mes = datetime(ano, 12, 31).date()
+            else:
+                data_fim_mes = datetime(ano, mes + 1, 1).date() - timedelta(days=1)
+            
+            mov_mes = movimentacoes.filter(
+                data_movimentacao__gte=data_inicio_mes,
+                data_movimentacao__lte=data_fim_mes
+            )
+            
+            entradas_mes = mov_mes.filter(
+                tipo_movimentacao__in=['ENTRADA', 'COMPENSACAO']
+            ).aggregate(total=Sum('horas'))['total'] or Decimal('0')
+            
+            saidas_mes = mov_mes.filter(
+                tipo_movimentacao__in=['SAIDA', 'AJUSTE']
+            ).aggregate(total=Sum('horas'))['total'] or Decimal('0')
+            
+            saldo_mes = entradas_mes - saidas_mes
+            
+            meses_stats.append({
+                'mes': mes,
+                'nome_mes': datetime(ano, mes, 1).strftime('%B').title(),
+                'entradas': entradas_mes,
+                'saidas': saidas_mes,
+                'saldo': saldo_mes,
+                'movimentacoes': mov_mes.count()
+            })
+    
+    # Criar PDF
+    response = HttpResponse(content_type='application/pdf')
+    if mes:
+        nome_mes = datetime(ano, int(mes), 1).strftime('%B').title()
+        filename = f"banco_horas_{militar.nome_completo.replace(' ', '_')}_{nome_mes}_{ano}.pdf"
+    else:
+        filename = f"banco_horas_{militar.nome_completo.replace(' ', '_')}_{ano}.pdf"
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=2*cm, bottomMargin=2*cm)
+    
+    # Estilos
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=16,
+        spaceAfter=20,
+        alignment=TA_CENTER,
+        textColor=colors.black
+    )
+    style_center = ParagraphStyle('center', parent=styles['Normal'], alignment=1, fontSize=12)
+    
+    # Conteúdo do PDF
+    story = []
+    
+    # Logo/Brasão centralizado
+    import os
+    logo_path = os.path.join('staticfiles', 'logo_cbmepi.png')
+    if os.path.exists(logo_path):
+        from reportlab.platypus import Image
+        story.append(Image(logo_path, width=2.5*cm, height=2.5*cm, hAlign='CENTER'))
+        story.append(Spacer(1, 6))
+    
+    # Determinar lotação do usuário que está gerando o relatório
+    lotacao_geracao = "DIRETORIA DE GESTÃO DE PESSOAS"
+    funcao_usuario = obter_funcao_militar_ativa(request.user)
+    if funcao_usuario:
+        # Usar o nível de acesso da função para determinar a lotação
+        if funcao_usuario.nivel_acesso == 'SUBUNIDADE' and funcao_usuario.sub_unidade:
+            lotacao_geracao = funcao_usuario.sub_unidade.nome.upper()
+        elif funcao_usuario.nivel_acesso == 'UNIDADE' and funcao_usuario.unidade:
+            lotacao_geracao = funcao_usuario.unidade.nome.upper()
+        elif funcao_usuario.nivel_acesso == 'GRANDE_COMANDO' and funcao_usuario.grande_comando:
+            lotacao_geracao = funcao_usuario.grande_comando.nome.upper()
+        elif funcao_usuario.nivel_acesso == 'ORGAO' and funcao_usuario.orgao:
+            lotacao_geracao = funcao_usuario.orgao.nome.upper()
+    
+    # Cabeçalho institucional
+    cabecalho = [
+        "GOVERNO DO ESTADO DO PIAUÍ",
+        "CORPO DE BOMBEIROS MILITAR DO ESTADO DO PIAUÍ",
+        lotacao_geracao,
+        "Av. Miguel Rosa, 3515 - Bairro Piçarra, Teresina/PI, CEP 64001-490",
+        "Telefone: (86)3216-1264 - http://www.cbm.pi.gov.br"
+    ]
+    for linha in cabecalho:
+        story.append(Paragraph(linha, style_center))
+    story.append(Spacer(1, 10))
+    
+    # Título principal centralizado e sublinhado
+    story.append(Paragraph("<u>BANCO DE HORAS</u>", title_style))
+    story.append(Spacer(1, 20))
+    
+    # Dados do militar
+    story.append(Paragraph(f"<b>Nome Completo:</b> {militar.nome_completo}", styles['Normal']))
+    story.append(Paragraph(f"<b>Posto/Graduação:</b> {militar.get_posto_graduacao_display()} BM", styles['Normal']))
+    story.append(Paragraph(f"<b>Matrícula:</b> {militar.matricula}", styles['Normal']))
+    story.append(Paragraph(f"<b>Situação:</b> {militar.get_situacao_display()}", styles['Normal']))
+    
+    if militar.lotacao_atual():
+        story.append(Paragraph(f"<b>Lotação Atual:</b> {militar.lotacao_atual().lotacao}", styles['Normal']))
+    
+    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 20))
+    
+    # Ano centralizado
+    story.append(Paragraph(f"<b>Ano:</b> {ano}", style_center))
+    story.append(Spacer(1, 10))
+    
+    # Calcular total de horas
+    total_horas = sum(mes_stat['entradas'] for mes_stat in meses_stats)
+    
+    meses_data = [['Mês', 'Horas']]
+    for mes_stat in meses_stats:
+        # Remover números depois da vírgula
+        horas_sem_decimal = str(mes_stat['entradas']).split('.')[0]
+        meses_data.append([
+            mes_stat['nome_mes'],
+            f"{horas_sem_decimal}h"
+        ])
+    
+    # Adicionar linha de total
+    total_horas_sem_decimal = str(total_horas).split('.')[0]
+    meses_data.append([
+        'TOTAL',
+        f"{total_horas_sem_decimal}h"
+    ])
+    
+    meses_table = Table(meses_data, colWidths=[3*inch, 2*inch])
+    meses_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (0, -1), 'LEFT'),  # Justificar meses à esquerda
+        ('ALIGN', (1, 0), (1, -1), 'CENTER'),  # Centralizar horas
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        # Destacar linha de total
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, -1), (-1, -1), 12)
+    ]))
+    
+    story.append(meses_table)
+    story.append(Spacer(1, 20))
+    
+    
+    # Rodapé
+    story.append(Spacer(1, 30))
+    story.append(Paragraph(f"Relatório gerado em: {datetime.now().strftime('%d/%m/%Y às %H:%M')}", 
+                          ParagraphStyle('Footer', parent=styles['Normal'], fontSize=8, alignment=TA_RIGHT)))
+    
+    # Adicionar assinatura eletrônica se função fornecida
+    if funcao:
+        story.append(Spacer(1, 1*cm))
+        
+        # Obter assinante (usuário logado)
+        try:
+            militar_logado = request.user.militar if hasattr(request.user, 'militar') else None
+            nome_assinante = militar_logado.nome_completo if militar_logado else request.user.get_full_name() or request.user.username
+        except:
+            nome_assinante = request.user.get_full_name() or request.user.username
+        
+        # Data por extenso - usar timezone de Brasília
+        from django.utils import timezone
+        import pytz
+        brasilia_tz = pytz.timezone('America/Sao_Paulo')
+        data_atual = timezone.now().astimezone(brasilia_tz) if timezone.is_aware(timezone.now()) else brasilia_tz.localize(timezone.now())
+        
+        meses_extenso = {
+            1: 'janeiro', 2: 'fevereiro', 3: 'março', 4: 'abril',
+            5: 'maio', 6: 'junho', 7: 'julho', 8: 'agosto',
+            9: 'setembro', 10: 'outubro', 11: 'novembro', 12: 'dezembro'
+        }
+        data_formatada_extenso = f"{data_atual.day} de {meses_extenso[data_atual.month]} de {data_atual.year}"
+        
+        # Função selecionada
+        funcao_display = funcao if funcao else "Operador de Banco de Horas"
+        
+        # Construir texto
+        texto_info = f"Teresina - PI, {data_formatada_extenso}.<br/><br/>{nome_assinante}<br/>{funcao_display}"
+        
+        # Estilo para o texto
+        style_info = ParagraphStyle('info', parent=styles['Normal'], fontSize=9, fontName='Helvetica', 
+                                     alignment=1, textColor=colors.HexColor('#2c3e50'), spaceAfter=8,
+                                     leading=12)
+        
+        story.append(Paragraph(texto_info, style_info))
+        
+        # Adicionar assinatura eletrônica
+        from .utils import obter_caminho_assinatura_eletronica
+        
+        story.append(Spacer(1, 0.5*cm))
+        
+        # Data e hora formatadas
+        from .utils import formatar_data_assinatura
+        data_formatada, hora_formatada = formatar_data_assinatura(data_atual)
+        
+        # Texto da assinatura eletrônica
+        texto_assinatura = f"Documento assinado eletronicamente por {nome_assinante}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
+        
+        # Estilo para texto justificado
+        style_assinatura_texto = ParagraphStyle('assinatura_texto', parent=styles['Normal'], fontSize=10, fontName='Helvetica', alignment=4, spaceAfter=1, spaceBefore=1, leading=14)
+        
+        # Tabela das assinaturas: Logo + Texto de assinatura
+        # Largura ajustada para ter margem de 0,02cm de cada lado (largura total - 0,04cm)
+        largura_disponivel = A4[0] - (1.5*inch * 2) - 0.04*inch  # total - margens documento - margem extra 0,02cm cada lado
+        largura_texto = largura_disponivel - 2.5*inch  # menos logo
+        
+        assinatura_data = [
+            [Image(obter_caminho_assinatura_eletronica(), width=2.5*inch, height=1.8*inch), Paragraph(texto_assinatura, style_assinatura_texto)]
+        ]
+        
+        assinatura_table = Table(assinatura_data, colWidths=[2.5*inch, largura_texto])
+        assinatura_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # Logo centralizado
+            ('LEFTPADDING', (0, 0), (0, -1), 0),  # Logo sem padding esquerdo
+            ('LEFTPADDING', (1, 0), (1, -1), 15),  # Texto com padding esquerdo para afastar da logo
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('BOX', (0, 0), (-1, -1), 1, colors.grey),  # Borda do retângulo
+        ]))
+        
+        story.append(assinatura_table)
+    
+    # Construir PDF
+    doc.build(story)
+    pdf = buffer.getvalue()
+    buffer.close()
+    response.write(pdf)
+    
+    return response
+
+
+def gerar_relatorio_pdf_completo(request, ano, mes):
+    """Gerar relatório PDF completo do banco de horas - todos os militares por mês"""
+    from .models import BancoHoras, Militar
+    from django.http import HttpResponse
+    from datetime import datetime, timedelta
+    from django.db.models import Sum
+    from decimal import Decimal
+    import io
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    from .filtros_hierarquicos import aplicar_filtro_hierarquico_militares
+    from .permissoes_simples import obter_funcao_militar_ativa
+    
+    if not ano:
+        return HttpResponse("Parâmetro ano é obrigatório", status=400)
+    
+    try:
+        ano = int(ano)
+    except ValueError:
+        return HttpResponse("Ano inválido", status=400)
+    
+    # Definir hierarquia de postos para ordenação
+    HIERARQUIA_POSTOS = {
+        'CB': 1,    # Coronel
+        'TC': 2,    # Tenente Coronel
+        'MJ': 3,    # Major
+        'CP': 4,    # Capitão
+        '1T': 5,    # 1º Tenente
+        '2T': 6,    # 2º Tenente
+        'AS': 7,    # Aspirante a Oficial
+        'AA': 8,    # Aluno de Adaptação
+        'NVRR': 9,  # Navegador
+        'ST': 10,   # Subtenente
+        '1S': 11,   # 1º Sargento
+        '2S': 12,   # 2º Sargento
+        '3S': 13,   # 3º Sargento
+        'CAB': 14,  # Cabo
+        'SD': 15,   # Soldado
+    }
+    
+    # Buscar todos os militares ativos
+    todos_militares = Militar.objects.exclude(situacao='INATIVO')
+    
+    # Aplicar filtro hierárquico
+    funcao_usuario = obter_funcao_militar_ativa(request.user)
+    if funcao_usuario:
+        todos_militares = aplicar_filtro_hierarquico_militares(todos_militares, funcao_usuario, request.user)
+    
+    # Ordenar militares por hierarquia
+    militares_ordenados = sorted(todos_militares, key=lambda m: (
+        HIERARQUIA_POSTOS.get(m.posto_graduacao, 999),
+        m.numeracao_antiguidade or 999,
+        m.nome_completo
+    ))
+    
+    # Criar PDF
+    response = HttpResponse(content_type='application/pdf')
+    if mes:
+        nome_mes = datetime(ano, int(mes), 1).strftime('%B').title()
+        filename = f"banco_horas_completo_{nome_mes}_{ano}.pdf"
+        titulo_periodo = f"Relatório Completo - {nome_mes} de {ano}"
+    else:
+        filename = f"banco_horas_completo_{ano}.pdf"
+        titulo_periodo = f"Relatório Completo - Ano {ano}"
+    
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=2*cm, bottomMargin=2*cm)
+    
+    # Estilos
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=16,
+        spaceAfter=20,
+        alignment=TA_CENTER,
+        textColor=colors.black
+    )
+    style_center = ParagraphStyle('center', parent=styles['Normal'], alignment=1, fontSize=12)
+    
+    # Conteúdo do PDF
+    story = []
+    
+    # Logo/Brasão centralizado
+    import os
+    logo_path = os.path.join('staticfiles', 'logo_cbmepi.png')
+    if os.path.exists(logo_path):
+        from reportlab.platypus import Image
+        story.append(Image(logo_path, width=2.5*cm, height=2.5*cm, hAlign='CENTER'))
+        story.append(Spacer(1, 6))
+    
+    # Determinar lotação do usuário que está gerando o relatório
+    lotacao_geracao = "DIRETORIA DE GESTÃO DE PESSOAS"
+    funcao_usuario = obter_funcao_militar_ativa(request.user)
+    if funcao_usuario:
+        # Usar o nível de acesso da função para determinar a lotação
+        if funcao_usuario.nivel_acesso == 'SUBUNIDADE' and funcao_usuario.sub_unidade:
+            lotacao_geracao = funcao_usuario.sub_unidade.nome.upper()
+        elif funcao_usuario.nivel_acesso == 'UNIDADE' and funcao_usuario.unidade:
+            lotacao_geracao = funcao_usuario.unidade.nome.upper()
+        elif funcao_usuario.nivel_acesso == 'GRANDE_COMANDO' and funcao_usuario.grande_comando:
+            lotacao_geracao = funcao_usuario.grande_comando.nome.upper()
+        elif funcao_usuario.nivel_acesso == 'ORGAO' and funcao_usuario.orgao:
+            lotacao_geracao = funcao_usuario.orgao.nome.upper()
+    
+    # Cabeçalho institucional
+    cabecalho = [
+        "GOVERNO DO ESTADO DO PIAUÍ",
+        "CORPO DE BOMBEIROS MILITAR DO ESTADO DO PIAUÍ",
+        lotacao_geracao,
+        "Av. Miguel Rosa, 3515 - Bairro Piçarra, Teresina/PI, CEP 64001-490",
+        "Telefone: (86)3216-1264 - http://www.cbm.pi.gov.br"
+    ]
+    
+    for linha in cabecalho:
+        story.append(Paragraph(linha, style_center))
+    
+    story.append(Spacer(1, 10))
+    
+    # Título principal centralizado e sublinhado
+    story.append(Paragraph(f"<u>{titulo_periodo}</u>", title_style))
+    story.append(Spacer(1, 16))
+    
+    if mes:
+        # Relatório de mês específico
+        mes_int = int(mes)
+        data_inicio_mes = datetime(ano, mes_int, 1).date()
+        if mes_int == 12:
+            data_fim_mes = datetime(ano, 12, 31).date()
+        else:
+            data_fim_mes = datetime(ano, mes_int + 1, 1).date() - timedelta(days=1)
+        
+        # Tabela de militares para o mês
+        dados_tabela = [['POSTO', 'NOME', 'H/MÊS']]
+        
+        for militar in militares_ordenados:
+            # Buscar movimentações do militar no mês
+            movimentacoes_mes = BancoHoras.objects.filter(
+                militar=militar,
+                data_movimentacao__gte=data_inicio_mes,
+                data_movimentacao__lte=data_fim_mes
+            )
+            
+            # Calcular horas do mês
+            entradas_mes = movimentacoes_mes.filter(
+                tipo_movimentacao__in=['ENTRADA', 'COMPENSACAO']
+            ).aggregate(total=Sum('horas'))['total'] or Decimal('0')
+            
+            saidas_mes = movimentacoes_mes.filter(
+                tipo_movimentacao__in=['SAIDA', 'AJUSTE']
+            ).aggregate(total=Sum('horas'))['total'] or Decimal('0')
+            
+            horas_mes = entradas_mes - saidas_mes
+            
+            dados_tabela.append([
+                militar.get_posto_graduacao_display(),
+                militar.nome_completo,
+                f"{horas_mes:.0f}h"
+            ])
+        
+        # Criar tabela
+        tabela = Table(dados_tabela, colWidths=[4*cm, 8*cm, 3*cm])
+        tabela.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (0, -1), 'LEFT'),  # POSTO - justificado à esquerda
+            ('ALIGN', (1, 0), (1, -1), 'LEFT'),  # NOME - justificado à esquerda
+            ('ALIGN', (2, 0), (2, -1), 'CENTER'), # H/MÊS - centralizado
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ]))
+        
+        story.append(tabela)
+        
+    else:
+        # Relatório de ano todo - mostrar por mês
+        meses_nomes = [
+            'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+            'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+        ]
+        
+        for mes_num in range(1, 13):
+            # Cabeçalho do mês
+            story.append(PageBreak() if mes_num > 1 else Spacer(1, 20))
+            story.append(Paragraph(f"<b>{meses_nomes[mes_num-1]} de {ano}</b>", title_style))
+            story.append(Spacer(1, 10))
+            
+            # Calcular período do mês
+            data_inicio_mes = datetime(ano, mes_num, 1).date()
+            if mes_num == 12:
+                data_fim_mes = datetime(ano, 12, 31).date()
+            else:
+                data_fim_mes = datetime(ano, mes_num + 1, 1).date() - timedelta(days=1)
+            
+            # Tabela de militares para o mês
+            dados_tabela = [['POSTO', 'NOME', 'H/MÊS']]
+            
+            for militar in militares_ordenados:
+                # Buscar movimentações do militar no mês
+                movimentacoes_mes = BancoHoras.objects.filter(
+                    militar=militar,
+                    data_movimentacao__gte=data_inicio_mes,
+                    data_movimentacao__lte=data_fim_mes
+                )
+                
+                # Calcular horas do mês
+                entradas_mes = movimentacoes_mes.filter(
+                    tipo_movimentacao__in=['ENTRADA', 'COMPENSACAO']
+                ).aggregate(total=Sum('horas'))['total'] or Decimal('0')
+                
+                saidas_mes = movimentacoes_mes.filter(
+                    tipo_movimentacao__in=['SAIDA', 'AJUSTE']
+                ).aggregate(total=Sum('horas'))['total'] or Decimal('0')
+                
+                horas_mes = entradas_mes - saidas_mes
+                
+                dados_tabela.append([
+                    militar.get_posto_graduacao_display(),
+                    militar.nome_completo,
+                    f"{horas_mes:.0f}h"
+                ])
+            
+            # Criar tabela
+            tabela = Table(dados_tabela, colWidths=[4*cm, 8*cm, 3*cm])
+            tabela.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (0, -1), 'LEFT'),  # POSTO - justificado à esquerda
+                ('ALIGN', (1, 0), (1, -1), 'LEFT'),  # NOME - justificado à esquerda
+                ('ALIGN', (2, 0), (2, -1), 'CENTER'), # H/MÊS - centralizado
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ]))
+            
+            story.append(tabela)
+    
+    # Rodapé
+    story.append(Spacer(1, 30))
+    story.append(Paragraph(f"Relatório gerado em: {datetime.now().strftime('%d/%m/%Y às %H:%M')}", 
+                          ParagraphStyle('Footer', parent=styles['Normal'], fontSize=8, alignment=TA_RIGHT)))
+    
+    # Construir PDF
+    doc.build(story)
+    pdf = buffer.getvalue()
+    buffer.close()
+    response.write(pdf)
+    
+    return response
+
+
+@login_required
+def escalas_operacoes(request):
+    """Operações das escalas de serviço"""
+    from .models import OperacaoEscala
+    from django.contrib import messages
+    from django.core.paginator import Paginator
+    
+    # Filtros
+    search = request.GET.get('search', '')
+    tipo = request.GET.get('tipo', '')
+    
+    # Query base
+    operacoes = OperacaoEscala.objects.all().order_by('-data_inicio')
+    
+    # Aplicar filtros
+    if search:
+        operacoes = operacoes.filter(
+            nome__icontains=search
+        )
+    
+    if tipo:
+        operacoes = operacoes.filter(tipo=tipo)
+    
+    # Paginação
+    paginator = Paginator(operacoes, 31)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'page_obj': page_obj,
+        'search': search,
+        'tipo': tipo,
+        'tipos': OperacaoEscala.TIPO_CHOICES,
+    }
+    
+    return render(request, 'militares/escalas/escalas_operacoes.html', context)
+
+
+@login_required
+def funcoes_militares_list(request):
+    """Lista todas as funções militares"""
+    funcoes = FuncaoMilitar.objects.all().order_by('ordem', 'nome')
+    
+    # Aplicar filtros
+    grupo_filtro = request.GET.get('grupo')
+    if grupo_filtro:
+        funcoes = funcoes.filter(grupo=grupo_filtro)
+    
     status_filtro = request.GET.get('status')
-    if status_filtro:
-        usuarios_com_funcao = usuarios_com_funcao.filter(status=status_filtro)
+    if status_filtro == 'ativo':
+        funcoes = funcoes.filter(ativo=True)
+    elif status_filtro == 'inativo':
+        funcoes = funcoes.filter(ativo=False)
     
-    tipo_filtro = request.GET.get('tipo')
-    if tipo_filtro:
-        usuarios_com_funcao = usuarios_com_funcao.filter(tipo_funcao=tipo_filtro)
+    # Pesquisa por nome
+    pesquisa = request.GET.get('pesquisa')
+    if pesquisa:
+        funcoes = funcoes.filter(nome__icontains=pesquisa)
     
-    # Estatísticas dos usuários (após filtros)
-    usuarios_ativos_count = usuarios_com_funcao.filter(status='ATIVO').count()
-    usuarios_inativos_count = usuarios_com_funcao.filter(status='INATIVO').count()
-    usuarios_suspensos_count = usuarios_com_funcao.filter(status='SUSPENSO').count()
+    # Estatísticas
+    total_funcoes = FuncaoMilitar.objects.count()
+    funcoes_ativas = FuncaoMilitar.objects.filter(ativo=True).count()
+    funcoes_inativas = FuncaoMilitar.objects.filter(ativo=False).count()
     
     context = {
-        'cargo': cargo,
-        'permissoes_por_modulo': permissoes_por_modulo,
-        'permissoes_count': permissoes.count(),
-        'usuarios_com_funcao': usuarios_com_funcao,
-        'usuarios_count': usuarios_count_total,  # Usar o total, não o filtrado
-        'usuarios_ativos_count': usuarios_ativos_count,
-        'usuarios_inativos_count': usuarios_inativos_count,
-        'usuarios_suspensos_count': usuarios_suspensos_count,
-        'title': f'Detalhes do Cargo/Função: {cargo.nome}',
-        # Filtros aplicados
+        'funcoes': funcoes,
+        'total_funcoes': total_funcoes,
+        'funcoes_ativas': funcoes_ativas,
+        'funcoes_inativas': funcoes_inativas,
+        'grupo_filtro': grupo_filtro,
         'status_filtro': status_filtro,
-        'tipo_filtro': tipo_filtro,
+        'pesquisa': pesquisa,
+        'title': 'Funções Militares',
     }
-    return render(request, 'militares/cargos/cargo_funcao_detail.html', context)
+    return render(request, 'militares/funcoes/funcoes_militares_list.html', context)
+
 
 @login_required
-def adicionar_usuario_cargo(request, cargo_id):
-    """Adiciona um usuário a um cargo específico"""
-    cargo = get_object_or_404(CargoFuncao, pk=cargo_id)
+@administracao_required
+def funcoes_militares_create(request):
+    """Cria uma nova função militar com sistema de permissões - apenas administradores do sistema"""
+    from .models import PermissaoFuncao, FuncaoMenuConfig
     
     if request.method == 'POST':
-        form = UsuarioFuncaoForm(request.POST)
+        form = FuncaoMilitarForm(request.POST)
         if form.is_valid():
-            # Verificar se já existe uma função com a mesma combinação
-            usuario = form.cleaned_data['usuario']
-            data_inicio = form.cleaned_data['data_inicio']
+            funcao = form.save()
             
-            funcao_existente = UsuarioFuncao.objects.filter(
-                usuario=usuario,
-                cargo_funcao=cargo,
-                data_inicio=data_inicio
-            ).first()
+            # Criar configuração de menu padrão baseada no grupo
+            menu_config = FuncaoMenuConfig.objects.create(
+                funcao_militar=funcao,
+                ativo=True
+            )
             
-            if funcao_existente:
-                messages.error(request, f'Já existe uma função "{cargo.nome}" para este usuário com a data de início {data_inicio}.')
-                context = {
-                    'form': form,
-                    'cargo': cargo,
-                }
-                return render(request, 'militares/cargos/adicionar_usuario_cargo.html', context)
+            # Processar permissões do formulário
+            # Campos de menu principal
+            menu_fields = [
+                'show_dashboard', 'show_efetivo', 'show_secao_promocoes', 
+                'show_medalhas', 'show_administracao', 'show_notas'
+            ]
             
-            funcao = form.save(commit=False)
-            funcao.cargo_funcao = cargo
-            funcao.save()
-            messages.success(request, f'Usuário "{funcao.usuario.get_full_name()}" adicionado ao cargo "{cargo.nome}" com sucesso!')
-            return redirect('militares:cargo_funcao_detail', cargo_id=cargo.id)
+            # Atualizar campos de menu
+            for field in menu_fields:
+                valor = field in request.POST
+                setattr(menu_config, field, valor)
+            
+            menu_config.save()
+            
+            # Limpar permissões de submenu existentes
+            PermissaoFuncao.objects.filter(funcao_militar=funcao).delete()
+            
+            # Mapear campos do formulário para módulos
+            submenu_mapping = {
+                'show_ativos': 'SUBMENU_ATIVOS',
+                'show_inativos': 'SUBMENU_INATIVOS',
+                'show_lotacoes': 'SUBMENU_LOTACOES',
+                'show_fichas_oficiais': 'SUBMENU_FICHAS_OFICIAIS',
+                'show_fichas_pracas': 'SUBMENU_FICHAS_PRACAS',
+                'show_quadros_acesso': 'SUBMENU_QUADROS_ACESSO',
+                'show_quadros_fixacao': 'SUBMENU_QUADROS_FIXACAO',
+                'show_almanaques': 'SUBMENU_ALMANAQUES',
+                'show_promocoes': 'SUBMENU_PROMOCOES',
+                'show_calendarios': 'SUBMENU_CALENDARIOS',
+                'show_comissoes': 'SUBMENU_COMISSOES',
+                'show_meus_votos': 'SUBMENU_MEUS_VOTOS',
+                'show_intersticios': 'SUBMENU_INTERSTICIOS',
+                'show_gerenciar_intersticios': 'SUBMENU_GERENCIAR_INTERSTICIOS',
+                'show_gerenciar_previsao': 'SUBMENU_GERENCIAR_PREVISAO',
+                'show_medalhas_concessoes': 'SUBMENU_MEDALHAS_CONCESSOES',
+                'show_medalhas_propostas': 'SUBMENU_MEDALHAS_PROPOSTAS',
+                'show_elegiveis': 'SUBMENU_ELEGIVEIS',
+                'show_propostas': 'SUBMENU_PROPOSTAS',
+                'notas_visualizar': 'NOTAS_VISUALIZAR',
+                'notas_criar': 'NOTAS_CRIAR',
+                'notas_editar': 'NOTAS_EDITAR',
+                'notas_lista': 'SUBMENU_NOTAS_LISTA',
+                'notas_excluir': 'NOTAS_EXCLUIR',
+                'show_usuarios': 'SUBMENU_USUARIOS',
+                'show_permissoes': 'SUBMENU_PERMISSOES',
+                'show_logs': 'SUBMENU_LOGS',
+                'show_administracao': 'SUBMENU_ADMINISTRACAO',
+                'show_planejadas': 'MENU_PLANEJADAS',
+                'show_operador_planejadas': 'SUBMENU_OPERADOR_PLANEJADAS',
+                'show_fiscal_planejadas': 'SUBMENU_FISCAL_PLANEJADAS',
+            }
+            
+            # Mapear permissões específicas de ações
+            acoes_mapping = {
+                # Ativos
+                'ativos_visualizar': 'ATIVOS_VISUALIZAR',
+                'ativos_criar': 'ATIVOS_CRIAR',
+                'ativos_editar': 'ATIVOS_EDITAR',
+                'ativos_excluir': 'ATIVOS_EXCLUIR',
+                'ativos_transferir': 'ATIVOS_TRANSFERIR',
+                'ativos_promover': 'ATIVOS_PROMOVER',
+                'ativos_inativar': 'ATIVOS_INATIVAR',
+                'ativos_ficha_conceito': 'ATIVOS_FICHA_CONCEITO',
+                'ativos_exportar': 'ATIVOS_EXPORTAR',
+                'ativos_dashboard': 'ATIVOS_DASHBOARD',
+                'ativos_reordenar': 'ATIVOS_REORDENAR',
+                
+                # Inativos
+                'inativos_visualizar': 'INATIVOS_VISUALIZAR',
+                'inativos_editar': 'INATIVOS_EDITAR',
+                'inativos_excluir': 'INATIVOS_EXCLUIR',
+                'inativos_reativar': 'INATIVOS_REATIVAR',
+                
+                # Lotações
+                'lotacoes_visualizar': 'LOTACOES_VISUALIZAR',
+                'lotacoes_criar': 'LOTACOES_CRIAR',
+                'lotacoes_editar': 'LOTACOES_EDITAR',
+                'lotacoes_excluir': 'LOTACOES_EXCLUIR',
+                
+                # Botões granulares - Lotações
+                'botao_lotacao_nova': 'BOTAO_LOTACAO_NOVA',
+                'botao_lotacao_editar': 'BOTAO_LOTACAO_EDITAR',
+                'botao_lotacao_excluir': 'BOTAO_LOTACAO_EXCLUIR',
+                'botao_lotacao_estatisticas': 'BOTAO_LOTACAO_ESTATISTICAS',
+                
+                
+                # Botões granulares - Publicações
+                'botao_publicacao_nova': 'BOTAO_PUBLICACAO_NOVA',
+                'botao_publicacao_editar': 'BOTAO_PUBLICACAO_EDITAR',
+                'botao_publicacao_publicar': 'BOTAO_PUBLICACAO_PUBLICAR',
+                'botao_publicacao_assinar': 'BOTAO_PUBLICACAO_ASSINAR',
+                
+                # Detalhes do Militar
+                'detail_fichas_conceito': 'DETAIL_FICHAS_CONCEITO',
+                'detail_punicoes': 'DETAIL_PUNICOES',
+                
+                # Seção de Promoções - Fichas de Oficiais
+                'fichas_oficiais_visualizar': 'FICHAS_OFICIAIS_VISUALIZAR',
+                'fichas_oficiais_criar': 'FICHAS_OFICIAIS_CRIAR',
+                'fichas_oficiais_editar': 'FICHAS_OFICIAIS_EDITAR',
+                'fichas_oficiais_excluir': 'FICHAS_OFICIAIS_EXCLUIR',
+                
+                # Seção de Promoções - Fichas de Praças
+                'fichas_pracas_visualizar': 'FICHAS_PRACAS_VISUALIZAR',
+                'fichas_pracas_criar': 'FICHAS_PRACAS_CRIAR',
+                'fichas_pracas_editar': 'FICHAS_PRACAS_EDITAR',
+                'fichas_pracas_excluir': 'FICHAS_PRACAS_EXCLUIR',
+                
+                # Seção de Promoções - Calendários
+                'calendarios_visualizar': 'CALENDARIOS_VISUALIZAR',
+                'calendarios_criar': 'CALENDARIOS_CRIAR',
+                'calendarios_editar': 'CALENDARIOS_EDITAR',
+                'calendarios_excluir': 'CALENDARIOS_EXCLUIR',
+                
+                # Seção de Promoções - Quadros de Fixação
+                'quadros_fixacao_visualizar': 'QUADROS_FIXACAO_VISUALIZAR',
+                'quadros_fixacao_criar': 'QUADROS_FIXACAO_CRIAR',
+                'quadros_fixacao_editar': 'QUADROS_FIXACAO_EDITAR',
+                'quadros_fixacao_excluir': 'QUADROS_FIXACAO_EXCLUIR',
+                'quadros_fixacao_assinar': 'QUADROS_FIXACAO_ASSINAR',
+                'quadros_fixacao_gerar_pdf': 'QUADROS_FIXACAO_GERAR_PDF',
+                
+                # Seção de Promoções - Quadros de Acesso
+                'quadros_acesso_visualizar': 'QUADROS_ACESSO_VISUALIZAR',
+                'quadros_acesso_criar': 'QUADROS_ACESSO_CRIAR',
+                'quadros_acesso_editar': 'QUADROS_ACESSO_EDITAR',
+                'quadros_acesso_excluir': 'QUADROS_ACESSO_EXCLUIR',
+                'quadros_acesso_assinar': 'QUADROS_ACESSO_ASSINAR',
+                'quadros_acesso_homologar': 'QUADROS_ACESSO_HOMOLOGAR',
+                'quadros_acesso_deshomologar': 'QUADROS_ACESSO_DESHOMOLOGAR',
+                'quadros_acesso_elaborar': 'QUADROS_ACESSO_ELABORAR',
+                'quadros_acesso_regenerar': 'QUADROS_ACESSO_REGENERAR',
+                'quadros_acesso_gerar_pdf': 'QUADROS_ACESSO_GERAR_PDF',
+                
+                # Seção de Promoções - Comissões (genéricas)
+                'comissoes_visualizar': 'COMISSOES_VISUALIZAR',
+                'comissoes_criar': 'COMISSOES_CRIAR',
+                'comissoes_editar': 'COMISSOES_EDITAR',
+                'comissoes_excluir': 'COMISSOES_EXCLUIR',
+                
+                # Seção de Promoções - Comissões de Oficiais
+                'comissoes_oficiais_visualizar': 'COMISSOES_OFICIAIS_VISUALIZAR',
+                'comissoes_oficiais_criar': 'COMISSOES_OFICIAIS_CRIAR',
+                'comissoes_oficiais_editar': 'COMISSOES_OFICIAIS_EDITAR',
+                'comissoes_oficiais_excluir': 'COMISSOES_OFICIAIS_EXCLUIR',
+                
+                # Seção de Promoções - Comissões de Praças
+                'comissoes_pracas_visualizar': 'COMISSOES_PRACAS_VISUALIZAR',
+                'comissoes_pracas_criar': 'COMISSOES_PRACAS_CRIAR',
+                'comissoes_pracas_editar': 'COMISSOES_PRACAS_EDITAR',
+                'comissoes_pracas_excluir': 'COMISSOES_PRACAS_EXCLUIR',
+                
+                # Seção de Promoções - Meus Votos
+                'meus_votos_visualizar': 'MEUS_VOTOS_VISUALIZAR',
+                'meus_votos_votar': 'MEUS_VOTOS_VOTAR',
+                
+                # Seção de Promoções - Promoções
+                'promocoes_visualizar': 'PROMOCOES_VISUALIZAR',
+                'promocoes_criar': 'PROMOCOES_CRIAR',
+                'promocoes_editar': 'PROMOCOES_EDITAR',
+                'promocoes_excluir': 'PROMOCOES_EXCLUIR',
+                
+                # Seção de Promoções - Almanaques
+                'almanaques_visualizar': 'ALMANAQUES_VISUALIZAR',
+                'almanaques_criar': 'ALMANAQUES_CRIAR',
+                'almanaques_editar': 'ALMANAQUES_EDITAR',
+                'almanaques_excluir': 'ALMANAQUES_EXCLUIR',
+                'almanaques_assinar': 'ALMANAQUES_ASSINAR',
+                'almanaques_gerar_pdf': 'ALMANAQUES_GERAR_PDF',
+                
+                # Medalhas - Concessões
+                'medalhas_concessoes_visualizar': 'MEDALHAS_CONCESSOES_VISUALIZAR',
+                'medalhas_concessoes_criar': 'MEDALHAS_CONCESSOES_CRIAR',
+                'medalhas_concessoes_editar': 'MEDALHAS_CONCESSOES_EDITAR',
+                'medalhas_concessoes_excluir': 'MEDALHAS_CONCESSOES_EXCLUIR',
+                
+                # Medalhas - Propostas
+                'medalhas_propostas_visualizar': 'MEDALHAS_PROPOSTAS_VISUALIZAR',
+                'medalhas_propostas_criar': 'MEDALHAS_PROPOSTAS_CRIAR',
+                'medalhas_propostas_editar': 'MEDALHAS_PROPOSTAS_EDITAR',
+                'medalhas_propostas_excluir': 'MEDALHAS_PROPOSTAS_EXCLUIR',
+                
+                # Medalhas - Elegíveis
+                'elegiveis_visualizar': 'ELEGIVEIS_VISUALIZAR',
+                'elegiveis_gerar': 'ELEGIVEIS_GERAR',
+                'elegiveis_exportar': 'ELEGIVEIS_EXPORTAR',
+                
+                # Medalhas - Propostas (Lista)
+                'propostas_visualizar': 'PROPOSTAS_VISUALIZAR',
+                'propostas_criar': 'PROPOSTAS_CRIAR',
+                'propostas_editar': 'PROPOSTAS_EDITAR',
+                'propostas_excluir': 'PROPOSTAS_EXCLUIR',
+                
+                # Configurações - Usuários
+                'usuarios_visualizar': 'USUARIOS_VISUALIZAR',
+                'usuarios_criar': 'USUARIOS_CRIAR',
+                'usuarios_editar': 'USUARIOS_EDITAR',
+                'usuarios_excluir': 'USUARIOS_EXCLUIR',
+                
+                # Configurações - Permissões
+                'permissoes_visualizar': 'PERMISSOES_VISUALIZAR',
+                'permissoes_editar': 'PERMISSOES_EDITAR',
+                'permissoes_administrar': 'PERMISSOES_ADMINISTRAR',
+                
+                # Configurações - Logs
+                'logs_visualizar': 'LOGS_VISUALIZAR',
+                'logs_exportar': 'LOGS_EXPORTAR',
+                'logs_limpar': 'LOGS_LIMPAR',
+                
+                # Planejadas
+                'PLANEJADAS_VISUALIZAR': 'PLANEJADAS_VISUALIZAR',
+                'PLANEJADAS_CRIAR': 'PLANEJADAS_CRIAR',
+                'PLANEJADAS_EDITAR': 'PLANEJADAS_EDITAR',
+                'PLANEJADAS_EXCLUIR': 'PLANEJADAS_EXCLUIR',
+                'PLANEJADAS_ADICIONAR_MILITAR': 'PLANEJADAS_ADICIONAR_MILITAR',
+                'PLANEJADAS_REMOVER_MILITAR': 'PLANEJADAS_REMOVER_MILITAR',
+                'PLANEJADAS_ASSINAR_OPERADOR': 'PLANEJADAS_ASSINAR_OPERADOR',
+                'PLANEJADAS_ASSINAR_FISCAL': 'PLANEJADAS_ASSINAR_FISCAL',
+                'MENU_PLANEJADAS': 'MENU_PLANEJADAS',
+                'SUBMENU_PLANEJADAS': 'SUBMENU_PLANEJADAS',
+                'SUBMENU_OPERADOR_PLANEJADAS': 'SUBMENU_OPERADOR_PLANEJADAS',
+                'SUBMENU_FISCAL_PLANEJADAS': 'SUBMENU_FISCAL_PLANEJADAS',
+            }
+            
+            # Criar permissões de submenu
+            permissoes_criadas = 0
+            for campo_form, modulo in submenu_mapping.items():
+                if campo_form in request.POST:
+                    PermissaoFuncao.objects.create(
+                        funcao_militar=funcao,
+                        modulo=modulo,
+                        acesso='VISUALIZAR',
+                        ativo=True
+                    )
+                    permissoes_criadas += 1
+            
+            # Criar permissões específicas de ações
+            acoes_criadas = 0
+            for campo_form, modulo in acoes_mapping.items():
+                if campo_form in request.POST:
+                    PermissaoFuncao.objects.create(
+                        funcao_militar=funcao,
+                        modulo=modulo,
+                        acesso='EXECUTAR',
+                        ativo=True
+                    )
+                    acoes_criadas += 1
+            
+            # Se não foram selecionadas permissões específicas, aplicar configuração padrão por grupo
+            if permissoes_criadas == 0:
+                aplicar_configuracoes_por_grupo(funcao, menu_config)
+            
+            messages.success(
+                request, 
+                f'Função militar "{funcao.nome}" criada com sucesso! '
+                f'Configurados {len([f for f in menu_fields if f in request.POST])} menus principais '
+                f'e {permissoes_criadas} submenus com {acoes_criadas} ações específicas.'
+            )
+            return redirect('militares:funcoes_militares_list')
+        else:
+            messages.error(request, 'Por favor, corrija os erros no formulário.')
     else:
-        form = UsuarioFuncaoForm()
+        form = FuncaoMilitarForm()
     
     context = {
         'form': form,
-        'cargo': cargo,
-        'title': f'Adicionar Usuário ao Cargo: {cargo.nome}',
+        'action': 'Nova',
+        'title': 'Nova Função Militar',
     }
-    return render(request, 'militares/cargos/adicionar_usuario_cargo.html', context)
+    return render(request, 'militares/funcoes/funcoes_militares_form.html', context)
+
+
+def funcoes_militares_detail(request, funcao_id):
+    """Exibe os detalhes de uma função militar"""
+    funcao = get_object_or_404(FuncaoMilitar, pk=funcao_id)
+    
+    # Buscar usuários que possuem esta função
+    usuarios_com_funcao = UsuarioFuncaoMilitar.objects.filter(
+        funcao_militar__nome__icontains=funcao.nome
+    ).select_related('usuario', 'funcao_militar')
+    
+    # Estatísticas da função
+    total_usuarios = usuarios_com_funcao.count()
+    usuarios_ativos = usuarios_com_funcao.filter(ativo=True).count()
+    usuarios_inativos = usuarios_com_funcao.filter(ativo=False).count()
+    
+    # Histórico de alterações (se houver)
+    historico_alteracoes = []
+    if funcao.data_atualizacao != funcao.data_criacao:
+        historico_alteracoes.append({
+            'data': funcao.data_atualizacao,
+            'acao': 'Última atualização',
+            'descricao': 'Função foi modificada'
+        })
+    
+    # Buscar militares que têm esta função e seus afastamentos
+    from .models import MilitarFuncao, Afastamento
+    militares_com_funcao = Militar.objects.filter(
+        funcoes__funcao_militar=funcao,
+        funcoes__ativo=True,
+        funcoes__status='ATUAL'
+    ).distinct()
+    
+    # Buscar todos os afastamentos dos militares que têm esta função
+    afastamentos_funcao = Afastamento.objects.filter(
+        militar__in=militares_com_funcao
+    ).order_by('-data_inicio', '-data_cadastro')
+    
+    # Separar afastamentos ativos dos encerrados
+    afastamentos_ativos = afastamentos_funcao.filter(status='ATIVO')
+    afastamentos_encerrados = afastamentos_funcao.filter(status='ENCERRADO')
+    afastamentos_cancelados = afastamentos_funcao.filter(status='CANCELADO')
+    
+    context = {
+        'funcao': funcao,
+        'usuarios_com_funcao': usuarios_com_funcao[:10],  # Limitar a 10 para performance
+        'total_usuarios': total_usuarios,
+        'usuarios_ativos': usuarios_ativos,
+        'usuarios_inativos': usuarios_inativos,
+        'historico_alteracoes': historico_alteracoes,
+        'militares_com_funcao': militares_com_funcao,
+        'afastamentos_funcao': afastamentos_funcao[:20],  # Limitar a 20 mais recentes
+        'afastamentos_ativos': afastamentos_ativos,
+        'afastamentos_encerrados': afastamentos_encerrados,
+        'afastamentos_cancelados': afastamentos_cancelados,
+        'total_afastamentos': afastamentos_funcao.count(),
+        'title': f'Detalhes da Função: {funcao.nome}',
+    }
+    return render(request, 'militares/funcoes/funcoes_militares_detail.html', context)
+
 
 @login_required
-def cargo_funcao_update(request, cargo_id):
-    """Edita um cargo/função do sistema"""
-    cargo = get_object_or_404(CargoFuncao, pk=cargo_id)
+@administracao_required
+def funcoes_militares_update(request, funcao_id):
+    """Edita uma função militar com sistema de permissões integrado - apenas administradores do sistema"""
+    from .models import PermissaoFuncao, FuncaoMenuConfig
+    
+    funcao = get_object_or_404(FuncaoMilitar, pk=funcao_id)
+    
     if request.method == 'POST':
-        form = CargoFuncaoForm(request.POST, instance=cargo)
+        form = FuncaoMilitarForm(request.POST, instance=funcao)
+        if form.is_valid():
+            funcao = form.save()
+            
+            # Criar ou atualizar configuração de menu
+            menu_config, created = FuncaoMenuConfig.objects.get_or_create(
+                funcao_militar=funcao,
+                defaults={'ativo': True}
+            )
+            
+            # Processar permissões do formulário
+            # Campos de menu principal
+            menu_principal_fields = [
+                'show_dashboard', 'show_efetivo', 'show_publicacoes', 
+                'show_escalas', 'show_secao_promocoes', 'show_medalhas', 'show_configuracoes'
+            ]
+            
+            # Campos de submenu - Efetivo
+            submenu_efetivo_fields = [
+                'show_ativos', 'show_inativos', 'show_lotacoes'
+            ]
+            
+            # Campos de submenu - Publicações
+            submenu_publicacoes_fields = [
+                'show_notas', 'show_boletins_ostensivos', 'show_boletins_reservados',
+                'show_boletins_especiais', 'show_avisos', 'show_ordens_servico'
+            ]
+            
+            # Campos de submenu - Escalas de Serviço
+            submenu_escalas_fields = [
+                'show_escalas_dashboard', 'show_escalas_lista', 'show_escalas_configuracao',
+                'show_escalas_banco_horas', 'show_escalas_operacoes'
+            ]
+            
+            # Campos de submenu - Seção de Promoções
+            submenu_promocoes_fields = [
+                'show_fichas_oficiais', 'show_fichas_pracas', 'show_calendarios',
+                'show_quadros_fixacao', 'show_quadros_acesso', 'show_comissoes',
+                'show_meus_votos', 'show_promocoes', 'show_almanaques'
+            ]
+            
+            # Campos de submenu - Medalhas
+            submenu_medalhas_fields = [
+                'show_medalhas_concessoes', 'show_medalhas_propostas', 
+                'show_elegiveis', 'show_propostas'
+            ]
+            
+            # Campos de submenu - Configurações
+            submenu_configuracoes_fields = [
+                'show_intersticios', 'show_gerenciar_intersticios', 'show_gerenciar_previsao',
+                'show_usuarios', 'show_permissoes', 'show_logs', 
+                'show_titulos_publicacao', 'show_administracao'
+            ]
+            
+            # Campos de submenu - Planejadas
+            submenu_planejadas_fields = [
+                'show_planejadas', 'show_operador_planejadas', 'show_fiscal_planejadas'
+            ]
+            
+            # Atualizar campos de menu principal
+            for field in menu_principal_fields:
+                valor = field in request.POST
+                setattr(menu_config, field, valor)
+            
+            # Atualizar campos de submenu - Efetivo
+            for field in submenu_efetivo_fields:
+                valor = field in request.POST
+                setattr(menu_config, field, valor)
+            
+            # Atualizar campos de submenu - Publicações
+            for field in submenu_publicacoes_fields:
+                valor = field in request.POST
+                setattr(menu_config, field, valor)
+            
+            # Atualizar campos de submenu - Escalas de Serviço
+            for field in submenu_escalas_fields:
+                valor = field in request.POST
+                setattr(menu_config, field, valor)
+            
+            # Atualizar campos de submenu - Seção de Promoções
+            for field in submenu_promocoes_fields:
+                valor = field in request.POST
+                setattr(menu_config, field, valor)
+            
+            # Atualizar campos de submenu - Medalhas
+            for field in submenu_medalhas_fields:
+                valor = field in request.POST
+                setattr(menu_config, field, valor)
+            
+            # Atualizar campos de submenu - Configurações
+            for field in submenu_configuracoes_fields:
+                valor = field in request.POST
+                setattr(menu_config, field, valor)
+            
+            # Atualizar campos de submenu - Planejadas
+            for field in submenu_planejadas_fields:
+                valor = field in request.POST
+                setattr(menu_config, field, valor)
+            
+            menu_config.save()
+            
+            # Verificar se há campos de permissões granulares no formulário
+            # Se houver, processar permissões (adicionar/remover/manter)
+            campos_permissoes_granulares = [
+                # Campos de submenu
+                'show_ativos', 'show_inativos', 'show_lotacoes',
+                'show_efetivo_elogios', 'show_efetivo_punicoes',
+                'show_escalas_dashboard', 'show_escalas_lista', 'show_escalas_configuracao',
+                'show_escalas_banco_horas', 'show_escalas_operacoes',
+                'show_fichas_oficiais', 'show_fichas_pracas', 'show_calendarios',
+                'show_quadros_fixacao', 'show_quadros_acesso', 'show_comissoes',
+                'show_meus_votos', 'show_promocoes', 'show_almanaques',
+                'show_medalhas_concessoes', 'show_medalhas_propostas', 
+                'show_elegiveis', 'show_propostas',
+                'show_intersticios', 'show_gerenciar_intersticios', 'show_gerenciar_previsao',
+                'show_usuarios', 'show_permissoes', 'show_logs', 
+                'show_titulos_publicacao', 'show_administracao',
+                'show_planejadas', 'show_operador_planejadas', 'show_fiscal_planejadas',
+                'notas_visualizar', 'notas_criar', 'notas_editar', 'notas_lista', 'notas_excluir',
+                # Permissões de Planejadas
+                'PLANEJADAS_VISUALIZAR', 'PLANEJADAS_CRIAR', 'PLANEJADAS_EDITAR', 'PLANEJADAS_EXCLUIR',
+                'PLANEJADAS_ADICIONAR_MILITAR', 'PLANEJADAS_REMOVER_MILITAR',
+                'PLANEJADAS_ASSINAR_OPERADOR', 'PLANEJADAS_ASSINAR_FISCAL',
+                'MENU_PLANEJADAS', 'SUBMENU_PLANEJADAS', 'SUBMENU_OPERADOR_PLANEJADAS', 'SUBMENU_FISCAL_PLANEJADAS',
+                # Novos menus Elogios/Punições
+                'MENU_ELOGIOS', 'SUBMENU_ELOGIOS_OFICIAIS', 'SUBMENU_ELOGIOS_PRACAS',
+                'MENU_PUNICOES', 'SUBMENU_PUNICOES_OFICIAIS', 'SUBMENU_PUNICOES_PRACAS',
+                # Campos de ações específicas
+                'ativos_visualizar', 'ativos_criar', 'ativos_editar', 'ativos_excluir',
+                'inativos_visualizar', 'inativos_editar', 'inativos_excluir',
+                'lotacoes_visualizar', 'lotacoes_criar', 'lotacoes_editar',
+                'usuarios_visualizar', 'usuarios_criar', 'usuarios_editar',
+                'permissoes_visualizar', 'permissoes_editar', 'permissoes_administrar',
+                'logs_visualizar', 'logs_exportar', 'logs_limpar',
+                # Elogios/Punições
+                'elogios_visualizar', 'elogios_criar', 'elogios_editar',
+                'punicoes_visualizar', 'punicoes_criar', 'punicoes_editar'
+            ]
+            
+            # Verificar se há campos de permissões granulares no POST
+            tem_permissoes_granulares = any(field in request.POST for field in campos_permissoes_granulares)
+            
+            # Se houver campos de permissões granulares no formulário, processar
+            # Isso permite adicionar, remover ou manter permissões conforme necessário
+            if tem_permissoes_granulares:
+                # Limpar permissões existentes para recriar com base no formulário
+                PermissaoFuncao.objects.filter(funcao_militar=funcao).delete()
+            
+            # Mapear campos do formulário para módulos
+            submenu_mapping = {
+                'show_ativos': 'SUBMENU_ATIVOS',
+                'show_inativos': 'SUBMENU_INATIVOS',
+                'show_lotacoes': 'SUBMENU_LOTACOES',
+                'show_efetivo_elogios': 'MENU_EFETIVO_ELOGIOS',
+                'show_efetivo_punicoes': 'MENU_EFETIVO_PUNICOES',
+                # Novos menus diretos
+                'MENU_ELOGIOS': 'MENU_ELOGIOS',
+                'SUBMENU_ELOGIOS_OFICIAIS': 'SUBMENU_ELOGIOS_OFICIAIS',
+                'SUBMENU_ELOGIOS_PRACAS': 'SUBMENU_ELOGIOS_PRACAS',
+                'MENU_PUNICOES': 'MENU_PUNICOES',
+                'SUBMENU_PUNICOES_OFICIAIS': 'SUBMENU_PUNICOES_OFICIAIS',
+                'SUBMENU_PUNICOES_PRACAS': 'SUBMENU_PUNICOES_PRACAS',
+                'show_escalas_dashboard': 'SUBMENU_ESCALAS_DASHBOARD',
+                'show_escalas_lista': 'SUBMENU_ESCALAS_LISTA',
+                'show_escalas_configuracao': 'SUBMENU_ESCALAS_CONFIGURACAO',
+                'show_escalas_banco_horas': 'SUBMENU_ESCALAS_BANCO_HORAS',
+                'show_escalas_operacoes': 'SUBMENU_ESCALAS_OPERACOES',
+                'show_fichas_oficiais': 'SUBMENU_FICHAS_OFICIAIS',
+                'show_fichas_pracas': 'SUBMENU_FICHAS_PRACAS',
+                'show_quadros_acesso': 'SUBMENU_QUADROS_ACESSO',
+                'show_quadros_fixacao': 'SUBMENU_QUADROS_FIXACAO',
+                'show_almanaques': 'SUBMENU_ALMANAQUES',
+                'show_promocoes': 'SUBMENU_PROMOCOES',
+                'show_calendarios': 'SUBMENU_CALENDARIOS',
+                'show_comissoes': 'SUBMENU_COMISSOES',
+                'show_meus_votos': 'SUBMENU_MEUS_VOTOS',
+                'show_intersticios': 'SUBMENU_INTERSTICIOS',
+                'show_gerenciar_intersticios': 'SUBMENU_GERENCIAR_INTERSTICIOS',
+                'show_gerenciar_previsao': 'SUBMENU_GERENCIAR_PREVISAO',
+                'show_medalhas_concessoes': 'SUBMENU_MEDALHAS_CONCESSOES',
+                'show_medalhas_propostas': 'SUBMENU_MEDALHAS_PROPOSTAS',
+                'show_elegiveis': 'SUBMENU_ELEGIVEIS',
+                'show_propostas': 'SUBMENU_PROPOSTAS',
+                'notas_visualizar': 'NOTAS_VISUALIZAR',
+                'notas_criar': 'NOTAS_CRIAR',
+                'notas_editar': 'NOTAS_EDITAR',
+                'notas_lista': 'SUBMENU_NOTAS_LISTA',
+                'notas_excluir': 'NOTAS_EXCLUIR',
+                'show_usuarios': 'SUBMENU_USUARIOS',
+                'show_permissoes': 'SUBMENU_PERMISSOES',
+                'show_logs': 'SUBMENU_LOGS',
+                'show_administracao': 'SUBMENU_ADMINISTRACAO',
+                'show_planejadas': 'MENU_PLANEJADAS',
+                'show_operador_planejadas': 'SUBMENU_OPERADOR_PLANEJADAS',
+                'show_fiscal_planejadas': 'SUBMENU_FISCAL_PLANEJADAS',
+            }
+            
+            # Mapear permissões específicas de ações
+            acoes_mapping = {
+                # Ativos
+                'ativos_visualizar': 'ATIVOS_VISUALIZAR',
+                'ativos_criar': 'ATIVOS_CRIAR',
+                'ativos_editar': 'ATIVOS_EDITAR',
+                'ativos_excluir': 'ATIVOS_EXCLUIR',
+                'ativos_transferir': 'ATIVOS_TRANSFERIR',
+                'ativos_promover': 'ATIVOS_PROMOVER',
+                'ativos_inativar': 'ATIVOS_INATIVAR',
+                'ativos_ficha_conceito': 'ATIVOS_FICHA_CONCEITO',
+                'ativos_exportar': 'ATIVOS_EXPORTAR',
+                'ativos_dashboard': 'ATIVOS_DASHBOARD',
+                'ativos_reordenar': 'ATIVOS_REORDENAR',
+                
+                # Inativos
+                'inativos_visualizar': 'INATIVOS_VISUALIZAR',
+                'inativos_editar': 'INATIVOS_EDITAR',
+                'inativos_excluir': 'INATIVOS_EXCLUIR',
+                'inativos_reativar': 'INATIVOS_REATIVAR',
+                
+                # Lotações
+                'lotacoes_visualizar': 'LOTACOES_VISUALIZAR',
+                'lotacoes_criar': 'LOTACOES_CRIAR',
+                'lotacoes_editar': 'LOTACOES_EDITAR',
+                'lotacoes_excluir': 'LOTACOES_EXCLUIR',
+                
+                # Botões granulares - Lotações
+                'botao_lotacao_nova': 'BOTAO_LOTACAO_NOVA',
+                'botao_lotacao_editar': 'BOTAO_LOTACAO_EDITAR',
+                'botao_lotacao_excluir': 'BOTAO_LOTACAO_EXCLUIR',
+                'botao_lotacao_estatisticas': 'BOTAO_LOTACAO_ESTATISTICAS',
+                
+                
+                # Botões granulares - Publicações
+                'botao_publicacao_nova': 'BOTAO_PUBLICACAO_NOVA',
+                'botao_publicacao_editar': 'BOTAO_PUBLICACAO_EDITAR',
+                'botao_publicacao_publicar': 'BOTAO_PUBLICACAO_PUBLICAR',
+                'botao_publicacao_assinar': 'BOTAO_PUBLICACAO_ASSINAR',
+                
+                # Detalhes do Militar
+                'detail_fichas_conceito': 'DETAIL_FICHAS_CONCEITO',
+                'detail_punicoes': 'DETAIL_PUNICOES',
+                
+                # Seção de Promoções - Fichas de Oficiais
+                'fichas_oficiais_visualizar': 'FICHAS_OFICIAIS_VISUALIZAR',
+                'fichas_oficiais_criar': 'FICHAS_OFICIAIS_CRIAR',
+                'fichas_oficiais_editar': 'FICHAS_OFICIAIS_EDITAR',
+                'fichas_oficiais_excluir': 'FICHAS_OFICIAIS_EXCLUIR',
+                
+                # Seção de Promoções - Fichas de Praças
+                'fichas_pracas_visualizar': 'FICHAS_PRACAS_VISUALIZAR',
+                'fichas_pracas_criar': 'FICHAS_PRACAS_CRIAR',
+                'fichas_pracas_editar': 'FICHAS_PRACAS_EDITAR',
+                'fichas_pracas_excluir': 'FICHAS_PRACAS_EXCLUIR',
+                
+                # Seção de Promoções - Calendários
+                'calendarios_visualizar': 'CALENDARIOS_VISUALIZAR',
+                'calendarios_criar': 'CALENDARIOS_CRIAR',
+                'calendarios_editar': 'CALENDARIOS_EDITAR',
+                'calendarios_excluir': 'CALENDARIOS_EXCLUIR',
+                
+                # Seção de Promoções - Quadros de Fixação
+                'quadros_fixacao_visualizar': 'QUADROS_FIXACAO_VISUALIZAR',
+                'quadros_fixacao_criar': 'QUADROS_FIXACAO_CRIAR',
+                'quadros_fixacao_editar': 'QUADROS_FIXACAO_EDITAR',
+                'quadros_fixacao_excluir': 'QUADROS_FIXACAO_EXCLUIR',
+                'quadros_fixacao_assinar': 'QUADROS_FIXACAO_ASSINAR',
+                'quadros_fixacao_gerar_pdf': 'QUADROS_FIXACAO_GERAR_PDF',
+                
+                # Seção de Promoções - Quadros de Acesso
+                'quadros_acesso_visualizar': 'QUADROS_ACESSO_VISUALIZAR',
+                'quadros_acesso_criar': 'QUADROS_ACESSO_CRIAR',
+                'quadros_acesso_editar': 'QUADROS_ACESSO_EDITAR',
+                'quadros_acesso_excluir': 'QUADROS_ACESSO_EXCLUIR',
+                'quadros_acesso_assinar': 'QUADROS_ACESSO_ASSINAR',
+                'quadros_acesso_homologar': 'QUADROS_ACESSO_HOMOLOGAR',
+                'quadros_acesso_deshomologar': 'QUADROS_ACESSO_DESHOMOLOGAR',
+                'quadros_acesso_elaborar': 'QUADROS_ACESSO_ELABORAR',
+                'quadros_acesso_regenerar': 'QUADROS_ACESSO_REGENERAR',
+                'quadros_acesso_gerar_pdf': 'QUADROS_ACESSO_GERAR_PDF',
+                
+                # Seção de Promoções - Comissões (genéricas)
+                'comissoes_visualizar': 'COMISSOES_VISUALIZAR',
+                'comissoes_criar': 'COMISSOES_CRIAR',
+                'comissoes_editar': 'COMISSOES_EDITAR',
+                'comissoes_excluir': 'COMISSOES_EXCLUIR',
+                
+                # Seção de Promoções - Comissões de Oficiais
+                'comissoes_oficiais_visualizar': 'COMISSOES_OFICIAIS_VISUALIZAR',
+                'comissoes_oficiais_criar': 'COMISSOES_OFICIAIS_CRIAR',
+                'comissoes_oficiais_editar': 'COMISSOES_OFICIAIS_EDITAR',
+                'comissoes_oficiais_excluir': 'COMISSOES_OFICIAIS_EXCLUIR',
+                
+                # Seção de Promoções - Comissões de Praças
+                'comissoes_pracas_visualizar': 'COMISSOES_PRACAS_VISUALIZAR',
+                'comissoes_pracas_criar': 'COMISSOES_PRACAS_CRIAR',
+                'comissoes_pracas_editar': 'COMISSOES_PRACAS_EDITAR',
+                'comissoes_pracas_excluir': 'COMISSOES_PRACAS_EXCLUIR',
+                
+                # Seção de Promoções - Meus Votos
+                'meus_votos_visualizar': 'MEUS_VOTOS_VISUALIZAR',
+                'meus_votos_votar': 'MEUS_VOTOS_VOTAR',
+                
+                # Seção de Promoções - Promoções
+                'promocoes_visualizar': 'PROMOCOES_VISUALIZAR',
+                'promocoes_criar': 'PROMOCOES_CRIAR',
+                'promocoes_editar': 'PROMOCOES_EDITAR',
+                'promocoes_excluir': 'PROMOCOES_EXCLUIR',
+                
+                # Seção de Promoções - Almanaques
+                'almanaques_visualizar': 'ALMANAQUES_VISUALIZAR',
+                'almanaques_criar': 'ALMANAQUES_CRIAR',
+                'almanaques_editar': 'ALMANAQUES_EDITAR',
+                'almanaques_excluir': 'ALMANAQUES_EXCLUIR',
+                'almanaques_assinar': 'ALMANAQUES_ASSINAR',
+                'almanaques_gerar_pdf': 'ALMANAQUES_GERAR_PDF',
+                
+                # Medalhas - Concessões
+                'medalhas_concessoes_visualizar': 'MEDALHAS_CONCESSOES_VISUALIZAR',
+                'medalhas_concessoes_criar': 'MEDALHAS_CONCESSOES_CRIAR',
+                'medalhas_concessoes_editar': 'MEDALHAS_CONCESSOES_EDITAR',
+                'medalhas_concessoes_excluir': 'MEDALHAS_CONCESSOES_EXCLUIR',
+                
+                # Medalhas - Propostas
+                'medalhas_propostas_visualizar': 'MEDALHAS_PROPOSTAS_VISUALIZAR',
+                'medalhas_propostas_criar': 'MEDALHAS_PROPOSTAS_CRIAR',
+                'medalhas_propostas_editar': 'MEDALHAS_PROPOSTAS_EDITAR',
+                'medalhas_propostas_excluir': 'MEDALHAS_PROPOSTAS_EXCLUIR',
+                
+                # Medalhas - Elegíveis
+                'elegiveis_visualizar': 'ELEGIVEIS_VISUALIZAR',
+                'elegiveis_gerar': 'ELEGIVEIS_GERAR',
+                'elegiveis_exportar': 'ELEGIVEIS_EXPORTAR',
+                
+                # Medalhas - Propostas (Lista)
+                'propostas_visualizar': 'PROPOSTAS_VISUALIZAR',
+                'propostas_criar': 'PROPOSTAS_CRIAR',
+                'propostas_editar': 'PROPOSTAS_EDITAR',
+                'propostas_excluir': 'PROPOSTAS_EXCLUIR',
+                
+                # Configurações - Usuários
+                'usuarios_visualizar': 'USUARIOS_VISUALIZAR',
+                'usuarios_criar': 'USUARIOS_CRIAR',
+                'usuarios_editar': 'USUARIOS_EDITAR',
+                'usuarios_excluir': 'USUARIOS_EXCLUIR',
+                
+                # Configurações - Permissões
+                'permissoes_visualizar': 'PERMISSOES_VISUALIZAR',
+                'permissoes_editar': 'PERMISSOES_EDITAR',
+                'permissoes_administrar': 'PERMISSOES_ADMINISTRAR',
+                
+                # Configurações - Logs
+                'logs_visualizar': 'LOGS_VISUALIZAR',
+                'logs_exportar': 'LOGS_EXPORTAR',
+                'logs_limpar': 'LOGS_LIMPAR',
+                
+                # Planejadas
+                'PLANEJADAS_VISUALIZAR': 'PLANEJADAS_VISUALIZAR',
+                'PLANEJADAS_CRIAR': 'PLANEJADAS_CRIAR',
+                'PLANEJADAS_EDITAR': 'PLANEJADAS_EDITAR',
+                'PLANEJADAS_EXCLUIR': 'PLANEJADAS_EXCLUIR',
+                'PLANEJADAS_ADICIONAR_MILITAR': 'PLANEJADAS_ADICIONAR_MILITAR',
+                'PLANEJADAS_REMOVER_MILITAR': 'PLANEJADAS_REMOVER_MILITAR',
+                'PLANEJADAS_ASSINAR_OPERADOR': 'PLANEJADAS_ASSINAR_OPERADOR',
+                'PLANEJADAS_ASSINAR_FISCAL': 'PLANEJADAS_ASSINAR_FISCAL',
+                'MENU_PLANEJADAS': 'MENU_PLANEJADAS',
+                'SUBMENU_PLANEJADAS': 'SUBMENU_PLANEJADAS',
+                'SUBMENU_OPERADOR_PLANEJADAS': 'SUBMENU_OPERADOR_PLANEJADAS',
+                'SUBMENU_FISCAL_PLANEJADAS': 'SUBMENU_FISCAL_PLANEJADAS',
+            }
+            
+            # Criar permissões de submenu
+            permissoes_criadas = 0
+            for campo_form, modulo in submenu_mapping.items():
+                if campo_form in request.POST:
+                    PermissaoFuncao.objects.create(
+                        funcao_militar=funcao,
+                        modulo=modulo,
+                        acesso='VISUALIZAR',
+                        ativo=True
+                    )
+                    permissoes_criadas += 1
+            
+            # Criar permissões específicas de ações
+            acoes_criadas = 0
+            for campo_form, modulo in acoes_mapping.items():
+                if campo_form in request.POST:
+                    PermissaoFuncao.objects.create(
+                        funcao_militar=funcao,
+                        modulo=modulo,
+                        acesso='EXECUTAR',
+                        ativo=True
+                    )
+                    acoes_criadas += 1
+            
+            # Contar permissões configuradas
+            menus_principais_configurados = len([f for f in menu_principal_fields if f in request.POST])
+            submenus_efetivo_configurados = len([f for f in submenu_efetivo_fields if f in request.POST])
+            submenus_publicacoes_configurados = len([f for f in submenu_publicacoes_fields if f in request.POST])
+            submenus_promocoes_configurados = len([f for f in submenu_promocoes_fields if f in request.POST])
+            submenus_medalhas_configurados = len([f for f in submenu_medalhas_fields if f in request.POST])
+            submenus_configuracoes_configurados = len([f for f in submenu_configuracoes_fields if f in request.POST])
+            submenus_planejadas_configurados = len([f for f in submenu_planejadas_fields if f in request.POST])
+            
+            total_submenus = (submenus_efetivo_configurados + submenus_publicacoes_configurados + 
+                            submenus_promocoes_configurados + submenus_medalhas_configurados + 
+                            submenus_configuracoes_configurados + submenus_planejadas_configurados)
+            
+            messages.success(
+                request, 
+                f'Função militar "{funcao.nome}" atualizada com sucesso! '
+                f'Configurados {menus_principais_configurados} menus principais '
+                f'e {total_submenus} submenus granulares.'
+            )
+            return redirect('militares:funcoes_militares_list')
+        else:
+            messages.error(request, 'Por favor, corrija os erros no formulário.')
+    else:
+        form = FuncaoMilitarForm(instance=funcao)
+    
+    # Obter configurações atuais para pré-popular o formulário
+    try:
+        menu_config = FuncaoMenuConfig.objects.get(funcao_militar=funcao, ativo=True)
+    except FuncaoMenuConfig.DoesNotExist:
+        menu_config = None
+    
+    # Obter permissões atuais
+    permissoes = PermissaoFuncao.objects.filter(funcao_militar=funcao, ativo=True)
+    permissoes_dict = {p.modulo: p.acesso for p in permissoes}
+    
+    context = {
+        'form': form,
+        'funcao': funcao,
+        'menu_config': menu_config,
+        'permissoes': permissoes_dict,
+        'action': 'Editar',
+        'title': f'Editar Função: {funcao.nome}',
+    }
+    return render(request, 'militares/funcoes/funcoes_militares_form.html', context)
+
+
+@login_required
+@administracao_required
+def funcoes_militares_delete(request, funcao_id):
+    """Exclui uma função militar - apenas administradores do sistema"""
+    funcao = get_object_or_404(FuncaoMilitar, pk=funcao_id)
+    
+    # Verificar se há usuários associados a esta função
+    usuarios_associados = UsuarioFuncaoMilitar.objects.filter(
+        funcao_militar__nome__icontains=funcao.nome
+    ).count()
+    
+    if request.method == 'POST':
+        # Verificar novamente se há usuários associados
+        if usuarios_associados > 0:
+            messages.error(request, f'Não é possível excluir esta função pois ela está associada a {usuarios_associados} usuário(s).')
+            return redirect('militares:funcoes_militares_detail', funcao_id=funcao_id)
+        
+        try:
+            funcao.delete()
+            messages.success(request, 'Função militar excluída com sucesso!')
+        except Exception as e:
+            messages.error(request, f'Erro ao excluir função: {str(e)}')
+        
+        return redirect('militares:funcoes_militares_list')
+    
+    context = {
+        'funcao': funcao,
+        'usuarios_associados': usuarios_associados,
+        'pode_excluir': usuarios_associados == 0,
+        'title': f'Excluir Função: {funcao.nome}',
+    }
+    return render(request, 'militares/funcoes/funcoes_militares_delete.html', context)
+
+
+@login_required
+def funcoes_militares_sincronizar(request):
+    """Sincroniza a tabela de funções militares"""
+    from django.db import transaction
+    
+    try:
+        with transaction.atomic():
+            # Reordenar funções por ordem e nome
+            funcoes = FuncaoMilitar.objects.all().order_by('ordem', 'nome')
+            
+            # Atualizar ordens sequenciais
+            for index, funcao in enumerate(funcoes):
+                if funcao.ordem != index:
+                    funcao.ordem = index
+                    funcao.save(update_fields=['ordem'])
+            
+            # Verificar e corrigir inconsistências
+            funcoes_sem_nome = FuncaoMilitar.objects.filter(nome__isnull=True).count()
+            if funcoes_sem_nome > 0:
+                messages.warning(request, f'Encontradas {funcoes_sem_nome} funções sem nome. Verifique os dados.')
+            
+            # Estatísticas da sincronização
+            total_funcoes = FuncaoMilitar.objects.count()
+            funcoes_ativas = FuncaoMilitar.objects.filter(ativo=True).count()
+            funcoes_inativas = FuncaoMilitar.objects.filter(ativo=False).count()
+            
+            messages.success(request, 
+                f'Sincronização realizada com sucesso! '
+                f'Total: {total_funcoes} funções | '
+                f'Ativas: {funcoes_ativas} | '
+                f'Inativas: {funcoes_inativas}'
+            )
+            
+    except Exception as e:
+        messages.error(request, f'Erro durante a sincronização: {str(e)}')
+    
+    return redirect('militares:funcoes_militares_list')
+
+
+@login_required
+def funcoes_militares_tempo_atual(request):
+    """Gera relatório de tempo atual na função"""
+    from django.http import HttpResponse
+    from datetime import datetime, date
+    import io
+    import xlsxwriter
+    
+    # Buscar todas as funções militares ativas
+    funcoes = FuncaoMilitar.objects.filter(ativo=True).order_by('ordem', 'nome')
+    
+    # Criar arquivo Excel
+    output = io.BytesIO()
+    workbook = xlsxwriter.Workbook(output)
+    worksheet = workbook.add_worksheet('Tempo Atual na Função')
+    
+    # Formatação
+    header_format = workbook.add_format({
+        'bold': True,
+        'bg_color': '#4472C4',
+        'font_color': 'white',
+        'border': 1
+    })
+    
+    cell_format = workbook.add_format({'border': 1})
+    date_format = workbook.add_format({'num_format': 'dd/mm/yyyy', 'border': 1})
+    
+    # Cabeçalhos
+    headers = [
+        'ID', 'Nome da Função', 'Grupo', 'Nível', 'Acesso', 
+        'Acesso/Sigilo', 'Data Criação', 'Data Atualização', 'Status'
+    ]
+    
+    for col, header in enumerate(headers):
+        worksheet.write(0, col, header, header_format)
+    
+    # Dados
+    row = 1
+    for funcao in funcoes:
+        worksheet.write(row, 0, funcao.id, cell_format)
+        worksheet.write(row, 1, funcao.nome, cell_format)
+        worksheet.write(row, 2, funcao.get_grupo_display(), cell_format)
+        worksheet.write(row, 3, funcao.nivel, cell_format)
+        worksheet.write(row, 4, funcao.get_acesso_display(), cell_format)
+        worksheet.write(row, 5, funcao.get_acesso_sigilo_display(), cell_format)
+        worksheet.write(row, 6, funcao.data_criacao.date(), date_format)
+        worksheet.write(row, 7, funcao.data_atualizacao.date(), date_format)
+        worksheet.write(row, 8, 'Ativo' if funcao.ativo else 'Inativo', cell_format)
+        row += 1
+    
+    # Ajustar largura das colunas
+    worksheet.set_column('A:A', 8)
+    worksheet.set_column('B:B', 30)
+    worksheet.set_column('C:C', 15)
+    worksheet.set_column('D:D', 8)
+    worksheet.set_column('E:E', 15)
+    worksheet.set_column('F:F', 15)
+    worksheet.set_column('G:H', 12)
+    worksheet.set_column('I:I', 10)
+    
+    workbook.close()
+    output.seek(0)
+    
+    # Preparar resposta
+    response = HttpResponse(
+        output.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="tempo_atual_funcoes_{timezone.localtime(timezone.now()).strftime("%Y%m%d_%H%M%S")}.xlsx"'
+    
+    return response
+
+
+@login_required
+def funcoes_militares_media_tempo(request):
+    """Gera relatório de média de tempo na função"""
+    from django.http import HttpResponse
+    from datetime import datetime, date, timedelta
+    from django.db.models import Avg, Count
+    import io
+    import xlsxwriter
+    
+    # Buscar funções com estatísticas de usuários
+    funcoes = FuncaoMilitar.objects.filter(ativo=True).order_by('ordem', 'nome')
+    
+    # Criar arquivo Excel
+    output = io.BytesIO()
+    workbook = xlsxwriter.Workbook(output)
+    worksheet = workbook.add_worksheet('Média Tempo na Função')
+    
+    # Formatação
+    header_format = workbook.add_format({
+        'bold': True,
+        'bg_color': '#4472C4',
+        'font_color': 'white',
+        'border': 1
+    })
+    
+    cell_format = workbook.add_format({'border': 1})
+    number_format = workbook.add_format({'num_format': '0.00', 'border': 1})
+    date_format = workbook.add_format({'num_format': 'dd/mm/yyyy', 'border': 1})
+    
+    # Cabeçalhos
+    headers = [
+        'ID', 'Nome da Função', 'Grupo', 'Nível', 'Total Usuários',
+        'Usuários Ativos', 'Usuários Inativos', 'Data Criação', 
+        'Tempo Médio (dias)', 'Status'
+    ]
+    
+    for col, header in enumerate(headers):
+        worksheet.write(0, col, header, header_format)
+    
+    # Dados
+    row = 1
+    for funcao in funcoes:
+        # Contar usuários associados
+        usuarios_total = UsuarioFuncaoMilitar.objects.filter(
+            funcao_militar__nome__icontains=funcao.nome
+        ).count()
+        
+        usuarios_ativos = UsuarioFuncaoMilitar.objects.filter(
+            funcao_militar__nome__icontains=funcao.nome,
+            ativo=True
+        ).count()
+        
+        usuarios_inativos = usuarios_total - usuarios_ativos
+        
+        # Calcular tempo médio (simulado - você pode implementar lógica real)
+        tempo_medio_dias = 365 if usuarios_total > 0 else 0
+        
+        worksheet.write(row, 0, funcao.id, cell_format)
+        worksheet.write(row, 1, funcao.nome, cell_format)
+        worksheet.write(row, 2, funcao.get_grupo_display(), cell_format)
+        worksheet.write(row, 3, funcao.nivel, cell_format)
+        worksheet.write(row, 4, usuarios_total, cell_format)
+        worksheet.write(row, 5, usuarios_ativos, cell_format)
+        worksheet.write(row, 6, usuarios_inativos, cell_format)
+        worksheet.write(row, 7, funcao.data_criacao.date(), date_format)
+        worksheet.write(row, 8, tempo_medio_dias, number_format)
+        worksheet.write(row, 9, 'Ativo' if funcao.ativo else 'Inativo', cell_format)
+        row += 1
+    
+    # Adicionar estatísticas gerais
+    row += 2
+    worksheet.write(row, 0, 'ESTATÍSTICAS GERAIS', header_format)
+    row += 1
+    
+    total_funcoes = funcoes.count()
+    total_usuarios = UsuarioFuncaoMilitar.objects.count()
+    
+    worksheet.write(row, 0, 'Total de Funções:', cell_format)
+    worksheet.write(row, 1, total_funcoes, cell_format)
+    row += 1
+    
+    worksheet.write(row, 0, 'Total de Usuários:', cell_format)
+    worksheet.write(row, 1, total_usuarios, cell_format)
+    row += 1
+    
+    worksheet.write(row, 0, 'Data do Relatório:', cell_format)
+    worksheet.write(row, 1, timezone.localtime(timezone.now()).date(), date_format)
+    
+    # Ajustar largura das colunas
+    worksheet.set_column('A:A', 8)
+    worksheet.set_column('B:B', 30)
+    worksheet.set_column('C:C', 15)
+    worksheet.set_column('D:D', 8)
+    worksheet.set_column('E:F', 12)
+    worksheet.set_column('G:G', 15)
+    worksheet.set_column('H:H', 12)
+    worksheet.set_column('I:I', 15)
+    worksheet.set_column('J:J', 10)
+    
+    workbook.close()
+    output.seek(0)
+    
+    # Preparar resposta
+    response = HttpResponse(
+        output.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="media_tempo_funcoes_{timezone.localtime(timezone.now()).strftime("%Y%m%d_%H%M%S")}.xlsx"'
+    
+    return response
+
+
+# ==================== VIEWS PARA ÓRGÃOS ====================
+
+@login_required
+@requer_perm_configuracoes_visualizar
+def orgao_list(request):
+    """Lista todos os órgãos"""
+    orgaos = Orgao.objects.all().order_by('ordem', 'nome')
+    
+    # Estatísticas
+    total_orgaos = orgaos.count()
+    orgaos_ativos = orgaos.filter(ativo=True).count()
+    orgaos_inativos = orgaos.filter(ativo=False).count()
+    
+    context = {
+        'orgaos': orgaos,
+        'total_orgaos': total_orgaos,
+        'orgaos_ativos': orgaos_ativos,
+        'orgaos_inativos': orgaos_inativos,
+    }
+    
+    return render(request, 'militares/orgaos/orgao_list.html', context)
+
+
+@login_required
+@requer_perm_configuracoes_editar
+def orgao_create(request):
+    """Cria novo órgão"""
+    if request.method == 'POST':
+        form = OrgaoForm(request.POST)
+        if form.is_valid():
+            orgao = form.save()
+            messages.success(request, f'Órgão "{orgao.nome_completo}" criado com sucesso!')
+            return redirect('militares:orgao_list')
+    else:
+        form = OrgaoForm()
+    
+    context = {
+        'form': form,
+        'title': 'Novo Órgão',
+        'action': 'Criar'
+    }
+    
+    return render(request, 'militares/orgaos/orgao_form.html', context)
+
+
+@login_required
+@requer_perm_configuracoes_editar
+def orgao_update(request, pk):
+    """Atualiza órgão existente"""
+    orgao = get_object_or_404(Orgao, pk=pk)
+    
+    if request.method == 'POST':
+        form = OrgaoForm(request.POST, instance=orgao)
+        if form.is_valid():
+            orgao = form.save()
+            messages.success(request, f'Órgão "{orgao.nome_completo}" atualizado com sucesso!')
+            return redirect('militares:orgao_list')
+    else:
+        form = OrgaoForm(instance=orgao)
+    
+    context = {
+        'form': form,
+        'orgao': orgao,
+        'title': f'Editar Órgão - {orgao.nome_completo}',
+        'action': 'Atualizar'
+    }
+    
+    return render(request, 'militares/orgaos/orgao_form.html', context)
+
+
+@login_required
+@requer_perm_configuracoes_visualizar
+def orgao_detail(request, pk):
+    """Visualiza detalhes do órgão"""
+    orgao = get_object_or_404(Orgao, pk=pk)
+    
+    context = {
+        'orgao': orgao,
+    }
+    
+    return render(request, 'militares/orgaos/orgao_detail.html', context)
+
+
+@login_required
+@requer_perm_configuracoes_admin
+def orgao_delete(request, pk):
+    """Exclui órgão"""
+    orgao = get_object_or_404(Orgao, pk=pk)
+    
+    if request.method == 'POST':
+        nome_orgao = orgao.nome_completo
+        orgao.delete()
+        messages.success(request, f'Órgão "{nome_orgao}" excluído com sucesso!')
+        return redirect('militares:orgao_list')
+    
+    context = {
+        'orgao': orgao,
+    }
+    
+    return render(request, 'militares/orgaos/orgao_delete.html', context)
+
+
+# ==================== VIEWS PARA ORGANOGRAMA ====================
+
+@login_required
+@requer_perm_configuracoes_visualizar
+def organograma_view(request):
+    """Visualiza o organograma completo"""
+    orgaos = Orgao.objects.filter(ativo=True).prefetch_related(
+        'grandes_comandos__unidades__sub_unidades'
+    ).order_by('ordem', 'nome')
+    
+    # Estatísticas
+    total_orgaos = orgaos.count()
+    total_grandes_comandos = GrandeComando.objects.filter(ativo=True).count()
+    total_unidades = Unidade.objects.filter(ativo=True).count()
+    total_sub_unidades = SubUnidade.objects.filter(ativo=True).count()
+    
+    context = {
+        'orgaos': orgaos,
+        'total_orgaos': total_orgaos,
+        'total_grandes_comandos': total_grandes_comandos,
+        'total_unidades': total_unidades,
+        'total_sub_unidades': total_sub_unidades,
+    }
+    
+    return render(request, 'militares/organograma/organograma.html', context)
+
+
+# ==================== VIEWS PARA GRANDES COMANDOS ====================
+
+@login_required
+@requer_perm_configuracoes_visualizar
+def grande_comando_list(request):
+    """Lista todos os grandes comandos"""
+    grandes_comandos = GrandeComando.objects.select_related('orgao').all().order_by('orgao__ordem', 'ordem', 'nome')
+    
+    # Estatísticas
+    total_grandes_comandos = grandes_comandos.count()
+    grandes_comandos_ativos = grandes_comandos.filter(ativo=True).count()
+    grandes_comandos_inativos = grandes_comandos.filter(ativo=False).count()
+    
+    context = {
+        'grandes_comandos': grandes_comandos,
+        'total_grandes_comandos': total_grandes_comandos,
+        'grandes_comandos_ativos': grandes_comandos_ativos,
+        'grandes_comandos_inativos': grandes_comandos_inativos,
+    }
+    
+    return render(request, 'militares/organograma/grande_comando_list.html', context)
+
+
+@login_required
+@requer_perm_configuracoes_editar
+def grande_comando_create(request):
+    """Cria novo grande comando"""
+    if request.method == 'POST':
+        form = GrandeComandoForm(request.POST)
+        if form.is_valid():
+            grande_comando = form.save()
+            messages.success(request, f'Grande Comando "{grande_comando.nome_completo}" criado com sucesso!')
+            return redirect('militares:grande_comando_list')
+    else:
+        form = GrandeComandoForm()
+    
+    context = {
+        'form': form,
+        'title': 'Novo Grande Comando',
+        'action': 'Criar'
+    }
+    
+    return render(request, 'militares/organograma/grande_comando_form.html', context)
+
+
+@login_required
+@requer_perm_configuracoes_editar
+def grande_comando_update(request, pk):
+    """Atualiza grande comando existente"""
+    grande_comando = get_object_or_404(GrandeComando, pk=pk)
+    
+    if request.method == 'POST':
+        form = GrandeComandoForm(request.POST, instance=grande_comando)
+        if form.is_valid():
+            grande_comando = form.save()
+            messages.success(request, f'Grande Comando "{grande_comando.nome_completo}" atualizado com sucesso!')
+            return redirect('militares:grande_comando_list')
+    else:
+        form = GrandeComandoForm(instance=grande_comando)
+    
+    context = {
+        'form': form,
+        'grande_comando': grande_comando,
+        'title': f'Editar Grande Comando - {grande_comando.nome_completo}',
+        'action': 'Atualizar'
+    }
+    
+    return render(request, 'militares/organograma/grande_comando_form.html', context)
+
+
+@login_required
+@requer_perm_configuracoes_visualizar
+def grande_comando_detail(request, pk):
+    """Visualiza detalhes do grande comando"""
+    grande_comando = get_object_or_404(GrandeComando, pk=pk)
+    
+    context = {
+        'grande_comando': grande_comando,
+    }
+    
+    return render(request, 'militares/organograma/grande_comando_detail.html', context)
+
+
+@login_required
+@requer_perm_configuracoes_admin
+def grande_comando_delete(request, pk):
+    """Exclui grande comando"""
+    grande_comando = get_object_or_404(GrandeComando, pk=pk)
+    
+    if request.method == 'POST':
+        nome_grande_comando = grande_comando.nome_completo
+        grande_comando.delete()
+        messages.success(request, f'Grande Comando "{nome_grande_comando}" excluído com sucesso!')
+        return redirect('militares:grande_comando_list')
+    
+    context = {
+        'grande_comando': grande_comando,
+    }
+    
+    return render(request, 'militares/organograma/grande_comando_delete.html', context)
+
+
+# ==================== VIEWS PARA UNIDADES ====================
+
+@login_required
+@requer_perm_configuracoes_visualizar
+def unidade_list(request):
+    """Lista todas as unidades"""
+    unidades = Unidade.objects.select_related('grande_comando__orgao').all().order_by('grande_comando__orgao__ordem', 'grande_comando__ordem', 'ordem', 'nome')
+    
+    # Estatísticas
+    total_unidades = unidades.count()
+    unidades_ativas = unidades.filter(ativo=True).count()
+    unidades_inativas = unidades.filter(ativo=False).count()
+    
+    context = {
+        'unidades': unidades,
+        'total_unidades': total_unidades,
+        'unidades_ativas': unidades_ativas,
+        'unidades_inativas': unidades_inativas,
+    }
+    
+    return render(request, 'militares/organograma/unidade_list.html', context)
+
+
+@login_required
+@requer_perm_configuracoes_editar
+def unidade_create(request):
+    """Cria nova unidade"""
+    if request.method == 'POST':
+        form = UnidadeForm(request.POST)
+        if form.is_valid():
+            unidade = form.save()
+            messages.success(request, f'Unidade "{unidade.nome_completo}" criada com sucesso!')
+            return redirect('militares:unidade_list')
+    else:
+        form = UnidadeForm()
+    
+    context = {
+        'form': form,
+        'title': 'Nova Unidade',
+        'action': 'Criar'
+    }
+    
+    return render(request, 'militares/organograma/unidade_form.html', context)
+
+
+@login_required
+@requer_perm_configuracoes_editar
+def unidade_update(request, pk):
+    """Atualiza unidade existente"""
+    unidade = get_object_or_404(Unidade, pk=pk)
+    
+    if request.method == 'POST':
+        form = UnidadeForm(request.POST, instance=unidade)
+        if form.is_valid():
+            unidade = form.save()
+            messages.success(request, f'Unidade "{unidade.nome_completo}" atualizada com sucesso!')
+            return redirect('militares:unidade_list')
+    else:
+        form = UnidadeForm(instance=unidade)
+    
+    context = {
+        'form': form,
+        'unidade': unidade,
+        'title': f'Editar Unidade - {unidade.nome_completo}',
+        'action': 'Atualizar'
+    }
+    
+    return render(request, 'militares/organograma/unidade_form.html', context)
+
+
+@login_required
+@requer_perm_configuracoes_visualizar
+def unidade_detail(request, pk):
+    """Visualiza detalhes da unidade"""
+    unidade = get_object_or_404(Unidade, pk=pk)
+    
+    context = {
+        'unidade': unidade,
+    }
+    
+    return render(request, 'militares/organograma/unidade_detail.html', context)
+
+
+@login_required
+@requer_perm_configuracoes_admin
+def unidade_delete(request, pk):
+    """Exclui unidade"""
+    unidade = get_object_or_404(Unidade, pk=pk)
+    
+    if request.method == 'POST':
+        nome_unidade = unidade.nome_completo
+        unidade.delete()
+        messages.success(request, f'Unidade "{nome_unidade}" excluída com sucesso!')
+        return redirect('militares:unidade_list')
+    
+    context = {
+        'unidade': unidade,
+    }
+    
+    return render(request, 'militares/organograma/unidade_delete.html', context)
+
+
+# ==================== VIEWS PARA SUB-UNIDADES ====================
+
+@login_required
+@requer_perm_configuracoes_visualizar
+def sub_unidade_list(request):
+    """Lista todas as sub-unidades"""
+    sub_unidades = SubUnidade.objects.select_related('unidade__grande_comando__orgao').all().order_by('unidade__grande_comando__orgao__ordem', 'unidade__grande_comando__ordem', 'unidade__ordem', 'ordem', 'nome')
+    
+    # Estatísticas
+    total_sub_unidades = sub_unidades.count()
+    sub_unidades_ativas = sub_unidades.filter(ativo=True).count()
+    sub_unidades_inativas = sub_unidades.filter(ativo=False).count()
+    
+    context = {
+        'sub_unidades': sub_unidades,
+        'total_sub_unidades': total_sub_unidades,
+        'sub_unidades_ativas': sub_unidades_ativas,
+        'sub_unidades_inativas': sub_unidades_inativas,
+    }
+    
+    return render(request, 'militares/organograma/sub_unidade_list.html', context)
+
+
+@login_required
+@requer_perm_configuracoes_editar
+def sub_unidade_create(request):
+    """Cria nova sub-unidade"""
+    if request.method == 'POST':
+        form = SubUnidadeForm(request.POST)
+        if form.is_valid():
+            sub_unidade = form.save()
+            messages.success(request, f'Sub-Unidade "{sub_unidade.nome_completo}" criada com sucesso!')
+            return redirect('militares:sub_unidade_list')
+    else:
+        form = SubUnidadeForm()
+    
+    context = {
+        'form': form,
+        'title': 'Nova Sub-Unidade',
+        'action': 'Criar'
+    }
+    
+    return render(request, 'militares/organograma/sub_unidade_form.html', context)
+
+
+@login_required
+@requer_perm_configuracoes_editar
+def sub_unidade_update(request, pk):
+    """Atualiza sub-unidade existente"""
+    sub_unidade = get_object_or_404(SubUnidade, pk=pk)
+    
+    if request.method == 'POST':
+        form = SubUnidadeForm(request.POST, instance=sub_unidade)
+        if form.is_valid():
+            sub_unidade = form.save()
+            messages.success(request, f'Sub-Unidade "{sub_unidade.nome_completo}" atualizada com sucesso!')
+            return redirect('militares:sub_unidade_list')
+    else:
+        form = SubUnidadeForm(instance=sub_unidade)
+    
+    context = {
+        'form': form,
+        'sub_unidade': sub_unidade,
+        'title': f'Editar Sub-Unidade - {sub_unidade.nome_completo}',
+        'action': 'Atualizar'
+    }
+    
+    return render(request, 'militares/organograma/sub_unidade_form.html', context)
+
+
+@login_required
+@requer_perm_configuracoes_visualizar
+def sub_unidade_detail(request, pk):
+    """Visualiza detalhes da sub-unidade"""
+    sub_unidade = get_object_or_404(SubUnidade, pk=pk)
+    
+    context = {
+        'sub_unidade': sub_unidade,
+    }
+    
+    return render(request, 'militares/organograma/sub_unidade_detail.html', context)
+
+
+@login_required
+@requer_perm_configuracoes_admin
+def sub_unidade_delete(request, pk):
+    """Exclui sub-unidade"""
+    sub_unidade = get_object_or_404(SubUnidade, pk=pk)
+    
+    if request.method == 'POST':
+        nome_sub_unidade = sub_unidade.nome_completo
+        sub_unidade.delete()
+        messages.success(request, f'Sub-Unidade "{nome_sub_unidade}" excluída com sucesso!')
+        return redirect('militares:sub_unidade_list')
+    
+    context = {
+        'sub_unidade': sub_unidade,
+    }
+    
+    return render(request, 'militares/organograma/sub_unidade_delete.html', context)
+
+
+# Views AJAX para carregamento hierárquico do organograma
+@login_required
+def ajax_grandes_comandos(request):
+    """Retorna grandes comandos baseado no órgão selecionado"""
+    orgao_id = request.GET.get('orgao')
+    
+    if not orgao_id:
+        return JsonResponse({'grandes_comandos': []})
+    
+    try:
+        from .models import GrandeComando
+        grandes_comandos = GrandeComando.objects.filter(
+            orgao_id=orgao_id,
+            ativo=True
+        ).order_by('sigla').values('id', 'sigla', 'nome')
+        
+        return JsonResponse({
+            'grandes_comandos': list(grandes_comandos)
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def ajax_unidades(request):
+    """Retorna unidades baseado no grande comando selecionado"""
+    grande_comando_id = request.GET.get('grande_comando')
+    
+    if not grande_comando_id:
+        return JsonResponse({'unidades': []})
+    
+    try:
+        from .models import Unidade
+        unidades = Unidade.objects.filter(
+            grande_comando_id=grande_comando_id,
+            ativo=True
+        ).order_by('sigla').values('id', 'sigla', 'nome')
+        
+        return JsonResponse({
+            'unidades': list(unidades)
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def ajax_sub_unidades(request):
+    """Retorna sub-unidades baseado na unidade selecionada"""
+    unidade_id = request.GET.get('unidade')
+    
+    if not unidade_id:
+        return JsonResponse({'sub_unidades': []})
+    
+    try:
+        from .models import SubUnidade
+        sub_unidades = SubUnidade.objects.filter(
+            unidade_id=unidade_id,
+            ativo=True
+        ).order_by('sigla').values('id', 'sigla', 'nome')
+        
+        return JsonResponse({
+            'sub_unidades': list(sub_unidades)
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def ajax_grandes_comandos(request):
+    """View AJAX para carregar grandes comandos de um órgão"""
+    from django.http import JsonResponse
+    from militares.models import GrandeComando
+    
+    orgao_id = request.GET.get('orgao_id')
+    if not orgao_id:
+        return JsonResponse({'error': 'Órgão não especificado'}, status=400)
+    
+    try:
+        grandes_comandos = GrandeComando.objects.filter(
+            orgao_id=orgao_id, 
+            ativo=True
+        ).order_by('ordem', 'nome').values('id', 'sigla', 'nome')
+        
+        return JsonResponse({
+            'grandes_comandos': list(grandes_comandos)
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+def ajax_unidades(request):
+    """View AJAX para carregar unidades de um grande comando"""
+    from django.http import JsonResponse
+    from militares.models import Unidade
+    
+    grande_comando_id = request.GET.get('grande_comando_id')
+    if not grande_comando_id:
+        return JsonResponse({'error': 'Grande comando não especificado'}, status=400)
+    
+    try:
+        unidades = Unidade.objects.filter(
+            grande_comando_id=grande_comando_id, 
+            ativo=True
+        ).order_by('ordem', 'nome').values('id', 'sigla', 'nome')
+        
+        return JsonResponse({
+            'unidades': list(unidades)
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+def ajax_sub_unidades(request):
+    """View AJAX para carregar subunidades de uma unidade"""
+    from django.http import JsonResponse
+    from militares.models import SubUnidade
+    
+    unidade_id = request.GET.get('unidade_id')
+    if not unidade_id:
+        return JsonResponse({'error': 'Unidade não especificada'}, status=400)
+    
+    try:
+        sub_unidades = SubUnidade.objects.filter(
+            unidade_id=unidade_id, 
+            ativo=True
+        ).order_by('ordem', 'nome').values('id', 'sigla', 'nome')
+        
+        return JsonResponse({
+            'sub_unidades': list(sub_unidades)
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+def ajax_organograma_completo(request):
+    """Retorna a hierarquia do organograma filtrada por acesso do usuário para seleção única"""
+    try:
+        from .models import Orgao, GrandeComando, Unidade, SubUnidade
+        from .permissoes_militares import obter_sessao_ativa_usuario
+        from .filtros_hierarquicos_pesquisa import obter_opcoes_filtro_hierarquico_itens_almoxarifado
+
+        # Obter sessão ativa do usuário
+        sessao = obter_sessao_ativa_usuario(request.user) if request.user.is_authenticated else None
+        
+        # Se houver sessão, usar filtros hierárquicos
+        if sessao and sessao.funcao_militar_usuario:
+            opcoes = obter_opcoes_filtro_hierarquico_itens_almoxarifado(sessao.funcao_militar_usuario, request.user)
+            
+            # Converter opções para formato esperado
+            hierarquia = []
+            for opcao in opcoes:
+                # Extrair IDs do formato 'tipo_id'
+                tipo = opcao['tipo']
+                opcao_id = opcao['id'].split('_', 1)[1] if '_' in opcao['id'] else opcao['id']
+                
+                # Construir valor baseado no tipo
+                valor = {
+                    'orgao_id': None,
+                    'grande_comando_id': None,
+                    'unidade_id': None,
+                    'sub_unidade_id': None
+                }
+                
+                if tipo == 'orgao':
+                    valor['orgao_id'] = int(opcao_id)
+                elif tipo == 'grande_comando':
+                    # Buscar grande comando para obter orgao_id
+                    try:
+                        gc = GrandeComando.objects.get(pk=int(opcao_id))
+                        valor['orgao_id'] = gc.orgao.id if gc.orgao else None
+                        valor['grande_comando_id'] = gc.id
+                    except GrandeComando.DoesNotExist:
+                        continue
+                elif tipo == 'unidade':
+                    # Buscar unidade para obter orgao_id e grande_comando_id
+                    try:
+                        u = Unidade.objects.get(pk=int(opcao_id))
+                        valor['orgao_id'] = u.grande_comando.orgao.id if u.grande_comando and u.grande_comando.orgao else None
+                        valor['grande_comando_id'] = u.grande_comando.id if u.grande_comando else None
+                        valor['unidade_id'] = u.id
+                    except Unidade.DoesNotExist:
+                        continue
+                elif tipo == 'sub_unidade':
+                    # Buscar sub-unidade para obter todos os IDs
+                    try:
+                        s = SubUnidade.objects.get(pk=int(opcao_id))
+                        if s.unidade and s.unidade.grande_comando:
+                            valor['orgao_id'] = s.unidade.grande_comando.orgao.id if s.unidade.grande_comando.orgao else None
+                            valor['grande_comando_id'] = s.unidade.grande_comando.id
+                        valor['unidade_id'] = s.unidade.id if s.unidade else None
+                        valor['sub_unidade_id'] = s.id
+                    except SubUnidade.DoesNotExist:
+                        continue
+                
+                hierarquia.append({
+                    'id': opcao['id'],
+                    'tipo': tipo,
+                    'nivel': opcao['nivel'],
+                    'texto': opcao['nome'],
+                    'valor': valor
+                })
+            
+            return JsonResponse({
+                'hierarquia': hierarquia
+            })
+        
+        # Se não houver sessão ou for superusuário, retornar organograma completo
+        # Buscar todos os órgãos com suas hierarquias
+        orgaos = Orgao.objects.filter(ativo=True).prefetch_related(
+            'grandes_comandos__unidades__sub_unidades'
+        ).order_by('nome')
+
+        hierarquia = []
+
+        for orgao in orgaos:
+            # Adicionar órgão
+            hierarquia.append({
+                'id': f'orgao_{orgao.id}',
+                'tipo': 'orgao',
+                'nivel': 1,
+                'texto': f"{orgao.nome}",
+                'valor': {
+                    'orgao_id': orgao.id,
+                    'grande_comando_id': None,
+                    'unidade_id': None,
+                    'sub_unidade_id': None
+                }
+            })
+
+            # Adicionar grandes comandos
+            for gc in orgao.grandes_comandos.filter(ativo=True).order_by('nome'):
+                hierarquia.append({
+                    'id': f'gc_{gc.id}',
+                    'tipo': 'grande_comando',
+                    'nivel': 2,
+                    'texto': f"{orgao.nome} | {gc.nome}",
+                    'valor': {
+                        'orgao_id': orgao.id,
+                        'grande_comando_id': gc.id,
+                        'unidade_id': None,
+                        'sub_unidade_id': None
+                    }
+                })
+
+                # Adicionar unidades
+                for unidade in gc.unidades.filter(ativo=True).order_by('nome'):
+                    hierarquia.append({
+                        'id': f'unidade_{unidade.id}',
+                        'tipo': 'unidade',
+                        'nivel': 3,
+                        'texto': f"{orgao.nome} | {gc.nome} | {unidade.nome}",
+                        'valor': {
+                            'orgao_id': orgao.id,
+                            'grande_comando_id': gc.id,
+                            'unidade_id': unidade.id,
+                            'sub_unidade_id': None
+                        }
+                    })
+
+                    # Adicionar sub-unidades
+                    for sub_unidade in unidade.sub_unidades.filter(ativo=True).order_by('nome'):
+                        hierarquia.append({
+                            'id': f'sub_{sub_unidade.id}',
+                            'tipo': 'sub_unidade',
+                            'nivel': 4,
+                            'texto': f"{orgao.nome} | {gc.nome} | {unidade.nome} | {sub_unidade.nome}",
+                            'valor': {
+                                'orgao_id': orgao.id,
+                                'grande_comando_id': gc.id,
+                                'unidade_id': unidade.id,
+                                'sub_unidade_id': sub_unidade.id
+                            }
+                        })
+
+        return JsonResponse({
+            'hierarquia': hierarquia
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def ajax_organograma_completo_sem_filtro(request):
+    """Retorna a hierarquia completa do organograma SEM filtros hierárquicos (para destino de transferências)"""
+    try:
+        from .models import Orgao, GrandeComando, Unidade, SubUnidade
+
+        # Sempre retornar organograma completo, sem filtros
+        orgaos = Orgao.objects.filter(ativo=True).prefetch_related(
+            'grandes_comandos__unidades__sub_unidades'
+        ).order_by('nome')
+
+        hierarquia = []
+
+        for orgao in orgaos:
+            # Adicionar órgão
+            hierarquia.append({
+                'id': f'orgao_{orgao.id}',
+                'tipo': 'orgao',
+                'nivel': 1,
+                'texto': f"{orgao.nome}",
+                'valor': {
+                    'orgao_id': orgao.id,
+                    'grande_comando_id': None,
+                    'unidade_id': None,
+                    'sub_unidade_id': None
+                }
+            })
+
+            # Adicionar grandes comandos
+            for gc in orgao.grandes_comandos.filter(ativo=True).order_by('nome'):
+                hierarquia.append({
+                    'id': f'gc_{gc.id}',
+                    'tipo': 'grande_comando',
+                    'nivel': 2,
+                    'texto': f"{orgao.nome} | {gc.nome}",
+                    'valor': {
+                        'orgao_id': orgao.id,
+                        'grande_comando_id': gc.id,
+                        'unidade_id': None,
+                        'sub_unidade_id': None
+                    }
+                })
+
+                # Adicionar unidades
+                for unidade in gc.unidades.filter(ativo=True).order_by('nome'):
+                    hierarquia.append({
+                        'id': f'unidade_{unidade.id}',
+                        'tipo': 'unidade',
+                        'nivel': 3,
+                        'texto': f"{orgao.nome} | {gc.nome} | {unidade.nome}",
+                        'valor': {
+                            'orgao_id': orgao.id,
+                            'grande_comando_id': gc.id,
+                            'unidade_id': unidade.id,
+                            'sub_unidade_id': None
+                        }
+                    })
+
+                    # Adicionar sub-unidades
+                    for sub_unidade in unidade.sub_unidades.filter(ativo=True).order_by('nome'):
+                        hierarquia.append({
+                            'id': f'sub_{sub_unidade.id}',
+                            'tipo': 'sub_unidade',
+                            'nivel': 4,
+                            'texto': f"{orgao.nome} | {gc.nome} | {unidade.nome} | {sub_unidade.nome}",
+                            'valor': {
+                                'orgao_id': orgao.id,
+                                'grande_comando_id': gc.id,
+                                'unidade_id': unidade.id,
+                                'sub_unidade_id': sub_unidade.id
+                            }
+                        })
+
+        return JsonResponse({
+            'hierarquia': hierarquia
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+# Views para Funções dos Militares
+@login_required
+def militar_funcao_list(request, militar_id):
+    """Lista as funções de um militar específico"""
+    militar = get_object_or_404(Militar, pk=militar_id)
+    funcoes = MilitarFuncao.objects.filter(militar=militar).order_by('-data_inicio')
+    
+    context = {
+        'militar': militar,
+        'funcoes': funcoes,
+        # menu_permissions já está disponível via context processor
+    }
+    return render(request, 'militares/funcoes/militar_funcao_list.html', context)
+
+
+@login_required
+def militar_funcao_create(request, militar_id):
+    """Cria uma nova função para um militar"""
+    militar = get_object_or_404(Militar, pk=militar_id)
+    
+    if request.method == 'POST':
+        form = MilitarFuncaoForm(request.POST)
+        if form.is_valid():
+            funcao = form.save(commit=False)
+            funcao.militar = militar
+            # Definir posto inicial se não foi definido
+            if not funcao.posto_inicial:
+                funcao.posto_inicial = militar.posto_graduacao
+            funcao.save()
+            messages.success(request, 'Função adicionada com sucesso!')
+            return redirect('militares:militar_funcao_list', militar_id=militar_id)
+    else:
+        form = MilitarFuncaoForm()
+    
+    context = {
+        'militar': militar,
+        'form': form,
+        'title': 'Adicionar Função',
+        'action': 'Adicionar',
+        # menu_permissions já está disponível via context processor
+    }
+    return render(request, 'militares/funcoes/militar_funcao_form.html', context)
+
+
+@login_required
+def militar_funcao_update(request, militar_id, funcao_id):
+    """Atualiza uma função de um militar"""
+    militar = get_object_or_404(Militar, pk=militar_id)
+    funcao = get_object_or_404(MilitarFuncao, pk=funcao_id, militar=militar)
+    
+    if request.method == 'POST':
+        form = MilitarFuncaoForm(request.POST, instance=funcao)
+        form.militar = militar  # Passar o militar para o formulário
+        if form.is_valid():
+            funcao_atualizada = form.save(commit=False)
+            
+            # Se a função está sendo encerrada (status mudou para ANTERIOR) e não tem posto final
+            if funcao_atualizada.status == 'ANTERIOR' and not funcao_atualizada.posto_final:
+                funcao_atualizada.posto_final = militar.posto_graduacao
+            
+            funcao_atualizada.save()
+            messages.success(request, 'Função atualizada com sucesso!')
+            return redirect('militares:militar_funcao_list', militar_id=militar_id)
+    else:
+        form = MilitarFuncaoForm(instance=funcao)
+        form.militar = militar  # Passar o militar para o formulário
+    
+    context = {
+        'militar': militar,
+        'funcao': funcao,
+        'form': form,
+        'title': 'Editar Função',
+        'action': 'Atualizar',
+        # menu_permissions já está disponível via context processor
+    }
+    return render(request, 'militares/funcoes/militar_funcao_form.html', context)
+
+
+@login_required
+def militar_funcao_delete(request, militar_id, funcao_id):
+    """Remove uma função de um militar"""
+    militar = get_object_or_404(Militar, pk=militar_id)
+    funcao = get_object_or_404(MilitarFuncao, pk=funcao_id, militar=militar)
+    
+    if request.method == 'POST':
+        funcao.delete()
+        messages.success(request, 'Função removida com sucesso!')
+        return redirect('militares:militar_funcao_list', militar_id=militar_id)
+    
+    context = {
+        'militar': militar,
+        'funcao': funcao,
+        # menu_permissions já está disponível via context processor
+    }
+    return render(request, 'militares/funcoes/militar_funcao_delete.html', context)
+
+
+# ==================== SISTEMA DE LOGIN E SESSÃO ====================
+
+@login_required
+def selecionar_funcao_lotacao(request):
+    """View para seleção de função militar após login - REDIRECIONA PARA LOGIN"""
+    # Superusuários não precisam de função militar
+    if request.user.is_superuser:
+        messages.info(request, 'Superusuários não precisam selecionar função militar.')
+        return redirect('militares:home')
+    
+    # Como agora a seleção de função é feita no login, redirecionar para login
+    messages.info(request, 'Para trocar de função, faça logout e login novamente selecionando a nova função.')
+    return redirect('logout')
+
+
+@login_required
+def trocar_funcao_lotacao(request):
+    """View para trocar função durante a sessão - REDIRECIONA PARA LOGIN"""
+    # Superusuários não precisam de função militar
+    if request.user.is_superuser:
+        messages.info(request, 'Superusuários não precisam trocar função militar.')
+        return redirect('militares:home')
+    
+    # Como agora a seleção de função é feita no login, redirecionar para login
+    messages.info(request, 'Para trocar de função, faça logout e login novamente selecionando a nova função.')
+    return redirect('logout')
+
+
+# ==================== ELOGIOS ====================
+
+@login_required
+def elogio_create(request, militar_pk):
+    """Cria um novo elogio para um militar"""
+    militar = get_object_or_404(Militar, pk=militar_pk)
+    
+    # Verificar se pode editar elogios
+    from militares.permissoes_simples import pode_editar_punicoes_elogios
+    if not pode_editar_punicoes_elogios(request.user, militar):
+        messages.error(request, 'Você não tem permissão para criar elogios. Apenas administradores podem criar elogios.')
+        return redirect('militares:militar_detail', pk=militar.pk)
+    
+    if request.method == 'POST':
+        form = ElogioForm(request.POST)
+        if form.is_valid():
+            elogio = form.save(commit=False)
+            elogio.militar = militar
+            elogio.save()
+            
+            messages.success(request, f'Elogio registrado com sucesso para {militar.nome_completo}!')
+            return redirect('militares:militar_detail', pk=militar.pk)
+    else:
+        form = ElogioForm()
+    
+    context = {
+        'form': form,
+        'militar': militar,
+        'title': 'Novo Elogio',
+        'action': 'create'
+    }
+    return render(request, 'militares/elogios/elogio_form.html', context)
+
+
+@login_required
+def elogio_update(request, pk):
+    """Edita um elogio existente"""
+    elogio = get_object_or_404(Elogio, pk=pk)
+    militar = elogio.militar
+    
+    # Verificar se pode editar elogios
+    from militares.permissoes_simples import pode_editar_punicoes_elogios
+    if not pode_editar_punicoes_elogios(request.user, militar):
+        messages.error(request, 'Você não tem permissão para editar elogios. Apenas administradores podem editar elogios.')
+        return redirect('militares:militar_detail', pk=militar.pk)
+    
+    if request.method == 'POST':
+        form = ElogioForm(request.POST, instance=elogio)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Cargo/Função atualizado com sucesso!')
-            return redirect('militares:cargo_funcao_detail', cargo_id=cargo.id)
+            messages.success(request, 'Elogio atualizado com sucesso!')
+            return redirect('militares:militar_detail', pk=militar.pk)
     else:
-        form = CargoFuncaoForm(instance=cargo)
+        form = ElogioForm(instance=elogio)
+    
     context = {
         'form': form,
-        'action': 'Editar',
-        'title': f'Editar Cargo/Função: {cargo.nome}',
-        'cargo': cargo,
+        'militar': militar,
+        'elogio': elogio,
+        'title': 'Editar Elogio',
+        'action': 'update'
     }
-    return render(request, 'militares/cargos/cargo_funcao_form.html', context)
+    return render(request, 'militares/elogios/elogio_form.html', context)
+
+
+@login_required
+def elogio_delete(request, pk):
+    """Exclui um elogio"""
+    elogio = get_object_or_404(Elogio, pk=pk)
+    militar = elogio.militar
+    
+    # Exclusão restrita a superusuário
+    if not request.user.is_superuser:
+        messages.error(request, 'Você não tem permissão para excluir elogios. Apenas superusuários podem excluir elogios.')
+        return redirect('militares:militar_detail', pk=militar.pk)
+    
+    if request.method == 'POST':
+        elogio.delete()
+        messages.success(request, 'Elogio excluído com sucesso!')
+        return redirect('militares:militar_detail', pk=militar.pk)
+    
+    context = {
+        'militar': militar,
+        'elogio': elogio,
+    }
+    return render(request, 'militares/elogios/elogio_delete.html', context)
+
+
+# ==================== PUNIÇÕES ====================
+
+@login_required
+def punicao_create(request, militar_pk):
+    """Cria uma nova punição para um militar"""
+    militar = get_object_or_404(Militar, pk=militar_pk)
+    
+    # Verificar se pode criar punições (agora apenas superusuário)
+    from militares.permissoes_militares import pode_editar_punicoes_elogios as pode_editar_punicoes_elogios_mm
+    if not pode_editar_punicoes_elogios_mm(request.user, militar):
+        messages.error(request, 'Você não tem permissão para criar punições. Apenas administradores podem criar punições.')
+        return redirect('militares:militar_detail', pk=militar.pk)
+    
+    if request.method == 'POST':
+        form = PunicaoForm(request.POST)
+        if form.is_valid():
+            punicao = form.save(commit=False)
+            punicao.militar = militar
+            punicao.save()
+            
+            messages.success(request, f'Punição registrada com sucesso para {militar.nome_completo}!')
+            return redirect('militares:militar_detail', pk=militar.pk)
+    else:
+        form = PunicaoForm()
+    
+    context = {
+        'form': form,
+        'militar': militar,
+        'title': 'Nova Punição',
+        'action': 'create'
+    }
+    return render(request, 'militares/punicoes/punicao_form.html', context)
+
+
+@login_required
+def punicao_update(request, pk):
+    """Edita uma punição existente"""
+    punicao = get_object_or_404(Punicao, pk=pk)
+    militar = punicao.militar
+    
+    # Verificar se pode editar punições (agora apenas superusuário)
+    from militares.permissoes_militares import pode_editar_punicoes_elogios as pode_editar_punicoes_elogios_mm
+    if not pode_editar_punicoes_elogios_mm(request.user, militar):
+        messages.error(request, 'Você não tem permissão para editar punições. Apenas administradores podem editar punições.')
+        return redirect('militares:militar_detail', pk=militar.pk)
+    
+    if request.method == 'POST':
+        form = PunicaoForm(request.POST, instance=punicao)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Punição atualizada com sucesso!')
+            return redirect('militares:militar_detail', pk=militar.pk)
+    else:
+        form = PunicaoForm(instance=punicao)
+    
+    context = {
+        'form': form,
+        'militar': militar,
+        'punicao': punicao,
+        'title': 'Editar Punição',
+        'action': 'update'
+    }
+    return render(request, 'militares/punicoes/punicao_form.html', context)
+
+
+@login_required
+def punicao_delete(request, pk):
+    """Exclui uma punição"""
+    punicao = get_object_or_404(Punicao, pk=pk)
+    militar = punicao.militar
+    
+    # Exclusão restrita a superusuário
+    if not request.user.is_superuser:
+        messages.error(request, 'Você não tem permissão para excluir punições. Apenas superusuários podem excluir punições.')
+        return redirect('militares:militar_detail', pk=militar.pk)
+    
+    if request.method == 'POST':
+        punicao.delete()
+        messages.success(request, 'Punição excluída com sucesso!')
+        return redirect('militares:militar_detail', pk=militar.pk)
+    
+    context = {
+        'militar': militar,
+        'punicao': punicao,
+    }
+    return render(request, 'militares/punicoes/punicao_delete.html', context)
+
+
+# Views para gerenciar funções de usuários
+@login_required
+@administracao_required
+def sincronizar_funcoes_todos_militares(request):
+    """
+    View para sincronizar funções de todos os militares
+    """
+    from .sincronizar_funcoes_militar import sincronizar_todos_militares
+    
+    if request.method == 'POST':
+        resultados = sincronizar_todos_militares()
+        
+        # Calcular estatísticas
+        total_usuarios = len(resultados)
+        sucessos = len([r for r in resultados if r['sucesso']])
+        total_criadas = sum([r['funcoes_criadas'] for r in resultados])
+        total_atualizadas = sum([r['funcoes_atualizadas'] for r in resultados])
+        total_desativadas = sum([r.get('funcoes_desativadas', 0) for r in resultados])
+        
+        messages.success(request, 
+            f'Sincronização concluída! '
+            f'Usuários processados: {total_usuarios}, '
+            f'Sucessos: {sucessos}, '
+            f'Funções criadas: {total_criadas}, '
+            f'Funções atualizadas: {total_atualizadas}, '
+            f'Funções desativadas: {total_desativadas}'
+        )
+        
+        context = {
+            'resultados': resultados,
+            'total_usuarios': total_usuarios,
+            'sucessos': sucessos,
+            'total_criadas': total_criadas,
+            'total_atualizadas': total_atualizadas,
+            'total_desativadas': total_desativadas,
+        }
+        
+        return render(request, 'militares/admin/sincronizar_funcoes_resultado.html', context)
+    
+    return render(request, 'militares/admin/sincronizar_funcoes.html')
+
+
+def usuario_funcao_add(request, pk):
+    """Adiciona uma nova função militar a um usuário"""
+    usuario = get_object_or_404(User, pk=pk)
+    
+    if request.method == 'POST':
+        funcao_id = request.POST.get('funcao_militar')
+        ativo = request.POST.get('ativo', 'on') == 'on'
+        
+        try:
+            funcao_militar = FuncaoMilitar.objects.get(pk=funcao_id)
+            
+            # Verificar se o usuário já tem essa função
+            if UsuarioFuncaoMilitar.objects.filter(usuario=usuario, funcao_militar=funcao_militar).exists():
+                messages.error(request, 'Este usuário já possui esta função.')
+            else:
+                # Criar função do usuário marcando que foi adicionada via interface
+                usuario_funcao = UsuarioFuncaoMilitar.objects.create(
+                    usuario=usuario,
+                    funcao_militar=funcao_militar,
+                    ativo=ativo
+                )
+                
+                # Se o usuário tem militar associado, criar MilitarFuncao marcando como adicionada via usuário
+                if hasattr(usuario, 'militar') and usuario.militar:
+                    from militares.models import MilitarFuncao
+                    from datetime import date
+                    
+                    # Verificar se já existe uma MilitarFuncao com a mesma combinação
+                    data_inicio = date.today()
+                    if MilitarFuncao.objects.filter(
+                        militar=usuario.militar,
+                        funcao_militar=funcao_militar,
+                        data_inicio=data_inicio
+                    ).exists():
+                        messages.warning(request, 'Este militar já possui esta função com a data de início de hoje.')
+                    else:
+                        militar_funcao = MilitarFuncao.objects.create(
+                            militar=usuario.militar,
+                            funcao_militar=funcao_militar,
+                            tipo_funcao='PRINCIPAL',
+                            status='ATUAL',
+                            data_inicio=data_inicio,
+                            ativo=ativo
+                        )
+                        # Marcar que foi adicionada via usuário para não remover função padrão
+                        militar_funcao._adicionada_via_usuario = True
+                        militar_funcao.save()
+                
+                messages.success(request, f'Função "{funcao_militar.nome}" adicionada com sucesso!')
+                return redirect('militares:usuario_funcoes_list', pk=usuario.pk)
+                
+        except FuncaoMilitar.DoesNotExist:
+            messages.error(request, 'Função militar não encontrada.')
+    
+    # Buscar funções disponíveis (que o usuário ainda não possui e estão ativas)
+    funcoes_existentes = UsuarioFuncaoMilitar.objects.filter(usuario=usuario).values_list('funcao_militar_id', flat=True)
+    funcoes_disponiveis = FuncaoMilitar.objects.filter(ativo=True).exclude(id__in=funcoes_existentes).order_by('nome')
+    
+    context = {
+        'usuario': usuario,
+        'funcoes_disponiveis': funcoes_disponiveis,
+    }
+    return render(request, 'militares/usuarios/funcoes/add.html', context)
+
+
+@login_required
+@administracao_required
+def usuario_funcao_edit(request, pk, funcao_id):
+    """Edita uma função militar de um usuário"""
+    usuario = get_object_or_404(User, pk=pk)
+    usuario_funcao = get_object_or_404(UsuarioFuncaoMilitar, pk=funcao_id, usuario=usuario)
+    
+    if request.method == 'POST':
+        ativo = request.POST.get('ativo', 'on') == 'on'
+        nivel_acesso = request.POST.get('nivel_acesso', 'NENHUM')
+        
+        usuario_funcao.ativo = ativo
+        usuario_funcao.nivel_acesso = nivel_acesso
+        usuario_funcao.save()
+        
+        messages.success(request, f'Função "{usuario_funcao.funcao_militar.nome}" atualizada com sucesso!')
+        return redirect('militares:usuario_funcoes_list', pk=usuario.pk)
+    
+    context = {
+        'usuario': usuario,
+        'usuario_funcao': usuario_funcao,
+    }
+    return render(request, 'militares/usuarios/funcoes/edit.html', context)
+
+
+@login_required
+@administracao_required
+def usuario_funcao_delete(request, pk, funcao_id):
+    """Remove uma função militar de um usuário - Apenas administradores do sistema"""
+    
+    usuario = get_object_or_404(User, pk=pk)
+    usuario_funcao = get_object_or_404(UsuarioFuncaoMilitar, pk=funcao_id, usuario=usuario)
+    
+    if request.method == 'POST':
+        funcao_nome = usuario_funcao.funcao_militar.nome
+        usuario_funcao.delete()
+        messages.success(request, f'Função "{funcao_nome}" removida com sucesso!')
+        return redirect('militares:usuario_funcoes_list', pk=usuario.pk)
+    
+    context = {
+        'usuario': usuario,
+        'usuario_funcao': usuario_funcao,
+    }
+    return render(request, 'militares/usuarios/funcoes/delete.html', context)
+
+
+@login_required
+@csrf_exempt
+def transferir_militar_ajax(request, militar_id):
+    """
+    View AJAX para transferir militar para nova lotação
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Método não permitido'})
+    
+    try:
+        from .models import Militar, Lotacao
+        from django.utils import timezone
+        
+        # Buscar militar
+        militar = get_object_or_404(Militar, pk=militar_id)
+        
+        # Verificar apenas permissão granular de transferência
+        from .permissoes_simples import tem_permissao
+        if not tem_permissao(request.user, 'militares', 'transferir'):
+            return JsonResponse({'success': False, 'message': 'Você não tem permissão para transferir militares'})
+        
+        # Removida verificação hierárquica para permitir transferências para qualquer estrutura
+        
+        # Obter dados do POST
+        data = json.loads(request.body)
+        nova_lotacao = data.get('nova_lotacao', '').strip()
+        observacoes = data.get('observacoes', '').strip()
+        
+        # Limpar apenas caracteres problemáticos, preservando acentos
+        import re
+        
+        # Remover apenas setas e caracteres de controle, preservando acentos
+        nova_lotacao = nova_lotacao.replace('→', '').replace('|', '').strip()
+        # Remover espaços extras
+        nova_lotacao = re.sub(r'\s+', ' ', nova_lotacao).strip()
+        
+        if not nova_lotacao:
+            return JsonResponse({'success': False, 'message': 'Nova lotação é obrigatória'})
+        
+        # Finalizar lotação atual
+        lotacao_atual = militar.lotacoes.filter(status='ATUAL', ativo=True).first()
+        if lotacao_atual:
+            lotacao_atual.status = 'ANTERIOR'
+            lotacao_atual.data_fim = timezone.now().date()
+            lotacao_atual.save()
+        
+        # Criar nova lotação
+        nova_lotacao_obj = Lotacao.objects.create(
+            militar=militar,
+            lotacao=nova_lotacao,
+            data_inicio=timezone.now().date(),
+            status='ATUAL',
+            ativo=True,
+            observacoes=observacoes
+        )
+        
+        # Tentar vincular automaticamente ao organograma se possível
+        try:
+            # Buscar correspondência exata na estrutura organizacional
+            from .models import Orgao, GrandeComando, Unidade, SubUnidade
+            
+            # Limpar o nome da lotação para busca
+            nome_limpo = nova_lotacao.replace('→', '').replace('|', '').strip()
+            nome_limpo = ' '.join(nome_limpo.split())  # Remove espaços extras
+            
+            # Tentar encontrar correspondência exata
+            sub_unidade = SubUnidade.objects.filter(nome__iexact=nome_limpo, ativo=True).first()
+            if sub_unidade:
+                nova_lotacao_obj.sub_unidade = sub_unidade
+                nova_lotacao_obj.unidade = sub_unidade.unidade
+                nova_lotacao_obj.grande_comando = sub_unidade.unidade.grande_comando
+                nova_lotacao_obj.orgao = sub_unidade.unidade.grande_comando.orgao
+                nova_lotacao_obj.save(update_fields=['orgao', 'grande_comando', 'unidade', 'sub_unidade'])
+            else:
+                unidade = Unidade.objects.filter(nome__iexact=nome_limpo, ativo=True).first()
+                if unidade:
+                    nova_lotacao_obj.unidade = unidade
+                    nova_lotacao_obj.grande_comando = unidade.grande_comando
+                    nova_lotacao_obj.orgao = unidade.grande_comando.orgao
+                    nova_lotacao_obj.save(update_fields=['orgao', 'grande_comando', 'unidade'])
+                else:
+                    grande_comando = GrandeComando.objects.filter(nome__iexact=nome_limpo, ativo=True).first()
+                    if grande_comando:
+                        nova_lotacao_obj.grande_comando = grande_comando
+                        nova_lotacao_obj.orgao = grande_comando.orgao
+                        nova_lotacao_obj.save(update_fields=['orgao', 'grande_comando'])
+                    else:
+                        orgao = Orgao.objects.filter(nome__iexact=nome_limpo, ativo=True).first()
+                        if orgao:
+                            nova_lotacao_obj.orgao = orgao
+                            nova_lotacao_obj.save(update_fields=['orgao'])
+        except Exception as e:
+            # Se houver erro na vinculação, apenas loga e continua
+            print(f"Aviso: Erro ao vincular ao organograma: {e}")
+        
+        return JsonResponse({
+            'success': True, 
+            'message': f'Militar {militar.nome_guerra} transferido para {nova_lotacao} com sucesso!',
+            'nova_lotacao': nova_lotacao
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Erro ao transferir militar: {str(e)}'})
+
+
+@login_required
+def obter_estruturas_organizacionais(request):
+    """
+    View AJAX para obter estruturas organizacionais para o modal de transferência
+    SEM RESTRIÇÕES - Mostra TODA a estrutura organizacional com hierarquia completa
+    """
+    try:
+        from .models import Orgao, GrandeComando, Unidade, SubUnidade
+        
+        estruturas = []
+        
+        # ESTRUTURA HIERÁRQUICA COMPLETA
+        # 1. ÓRGÃOS (Nível 1)
+        orgaos = Orgao.objects.filter(ativo=True).order_by('nome')
+        for orgao in orgaos:
+            estruturas.append({
+                'id': f"orgao_{orgao.id}",
+                'nome': f"{orgao.nome}",
+                'nome_completo': f"{orgao.nome}",
+                'tipo': 'orgao',
+                'nivel': 1,
+                'pai': None,
+                'pai_nome': None
+            })
+            
+            # 2. GRANDES COMANDOS do órgão (Nível 2)
+            grandes_comandos = GrandeComando.objects.filter(orgao=orgao, ativo=True).order_by('nome')
+            for gc in grandes_comandos:
+                estruturas.append({
+                    'id': f"gc_{gc.id}",
+                    'nome': f"{gc.nome}",
+                    'nome_completo': f"{orgao.nome} → {gc.nome}",
+                    'tipo': 'grande_comando',
+                    'nivel': 2,
+                    'pai': f"orgao_{orgao.id}",
+                    'pai_nome': orgao.nome
+                })
+                
+                # 3. UNIDADES do grande comando (Nível 3)
+                unidades = Unidade.objects.filter(grande_comando=gc, ativo=True).order_by('nome')
+                for unidade in unidades:
+                    estruturas.append({
+                        'id': f"unidade_{unidade.id}",
+                        'nome': f"{unidade.nome}",
+                        'nome_completo': f"{orgao.nome} → {gc.nome} → {unidade.nome}",
+                        'tipo': 'unidade',
+                        'nivel': 3,
+                        'pai': f"gc_{gc.id}",
+                        'pai_nome': gc.nome
+                    })
+                    
+                    # 4. SUB-UNIDADES da unidade (Nível 4)
+                    sub_unidades = SubUnidade.objects.filter(unidade=unidade, ativo=True).order_by('nome')
+                    for sub_unidade in sub_unidades:
+                        estruturas.append({
+                            'id': f"sub_unidade_{sub_unidade.id}",
+                            'nome': f"{sub_unidade.nome}",
+                            'nome_completo': f"{orgao.nome} → {gc.nome} → {unidade.nome} → {sub_unidade.nome}",
+                            'tipo': 'sub_unidade',
+                            'nivel': 4,
+                            'pai': f"unidade_{unidade.id}",
+                            'pai_nome': unidade.nome
+                        })
+        
+        return JsonResponse({'estruturas': estruturas})
+        
+    except Exception as e:
+        return JsonResponse({'estruturas': [], 'error': str(e)})
+
+
+# ==================== COMISSÃO - FICHAS DE CONCEITO ====================
+
+@login_required
+def comissao_fichas_oficiais(request):
+    """Lista fichas de conceito de oficiais para membros de comissão"""
+    # Verificar se o usuário tem função de comissão
+    from .models import UsuarioFuncaoMilitar
+    funcoes_comissao = UsuarioFuncaoMilitar.objects.filter(
+        usuario=request.user,
+        ativo=True,
+        funcao_militar__nome__in=['CPO', 'CPP']
+    )
+    
+    if not funcoes_comissao.exists():
+        messages.error(request, 'Acesso negado. Apenas membros de comissão podem acessar esta área.')
+        return redirect('militares:home')
+    
+    # Verificar se é oficial (CPO) ou praça (CPP)
+    funcao_cpo = funcoes_comissao.filter(funcao_militar__nome='CPO').exists()
+    funcao_cpp = funcoes_comissao.filter(funcao_militar__nome='CPP').exists()
+    
+    # Apenas oficiais (CPO) podem ver fichas de oficiais
+    if not funcao_cpo:
+        messages.error(request, 'Acesso negado. Apenas membros CPO podem visualizar fichas de oficiais.')
+        return redirect('militares:home')
+    
+    # Filtrar apenas oficiais (CB, TC, MJ, CP, 1T, 2T, AS, AA)
+    oficiais = Militar.objects.filter(
+        classificacao='ATIVO',
+        posto_graduacao__in=['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS', 'AA']
+    )
+    
+    # Buscar fichas de oficiais
+    fichas = FichaConceitoOficiais.objects.filter(militar__in=oficiais)
+    
+    # Recalcular pontos para todas as fichas
+    for ficha in fichas:
+        ficha.pontos = ficha.calcular_pontos()
+        ficha.save(update_fields=['pontos'])
+    
+    # Hierarquia para ordenação
+    hierarquia_oficiais = {
+        'CB': 1,   # Coronel
+        'TC': 2,   # Tenente Coronel
+        'MJ': 3,   # Major
+        'CP': 4,   # Capitão
+        '1T': 5,   # 1º Tenente
+        '2T': 6,   # 2º Tenente
+        'AS': 7,   # Aspirante a Oficial
+        'AA': 8,   # Aluno de Adaptação
+    }
+    
+    fichas_list = list(fichas)
+    fichas_list.sort(key=lambda x: (
+        hierarquia_oficiais.get(x.militar.posto_graduacao, 999),  # Primeiro por hierarquia
+        x.militar.nome_completo                                    # Depois por nome
+    ))
+    
+    # Estatísticas
+    total_oficiais_ativos = oficiais.count()
+    total_fichas_oficiais = len(fichas_list)
+    
+    # Buscar oficiais sem ficha
+    oficiais_sem_ficha = oficiais.exclude(fichaconceitooficiais__isnull=False)
+    oficiais_sem_ficha_list = list(oficiais_sem_ficha)
+    oficiais_sem_ficha_list.sort(key=lambda x: (
+        hierarquia_oficiais.get(x.posto_graduacao, 999),
+        x.nome_completo
+    ))
+    
+    context = {
+        'fichas': fichas_list,
+        'oficiais_sem_ficha': oficiais_sem_ficha_list,
+        'total_oficiais_ativos': total_oficiais_ativos,
+        'total_fichas_oficiais': total_fichas_oficiais,
+        'total_sem_ficha': len(oficiais_sem_ficha_list),
+        'title': 'Fichas de Conceito - Oficiais (Comissão)',
+        'is_comissao': True,
+        'tipo_comissao': 'CPO',
+    }
+    
+    return render(request, 'militares/comissao/fichas_oficiais.html', context)
+
+
+@login_required
+def comissao_fichas_pracas(request):
+    """Lista fichas de conceito de praças para membros de comissão"""
+    # Verificar se o usuário tem função de comissão
+    from .models import UsuarioFuncaoMilitar
+    funcoes_comissao = UsuarioFuncaoMilitar.objects.filter(
+        usuario=request.user,
+        ativo=True,
+        funcao_militar__nome__in=['CPO', 'CPP']
+    )
+    
+    if not funcoes_comissao.exists():
+        messages.error(request, 'Acesso negado. Apenas membros de comissão podem acessar esta área.')
+        return redirect('militares:home')
+    
+    # Verificar se é oficial (CPO) ou praça (CPP)
+    funcao_cpo = funcoes_comissao.filter(funcao_militar__nome='CPO').exists()
+    funcao_cpp = funcoes_comissao.filter(funcao_militar__nome='CPP').exists()
+    
+    # Apenas praças (CPP) podem ver fichas de praças
+    if not funcao_cpp:
+        messages.error(request, 'Acesso negado. Apenas membros CPP podem visualizar fichas de praças.')
+        return redirect('militares:home')
+    
+    # Filtrar apenas praças (SD, CAB, 3S, 2S, 1S, ST)
+    pracas = Militar.objects.filter(
+        classificacao='ATIVO',
+        posto_graduacao__in=['SD', 'CAB', '3S', '2S', '1S', 'ST']
+    )
+    
+    # Buscar fichas de praças
+    fichas = FichaConceitoPracas.objects.filter(militar__in=pracas)
+    
+    # Recalcular pontos para todas as fichas
+    for ficha in fichas:
+        ficha.pontos = ficha.calcular_pontos()
+        ficha.save(update_fields=['pontos'])
+    
+    # Hierarquia para ordenação
+    hierarquia_pracas = {
+        'ST': 1,   # Subtenente
+        '1S': 2,   # 1º Sargento
+        '2S': 3,   # 2º Sargento
+        '3S': 4,   # 3º Sargento
+        'CAB': 5,  # Cabo
+        'SD': 6,   # Soldado
+    }
+    
+    fichas_list = list(fichas)
+    fichas_list.sort(key=lambda x: (
+        hierarquia_pracas.get(x.militar.posto_graduacao, 999),  # Primeiro por hierarquia
+        x.militar.nome_completo                                  # Depois por nome
+    ))
+    
+    # Estatísticas
+    total_pracas_ativas = pracas.count()
+    total_fichas_pracas = len(fichas_list)
+    
+    # Buscar praças sem ficha
+    pracas_sem_ficha = pracas.exclude(fichaconceitopracas__isnull=False)
+    pracas_sem_ficha_list = list(pracas_sem_ficha)
+    pracas_sem_ficha_list.sort(key=lambda x: (
+        hierarquia_pracas.get(x.posto_graduacao, 999),
+        x.nome_completo
+    ))
+    
+    context = {
+        'fichas': fichas_list,
+        'pracas_sem_ficha': pracas_sem_ficha_list,
+        'total_pracas_ativas': total_pracas_ativas,
+        'total_fichas_pracas': total_fichas_pracas,
+        'total_sem_ficha': len(pracas_sem_ficha_list),
+        'title': 'Fichas de Conceito - Praças (Comissão)',
+        'is_comissao': True,
+        'tipo_comissao': 'CPP',
+    }
+    
+    return render(request, 'militares/comissao/fichas_pracas.html', context)
+
+@login_required
+def ajudante_geral_ajax(request):
+    """Retorna informações do ajudante geral via AJAX"""
+    try:
+        from .models import UsuarioFuncaoMilitar
+        from django.http import JsonResponse
+        
+        # Buscar usuário com função de Ajudante Geral
+        ajudante_geral = UsuarioFuncaoMilitar.objects.filter(
+            funcao_militar__nome='Ajudante Geral',
+            ativo=True
+        ).select_related('usuario', 'usuario__militar').first()
+        
+        if ajudante_geral and ajudante_geral.usuario.militar:
+            militar = ajudante_geral.usuario.militar
+            return JsonResponse({
+                'ajudante_geral': {
+                    'nome': militar.nome_guerra or militar.nome,
+                    'posto': militar.posto_graduacao.abreviacao if militar.posto_graduacao else '',
+                    'telefone': militar.telefone or '',
+                }
+            })
+        else:
+            return JsonResponse({
+                'ajudante_geral': {
+                    'nome': 'Não definido',
+                    'posto': '',
+                    'telefone': '',
+                }
+            })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+def buscar_nota_por_numero_ajax(request, numero):
+    """Buscar ID da nota pelo número via AJAX"""
+    try:
+        from .models import Publicacao
+        from django.http import JsonResponse
+        
+        nota = Publicacao.objects.filter(
+            tipo='NOTA',
+            numero=numero
+        ).first()
+        
+        if not nota:
+            return JsonResponse({
+                'success': False,
+                'error': f'Nota {numero} não encontrada'
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'nota_id': nota.pk,
+            'nota_numero': nota.numero,
+            'nota_titulo': nota.titulo
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+
+# ==================== VIEWS PARA ESCALAS DE SERVIÇO ====================
+
+@login_required
+def escalas_list(request):
+    """Lista de escalas de serviço"""
+    print("DEBUG: Iniciando escalas_list")
+    from .models import EscalaServico, EscalaMilitar
+    from django.core.paginator import Paginator
+    from django.db.models import Q, Count
+    from datetime import datetime, date
+    from calendar import monthrange
+    from .filtros_hierarquicos import aplicar_filtro_hierarquico_escalas, obter_opcoes_filtro_hierarquico_escalas, obter_opcoes_filtro_hierarquico_notas
+    from .permissoes_simples import obter_funcao_militar_ativa
+    
+    # Obter função atual do usuário
+    funcao_atual = obter_funcao_militar_ativa(request.user)
+    print(f"DEBUG: funcao_atual = {funcao_atual}")
+    
+    # Verificar se há filtros de data personalizados
+    data_inicio = request.GET.get('data_inicio', '')
+    data_fim = request.GET.get('data_fim', '')
+    
+    # Definir período padrão para o contexto (mês atual)
+    hoje = date.today()
+    primeiro_dia_mes = date(hoje.year, hoje.month, 1)
+    ultimo_dia_mes = date(hoje.year, hoje.month, monthrange(hoje.year, hoje.month)[1])
+    
+    # Se não há filtros de data, usar padrão: escalas do mês atual
+    if not data_inicio and not data_fim:
+        # Buscar escalas com filtros (padrão: mês atual)
+        escalas_base = EscalaServico.objects.filter(
+            data__gte=primeiro_dia_mes,
+            data__lte=ultimo_dia_mes
+        )
+    else:
+        # Se há filtros de data, buscar todas as escalas primeiro
+        escalas_base = EscalaServico.objects.all()
+    
+    # Aplicar filtro hierárquico baseado no acesso da função
+    print(f"DEBUG: escalas_base.count() = {escalas_base.count()}")
+    if request.user.is_superuser:
+        # Superusuário vê todas as escalas do mês atual
+        escalas = escalas_base
+        print("DEBUG: Usuário é superusuário")
+    elif funcao_atual:
+        escalas = aplicar_filtro_hierarquico_escalas(escalas_base, funcao_atual, request.user)
+        print(f"DEBUG: Aplicado filtro hierárquico, escalas.count() = {escalas.count()}")
+    else:
+        # Se não há função ativa, mostrar escalas do mês atual (sem filtro hierárquico)
+        escalas = escalas_base
+        print("DEBUG: Sem função ativa, usando escalas_base")
+    
+    
+    # Obter opções de filtro hierárquico (igual às notas)
+    opcoes_filtro_hierarquico = obter_opcoes_filtro_hierarquico_notas(funcao_atual, request.user)
+    
+    # Filtro hierárquico
+    hierarquia = request.GET.get('hierarquia', '')
+    print(f"DEBUG: Parâmetro hierarquia recebido: '{hierarquia}'")
+    if hierarquia:
+        print(f"DEBUG: Aplicando filtro hierárquico: {hierarquia}")
+        from .models import Orgao, GrandeComando, Unidade, SubUnidade
+        
+        if hierarquia.startswith('orgao_'):
+            orgao_id = hierarquia.replace('orgao_', '')
+            try:
+                orgao = Orgao.objects.get(id=orgao_id)
+                escalas = escalas.filter(organizacao__icontains=orgao.nome)
+                print(f"DEBUG: Filtrado por órgão: {orgao.nome}")
+            except Orgao.DoesNotExist:
+                pass
+                
+        elif hierarquia.startswith('gc_'):
+            gc_id = hierarquia.replace('gc_', '')
+            try:
+                gc = GrandeComando.objects.get(id=gc_id)
+                escalas = escalas.filter(organizacao__icontains=gc.nome)
+                print(f"DEBUG: Filtrado por grande comando: {gc.nome}")
+            except GrandeComando.DoesNotExist:
+                pass
+                
+        elif hierarquia.startswith('unidade_'):
+            unidade_id = hierarquia.replace('unidade_', '')
+            try:
+                unidade = Unidade.objects.get(id=unidade_id)
+                escalas = escalas.filter(organizacao__icontains=unidade.nome)
+                print(f"DEBUG: Filtrado por unidade: {unidade.nome}")
+            except Unidade.DoesNotExist:
+                pass
+                
+        elif hierarquia.startswith('sub_'):
+            sub_id = hierarquia.replace('sub_', '')
+            try:
+                sub = SubUnidade.objects.get(id=sub_id)
+                escalas = escalas.filter(organizacao__icontains=sub.nome)
+                print(f"DEBUG: Filtrado por subunidade: {sub.nome}")
+            except SubUnidade.DoesNotExist:
+                pass
+        
+        print(f"DEBUG: Escalas após filtro hierárquico: {escalas.count()}")
+    
+    # Aplicar filtros de data (se não foram aplicados no inicial)
+    if data_inicio or data_fim:
+        if data_inicio:
+            try:
+                from datetime import datetime
+                data_inicio_obj = datetime.strptime(data_inicio, '%Y-%m-%d').date()
+                escalas = escalas.filter(data__gte=data_inicio_obj)
+                print(f"DEBUG: Filtro data_inicio aplicado: {data_inicio_obj}")
+            except ValueError:
+                pass  # Ignorar data inválida
+        
+        if data_fim:
+            try:
+                from datetime import datetime
+                data_fim_obj = datetime.strptime(data_fim, '%Y-%m-%d').date()
+                escalas = escalas.filter(data__lte=data_fim_obj)
+                print(f"DEBUG: Filtro data_fim aplicado: {data_fim_obj}")
+            except ValueError:
+                pass  # Ignorar data inválida
+        
+        print(f"DEBUG: Total de escalas após filtros de data: {escalas.count()}")
+    
+    # Ordenar com escalas da data atual no topo, depois por tipo de serviço, organização e data
+    from django.db.models import Case, When, Value, IntegerField, Max as models_Max
+    
+    hoje = date.today()
+    escalas = escalas.annotate(
+        prioridade_data=Case(
+            When(data=hoje, then=Value(0)),  # Escalas de hoje têm prioridade 0
+            default=Value(1),  # Outras escalas têm prioridade 1
+            output_field=IntegerField()
+        )
+    ).order_by('prioridade_data', 'tipo_servico', 'organizacao', 'data')
+    
+    # Paginação por OM (Organização Militar) - 1 OM por página
+    organizacoes_unicas = escalas.values_list('organizacao', flat=True).distinct().order_by('organizacao')
+    
+    # Se há filtro de data, aplicar ordenação especial para organizações
+    if data_inicio or data_fim:
+        # Para períodos específicos, ordenar por data da escala mais recente de cada OM
+        organizacoes_ordenadas = []
+        for org in organizacoes_unicas:
+            escalas_org = escalas.filter(organizacao=org)
+            data_mais_recente = escalas_org.aggregate(
+                data_max=models_Max('data')
+            )['data_max']
+            organizacoes_ordenadas.append((org, data_mais_recente))
+        
+        # Ordenar por data mais recente (descendente)
+        organizacoes_ordenadas.sort(key=lambda x: x[1] or date.min, reverse=True)
+        organizacoes_unicas = [org[0] for org in organizacoes_ordenadas]
+    
+    # Paginação das organizações
+    paginator_orgs = Paginator(organizacoes_unicas, 1)  # 1 OM por página
+    page_number = request.GET.get('page', 1)
+    page_obj_orgs = paginator_orgs.get_page(page_number)
+    
+    # Obter escalas da organização da página atual
+    if page_obj_orgs:
+        organizacao_atual = page_obj_orgs[0]
+        escalas_pagina = escalas.filter(organizacao=organizacao_atual)
+    else:
+        escalas_pagina = escalas.none()
+    
+    # Criar objeto page_obj compatível com o template
+    class PageObj:
+        def __init__(self, escalas, paginator_orgs, page_obj_orgs):
+            self.object_list = escalas
+            self.paginator = paginator_orgs
+            self.number = page_obj_orgs.number
+            self.has_other_pages = paginator_orgs.num_pages > 1
+            self.has_previous = page_obj_orgs.has_previous()
+            self.has_next = page_obj_orgs.has_next()
+            self.previous_page_number = page_obj_orgs.previous_page_number if self.has_previous else None
+            self.next_page_number = page_obj_orgs.next_page_number if self.has_next else None
+        
+        def __iter__(self):
+            """Torna o objeto iterável para compatibilidade com templates"""
+            return iter(self.object_list)
+        
+        def __len__(self):
+            """Retorna o número de escalas na página atual"""
+            return len(self.object_list)
+    
+    page_obj = PageObj(escalas_pagina, paginator_orgs, page_obj_orgs)
+    
+    # Estatísticas
+    total_escalas = EscalaServico.objects.count()
+    escalas_ativas = EscalaServico.objects.filter(status='ativa').count()
+    escalas_pendentes = EscalaServico.objects.filter(status='pendente').count()
+    escalas_concluidas = EscalaServico.objects.filter(status='concluida').count()
+    
+    # Contar militares indexados
+    total_militares_indexados = EscalaMilitar.objects.count()
+    
+    # Buscar informações detalhadas dos militares escalados para cada escala
+    escalas_com_militares = []
+    
+    for escala in page_obj:
+        militares_escalados = EscalaMilitar.objects.filter(escala=escala).select_related('militar')
+        
+        # Organizar militares por tipo de serviço
+        militares_operacionais = []
+        militares_administrativos = []
+        equipes = {}
+        
+        for escala_militar in militares_escalados:
+            militar_info = {
+                'id': escala_militar.id,
+                'nome_completo': escala_militar.militar.nome_completo,
+                'posto_graduacao': escala_militar.militar.get_posto_graduacao_display(),
+                'funcao_display': escala_militar.get_funcao_display(),
+                'tipo_servico': escala_militar.tipo_servico,
+                'tipo_servico_display': escala_militar.get_tipo_servico_display(),
+                'turno_display': escala_militar.get_turno_display(),
+                'hora_inicio': escala_militar.hora_inicio.strftime('%H:%M'),
+                'hora_fim': escala_militar.hora_fim.strftime('%H:%M'),
+                'observacoes': escala_militar.observacoes or '',
+                'funcao_operacional': escala_militar.funcao_operacional or '',
+                'equipe': escala_militar.equipe or '',
+                'viatura': escala_militar.viatura or '',
+                'secao': escala_militar.secao or ''
+            }
+            
+            if escala_militar.tipo_servico == 'operacional':
+                militares_operacionais.append(militar_info)
+                # Organizar por equipes
+                equipe_nome = escala_militar.equipe or 'Sem Equipe Definida'
+                if equipe_nome not in equipes:
+                    equipes[equipe_nome] = {
+                        'nome': equipe_nome,
+                        'militares': [],
+                        'viatura': escala_militar.viatura or '',
+                        'total_militares': 0
+                    }
+                equipes[equipe_nome]['militares'].append(militar_info)
+                equipes[equipe_nome]['total_militares'] += 1
+            else:
+                # Para administrativos, manter a lista simples para o regroup por hora_inicio
+                militares_administrativos.append(militar_info)
+        
+        # Converter equipes para lista
+        equipes_lista = list(equipes.values())
+        
+        # Determinar permissões de revisão e aprovação usando os métodos do modelo
+        pode_revisar = escala.pode_revisar(request.user)
+        pode_aprovar = escala.pode_aprovar(request.user)
+        
+        # Verificar se a escala já foi revisada ou aprovada
+        tem_revisao = escala.revisado_por is not None
+        tem_aprovacao = escala.aprovado_por is not None
+        
+        escalas_com_militares.append({
+            'escala': escala,
+            'militares_operacionais': militares_operacionais,
+            'militares_administrativos': militares_administrativos,
+            'equipes': equipes_lista,
+            'total_operacionais': len(militares_operacionais),
+            'total_administrativos': len(militares_administrativos),
+            'total_militares': len(militares_operacionais) + len(militares_administrativos),
+            'pode_revisar': pode_revisar,
+            'pode_aprovar': pode_aprovar,
+            'tem_revisao': tem_revisao,
+            'tem_aprovacao': tem_aprovacao
+        })
+    
+    print(f"DEBUG: escalas_com_militares count = {len(escalas_com_militares)}")
+    print(f"DEBUG: page_obj count = {len(page_obj.object_list) if hasattr(page_obj, 'object_list') else 'N/A'}")
+    
+    # Anos disponíveis para o modal de geração de escalas
+    anos_disponiveis = list(range(2015, 2051))
+    
+    context = {
+        'escalas': escalas_com_militares,
+        'page_obj': page_obj,
+        'organizacao_atual': organizacao_atual if page_obj_orgs else None,
+        'total_organizacoes': paginator_orgs.count,
+        'total_escalas': total_escalas,
+        'escalas_ativas': escalas_ativas,
+        'escalas_pendentes': escalas_pendentes,
+        'escalas_concluidas': escalas_concluidas,
+        'total_militares_indexados': total_militares_indexados,
+        'opcoes_filtro_hierarquico': opcoes_filtro_hierarquico,
+        'funcao_atual': funcao_atual,
+        'hoje': hoje,
+        'mostrando_todas': False,  # Por padrão, mostra apenas escalas do mês atual
+        'periodo_atual': {
+            'primeiro_dia': primeiro_dia_mes,
+            'ultimo_dia': ultimo_dia_mes,
+            'mes_ano': primeiro_dia_mes.strftime('%B de %Y')
+        },
+        'filtros': {
+            'data_inicio': data_inicio,
+            'data_fim': data_fim,
+        },
+        'is_paginated': page_obj.has_other_pages,
+        'anos_disponiveis': anos_disponiveis,
+    }
+    
+    print("DEBUG: Retornando template escalas_list.html")
+    return render(request, 'militares/escalas_list.html', context)
+
+
+@login_required
+def escalas_configuracao(request):
+    """Configuração de Escalas - Interface para gerenciar configurações de escalas de serviço"""
+    from .models import Militar, EscalaServico, EscalaMilitar, Lotacao, Orgao, GrandeComando, Unidade, SubUnidade, AbonoPlanejada
+    from django.db.models import Q, Count, Sum
+    from datetime import datetime, timedelta
+    from calendar import monthrange
+    from .filtros_hierarquicos import aplicar_filtro_hierarquico_militares
+    from .permissoes_hierarquicas import obter_funcao_militar_ativa
+
+    # Parâmetros de filtro
+    mes = int(request.GET.get('mes', datetime.now().month))
+    ano = int(request.GET.get('ano', datetime.now().year))
+    search = request.GET.get('search', '')
+    organizacao_id = request.GET.get('organizacao_id', '')
+    status_filtro = request.GET.get('status', '')
+    
+    # Calcular datas do mês
+    primeiro_dia = datetime(ano, mes, 1).date()
+    ultimo_dia = datetime(ano, mes, monthrange(ano, mes)[1]).date()
+    # Feriados fixos nacionais (MM-DD) com nomes
+    feriados_fixos = {
+        '01-01': 'Confraternização Universal',
+        '04-21': 'Tiradentes',
+        '05-01': 'Dia do Trabalho',
+        '09-07': 'Independência do Brasil',
+        '10-12': 'Nossa Senhora Aparecida',
+        '11-02': 'Finados',
+        '11-15': 'Proclamação da República',
+        '11-20': 'Dia da Consciência Negra',
+        '12-25': 'Natal',
+    }
+    # Feriados ESTADUAIS do Piauí (MM-DD) com nomes
+    feriados_piaui = {
+        '03-13': 'Batalha do Jenipapo',
+        '10-19': 'Dia do Piauí',
+    }
+
+    # Feriados municipais removidos
+
+    # Feriados móveis (calculados por ano) – Sexta-feira Santa e Corpus Christi
+    def calcular_pascoa(y):
+        # Algoritmo de Butcher para calendário gregoriano
+        a = y % 19
+        b = y // 100
+        c = y % 100
+        d = b // 4
+        e = b % 4
+        f = (b + 8) // 25
+        g = (b - f + 1) // 3
+        h = (19 * a + b - d - g + 15) % 30
+        i = c // 4
+        k = c % 4
+        l = (32 + 2 * e + 2 * i - h - k) % 7
+        m = (a + 11 * h + 22 * l) // 451
+        month = (h + l - 7 * m + 114) // 31
+        day = ((h + l - 7 * m + 114) % 31) + 1
+        return datetime(y, month, day).date()
+
+    pascoa = calcular_pascoa(ano)
+    sexta_santa = pascoa - timedelta(days=2)
+    corpus_christi = pascoa + timedelta(days=60)
+    feriados_moveis = {
+        sexta_santa: 'Sexta-feira Santa',
+        corpus_christi: 'Corpus Christi'
+    }
+    # Obter função do usuário para controle de acesso
+    funcao_usuario = obter_funcao_militar_ativa(request.user)
+    
+    # Função para obter cidade da lotação de um militar
+    def obter_cidade_lotacao_militar(militar):
+        lotacao_atual = militar.lotacao_atual()  # Chamar o método
+        if lotacao_atual:
+            if lotacao_atual.orgao:
+                return lotacao_atual.orgao.cidade
+            elif lotacao_atual.grande_comando:
+                return lotacao_atual.grande_comando.cidade
+            elif lotacao_atual.unidade:
+                return lotacao_atual.unidade.cidade
+            elif lotacao_atual.sub_unidade:
+                return lotacao_atual.sub_unidade.cidade
+        return None
+
+    dias_mes = []
+    for dia in range(1, ultimo_dia.day + 1):
+        data_dia = datetime(ano, mes, dia).date()
+        mm_dd = data_dia.strftime('%m-%d')
+        # Determinar nome do feriado (nacionais, estaduais e móveis)
+        nome_feriado = None
+        tipo_feriado = None
+        if mm_dd in feriados_fixos:
+            nome_feriado = feriados_fixos[mm_dd]
+            tipo_feriado = 'nacional'
+        elif mm_dd in feriados_piaui:
+            nome_feriado = feriados_piaui[mm_dd]
+            tipo_feriado = 'estadual'
+        elif data_dia in feriados_moveis:
+            nome_feriado = feriados_moveis[data_dia]
+            tipo_feriado = 'nacional'
+        # Feriados municipais removidos - não mostrar feriados municipais
+        
+        # Mapear dias da semana para português
+        dias_semana_pt = {
+            0: 'Segunda', 1: 'Terça', 2: 'Quarta', 3: 'Quinta', 
+            4: 'Sexta', 5: 'Sábado', 6: 'Domingo'
+        }
+        
+        dias_mes.append({
+            'dia': dia,
+            'dia_semana': dias_semana_pt[data_dia.weekday()],
+            'data': data_dia,
+            'is_weekend': data_dia.weekday() >= 5,
+            'is_holiday': nome_feriado is not None,
+            'nome_feriado': nome_feriado,
+            'tipo_feriado': tipo_feriado
+        })
+
+    # Buscar militares (excluir inativos para não esconder PRONTO/FERIAS etc.)
+    militares = Militar.objects.exclude(classificacao='INATIVO').select_related().prefetch_related('lotacoes')
+    
+    # Aplicar filtro hierárquico baseado no acesso da função
+    # Se não houver filtro de organização selecionado, mostrar apenas a OM do acesso (sem descendência)
+    # Se houver filtro, a lógica abaixo (no filtro de organização) mostrará a descendência
+    if not organizacao_id:
+        # Sem filtro: mostrar apenas a OM do acesso (sem descendência)
+        if funcao_usuario and funcao_usuario.funcao_militar:
+            acesso = funcao_usuario.funcao_militar.acesso
+            
+            if acesso == 'TOTAL':
+                # Acesso total - pode ver todos os militares inicialmente
+                pass
+            elif acesso == 'ORGAO' and funcao_usuario.orgao:
+                # Acesso ao órgão - mostrar APENAS militares lotados diretamente no órgão (sem descendência)
+                militares = militares.filter(
+                    lotacoes__orgao=funcao_usuario.orgao,
+                    lotacoes__grande_comando__isnull=True,
+                    lotacoes__unidade__isnull=True,
+                    lotacoes__sub_unidade__isnull=True,
+                    lotacoes__status='ATUAL',
+                    lotacoes__ativo=True
+                ).distinct()
+            elif acesso == 'GRANDE_COMANDO' and funcao_usuario.grande_comando:
+                # Acesso ao grande comando - mostrar APENAS militares lotados diretamente no GC (sem descendência)
+                militares = militares.filter(
+                    lotacoes__grande_comando=funcao_usuario.grande_comando,
+                    lotacoes__unidade__isnull=True,
+                    lotacoes__sub_unidade__isnull=True,
+                    lotacoes__status='ATUAL',
+                    lotacoes__ativo=True
+                ).distinct()
+            elif acesso == 'UNIDADE' and funcao_usuario.unidade:
+                # Acesso à unidade - mostrar APENAS militares lotados diretamente na unidade (sem descendência)
+                militares = militares.filter(
+                    lotacoes__unidade=funcao_usuario.unidade,
+                    lotacoes__sub_unidade__isnull=True,
+                    lotacoes__status='ATUAL',
+                    lotacoes__ativo=True
+                ).distinct()
+            elif acesso == 'SUBUNIDADE' and funcao_usuario.sub_unidade:
+                # Acesso à sub-unidade - mostrar apenas militares lotados na sub-unidade
+                militares = militares.filter(
+                    lotacoes__sub_unidade=funcao_usuario.sub_unidade,
+                    lotacoes__status='ATUAL',
+                    lotacoes__ativo=True
+                ).distinct()
+            else:
+                # Se não tem acesso definido, não mostrar nenhum militar
+                militares = militares.none()
+        else:
+            # Se não tem função ativa, manter militares ATIVOS (restrição será feita pelo filtro de organização, se fornecido)
+            # Superusuário também mantém visualização ampla
+            if not request.user.is_superuser:
+                pass  # mantém filtro padrão de ATIVO já aplicado acima
+
+    # Aplicar filtros adicionais
+    if search:
+        militares = militares.filter(
+            Q(nome_completo__icontains=search) |
+            Q(matricula__icontains=search) |
+            Q(nome_guerra__icontains=search)
+        )
+
+    # Aplicar filtro secundário por organização (dentro do escopo permitido)
+    if organizacao_id:
+        if organizacao_id.startswith('orgao_'):
+            orgao_id = organizacao_id.replace('orgao_', '')
+            # Aplicar filtro do órgão: permitir se superusuário, sem função ativa, ou dentro do escopo da função
+            if (request.user.is_superuser or not funcao_usuario or
+                (funcao_usuario and funcao_usuario.funcao_militar and (
+                    funcao_usuario.funcao_militar.acesso == 'TOTAL' or (funcao_usuario.orgao and str(funcao_usuario.orgao.id) == orgao_id)
+                ))):
+                # Filtrar militares lotados no órgão E SUA DESCENDÊNCIA (GC, Unidades, Sub-Unidades)
+                militares = militares.filter(
+                    lotacoes__orgao_id=orgao_id,
+                    lotacoes__status='ATUAL',
+                    lotacoes__ativo=True
+                ).distinct()
+        elif organizacao_id.startswith('gc_'):
+            gc_id = organizacao_id.replace('gc_', '')
+            if (request.user.is_superuser or not funcao_usuario or
+                (funcao_usuario and funcao_usuario.funcao_militar and (
+                    funcao_usuario.funcao_militar.acesso == 'TOTAL' or
+                    (funcao_usuario.grande_comando and str(funcao_usuario.grande_comando.id) == gc_id) or
+                    (funcao_usuario.funcao_militar.acesso == 'ORGAO')
+                ))):
+                # Filtrar militares lotados no GC E SUA DESCENDÊNCIA (Unidades, Sub-Unidades)
+                militares = militares.filter(
+                    lotacoes__grande_comando_id=gc_id,
+                    lotacoes__status='ATUAL',
+                    lotacoes__ativo=True
+                ).distinct()
+        elif organizacao_id.startswith('unidade_'):
+            unidade_id = organizacao_id.replace('unidade_', '')
+            if (request.user.is_superuser or not funcao_usuario or
+                (funcao_usuario and funcao_usuario.funcao_militar and (
+                    funcao_usuario.funcao_militar.acesso == 'TOTAL' or 
+                    (funcao_usuario.unidade and str(funcao_usuario.unidade.id) == unidade_id) or
+                    (funcao_usuario.funcao_militar.acesso in ['ORGAO', 'GRANDE_COMANDO'])
+                ))):
+                # Filtrar militares lotados na Unidade E SUA DESCENDÊNCIA (Sub-Unidades)
+                militares = militares.filter(
+                    lotacoes__unidade_id=unidade_id,
+                    lotacoes__status='ATUAL',
+                    lotacoes__ativo=True
+                ).distinct()
+        elif organizacao_id.startswith('sub_'):
+            sub_id = organizacao_id.replace('sub_', '')
+            if (request.user.is_superuser or not funcao_usuario or
+                (funcao_usuario and funcao_usuario.funcao_militar and (
+                    funcao_usuario.funcao_militar.acesso == 'TOTAL' or 
+                    (funcao_usuario.sub_unidade and str(funcao_usuario.sub_unidade.id) == sub_id) or
+                    (funcao_usuario.funcao_militar.acesso in ['ORGAO', 'GRANDE_COMANDO', 'UNIDADE'])
+                ))):
+                # Somente lotações da Subunidade selecionada (não tem descendência)
+                militares = militares.filter(
+                    lotacoes__sub_unidade_id=sub_id,
+                    lotacoes__status='ATUAL',
+                    lotacoes__ativo=True
+                ).distinct()
+
+    if status_filtro:
+        militares = militares.filter(situacao=status_filtro)
+
+    # Ordenar por hierarquia
+    HIERARQUIA_POSTOS = {
+        'CB': 1, 'TC': 2, 'MJ': 3, 'CP': 4, '1T': 5, '2T': 6, 'AS': 7, 'AA': 8, 'NVRR': 9,
+        'ST': 10, '1S': 11, '2S': 12, '3S': 13, 'CAB': 14, 'SD': 15,
+    }
+
+    def ordenar_militar(militar):
+        return HIERARQUIA_POSTOS.get(militar.posto_graduacao, 99)
+
+    militares = sorted(militares, key=ordenar_militar)
+
+    # Carregar abonos de planejadas para o mês/ano ANTES do loop dos militares
+    abonos_planejadas = AbonoPlanejada.objects.filter(
+        data_operacao__year=ano,
+        data_operacao__month=mes
+    ).select_related('militar', 'planejada')
+    
+    # Processar dados dos militares
+    militares_data = []
+    for militar in militares:
+        # Buscar lotação atual
+        lotacao_atual = Lotacao.objects.filter(
+            militar=militar,
+            status='ATUAL',
+            ativo=True
+        ).select_related('orgao', 'grande_comando', 'unidade', 'sub_unidade').first()
+
+        # Buscar escalas do militar no mês - buscar diretamente as escalas onde o militar foi inserido
+        escalas_militar = EscalaServico.objects.filter(
+            militares__militar=militar,
+            data__gte=primeiro_dia,
+            data__lte=ultimo_dia
+        ).distinct()
+        
+        # Não aplicar filtro organizacional - mostrar todas as escalas onde o militar foi inserido
+
+        # Calcular estatísticas
+        total_horas = 0
+        turnos_por_dia = {}
+        
+        for escala in escalas_militar:
+            escalas_militar_obj = EscalaMilitar.objects.filter(
+                escala=escala,
+                militar=militar
+            )
+            
+            for escala_militar in escalas_militar_obj:
+                # Calcular diferença de tempo (considerando virada do dia e turnos 24h)
+                inicio = datetime.combine(escala.data, escala_militar.hora_inicio)
+                fim = datetime.combine(escala.data, escala_militar.hora_fim)
+                
+                # Se termina no mesmo horário ou antes, considerar dia seguinte
+                if fim <= inicio:
+                    fim += timedelta(days=1)
+                
+                diferenca = fim - inicio
+                horas = diferenca.total_seconds() / 3600
+                
+                # Se por algum motivo ainda for 0h, e o campo turno indicar 24h, ajustar
+                if horas == 0 and getattr(escala_militar, 'turno', '') == '24h':
+                    horas = 24
+                total_horas += horas
+                
+                # Agrupar por dia (usar chave inteira do dia)
+                dia_int = escala.data.day
+                if dia_int not in turnos_por_dia:
+                    turnos_por_dia[dia_int] = {
+                        'turnos': [],
+                        'total_horas': 0
+                    }
+                
+                turnos_por_dia[dia_int]['turnos'].append({
+                    'hora_inicio': escala_militar.hora_inicio,
+                    'hora_fim': escala_militar.hora_fim,
+                    'horas': round(horas, 1),
+                    'funcao': escala_militar.funcao,
+                    'tipo_servico': escala_militar.tipo_servico
+                })
+                turnos_por_dia[dia_int]['total_horas'] += horas
+
+        # Arredondar totais
+        for dia_k in turnos_por_dia:
+            turnos_por_dia[dia_k]['total_horas'] = round(turnos_por_dia[dia_k]['total_horas'], 1)
+
+        # Calcular contador de planejadas para este militar no mês
+        planejadas_count = 0
+        for abono in abonos_planejadas:
+            if abono.militar.id == militar.id:
+                tipo_planejada = abono.tipo_planejada
+                if tipo_planejada == 'P1':
+                    planejadas_count += 1
+                elif tipo_planejada == 'P2':
+                    planejadas_count += 2
+                elif tipo_planejada == 'P3':
+                    planejadas_count += 3
+                elif tipo_planejada == 'P4':
+                    planejadas_count += 4
+                elif tipo_planejada == 'P5':
+                    planejadas_count += 5
+
+        militar_data = {
+            'militar': militar,
+            'lotacao_atual': lotacao_atual,
+            'total_horas': round(total_horas, 1),
+            'escalas_count': escalas_militar.count(),  # Usar escalas já filtradas por instância
+            'planejadas_count': planejadas_count,
+            'turnos_por_dia': turnos_por_dia
+        }
+        
+        militares_data.append(militar_data)
+
+    # Agrupar por lotação
+    from collections import defaultdict
+    militares_por_lotacao = defaultdict(list)
+    
+    for militar_data in militares_data:
+        lotacao_atual = militar_data['lotacao_atual']
+        if lotacao_atual:
+            # Mostrar apenas a OM específica (sem ascendência)
+            if lotacao_atual.sub_unidade:
+                lotacao_nome = lotacao_atual.sub_unidade.nome
+            elif lotacao_atual.unidade:
+                lotacao_nome = lotacao_atual.unidade.nome
+            elif lotacao_atual.grande_comando:
+                lotacao_nome = lotacao_atual.grande_comando.nome
+            elif lotacao_atual.orgao:
+                lotacao_nome = lotacao_atual.orgao.nome
+            else:
+                lotacao_nome = 'Sem órgão'
+        else:
+            lotacao_nome = "Sem lotação"
+            
+        militares_por_lotacao[lotacao_nome].append(militar_data)
+
+    # Ordenar militares dentro de cada lotação
+    for lotacao_nome in militares_por_lotacao:
+        militares_por_lotacao[lotacao_nome].sort(
+            key=lambda x: HIERARQUIA_POSTOS.get(x['militar'].posto_graduacao, 99)
+        )
+
+    # Converter para lista ordenada
+    lotacoes_ordenadas = sorted(militares_por_lotacao.items())
+    
+    # Paginação
+    from django.core.paginator import Paginator
+    paginator = Paginator(lotacoes_ordenadas, 10)  # 10 lotações por página
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # Gerar opções de filtro hierárquico baseadas no acesso do usuário
+    opcoes_filtro_hierarquico = []
+    
+    if funcao_usuario and funcao_usuario.funcao_militar:
+        acesso = funcao_usuario.funcao_militar.acesso
+        
+        if acesso == 'TOTAL':
+            # Acesso total - mostrar todas as organizações
+            from .models import Orgao, GrandeComando, Unidade, SubUnidade
+            
+            # Órgãos
+            orgaos = Orgao.objects.filter(ativo=True).order_by('nome')
+            for orgao in orgaos:
+                opcoes_filtro_hierarquico.append({
+                    'id': f'orgao_{orgao.id}',
+                    'nome': orgao.nome,
+                    'tipo': 'Órgão',
+                    'nivel': 1
+                })
+            
+            # Grandes Comandos
+            grandes_comandos = GrandeComando.objects.filter(ativo=True).select_related('orgao').order_by('orgao__nome', 'nome')
+            for gc in grandes_comandos:
+                opcoes_filtro_hierarquico.append({
+                    'id': f'gc_{gc.id}',
+                    'nome': f"{gc.orgao.nome} - {gc.nome}" if gc.orgao else gc.nome,
+                    'tipo': 'Grande Comando',
+                    'nivel': 2
+                })
+            
+            # Unidades
+            unidades = Unidade.objects.filter(ativo=True).select_related('grande_comando__orgao').order_by('grande_comando__orgao__nome', 'grande_comando__nome', 'nome')
+            for unidade in unidades:
+                nome_completo = unidade.nome
+                if unidade.grande_comando:
+                    nome_completo = f"{unidade.grande_comando.nome} - {nome_completo}"
+                    if unidade.grande_comando.orgao:
+                        nome_completo = f"{unidade.grande_comando.orgao.nome} - {nome_completo}"
+                opcoes_filtro_hierarquico.append({
+                    'id': f'unidade_{unidade.id}',
+                    'nome': nome_completo,
+                    'tipo': 'Unidade',
+                    'nivel': 3
+                })
+            
+            # Sub-Unidades
+            sub_unidades = SubUnidade.objects.filter(ativo=True).select_related('unidade__grande_comando__orgao').order_by('unidade__grande_comando__orgao__nome', 'unidade__grande_comando__nome', 'unidade__nome', 'nome')
+            for sub in sub_unidades:
+                nome_completo = sub.nome
+                if sub.unidade:
+                    nome_completo = f"{sub.unidade.nome} - {nome_completo}"
+                    if sub.unidade.grande_comando:
+                        nome_completo = f"{sub.unidade.grande_comando.nome} - {nome_completo}"
+                        if sub.unidade.grande_comando.orgao:
+                            nome_completo = f"{sub.unidade.grande_comando.orgao.nome} - {nome_completo}"
+                opcoes_filtro_hierarquico.append({
+                    'id': f'sub_{sub.id}',
+                    'nome': nome_completo,
+                    'tipo': 'Sub-Unidade',
+                    'nivel': 4
+                })
+                
+        elif acesso == 'ORGAO' and funcao_usuario.orgao:
+            # Acesso ao órgão - mostrar órgão e suas dependências
+            opcoes_filtro_hierarquico.append({
+                'id': f'orgao_{funcao_usuario.orgao.id}',
+                'nome': funcao_usuario.orgao.nome,
+                'tipo': 'Órgão',
+                'nivel': 1
+            })
+            
+            # Grandes Comandos do órgão
+            grandes_comandos = GrandeComando.objects.filter(
+                orgao=funcao_usuario.orgao,
+                ativo=True
+            ).order_by('nome')
+            for gc in grandes_comandos:
+                opcoes_filtro_hierarquico.append({
+                    'id': f'gc_{gc.id}',
+                    'nome': f"{funcao_usuario.orgao.nome} - {gc.nome}",
+                    'tipo': 'Grande Comando',
+                    'nivel': 2
+                })
+                
+        elif acesso == 'GRANDE_COMANDO' and funcao_usuario.grande_comando:
+            # Acesso ao grande comando - mostrar GC e suas dependências
+            opcoes_filtro_hierarquico.append({
+                'id': f'gc_{funcao_usuario.grande_comando.id}',
+                'nome': f"{funcao_usuario.grande_comando.orgao.nome if funcao_usuario.grande_comando.orgao else 'Sem órgão'} - {funcao_usuario.grande_comando.nome}",
+                'tipo': 'Grande Comando',
+                'nivel': 2
+            })
+            
+            # Unidades do grande comando
+            unidades = Unidade.objects.filter(
+                grande_comando=funcao_usuario.grande_comando,
+                ativo=True
+            ).order_by('nome')
+            for unidade in unidades:
+                opcoes_filtro_hierarquico.append({
+                    'id': f'unidade_{unidade.id}',
+                    'nome': f"{funcao_usuario.grande_comando.nome} - {unidade.nome}",
+                    'tipo': 'Unidade',
+                    'nivel': 3
+                })
+                
+        elif acesso == 'UNIDADE' and funcao_usuario.unidade:
+            # Acesso à unidade - mostrar unidade e suas sub-unidades
+            opcoes_filtro_hierarquico.append({
+                'id': f'unidade_{funcao_usuario.unidade.id}',
+                'nome': f"{funcao_usuario.unidade.grande_comando.nome if funcao_usuario.unidade.grande_comando else 'Sem GC'} - {funcao_usuario.unidade.nome}",
+                'tipo': 'Unidade',
+                'nivel': 3
+            })
+            
+            # Sub-Unidades da unidade
+            sub_unidades = SubUnidade.objects.filter(
+                unidade=funcao_usuario.unidade,
+                ativo=True
+            ).order_by('nome')
+            for sub in sub_unidades:
+                opcoes_filtro_hierarquico.append({
+                    'id': f'sub_{sub.id}',
+                    'nome': f"{funcao_usuario.unidade.nome} - {sub.nome}",
+                    'tipo': 'Sub-Unidade',
+                    'nivel': 4
+                })
+                
+        elif acesso == 'SUBUNIDADE' and funcao_usuario.sub_unidade:
+            # Acesso à sub-unidade - mostrar apenas a sub-unidade
+            opcoes_filtro_hierarquico.append({
+                'id': f'sub_{funcao_usuario.sub_unidade.id}',
+                'nome': f"{funcao_usuario.sub_unidade.unidade.nome if funcao_usuario.sub_unidade.unidade else 'Sem unidade'} - {funcao_usuario.sub_unidade.nome}",
+                'tipo': 'Sub-Unidade',
+                'nivel': 4
+            })
+    
+    # Ordenar opções por nível e nome
+    opcoes_filtro_hierarquico.sort(key=lambda x: (x['nivel'], x['nome']))
+
+    # Estatísticas gerais
+    total_militares = len(militares_data)
+    total_horas_mes = sum(militar['total_horas'] for militar in militares_data)
+    total_escalas_mes = sum(militar['escalas_count'] for militar in militares_data)
+    
+
+    # Gerar anos disponíveis de 2015 até 2050
+    anos_disponiveis = list(range(2015, 2051))
+    
+    # Criar dicionário de abonos por militar e dia para facilitar a verificação no template
+    abonos_por_militar_dia = {}
+    for abono in abonos_planejadas:
+        militar_id = abono.militar.id
+        dia = abono.data_operacao.day
+        if militar_id not in abonos_por_militar_dia:
+            abonos_por_militar_dia[militar_id] = {}
+        abonos_por_militar_dia[militar_id][dia] = abono
+    
+    # Calcular total de planejadas do mês (P1=1, P2=2, P3=3, P4=4)
+    total_planejadas_mes = 0
+    for abono in abonos_planejadas:
+        tipo_planejada = abono.tipo_planejada
+        if tipo_planejada == 'P1':
+            total_planejadas_mes += 1
+        elif tipo_planejada == 'P2':
+            total_planejadas_mes += 2
+        elif tipo_planejada == 'P3':
+            total_planejadas_mes += 3
+        elif tipo_planejada == 'P4':
+            total_planejadas_mes += 4
+        elif tipo_planejada == 'P5':
+            total_planejadas_mes += 5
+    
+
+    # Buscar funções do usuário para o modal de assinatura
+    from .models import UsuarioFuncaoMilitar
+    funcoes_usuario = UsuarioFuncaoMilitar.objects.filter(
+        usuario=request.user,
+        ativo=True
+    ).select_related('funcao_militar').order_by('funcao_militar__nome')
+
+    context = {
+        'militares_por_lotacao': page_obj.object_list,
+        'page_obj': page_obj,
+        'mes': mes,
+        'ano': ano,
+        'primeiro_dia': primeiro_dia,
+        'ultimo_dia': ultimo_dia,
+        'dias_mes': dias_mes,
+        'search': search,
+        'organizacao_id': organizacao_id,
+        'status_filtro': status_filtro,
+        'opcoes_filtro_hierarquico': opcoes_filtro_hierarquico,
+        'funcao_usuario': funcao_usuario,
+        'funcoes_usuario': funcoes_usuario,
+        'is_paginated': page_obj.has_other_pages,
+        'total_militares': total_militares,
+        'total_horas_mes': total_horas_mes,
+        'total_escalas_mes': total_escalas_mes,
+        'total_planejadas_mes': total_planejadas_mes,
+        'anos_disponiveis': anos_disponiveis,
+        'abonos_planejadas': abonos_planejadas,
+        'abonos_por_militar_dia': abonos_por_militar_dia,
+    }
+
+    return render(request, 'militares/escalas_configuracao.html', context)
+
+
+@login_required
+def escalas_abono_pdf(request):
+    """Gerar PDF de escalas de abono por OM - replicando exatamente a estrutura da página"""
+    # Receber parâmetro de função para assinatura (opcional)
+    funcao_assinatura = request.GET.get('funcao', '')
+    from .models import Militar, EscalaServico, EscalaMilitar, Lotacao, Orgao, GrandeComando, Unidade, SubUnidade, AbonoPlanejada
+    from django.http import HttpResponse
+    from datetime import datetime, timedelta
+    from django.db.models import Q, Count, Sum
+    from calendar import monthrange
+    from .filtros_hierarquicos import aplicar_filtro_hierarquico_militares
+    from .permissoes_hierarquicas import obter_funcao_militar_ativa
+    import io
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.units import cm
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    
+    # Parâmetros de filtro
+    mes = int(request.GET.get('mes', datetime.now().month))
+    ano = int(request.GET.get('ano', datetime.now().year))
+    search = request.GET.get('search', '')
+    organizacao_id = request.GET.get('organizacao_id', '')
+    status_filtro = request.GET.get('status', '')
+    
+    # Mapeamento de siglas dos postos
+    SIGLAS_POSTOS = {
+        'CB': 'CEL',  # Coronel
+        'TC': 'TC',   # Tenente Coronel
+        'MJ': 'MJ',   # Major
+        'CP': 'CP',   # Capitão
+        '1T': '1º TEN', # 1º Tenente
+        '2T': '2º TEN', # 2º Tenente
+        'AS': 'ASP',  # Aspirante
+        'AA': 'AA',   # Aluno Aspirante
+        'NVRR': 'NVRR', # Não Vinculado ao Registro de Reservistas
+        'ST': 'ST',   # Subtenente
+        '1S': '1º SGT', # 1º Sargento
+        '2S': '2º SGT', # 2º Sargento
+        '3S': '3º SGT', # 3º Sargento
+        'CAB': 'CAB', # Cabo
+        'SD': 'SD',   # Soldado
+    }
+    
+    # Calcular datas do mês
+    primeiro_dia = datetime(ano, mes, 1).date()
+    ultimo_dia = datetime(ano, mes, monthrange(ano, mes)[1]).date()
+    
+    # Feriados fixos nacionais (MM-DD) com nomes
+    feriados_fixos = {
+        '01-01': 'Confraternização Universal',
+        '04-21': 'Tiradentes',
+        '05-01': 'Dia do Trabalho',
+        '09-07': 'Independência do Brasil',
+        '10-12': 'Nossa Senhora Aparecida',
+        '11-02': 'Finados',
+        '11-15': 'Proclamação da República',
+        '11-20': 'Dia da Consciência Negra',
+        '12-25': 'Natal',
+    }
+    # Feriados ESTADUAIS do Piauí (MM-DD) com nomes
+    feriados_piaui = {
+        '03-13': 'Batalha do Jenipapo',
+        '10-19': 'Dia do Piauí',
+    }
+
+    # Feriados móveis (calculados por ano) – Sexta-feira Santa e Corpus Christi
+    def calcular_pascoa(y):
+        # Algoritmo de Butcher para calendário gregoriano
+        a = y % 19
+        b = y // 100
+        c = y % 100
+        d = b // 4
+        e = b % 4
+        f = (b + 8) // 25
+        g = (b - f + 1) // 3
+        h = (19 * a + b - d - g + 15) % 30
+        i = c // 4
+        k = c % 4
+        l = (32 + 2 * e + 2 * i - h - k) % 7
+        m = (a + 11 * h + 22 * l) // 451
+        month = (h + l - 7 * m + 114) // 31
+        day = ((h + l - 7 * m + 114) % 31) + 1
+        return datetime(y, month, day).date()
+
+    pascoa = calcular_pascoa(ano)
+    sexta_santa = pascoa - timedelta(days=2)
+    corpus_christi = pascoa + timedelta(days=60)
+    feriados_moveis = {
+        sexta_santa: 'Sexta-feira Santa',
+        corpus_christi: 'Corpus Christi'
+    }
+    
+    # Obter função do usuário para controle de acesso
+    funcao_usuario = obter_funcao_militar_ativa(request.user)
+    
+    # Gerar lista de dias do mês com feriados
+    dias_mes = []
+    for dia in range(1, ultimo_dia.day + 1):
+        data_dia = datetime(ano, mes, dia).date()
+        mm_dd = data_dia.strftime('%m-%d')
+        # Determinar nome do feriado (nacionais, estaduais e móveis)
+        nome_feriado = None
+        tipo_feriado = None
+        if mm_dd in feriados_fixos:
+            nome_feriado = feriados_fixos[mm_dd]
+            tipo_feriado = 'nacional'
+        elif mm_dd in feriados_piaui:
+            nome_feriado = feriados_piaui[mm_dd]
+            tipo_feriado = 'estadual'
+        elif data_dia in feriados_moveis:
+            nome_feriado = feriados_moveis[data_dia]
+            tipo_feriado = 'nacional'
+        
+        # Mapear dias da semana para português
+        dias_semana_pt = {
+            0: 'Segunda', 1: 'Terça', 2: 'Quarta', 3: 'Quinta', 
+            4: 'Sexta', 5: 'Sábado', 6: 'Domingo'
+        }
+        
+        dias_mes.append({
+            'dia': dia,
+            'dia_semana': dias_semana_pt[data_dia.weekday()],
+            'data': data_dia,
+            'is_weekend': data_dia.weekday() >= 5,
+            'is_holiday': nome_feriado is not None,
+            'nome_feriado': nome_feriado,
+            'tipo_feriado': tipo_feriado
+        })
+    
+    # Buscar militares (excluir inativos para não esconder PRONTO/FERIAS etc.)
+    militares = Militar.objects.exclude(classificacao='INATIVO').select_related().prefetch_related('lotacoes')
+    
+    # Aplicar filtro hierárquico baseado no acesso da função
+    if funcao_usuario and funcao_usuario.funcao_militar:
+        acesso = funcao_usuario.funcao_militar.acesso
+        
+        if acesso == 'TOTAL':
+            # Acesso total - pode ver todos os militares
+            pass
+        elif acesso == 'ORGAO' and funcao_usuario.orgao:
+            # Acesso ao órgão - mostrar militares lotados no órgão e suas dependências
+            militares = militares.filter(
+                lotacoes__orgao=funcao_usuario.orgao,
+                lotacoes__status='ATUAL',
+                lotacoes__ativo=True
+            ).distinct()
+        elif acesso == 'GRANDE_COMANDO' and funcao_usuario.grande_comando:
+            # Acesso ao grande comando - mostrar militares lotados no GC e suas dependências
+            militares = militares.filter(
+                lotacoes__grande_comando=funcao_usuario.grande_comando,
+                lotacoes__status='ATUAL',
+                lotacoes__ativo=True
+            ).distinct()
+        elif acesso == 'UNIDADE' and funcao_usuario.unidade:
+            # Acesso à unidade - mostrar militares lotados na unidade e suas sub-unidades
+            militares = militares.filter(
+                lotacoes__unidade=funcao_usuario.unidade,
+                lotacoes__status='ATUAL',
+                lotacoes__ativo=True
+            ).distinct()
+        elif acesso == 'SUBUNIDADE' and funcao_usuario.sub_unidade:
+            # Acesso à sub-unidade - mostrar apenas militares lotados na sub-unidade
+            militares = militares.filter(
+                lotacoes__sub_unidade=funcao_usuario.sub_unidade,
+                lotacoes__status='ATUAL',
+                lotacoes__ativo=True
+            ).distinct()
+        else:
+            # Se não tem acesso definido, não mostrar nenhum militar
+            militares = militares.none()
+    else:
+        # Se não tem função ativa, manter militares ATIVOS (restrição será feita pelo filtro de organização, se fornecido)
+        # Superusuário também mantém visualização ampla
+        if not request.user.is_superuser:
+            pass  # mantém filtro padrão de ATIVO já aplicado acima
+
+    # Aplicar filtros adicionais
+    if search:
+        militares = militares.filter(
+            Q(nome_completo__icontains=search) |
+            Q(matricula__icontains=search) |
+            Q(nome_guerra__icontains=search)
+        )
+
+    # Aplicar filtro secundário por organização (dentro do escopo permitido)
+    if organizacao_id:
+        if organizacao_id.startswith('orgao_'):
+            orgao_id = organizacao_id.replace('orgao_', '')
+            # Aplicar filtro do órgão: permitir se superusuário, sem função ativa, ou dentro do escopo da função
+            if (request.user.is_superuser or not funcao_usuario or
+                (funcao_usuario and funcao_usuario.funcao_militar and (
+                    funcao_usuario.funcao_militar.acesso == 'TOTAL' or (funcao_usuario.orgao and str(funcao_usuario.orgao.id) == orgao_id)
+                ))):
+                # Filtrar APENAS militares lotados diretamente no órgão (sem GC/Unidade/Sub)
+                militares = militares.filter(
+                    lotacoes__orgao_id=orgao_id,
+                    lotacoes__grande_comando__isnull=True,
+                    lotacoes__unidade__isnull=True,
+                    lotacoes__sub_unidade__isnull=True,
+                    lotacoes__status='ATUAL',
+                    lotacoes__ativo=True
+                ).distinct()
+        elif organizacao_id.startswith('gc_'):
+            gc_id = organizacao_id.replace('gc_', '')
+            if (request.user.is_superuser or not funcao_usuario or
+                (funcao_usuario and funcao_usuario.funcao_militar and (
+                    funcao_usuario.funcao_militar.acesso == 'TOTAL' or
+                    (funcao_usuario.grande_comando and str(funcao_usuario.grande_comando.id) == gc_id) or
+                    (funcao_usuario.funcao_militar.acesso == 'ORGAO')
+                ))):
+                # Filtrar APENAS militares lotados diretamente no GC (sem Unidade/Sub)
+                militares = militares.filter(
+                    lotacoes__grande_comando_id=gc_id,
+                    lotacoes__unidade__isnull=True,
+                    lotacoes__sub_unidade__isnull=True,
+                    lotacoes__status='ATUAL',
+                    lotacoes__ativo=True
+                ).distinct()
+        elif organizacao_id.startswith('unidade_'):
+            unidade_id = organizacao_id.replace('unidade_', '')
+            if (request.user.is_superuser or not funcao_usuario or
+                (funcao_usuario and funcao_usuario.funcao_militar and (
+                    funcao_usuario.funcao_militar.acesso == 'TOTAL' or 
+                    (funcao_usuario.unidade and str(funcao_usuario.unidade.id) == unidade_id) or
+                    (funcao_usuario.funcao_militar.acesso in ['ORGAO', 'GRANDE_COMANDO'])
+                ))):
+                # Filtrar APENAS militares lotados diretamente na Unidade (sem Sub)
+                militares = militares.filter(
+                    lotacoes__unidade_id=unidade_id,
+                    lotacoes__sub_unidade__isnull=True,
+                    lotacoes__status='ATUAL',
+                    lotacoes__ativo=True
+                ).distinct()
+        elif organizacao_id.startswith('sub_'):
+            sub_id = organizacao_id.replace('sub_', '')
+            if (request.user.is_superuser or not funcao_usuario or
+                (funcao_usuario and funcao_usuario.funcao_militar and (
+                    funcao_usuario.funcao_militar.acesso == 'TOTAL' or 
+                    (funcao_usuario.sub_unidade and str(funcao_usuario.sub_unidade.id) == sub_id) or
+                    (funcao_usuario.funcao_militar.acesso in ['ORGAO', 'GRANDE_COMANDO', 'UNIDADE'])
+                ))):
+                # Somente lotações da Subunidade selecionada
+                militares = militares.filter(
+                    lotacoes__sub_unidade_id=sub_id,
+                    lotacoes__status='ATUAL',
+                    lotacoes__ativo=True
+                ).distinct()
+
+    if status_filtro:
+        militares = militares.filter(situacao=status_filtro)
+
+    # Ordenar por hierarquia
+    HIERARQUIA_POSTOS = {
+        'CB': 1, 'TC': 2, 'MJ': 3, 'CP': 4, '1T': 5, '2T': 6, 'AS': 7, 'AA': 8, 'NVRR': 9,
+        'ST': 10, '1S': 11, '2S': 12, '3S': 13, 'CAB': 14, 'SD': 15,
+    }
+
+    def ordenar_militar(militar):
+        return HIERARQUIA_POSTOS.get(militar.posto_graduacao, 99)
+
+    militares = sorted(militares, key=ordenar_militar)
+
+    # Carregar abonos de planejadas para o mês/ano ANTES do loop dos militares
+    abonos_planejadas = AbonoPlanejada.objects.filter(
+        data_operacao__year=ano,
+        data_operacao__month=mes
+    ).select_related('militar', 'planejada')
+    
+    # Processar dados dos militares
+    militares_data = []
+    for militar in militares:
+        # Buscar lotação atual
+        lotacao_atual = Lotacao.objects.filter(
+            militar=militar,
+            status='ATUAL',
+            ativo=True
+        ).select_related('orgao', 'grande_comando', 'unidade', 'sub_unidade').first()
+
+        # Buscar escalas do militar no mês - buscar diretamente as escalas onde o militar foi inserido
+        escalas_militar = EscalaServico.objects.filter(
+            militares__militar=militar,
+            data__gte=primeiro_dia,
+            data__lte=ultimo_dia
+        ).distinct()
+        
+        # Calcular estatísticas
+        total_horas = 0
+        turnos_por_dia = {}
+        
+        for escala in escalas_militar:
+            escalas_militar_obj = EscalaMilitar.objects.filter(
+                escala=escala,
+                militar=militar
+            )
+            
+            for escala_militar in escalas_militar_obj:
+                # Calcular diferença de tempo (considerando virada do dia e turnos 24h)
+                inicio = datetime.combine(escala.data, escala_militar.hora_inicio)
+                fim = datetime.combine(escala.data, escala_militar.hora_fim)
+                
+                # Se termina no mesmo horário ou antes, considerar dia seguinte
+                if fim <= inicio:
+                    fim += timedelta(days=1)
+                
+                diferenca = fim - inicio
+                horas = diferenca.total_seconds() / 3600
+                
+                # Se por algum motivo ainda for 0h, e o campo turno indicar 24h, ajustar
+                if horas == 0 and getattr(escala_militar, 'turno', '') == '24h':
+                    horas = 24
+                total_horas += horas
+                
+                # Agrupar por dia (usar chave inteira do dia)
+                dia_int = escala.data.day
+                if dia_int not in turnos_por_dia:
+                    turnos_por_dia[dia_int] = {
+                        'turnos': [],
+                        'total_horas': 0
+                    }
+                
+                turnos_por_dia[dia_int]['turnos'].append({
+                    'hora_inicio': escala_militar.hora_inicio,
+                    'hora_fim': escala_militar.hora_fim,
+                    'horas': round(horas, 1),
+                    'funcao': escala_militar.funcao,
+                    'tipo_servico': escala_militar.tipo_servico
+                })
+                turnos_por_dia[dia_int]['total_horas'] += horas
+
+        # Arredondar totais
+        for dia_k in turnos_por_dia:
+            turnos_por_dia[dia_k]['total_horas'] = round(turnos_por_dia[dia_k]['total_horas'], 1)
+
+        # Calcular contador de planejadas para este militar no mês
+        planejadas_count = 0
+        for abono in abonos_planejadas:
+            if abono.militar.id == militar.id:
+                tipo_planejada = abono.tipo_planejada
+                if tipo_planejada == 'P1':
+                    planejadas_count += 1
+                elif tipo_planejada == 'P2':
+                    planejadas_count += 2
+                elif tipo_planejada == 'P3':
+                    planejadas_count += 3
+                elif tipo_planejada == 'P4':
+                    planejadas_count += 4
+                elif tipo_planejada == 'P5':
+                    planejadas_count += 5
+
+        militar_data = {
+            'militar': militar,
+            'lotacao_atual': lotacao_atual,
+            'total_horas': round(total_horas, 1),
+            'escalas_count': escalas_militar.count(),  # Usar escalas já filtradas por instância
+            'planejadas_count': planejadas_count,
+            'turnos_por_dia': turnos_por_dia
+        }
+        
+        militares_data.append(militar_data)
+
+    # Agrupar por lotação
+    from collections import defaultdict
+    militares_por_lotacao = defaultdict(list)
+    
+    for militar_data in militares_data:
+        lotacao_atual = militar_data['lotacao_atual']
+        if lotacao_atual:
+            # Construir nome hierárquico da lotação
+            lotacao_nome = lotacao_atual.orgao.nome if lotacao_atual.orgao else 'Sem órgão'
+            if lotacao_atual.grande_comando:
+                lotacao_nome += f" - {lotacao_atual.grande_comando.nome}"
+            if lotacao_atual.unidade:
+                lotacao_nome += f" - {lotacao_atual.unidade.nome}"
+            if lotacao_atual.sub_unidade:
+                lotacao_nome += f" - {lotacao_atual.sub_unidade.nome}"
+        else:
+            lotacao_nome = "Sem lotação"
+            
+        militares_por_lotacao[lotacao_nome].append(militar_data)
+
+    # Ordenar militares dentro de cada lotação
+    for lotacao_nome in militares_por_lotacao:
+        militares_por_lotacao[lotacao_nome].sort(
+            key=lambda x: HIERARQUIA_POSTOS.get(x['militar'].posto_graduacao, 99)
+        )
+
+    # Converter para lista ordenada
+    lotacoes_ordenadas = sorted(militares_por_lotacao.items())
+    
+    # Criar dicionário de abonos por militar e dia para facilitar a verificação
+    abonos_por_militar_dia = {}
+    for abono in abonos_planejadas:
+        militar_id = abono.militar.id
+        dia = abono.data_operacao.day
+        if militar_id not in abonos_por_militar_dia:
+            abonos_por_militar_dia[militar_id] = {}
+        abonos_por_militar_dia[militar_id][dia] = abono
+    
+    # Criar PDF em landscape para caber mais colunas
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=0.3*cm, leftMargin=0.3*cm, topMargin=0.5*cm, bottomMargin=0.5*cm)
+    
+    # Estilos
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=12,
+        spaceAfter=15,
+        alignment=TA_CENTER,
+        textColor=colors.black
+    )
+    
+    org_style = ParagraphStyle(
+        'OrgTitle',
+        parent=styles['Heading3'],
+        fontSize=9,
+        spaceAfter=8,
+        spaceBefore=0,
+        textColor=colors.black,
+        alignment=TA_CENTER
+    )
+    
+    # Estilo para X centralizado
+    x_style = ParagraphStyle(
+        'XStyle',
+        parent=styles['Normal'],
+        fontSize=8,
+        alignment=TA_CENTER,
+        textColor=colors.grey
+    )
+    
+    # Estilo centralizado para células da tabela
+    cell_style = ParagraphStyle(
+        'CellStyle',
+        parent=styles['Normal'],
+        fontSize=5,
+        alignment=TA_CENTER
+    )
+    
+    # Estilo para cabeçalho centralizado
+    style_center = ParagraphStyle('center', parent=styles['Normal'], alignment=TA_CENTER, fontSize=10)
+    
+    # Conteúdo do PDF
+    story = []
+    
+    # Logo/Brasão centralizado
+    import os
+    logo_path = os.path.join('staticfiles', 'logo_cbmepi.png')
+    if os.path.exists(logo_path):
+        from reportlab.platypus import Image
+        story.append(Image(logo_path, width=2*cm, height=2*cm, hAlign='CENTER'))
+        story.append(Spacer(1, 6))
+    
+    # Determinar local de geração e endereço baseado na organização militar que está gerando o PDF
+    local_geracao = "DIRETORIA DE GESTÃO DE PESSOAS"
+    endereco_organizacao = None
+    
+    # Se houver filtro por organização, buscar essa organização específica e seu endereço
+    if organizacao_id:
+        if organizacao_id.startswith('orgao_'):
+            orgao_id = organizacao_id.replace('orgao_', '')
+            try:
+                orgao = Orgao.objects.get(id=orgao_id)
+                local_geracao = orgao.nome.upper()
+                endereco_organizacao = orgao.endereco
+            except Orgao.DoesNotExist:
+                pass
+        elif organizacao_id.startswith('gc_'):
+            gc_id = organizacao_id.replace('gc_', '')
+            try:
+                gc = GrandeComando.objects.get(id=gc_id)
+                # Buscar o órgão pai
+                if gc.orgao:
+                    local_geracao = f"{gc.orgao.nome.upper()} - {gc.nome.upper()}"
+                else:
+                    local_geracao = gc.nome.upper()
+                endereco_organizacao = gc.endereco if gc.endereco else (gc.orgao.endereco if gc.orgao and gc.orgao.endereco else None)
+            except GrandeComando.DoesNotExist:
+                pass
+        elif organizacao_id.startswith('unidade_'):
+            unidade_id = organizacao_id.replace('unidade_', '')
+            try:
+                unidade = Unidade.objects.get(id=unidade_id)
+                hierarquia = []
+                if unidade.orgao:
+                    hierarquia.append(unidade.orgao.nome.upper())
+                if unidade.grande_comando:
+                    hierarquia.append(unidade.grande_comando.nome.upper())
+                hierarquia.append(unidade.nome.upper())
+                local_geracao = " - ".join(hierarquia)
+                endereco_organizacao = unidade.endereco if unidade.endereco else (unidade.grande_comando.endereco if unidade.grande_comando and unidade.grande_comando.endereco else (unidade.orgao.endereco if unidade.orgao and unidade.orgao.endereco else None))
+            except Unidade.DoesNotExist:
+                pass
+        elif organizacao_id.startswith('sub_'):
+            sub_id = organizacao_id.replace('sub_', '')
+            try:
+                sub = SubUnidade.objects.get(id=sub_id)
+                hierarquia = []
+                if sub.unidade and sub.unidade.orgao:
+                    hierarquia.append(sub.unidade.orgao.nome.upper())
+                if sub.unidade and sub.unidade.grande_comando:
+                    hierarquia.append(sub.unidade.grande_comando.nome.upper())
+                if sub.unidade:
+                    hierarquia.append(sub.unidade.nome.upper())
+                hierarquia.append(sub.nome.upper())
+                local_geracao = " - ".join(hierarquia)
+                # Tentar buscar endereço da sub-unidade, depois unidade, depois grande comando, depois órgão
+                endereco_organizacao = sub.endereco if sub.endereco else (sub.unidade.endereco if sub.unidade and sub.unidade.endereco else (sub.unidade.grande_comando.endereco if sub.unidade and sub.unidade.grande_comando and sub.unidade.grande_comando.endereco else (sub.unidade.orgao.endereco if sub.unidade and sub.unidade.orgao and sub.unidade.orgao.endereco else None)))
+            except SubUnidade.DoesNotExist:
+                pass
+    
+    # Se não houver filtro específico, usar a primeira organização do PDF
+    if local_geracao == "DIRETORIA DE GESTÃO DE PESSOAS" and lotacoes_ordenadas:
+        # Pegar a primeira organização do PDF
+        primeira_lotacao_nome = lotacoes_ordenadas[0][0]
+        if primeira_lotacao_nome and primeira_lotacao_nome != "Sem lotação":
+            local_geracao = primeira_lotacao_nome.upper()
+            # Tentar buscar endereço da primeira lotação
+            primeira_lotacao_data = lotacoes_ordenadas[0][1]
+            if primeira_lotacao_data:
+                primeiro_militar_data = primeira_lotacao_data[0] if primeira_lotacao_data else None
+                if primeiro_militar_data and primeiro_militar_data.get('lotacao_atual'):
+                    lotacao_atual = primeiro_militar_data['lotacao_atual']
+                    # Buscar endereço da organização da lotação
+                    if lotacao_atual.sub_unidade and lotacao_atual.sub_unidade.endereco:
+                        endereco_organizacao = lotacao_atual.sub_unidade.endereco
+                    elif lotacao_atual.unidade and lotacao_atual.unidade.endereco:
+                        endereco_organizacao = lotacao_atual.unidade.endereco
+                    elif lotacao_atual.grande_comando and lotacao_atual.grande_comando.endereco:
+                        endereco_organizacao = lotacao_atual.grande_comando.endereco
+                    elif lotacao_atual.orgao and lotacao_atual.orgao.endereco:
+                        endereco_organizacao = lotacao_atual.orgao.endereco
+    
+    # Cabeçalho institucional
+    cabecalho = [
+        "GOVERNO DO ESTADO DO PIAUÍ",
+        "CORPO DE BOMBEIROS MILITAR DO ESTADO DO PIAUÍ",
+        local_geracao
+    ]
+    
+    # Adicionar endereço se existir
+    if endereco_organizacao:
+        cabecalho.append(endereco_organizacao)
+    for linha in cabecalho:
+        story.append(Paragraph(linha, style_center))
+    story.append(Spacer(1, 10))
+    story.append(Spacer(1, 10))
+    
+    # Mapear meses em português
+    meses_pt = {
+        1: 'janeiro', 2: 'fevereiro', 3: 'março', 4: 'abril', 5: 'maio', 6: 'junho',
+        7: 'julho', 8: 'agosto', 9: 'setembro', 10: 'outubro', 11: 'novembro', 12: 'dezembro'
+    }
+    
+    # Título principal (em uma única linha)
+    nome_mes = meses_pt[mes].upper()
+    titulo = f"ESCALA DE ABONAR DO MÊS DE {nome_mes} DE {ano}"
+    story.append(Paragraph(titulo, title_style))
+    
+    # Lista por organização
+    for lotacao_nome, militares_lotacao in lotacoes_ordenadas:
+        # Obter apenas a OM específica (sem hierarquia)
+        om_especifica = lotacao_nome.split(' - ')[-1] if ' - ' in lotacao_nome else lotacao_nome
+        # Título da organização em maiúsculas, centralizado e preto
+        titulo_om = f"{om_especifica.upper()} ({len(militares_lotacao)} MILITAR{'ES' if len(militares_lotacao) != 1 else ''})"
+        story.append(Paragraph(titulo_om, org_style))
+        
+        # Estilo centralizado para cabeçalho
+        header_style = ParagraphStyle(
+            'HeaderStyle',
+            parent=styles['Normal'],
+            fontSize=6,
+            alignment=TA_CENTER
+        )
+        
+        # Cabeçalho da tabela principal
+        header_data = [Paragraph('Militar', header_style)]
+        
+        # Adicionar cabeçalhos dos dias
+        for d in dias_mes:
+            dia_texto = f"{d['dia_semana'][:1]}<br/>{d['dia']:02d}"
+            header_data.append(Paragraph(dia_texto, header_style))
+        
+        # Criar tabela de dados
+        table_data = [header_data]
+        # Rastrear tipos de células para aplicar backgrounds
+        cell_types = []  # Lista de listas: 'folga', 'turno', 'planejada', 'turno_planejada'
+        
+        for militar_data in militares_lotacao:
+            militar = militar_data['militar']
+            
+            # Obter sigla do posto (ou usar o próprio código se não houver mapeamento)
+            posto_sigla = SIGLAS_POSTOS.get(militar.posto_graduacao, militar.posto_graduacao)
+            # Criar estilo centralizado para nome do militar
+            nome_style = ParagraphStyle(
+                'NomeStyle',
+                parent=styles['Normal'],
+                fontSize=5,
+                alignment=TA_CENTER
+            )
+            row = [Paragraph(f"{posto_sigla} {militar.nome_guerra}", nome_style)]
+            row_types = []
+            
+            # Adicionar dados de cada dia
+            for d in dias_mes:
+                dia_content = []
+                has_turnos = False
+                has_planejadas = False
+                
+                # Turnos de escala
+                if d['dia'] in militar_data['turnos_por_dia']:
+                    turnos_dia = militar_data['turnos_por_dia'][d['dia']]
+                    for turno in turnos_dia['turnos']:
+                        # Mostrar apenas o número inteiro antes do ponto + h
+                        horas_int = int(turno['horas'])
+                        dia_content.append(f"{horas_int}h")
+                        has_turnos = True
+                
+                # Abonos de planejadas
+                militar_id = militar.id
+                if militar_id in abonos_por_militar_dia and d['dia'] in abonos_por_militar_dia[militar_id]:
+                    abono = abonos_por_militar_dia[militar_id][d['dia']]
+                    dia_content.append(f"{abono.tipo_planejada}")
+                    has_planejadas = True
+                
+                # Criar parágrafo com formatações
+                if has_turnos and has_planejadas:
+                    # Mistura de turnos e planejadas
+                    content_text = "<br/>".join(dia_content)
+                    para = Paragraph(f'<b>{content_text}</b>', cell_style)
+                    row_types.append('turno_planejada')
+                elif has_turnos:
+                    # Apenas turnos - negrito preto
+                    content_text = "<br/>".join(dia_content)
+                    para = Paragraph(f'<b>{content_text}</b>', cell_style)
+                    row_types.append('turno')
+                elif has_planejadas:
+                    # Apenas planejadas
+                    content_text = "<br/>".join(dia_content)
+                    para = Paragraph(content_text, cell_style)
+                    row_types.append('planejada')
+                else:
+                    # Folga - "F" em negrito
+                    para = Paragraph('<b>F</b>', cell_style)
+                    row_types.append('folga')
+                
+                row.append(para)
+            
+            table_data.append(row)
+            cell_types.append(row_types)
+        
+        # Criar tabela
+        col_widths = [2.5*cm] + [0.8*cm] * len(dias_mes)
+        militares_table = Table(table_data, colWidths=col_widths)
+        
+        # Estilo da tabela
+        militares_table.setStyle(TableStyle([
+            # Cabeçalho
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 6),
+            ('FONTSIZE', (0, 1), (-1, -1), 5),
+            
+            # Bordas
+            ('GRID', (0, 0), (-1, -1), 0.2, colors.black),
+            
+            # Altura das linhas
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            
+            # Padding reduzido para otimizar espaço
+            ('LEFTPADDING', (0, 0), (-1, -1), 1),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 1),
+            ('TOPPADDING', (0, 0), (-1, -1), 2),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ]))
+        
+        # Cores modernas usando HexColor
+        from reportlab.lib.colors import HexColor
+        
+        # Folga: Verde moderno (verde menta suave)
+        verde_folga = HexColor('#90EE90')  # Light Green mais moderno
+        
+        # Turno: Vermelho moderno (coral/salmão suave)
+        vermelho_turno = HexColor('#FF6B6B')  # Coral moderno
+        
+        # Planejada: Amarelo moderno (dourado/amber suave)
+        amarelo_planejada = HexColor('#FFD93D')  # Amber moderno
+        
+        # Aplicar backgrounds nas células baseado no tipo
+        for row_idx, row_types in enumerate(cell_types):
+            # row_idx + 1 porque a linha 0 é o cabeçalho
+            row_num = row_idx + 1
+            for col_idx, cell_type in enumerate(row_types):
+                # col_idx + 1 porque a coluna 0 é o nome do militar
+                col_num = col_idx + 1
+                if cell_type == 'folga':
+                    militares_table.setStyle(TableStyle([
+                        ('BACKGROUND', (col_num, row_num), (col_num, row_num), verde_folga),
+                    ]))
+                elif cell_type == 'turno':
+                    militares_table.setStyle(TableStyle([
+                        ('BACKGROUND', (col_num, row_num), (col_num, row_num), vermelho_turno),
+                    ]))
+                elif cell_type == 'planejada':
+                    militares_table.setStyle(TableStyle([
+                        ('BACKGROUND', (col_num, row_num), (col_num, row_num), amarelo_planejada),
+                    ]))
+                elif cell_type == 'turno_planejada':
+                    # Mistura: vermelho como turno tem prioridade visual
+                    militares_table.setStyle(TableStyle([
+                        ('BACKGROUND', (col_num, row_num), (col_num, row_num), vermelho_turno),
+                    ]))
+        
+        # Aplicar cor vermelha para fins de semana e feriados nas colunas dos dias
+        for i, d in enumerate(dias_mes):
+            col_index = 1 + i  # Coluna do dia (1 é o índice da primeira coluna de dias)
+            if d['is_holiday'] or d['is_weekend']:
+                militares_table.setStyle(TableStyle([
+                    ('TEXTCOLOR', (col_index, 0), (col_index, -1), colors.red),
+                ]))
+        
+        story.append(militares_table)
+        story.append(Spacer(1, 15))
+    
+    # Adicionar assinatura eletrônica se função fornecida
+    if funcao_assinatura:
+        story.append(Spacer(1, 1*cm))
+        
+        # Obter informações do assinante e cidade
+        from django.utils import timezone
+        import pytz
+        
+        try:
+            militar_logado = request.user.militar if hasattr(request.user, 'militar') else None
+            
+            # Obter cidade
+            if militar_logado and militar_logado.cidade:
+                cidade_doc = militar_logado.cidade
+            else:
+                cidade_doc = "Teresina"
+            cidade_estado = f"{cidade_doc} - PI"
+            
+            # Obter posto completo
+            if militar_logado:
+                posto_abreviado = militar_logado.posto_graduacao or ''
+                posto_completo = militar_logado.get_posto_graduacao_display() or posto_abreviado
+                if "BM" not in posto_completo:
+                    posto_completo = f"{posto_completo} BM"
+                nome_posto = f"{posto_completo}<br/>{militar_logado.nome_completo}"
+            else:
+                nome_posto = request.user.get_full_name() or request.user.username
+            
+        except:
+            cidade_estado = "Teresina - PI"
+            nome_posto = request.user.get_full_name() or request.user.username
+        
+        # Data por extenso - usar timezone de Brasília
+        brasilia_tz = pytz.timezone('America/Sao_Paulo')
+        data_atual = timezone.now().astimezone(brasilia_tz) if timezone.is_aware(timezone.now()) else brasilia_tz.localize(timezone.now())
+        
+        meses_extenso = {
+            1: 'janeiro', 2: 'fevereiro', 3: 'março', 4: 'abril',
+            5: 'maio', 6: 'junho', 7: 'julho', 8: 'agosto',
+            9: 'setembro', 10: 'outubro', 11: 'novembro', 12: 'dezembro'
+        }
+        data_formatada_extenso = f"{data_atual.day} de {meses_extenso[data_atual.month]} de {data_atual.year}"
+        
+        # Função selecionada
+        funcao_display = funcao_assinatura if funcao_assinatura else ""
+        
+        # Construir texto - cidade, data, nome com posto, função
+        texto_info = f"{cidade_estado}, {data_formatada_extenso}.<br/><br/>{nome_posto}<br/>{funcao_display}"
+        
+        # Estilo para o texto (centralizado)
+        style_info = ParagraphStyle('info', parent=styles['Normal'], fontSize=9, fontName='Helvetica', 
+                                     alignment=TA_CENTER, textColor=colors.HexColor('#2c3e50'), spaceAfter=8,
+                                     leading=12)
+        
+        story.append(Paragraph(texto_info, style_info))
+        
+        # Adicionar assinatura eletrônica
+        from .utils import obter_caminho_assinatura_eletronica
+        
+        story.append(Spacer(1, 1*cm))
+        
+        # Obter assinante (usuário logado) com posto
+        try:
+            militar_logado_assinatura = request.user.militar if hasattr(request.user, 'militar') else None
+            if militar_logado_assinatura:
+                nome_assinante = militar_logado_assinatura.nome_completo
+                posto_abreviado_assinatura = militar_logado_assinatura.posto_graduacao or ''
+                posto_completo_assinatura = militar_logado_assinatura.get_posto_graduacao_display() or posto_abreviado_assinatura
+                if "BM" not in posto_completo_assinatura:
+                    posto_completo_assinatura = f"{posto_completo_assinatura} BM"
+                assinante_com_posto = f"{nome_assinante} - {posto_completo_assinatura}"
+            else:
+                nome_assinante = request.user.get_full_name() or request.user.username
+                assinante_com_posto = nome_assinante
+        except:
+            nome_assinante = request.user.get_full_name() or request.user.username
+            assinante_com_posto = nome_assinante
+        
+        # Usar a função formatar_data_assinatura para garantir timezone correto
+        from .utils import formatar_data_assinatura
+        data_hora = timezone.now()
+        data_formatada, hora_formatada = formatar_data_assinatura(data_hora)
+        
+        # Incluir posto e função na assinatura
+        assinante_com_posto_funcao = f"{assinante_com_posto} - {funcao_assinatura}"
+        
+        # Texto da assinatura eletrônica seguindo o padrão dos outros PDFs
+        texto_assinatura = f"Documento assinado eletronicamente por {assinante_com_posto_funcao}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
+        
+        # Estilo para texto alinhado à esquerda
+        style_assinatura_texto = ParagraphStyle('assinatura_texto', parent=styles['Normal'], fontSize=9, fontName='Helvetica', alignment=0, spaceAfter=1, spaceBefore=1, leading=12)
+        
+        # Calcular larguras disponíveis
+        largura_disponivel = landscape(A4)[0] - (1*cm * 2) - 0.04*cm
+        largura_texto = largura_disponivel - 2.5*cm
+        
+        # Tabela de assinatura: Logo + Texto
+        assinatura_data = [
+            [Image(obter_caminho_assinatura_eletronica(), width=2.5*cm, height=1.8*cm), Paragraph(texto_assinatura, style_assinatura_texto)]
+        ]
+        
+        assinatura_table = Table(assinatura_data, colWidths=[2.5*cm, largura_texto])
+        assinatura_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # Logo centralizado
+            ('ALIGN', (1, 0), (1, 0), 'LEFT'),    # Texto alinhado à esquerda
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('BOX', (0, 0), (-1, -1), 1, colors.grey),
+        ]))
+        
+        story.append(assinatura_table)
+    
+    # Adicionar autenticador QR Code NO FINAL
+    from .utils import gerar_autenticador_veracidade
+    
+    story.append(Spacer(1, 1*cm))
+    
+    # Criar um objeto fake com as informações do relatório de abono
+    class RelatorioAbonoFake:
+        def __init__(self):
+            self.id = f"escala_abono_{mes:02d}_{ano}"
+            self.pk = abs(hash(f"escala_abono_{mes:02d}_{ano}")) % 100000000  # Gera um pk numérico positivo a partir do hash
+            self.tipo_documento = 'escala_abono'
+    
+    relatorio_fake = RelatorioAbonoFake()
+    
+    autenticador = gerar_autenticador_veracidade(relatorio_fake, request, tipo_documento='escala_abono')
+    
+    # Estilo para o texto do autenticador
+    style_field_value = ParagraphStyle('field_value', parent=styles['Normal'], fontSize=8, fontName='Helvetica', alignment=0)
+    
+    # Largura disponível para QR Code
+    largura_disponivel_qr = landscape(A4)[0] - (1*cm * 2) - 0.04*cm
+    largura_texto_qr = largura_disponivel_qr - 3*cm
+    
+    # Tabela do rodapé: QR + Texto de autenticação
+    rodape_data = [
+        [autenticador['qr_img'], Paragraph(autenticador['texto_autenticacao'], style_field_value)]
+    ]
+    
+    rodape_table = Table(rodape_data, colWidths=[3*cm, largura_texto_qr])
+    rodape_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # QR centralizado
+        ('ALIGN', (1, 0), (1, 0), 'LEFT'),    # Texto alinhado à esquerda
+        ('LEFTPADDING', (0, 0), (0, 0), 0),    # QR sem padding esquerdo
+        ('RIGHTPADDING', (0, 0), (0, 0), 0),   # QR sem padding direito
+        ('LEFTPADDING', (1, 0), (1, 0), 3),    # Texto com pouco padding esquerdo
+        ('RIGHTPADDING', (1, 0), (1, 0), 0),   # Texto sem padding direito
+        ('TOPPADDING', (0, 0), (-1, -1), 3),   # Reduzido de 6 para 3
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3), # Reduzido de 6 para 3
+        ('BOX', (0, 0), (-1, -1), 1, colors.grey),
+    ]))
+    
+    story.append(rodape_table)
+    
+    # Construir PDF
+    doc.build(story)
+    pdf = buffer.getvalue()
+    buffer.close()
+    
+    # Resposta HTTP
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="escala_abono_{mes:02d}_{ano}.pdf"'
+    response.write(pdf)
+    
+    return response
+
+
+@login_required
+def escalas_create(request):
+    """Criar nova escala de serviço"""
+    from .models import EscalaServico, EscalaMilitar
+    from .forms import EscalaServicoForm
+    from django.contrib import messages
+    from django.shortcuts import redirect
+    from django.db import transaction
+    
+    if request.method == 'POST':
+        form = EscalaServicoForm(request.POST)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    escala = form.save(commit=False)
+                    escala.criado_por = request.user
+                    escala.save()
+                    
+                    messages.success(request, 'Escala de serviço criada com sucesso!')
+                    return redirect('militares:escalas_list')
+            except Exception as e:
+                messages.error(request, f'Erro ao criar escala: {str(e)}')
+    else:
+        form = EscalaServicoForm()
+    
+    context = {
+        'form': form,
+        'title': 'Criar Escala de Serviço',
+        'page_title': 'Criar Escala de Serviço',
+    }
+    
+    return render(request, 'militares/escalas_create.html', context)
+
+
+@login_required
+def escalas_edit(request, pk):
+    """Editar escala de serviço"""
+    from .models import EscalaServico
+    from .forms import EscalaServicoForm
+    from django.contrib import messages
+    from django.shortcuts import get_object_or_404, redirect
+    from django.db import transaction
+    
+    escala = get_object_or_404(EscalaServico, pk=pk)
+    
+    if request.method == 'POST':
+        form = EscalaServicoForm(request.POST, instance=escala)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    form.save()
+                    messages.success(request, 'Escala de serviço atualizada com sucesso!')
+                    return redirect('militares:escalas_list')
+            except Exception as e:
+                messages.error(request, f'Erro ao atualizar escala: {str(e)}')
+    else:
+        form = EscalaServicoForm(instance=escala)
+    
+    context = {
+        'form': form,
+        'escala': escala,
+        'title': 'Editar Escala de Serviço',
+        'page_title': 'Editar Escala de Serviço',
+    }
+    
+    return render(request, 'militares/escalas_edit.html', context)
+
+
+@login_required
+def escalas_delete(request, pk):
+    """Deletar escala de serviço"""
+    from .models import EscalaServico
+    from django.contrib import messages
+    from django.shortcuts import get_object_or_404, redirect
+    from django.db import transaction
+    
+    escala = get_object_or_404(EscalaServico, pk=pk)
+    
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                escala.delete()
+                messages.success(request, 'Escala de serviço deletada com sucesso!')
+                return redirect('militares:escalas_list')
+        except Exception as e:
+            messages.error(request, f'Erro ao deletar escala: {str(e)}')
+    
+    context = {
+        'escala': escala,
+        'title': 'Deletar Escala de Serviço',
+        'page_title': 'Deletar Escala de Serviço',
+    }
+    
+    return render(request, 'militares/escalas_confirm_delete.html', context)
+
+
+@login_required
+def escalas_operacoes(request):
+    """Operações das escalas de serviço"""
+    context = {
+        'title': 'Operações Escalas',
+        'page_title': 'Operações - Escalas de Serviço',
+    }
+    return render(request, 'militares/escalas_operacoes.html', context)
+
+
+@login_required
+def escala_detail(request, pk):
+    """Visualizar detalhes de uma escala específica"""
+    from .models import EscalaServico, EscalaMilitar
+    from django.shortcuts import get_object_or_404
+    
+    escala = get_object_or_404(EscalaServico, pk=pk)
+    
+    # Buscar militares escalados nesta escala ordenados por data de criação (primeira inserida para a última)
+    militares_escalados = EscalaMilitar.objects.filter(escala=escala).select_related('militar').order_by('id')
+    
+    # Organizar militares por equipe
+    equipes = {}
+    
+    for escala_militar in militares_escalados:
+        militar_info = {
+            'id': escala_militar.id,
+            'nome_completo': escala_militar.militar.nome_completo,
+            'posto_graduacao': escala_militar.militar.get_posto_graduacao_display(),
+            'funcao_display': escala_militar.get_funcao_display(),
+            'tipo_servico': escala_militar.tipo_servico,
+            'tipo_servico_display': escala_militar.get_tipo_servico_display(),
+            'turno_display': escala_militar.get_turno_display(),
+            'hora_inicio': escala_militar.hora_inicio.strftime('%H:%M'),
+            'hora_fim': escala_militar.hora_fim.strftime('%H:%M'),
+            'observacoes': escala_militar.observacoes or '',
+            'funcao_operacional': escala_militar.funcao_operacional or '',
+            'equipe': escala_militar.equipe or '',
+            'viatura': escala_militar.viatura or '',
+            'secao': escala_militar.secao or ''
+        }
+        
+        # Agrupar por equipe (todos os operacionais)
+        if escala_militar.tipo_servico == 'operacional':
+            equipe_nome = escala_militar.equipe or 'Sem Equipe Definida'
+            if equipe_nome not in equipes:
+                equipes[equipe_nome] = {
+                    'nome': equipe_nome,
+                    'militares': [],
+                    'viatura': escala_militar.viatura or '',
+                    'total_militares': 0
+                }
+            equipes[equipe_nome]['militares'].append(militar_info)
+            equipes[equipe_nome]['total_militares'] += 1
+    
+    # Organizar militares por horário - agrupar quando o mesmo militar tem múltiplos turnos
+    militares_por_horario = {}
+    militares_operacionais = []
+    militares_administrativos = []
+    
+    for escala_militar in militares_escalados:
+        militar_info = {
+            'id': escala_militar.id,
+            'nome_completo': escala_militar.militar.nome_completo,
+            'posto_graduacao': escala_militar.militar.get_posto_graduacao_display(),
+            'funcao_display': escala_militar.get_funcao_display(),
+            'tipo_servico': escala_militar.tipo_servico,
+            'tipo_servico_display': escala_militar.get_tipo_servico_display(),
+            'turno_display': escala_militar.get_turno_display(),
+            'hora_inicio': escala_militar.hora_inicio.strftime('%H:%M'),
+            'hora_fim': escala_militar.hora_fim.strftime('%H:%M'),
+            'observacoes': escala_militar.observacoes or '',
+            'funcao_operacional': escala_militar.funcao_operacional or '',
+            'equipe': escala_militar.equipe or '',
+            'viatura': escala_militar.viatura or '',
+            'secao': escala_militar.secao or ''
+        }
+        
+        # Criar chave única para o militar + horário
+        chave_militar_horario = f"{escala_militar.militar.id}_{escala_militar.hora_inicio}_{escala_militar.hora_fim}"
+        
+        if chave_militar_horario not in militares_por_horario:
+            militares_por_horario[chave_militar_horario] = {
+                'militar': militar_info,
+                'turnos': []
+            }
+        
+        # Adicionar informações do turno
+        turno_info = {
+            'hora_inicio': escala_militar.hora_inicio.strftime('%H:%M'),
+            'hora_fim': escala_militar.hora_fim.strftime('%H:%M'),
+            'turno_display': escala_militar.get_turno_display(),
+            'tipo_servico': escala_militar.tipo_servico,
+            'tipo_servico_display': escala_militar.get_tipo_servico_display(),
+            'funcao_operacional': escala_militar.funcao_operacional or '',
+            'equipe': escala_militar.equipe or '',
+            'viatura': escala_militar.viatura or '',
+            'secao': escala_militar.secao or '',
+            'observacoes': escala_militar.observacoes or ''
+        }
+        
+        militares_por_horario[chave_militar_horario]['turnos'].append(turno_info)
+    
+    # Converter para listas organizadas
+    for chave, dados in militares_por_horario.items():
+        militar_info = dados['militar']
+        militar_info['turnos'] = dados['turnos']
+        militar_info['total_turnos'] = len(dados['turnos'])
+        
+        if militar_info['tipo_servico'] == 'operacional':
+            militares_operacionais.append(militar_info)
+        else:
+            militares_administrativos.append(militar_info)
+    
+    
+    # Buscar assinaturas da escala
+    assinaturas = escala.assinaturas.all().order_by('data_assinatura')
+    
+    # Verificar status das assinaturas
+    tem_revisao = assinaturas.filter(tipo_assinatura='REVISAO').exists()
+    tem_aprovacao = assinaturas.filter(tipo_assinatura='APROVACAO').exists()
+    
+    # Controle de alterações para escalas aprovadas
+    pode_alterar = False
+    motivo_restricao = ""
+    alteracoes = []
+    
+    # Superusuários sempre podem alterar
+    if request.user.is_superuser:
+        pode_alterar = True
+    elif escala.status == 'aprovada':
+        from django.utils import timezone
+        from .models import AlteracaoEscala
+        
+        # Verificar se o usuário tem assinatura de aprovação
+        tem_assinatura_aprovacao = assinaturas.filter(
+            tipo_assinatura='APROVACAO',
+            assinado_por=request.user
+        ).exists()
+        
+        # Verificar se pode alterar (apenas quem assinou como aprovador e até a data da escala)
+        if tem_assinatura_aprovacao:
+            if timezone.now().date() <= escala.data:
+                pode_alterar = True
+            else:
+                motivo_restricao = f"Alterações só são permitidas até a data da escala ({escala.data.strftime('%d/%m/%Y')})"
+        else:
+            motivo_restricao = "Apenas quem assinou como aprovador pode fazer alterações"
+        
+        # Buscar alterações registradas
+        alteracoes = AlteracaoEscala.objects.filter(escala=escala).order_by('-data_alteracao')
+    
+    escala_info = {
+        'escala': escala,
+        'militares_operacionais': militares_operacionais,
+        'militares_administrativos': militares_administrativos,
+        'equipes': list(equipes.values()),
+        'total_militares': len(militares_escalados),
+        'total_operacionais': len(militares_operacionais),
+        'total_administrativos': len(militares_administrativos),
+        'total_equipes': len(equipes),
+        'assinaturas': assinaturas,
+        'tem_revisao': tem_revisao,
+        'tem_aprovacao': tem_aprovacao,
+        'total_assinaturas': len(assinaturas),
+        'pode_alterar': pode_alterar,
+        'motivo_restricao': motivo_restricao,
+        'alteracoes': alteracoes
+    }
+    
+    context = {
+        'title': f'Escala - {escala.data.strftime("%d/%m/%Y")}',
+        'page_title': f'Escala de Serviço - {escala.data.strftime("%d/%m/%Y")}',
+        'escala': escala,
+        'militares_escalados': militares_escalados,
+        'escala_info': escala_info,
+    }
+    return render(request, 'militares/escala_detail.html', context)
+
+
+@login_required
+def api_verificar_disponibilidade_militar(request):
+    """API para verificar disponibilidade de militar em um dia específico"""
+    from .models import EscalaMilitar, Militar
+    from datetime import datetime, time
+    import json
+    
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        militar_id = data.get('militar_id')
+        data_escala = data.get('data')
+        hora_inicio = data.get('hora_inicio')
+        hora_fim = data.get('hora_fim')
+        
+        if not militar_id or not data_escala:
+            return JsonResponse({'error': 'Dados obrigatórios não fornecidos'}, status=400)
+        
+        # Converter data
+        data_escala = datetime.strptime(data_escala, '%Y-%m-%d').date()
+        
+        # Buscar militar
+        try:
+            militar = Militar.objects.get(id=militar_id)
+        except Militar.DoesNotExist:
+            return JsonResponse({'error': 'Militar não encontrado'}, status=404)
+        
+        # Converter horários se fornecidos
+        hora_inicio_obj = None
+        hora_fim_obj = None
+        
+        if hora_inicio:
+            hora_inicio_obj = datetime.strptime(hora_inicio, '%H:%M').time()
+        
+        if hora_fim:
+            hora_fim_obj = datetime.strptime(hora_fim, '%H:%M').time()
+        
+        # Verificar disponibilidade
+        disponivel, horas_atuais, horas_restantes, mensagem = EscalaMilitar.verificar_disponibilidade_militar_dia(
+            militar, data_escala, hora_inicio_obj, hora_fim_obj
+        )
+        
+        return JsonResponse({
+            'disponivel': disponivel,
+            'horas_atuais': round(horas_atuais, 1),
+            'horas_restantes': round(horas_restantes, 1),
+            'mensagem': mensagem,
+            'militar_nome': militar.nome_completo,
+            'data': data_escala.strftime('%d/%m/%Y')
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'JSON inválido'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': f'Erro interno: {str(e)}'}, status=500)
+
+
+@login_required
+def api_registrar_alteracao_escala(request, pk):
+    """API para registrar alterações em escalas aprovadas"""
+    from .models import EscalaServico, AlteracaoEscala, EscalaMilitar
+    from django.shortcuts import get_object_or_404
+    from django.utils import timezone
+    from django.http import JsonResponse
+    from django.views.decorators.csrf import csrf_exempt
+    from django.views.decorators.http import require_http_methods
+    import json
+    
+    escala = get_object_or_404(EscalaServico, pk=pk)
+    
+    # Verificar se é permitido fazer alterações na escala (inclui verificação de superusuário e data)
+    pode_alterar, mensagem_validacao = escala.pode_adicionar_militares(request.user)
+    if not pode_alterar:
+        return JsonResponse({
+            'success': False,
+            'message': mensagem_validacao
+        })
+    
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            
+            tipo_alteracao = data.get('tipo_alteracao')
+            justificativa = data.get('justificativa', '').strip()
+            militar_id = data.get('militar_id')
+            dados_anteriores = data.get('dados_anteriores', {})
+            dados_novos = data.get('dados_novos', {})
+            
+            # Validar campos obrigatórios
+            if not tipo_alteracao:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Tipo de alteração é obrigatório'
+                })
+            
+            if not justificativa:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Justificativa é obrigatória para alterações'
+                })
+            
+            # Buscar militar se fornecido
+            militar_afetado = None
+            if militar_id:
+                try:
+                    militar_afetado = EscalaMilitar.objects.get(id=militar_id, escala=escala).militar
+                except EscalaMilitar.DoesNotExist:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'Militar não encontrado nesta escala'
+                    })
+            
+            # Criar registro de alteração
+            alteracao = AlteracaoEscala.objects.create(
+                escala=escala,
+                alterado_por=request.user,
+                tipo_alteracao=tipo_alteracao,
+                justificativa=justificativa,
+                militar_afetado=militar_afetado,
+                dados_anteriores=dados_anteriores,
+                dados_novos=dados_novos,
+                valida_ate_data=escala.data
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Alteração registrada com sucesso',
+                'alteracao_id': alteracao.id
+            })
+            
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'success': False,
+                'message': 'Dados inválidos'
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': f'Erro ao registrar alteração: {str(e)}'
+            })
+    
+    return JsonResponse({
+        'success': False,
+        'message': 'Método não permitido'
+    })
+
+
+@login_required
+def escala_pdf(request, pk):
+    """Gerar PDF de uma escala específica no padrão institucional"""
+    from .models import EscalaServico, EscalaMilitar
+    from django.shortcuts import get_object_or_404
+    from django.http import HttpResponse
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, HRFlowable
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from io import BytesIO
+    import os
+    import locale
+    from datetime import datetime
+    
+    # Configurar locale para português brasileiro
+    try:
+        locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
+    except:
+        try:
+            locale.setlocale(locale.LC_TIME, 'Portuguese_Brazil.1252')
+        except:
+            pass  # Usar formato padrão se não conseguir configurar
+    
+    escala = get_object_or_404(EscalaServico, pk=pk)
+    militares_escalados = EscalaMilitar.objects.filter(escala=escala).select_related('militar')
+    
+    # Função para truncar textos muito longos
+    def truncar_texto(texto, max_chars=50):
+        if len(texto) <= max_chars:
+            return texto
+        return texto[:max_chars-3] + "..."
+    
+    # Organizar militares por horário - agrupar quando o mesmo militar tem múltiplos turnos
+    militares_por_horario = {}
+    militares_administrativos = []
+    militares_operacionais = []
+    equipes = {}
+    
+    for escala_militar in militares_escalados:
+        militar_info = {
+            'nome_completo': escala_militar.militar.nome_completo,
+            'posto_graduacao': escala_militar.militar.get_posto_graduacao_display(),
+            'funcao_display': escala_militar.get_funcao_display(),
+            'tipo_servico': escala_militar.tipo_servico,
+            'tipo_servico_display': escala_militar.get_tipo_servico_display(),
+            'turno_display': escala_militar.get_turno_display(),
+            'hora_inicio': escala_militar.hora_inicio.strftime('%H:%M'),
+            'hora_fim': escala_militar.hora_fim.strftime('%H:%M'),
+            'observacoes': escala_militar.observacoes or '',
+            'funcao_operacional': escala_militar.funcao_operacional or '',
+            'equipe': escala_militar.equipe or '',
+            'viatura': escala_militar.viatura or '',
+            'secao': escala_militar.secao or ''
+        }
+        
+        # Criar chave única para o militar + horário
+        chave_militar_horario = f"{escala_militar.militar.id}_{escala_militar.hora_inicio}_{escala_militar.hora_fim}"
+        
+        if chave_militar_horario not in militares_por_horario:
+            militares_por_horario[chave_militar_horario] = {
+                'militar': militar_info,
+                'turnos': []
+            }
+        
+        # Adicionar informações do turno
+        turno_info = {
+            'hora_inicio': escala_militar.hora_inicio.strftime('%H:%M'),
+            'hora_fim': escala_militar.hora_fim.strftime('%H:%M'),
+            'turno_display': escala_militar.get_turno_display(),
+            'tipo_servico': escala_militar.tipo_servico,
+            'tipo_servico_display': escala_militar.get_tipo_servico_display(),
+            'funcao_operacional': escala_militar.funcao_operacional or '',
+            'equipe': escala_militar.equipe or '',
+            'viatura': escala_militar.viatura or '',
+            'secao': escala_militar.secao or '',
+            'observacoes': escala_militar.observacoes or ''
+        }
+        
+        militares_por_horario[chave_militar_horario]['turnos'].append(turno_info)
+    
+    # Converter para listas organizadas
+    equipes_administrativas = {}
+    
+    for chave, dados in militares_por_horario.items():
+        militar_info = dados['militar']
+        militar_info['turnos'] = dados['turnos']
+        militar_info['total_turnos'] = len(dados['turnos'])
+        
+        if militar_info['tipo_servico'] == 'operacional':
+            # Organizar por equipes
+            equipe_nome = militar_info['equipe'] or 'Sem Equipe Definida'
+            if equipe_nome not in equipes:
+                equipes[equipe_nome] = []
+            equipes[equipe_nome].append(militar_info)
+        else:
+            # Organizar administrativos por turno (horário)
+            turno_key = f"{militar_info['hora_inicio']}-{militar_info['hora_fim']}"
+            if turno_key not in equipes_administrativas:
+                equipes_administrativas[turno_key] = {
+                    'horario': f"{militar_info['hora_inicio']} às {militar_info['hora_fim']}",
+                    'turno_display': militar_info['turno_display'],
+                    'militares': []
+                }
+            equipes_administrativas[turno_key]['militares'].append(militar_info)
+    
+    # Converter dicionários em listas ordenadas
+    militares_operacionais = list(equipes.values())
+    militares_administrativos = list(equipes_administrativas.values())
+    
+    # Criar buffer para o PDF
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=0.5*cm, leftMargin=0.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
+    
+    # Estilos customizados
+    styles = getSampleStyleSheet()
+    style_center = ParagraphStyle('center', parent=styles['Normal'], alignment=TA_CENTER, fontSize=11)
+    style_bold = ParagraphStyle('bold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=11)
+    style_title = ParagraphStyle('title', parent=styles['Heading1'], alignment=TA_CENTER, fontSize=14, spaceAfter=10, underlineProportion=0.1)
+    style_subtitle = ParagraphStyle('subtitle', parent=styles['Heading2'], alignment=TA_CENTER, fontSize=12, spaceAfter=8)
+    style_small = ParagraphStyle('small', parent=styles['Normal'], fontSize=9)
+    style_just = ParagraphStyle('just', parent=styles['Normal'], alignment=4, fontSize=11)
+    
+    story = []
+    
+    # Logo/Brasão centralizado
+    logo_path = os.path.join('staticfiles', 'logo_cbmepi.png')
+    if os.path.exists(logo_path):
+        story.append(Image(logo_path, width=2.5*cm, height=2.5*cm, hAlign='CENTER'))
+        story.append(Spacer(1, 6))
+    
+    # Cabeçalho institucional
+    # Extrair apenas o nome da organização (antes da sigla)
+    nome_organizacao = escala.organizacao.split(' - ')[0].strip().upper()
+    
+    cabecalho = [
+        "GOVERNO DO ESTADO DO PIAUÍ",
+        "CORPO DE BOMBEIROS MILITAR DO ESTADO DO PIAUÍ",
+        nome_organizacao
+    ]
+    for linha in cabecalho:
+        story.append(Paragraph(linha, style_center))
+    story.append(Spacer(1, 10))
+    
+    # Dados da escala formatados
+    meses_pt = {
+        1: 'janeiro', 2: 'fevereiro', 3: 'março', 4: 'abril', 5: 'maio', 6: 'junho',
+        7: 'julho', 8: 'agosto', 9: 'setembro', 10: 'outubro', 11: 'novembro', 12: 'dezembro'
+    }
+    
+    dias_semana_pt = {
+        0: 'segunda-feira', 1: 'terça-feira', 2: 'quarta-feira', 3: 'quinta-feira',
+        4: 'sexta-feira', 5: 'sábado', 6: 'domingo'
+    }
+    
+    data_formatada = f"{escala.data.day} de {meses_pt[escala.data.month]} de {escala.data.year}"
+    dia_semana = dias_semana_pt[escala.data.weekday()]
+    
+    # Título com data e dia da semana
+    titulo = f'<u>ESCALA DE SERVIÇO PARA O DIA {escala.data.day} DE {meses_pt[escala.data.month].upper()} DE {escala.data.year} ({dia_semana.upper()})</u>'
+    story.append(Paragraph(titulo, style_title))
+    story.append(Spacer(1, 3))
+    
+    # Apenas observações se houver
+    if escala.observacoes:
+        info_escala = f"<b>Observações:</b> {escala.observacoes}"
+        story.append(Paragraph(info_escala, style_just))
+        story.append(Spacer(1, 8))
+    else:
+        story.append(Spacer(1, 8))
+    
+    # Lista de militares escalados organizados como nos cards
+    if militares_administrativos or militares_operacionais:
+        
+        # 1. SERVIÇO ADMINISTRATIVO
+        if militares_administrativos:
+            story.append(Paragraph("SERVIÇO ADMINISTRATIVO", style_subtitle))
+            
+            # Verificar se é terça ou quinta-feira para adicionar descrição especial
+            if escala.data.weekday() in [1, 3]:  # 1 = terça-feira, 3 = quinta-feira
+                descricao_especial = "EDUCAÇÃO FÍSICA DE 07:30 ÀS 08:45, SERVIÇO ADMINISTRATIVO 09:00 ÀS 13:30"
+                descricao_style = ParagraphStyle('descricao_especial', parent=styles['Normal'], alignment=TA_CENTER, fontSize=10, spaceAfter=8)
+                story.append(Paragraph(descricao_especial, descricao_style))
+            
+            for turno_admin in militares_administrativos:
+                if turno_admin['militares']:  # Verificar se o turno tem militares
+                    # Nome do turno com horário
+                    turno_nome = f"Turno: {turno_admin['turno_display']} {turno_admin['horario']}"
+                    turno_style = ParagraphStyle('turno_admin', parent=styles['Heading3'], alignment=TA_CENTER, fontSize=12, spaceAfter=4)
+                    story.append(Paragraph(turno_nome, turno_style))
+                    
+                    story.append(Spacer(1, 5))
+                    
+                    dados_admin = [['Posto/Graduação', 'Nome', 'Seção']]
+                    for militar in turno_admin['militares']:
+                        dados_admin.append([
+                            truncar_texto(militar['posto_graduacao'], 20),
+                            truncar_texto(militar['nome_completo'], 40),
+                            truncar_texto(militar['secao'] or '-', 30)
+                        ])
+                    
+                    tabela_admin = Table(dados_admin, colWidths=[4*cm, 8*cm, 7.5*cm])
+                    tabela_admin.setStyle(TableStyle([
+                        ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 0), (-1, -1), 8),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                        ('TOPPADDING', (0, 0), (-1, -1), 6),
+                        ('LEFTPADDING', (0, 0), (-1, -1), 3),
+                        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+                        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                        ('WORDWRAP', (0, 0), (-1, -1), 'CJK')
+                    ]))
+                    
+                    story.append(tabela_admin)
+                    story.append(Spacer(1, 12))
+        
+        # 2. SERVIÇO OPERACIONAL
+        if militares_operacionais:
+            story.append(Paragraph("SERVIÇO OPERACIONAL", style_subtitle))
+            story.append(Spacer(1, 8))
+            
+            for equipe_militares in militares_operacionais:
+                if equipe_militares:  # Verificar se a equipe tem militares
+                    # Nome da equipe (primeiro militar da equipe) - centralizado e sem prefixo
+                    equipe_nome = equipe_militares[0]['equipe'] or 'Sem Equipe'
+                    equipe_style = ParagraphStyle('equipe', parent=styles['Heading3'], alignment=TA_CENTER, fontSize=12, spaceAfter=4)
+                    story.append(Paragraph(equipe_nome, equipe_style))
+                    
+                    # Informações da equipe (viatura)
+                    viatura_equipe = equipe_militares[0]['viatura'] or 'N/A'
+                    
+                    info_equipe = f"<b>Viatura:</b> {viatura_equipe}"
+                    info_style = ParagraphStyle('info_equipe', parent=styles['Normal'], alignment=TA_CENTER, fontSize=10, spaceAfter=8)
+                    story.append(Paragraph(info_equipe, info_style))
+                    story.append(Spacer(1, 5))
+                    
+                    dados_equipe = [['Posto/Graduação', 'Nome', 'Função']]
+                    for militar in equipe_militares:
+                        dados_equipe.append([
+                            truncar_texto(militar['posto_graduacao'], 20),
+                            truncar_texto(militar['nome_completo'], 40),
+                            truncar_texto(militar['funcao_operacional'] or militar['funcao_display'], 50)
+                        ])
+                    
+                    # Tabela expandida para usar quase toda a largura
+                    tabela_equipe = Table(dados_equipe, colWidths=[4*cm, 8*cm, 7.5*cm])
+                    tabela_equipe.setStyle(TableStyle([
+                        ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 0), (-1, -1), 8),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                        ('TOPPADDING', (0, 0), (-1, -1), 6),
+                        ('LEFTPADDING', (0, 0), (-1, -1), 3),
+                        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+                        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                        ('WORDWRAP', (0, 0), (-1, -1), 'CJK')
+                    ]))
+                    
+                    story.append(tabela_equipe)
+                    story.append(Spacer(1, 12))
+    else:
+        story.append(Paragraph("Nenhum militar escalado nesta data.", style_just))
+    
+    # Assinaturas eletrônicas reais do sistema
+    story.append(Spacer(1, 30))
+    
+    # Buscar assinaturas eletrônicas reais
+    from .models import AssinaturaEscala
+    assinaturas_eletronicas = AssinaturaEscala.objects.filter(
+        escala=escala,
+        tipo_midia='ELETRONICA',
+        assinado_por__isnull=False
+    ).order_by('-data_assinatura')
+    
+    # Adicionar local e data no final (padrão dos outros documentos)
+    story.append(Spacer(1, 20))
+    
+    # Local e data
+    from datetime import datetime
+    data_atual = datetime.now().strftime('%d de %B de %Y')
+    meses_pt = {
+        1: 'janeiro', 2: 'fevereiro', 3: 'março', 4: 'abril', 5: 'maio', 6: 'junho',
+        7: 'julho', 8: 'agosto', 9: 'setembro', 10: 'outubro', 11: 'novembro', 12: 'dezembro'
+    }
+    data_atual = datetime.now().strftime(f'%d de {meses_pt[datetime.now().month]} de %Y')
+    
+    local_data = f"Teresina, {data_atual}"
+    story.append(Paragraph(local_data, ParagraphStyle('local_data', parent=styles['Normal'], alignment=TA_CENTER, fontSize=11, spaceAfter=12, fontName='Times-Roman')))
+    
+    # Adicionar espaço para assinaturas
+    story.append(Spacer(1, 0.5*cm))
+    
+    if assinaturas_eletronicas.exists():
+        # Adicionar assinaturas físicas primeiro (até 3)
+        assinaturas_fisicas = assinaturas_eletronicas[:3]
+        for assinatura in assinaturas_fisicas:
+            # Nome e posto
+            if hasattr(assinatura.assinado_por, 'militar') and assinatura.assinado_por.militar:
+                militar = assinatura.assinado_por.militar
+                posto = militar.get_posto_graduacao_display()
+                if "BM" not in posto:
+                    posto = f"{posto} BM"
+                nome_completo = f"{militar.nome_completo} - {posto}"
+            else:
+                nome_completo = assinatura.assinado_por.get_full_name() or assinatura.assinado_por.username
+            
+            # Função
+            funcao = assinatura.funcao_assinatura or "Função não registrada"
+            
+            # Tipo de assinatura
+            tipo = assinatura.get_tipo_assinatura_display() or "Tipo não registrado"
+            
+            # Adicionar assinatura física
+            story.append(Spacer(1, 8))
+            story.append(Paragraph(f"<b>{nome_completo}</b>", ParagraphStyle('Assinante', parent=styles['Normal'], alignment=TA_CENTER, fontSize=11, spaceAfter=4, fontName='Times-Roman')))
+            story.append(Paragraph(f"{funcao}", ParagraphStyle('Funcao', parent=styles['Normal'], alignment=TA_CENTER, fontSize=10, spaceAfter=4, fontName='Times-Roman')))
+            story.append(Paragraph(f"<b>{tipo}</b>", ParagraphStyle('TipoAssinatura', parent=styles['Normal'], alignment=TA_CENTER, fontSize=9, spaceAfter=8, fontName='Times-Roman')))
+        
+        # Adicionar TODAS as assinaturas como eletrônicas
+        if len(assinaturas_eletronicas) > 0:
+            story.append(Spacer(1, 1*cm))  # Espaço antes das assinaturas eletrônicas
+            
+            for assinatura in assinaturas_eletronicas:  # TODAS as assinaturas
+                # Nome e posto
+                if hasattr(assinatura.assinado_por, 'militar') and assinatura.assinado_por.militar:
+                    militar = assinatura.assinado_por.militar
+                    posto = militar.get_posto_graduacao_display()
+                    if "BM" not in posto:
+                        posto = f"{posto} BM"
+                    nome_completo = f"{militar.nome_completo} - {posto}"
+                else:
+                    nome_completo = assinatura.assinado_por.get_full_name() or assinatura.assinado_por.username
+                
+                # Função
+                funcao = assinatura.funcao_assinatura or "Função não registrada"
+                
+                # Formatar data e hora
+                data_formatada = assinatura.data_assinatura.strftime('%d/%m/%Y')
+                hora_formatada = assinatura.data_assinatura.strftime('%H:%M')
+                
+                # Texto da assinatura
+                texto_assinatura = f"Documento assinado eletronicamente por {nome_completo} - {funcao}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, com fundamento na Portaria XXX/2025 Gab. Cmdo. Geral/CBMEPI de XX de XXXXX de 2025."
+                
+                # Adicionar logo da assinatura eletrônica
+                from .utils import obter_caminho_assinatura_eletronica
+                logo_assinatura_path = obter_caminho_assinatura_eletronica()
+                
+                # Tabela das assinaturas: Logo + Texto de assinatura
+                assinatura_data = [
+                    [Image(logo_assinatura_path, width=1.8*cm, height=1.2*cm), Paragraph(texto_assinatura, ParagraphStyle('assinatura_texto', parent=styles['Normal'], fontSize=9, spaceAfter=1, spaceBefore=1, leading=8, alignment=TA_JUSTIFY))]
+                ]
+                
+                assinatura_table = Table(assinatura_data, colWidths=[2.5*cm, 13.5*cm])
+                assinatura_table.setStyle(TableStyle([
+                    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                    ('ALIGN', (0, 0), (0, 0), 'CENTER'),
+                    ('ALIGN', (1, 0), (1, 0), 'LEFT'),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 1),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 1),
+                    ('TOPPADDING', (0, 0), (-1, -1), 1),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+                    ('BOX', (0, 0), (-1, -1), 1, colors.black),
+                ]))
+                
+                story.append(assinatura_table)
+                # Espaçamento mínimo entre assinaturas eletrônicas
+                story.append(Spacer(1, 0.2*cm))  # Espaçamento bem curto
+    else:
+        # Quando não há assinaturas eletrônicas, adicionar espaço para assinatura física
+        story.append(Spacer(1, 2*cm))  # Espaço para assinatura física manual
+        
+        # Adicionar linha para assinatura física
+        story.append(Paragraph("_" * 50, ParagraphStyle('linha_assinatura', parent=styles['Normal'], alignment=TA_CENTER, fontSize=10, spaceAfter=0.5*cm, fontName='Times-Roman')))
+        story.append(Paragraph("Assinatura Física", ParagraphStyle('assinatura_fisica', parent=styles['Normal'], alignment=TA_CENTER, fontSize=10, spaceAfter=1*cm, fontName='Times-Roman')))
+    
+    # Adicionar autenticador de veracidade
+    story.append(Spacer(1, 20))
+    story.append(HRFlowable(width="100%", thickness=1, spaceAfter=10, spaceBefore=10, color=colors.grey))
+    
+    # Usar a função utilitária para gerar o autenticador
+    from .utils import gerar_autenticador_veracidade
+    autenticador = gerar_autenticador_veracidade(escala, request, tipo_documento='escala')
+    
+    # Tabela do rodapé: QR + Texto de autenticação
+    rodape_data = [
+        [autenticador['qr_img'], Paragraph(autenticador['texto_autenticacao'], style_small)]
+    ]
+    
+    rodape_table = Table(rodape_data, colWidths=[3*cm, 16.5*cm])
+    rodape_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # QR centralizado
+        ('ALIGN', (1, 0), (1, 0), 'LEFT'),    # Texto alinhado à esquerda
+        ('LEFTPADDING', (0, 0), (-1, -1), 2),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+    ]))
+    
+    story.append(rodape_table)
+    
+    # Gerar PDF
+    doc.build(story)
+    
+    # Configurar resposta para visualização inline (não download automático)
+    buffer.seek(0)
+    response = HttpResponse(buffer.read(), content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="escala_{escala.data.strftime("%Y%m%d")}_{escala.organizacao.replace(" ", "_")}.pdf"'
+    
+    return response
+
+
+
+
+@login_required
+def api_militares_disponiveis(request, pk):
+    """API para buscar militares disponíveis para a escala"""
+    from .models import EscalaServico, EscalaMilitar, Militar, Lotacao
+    from django.shortcuts import get_object_or_404
+    from django.http import JsonResponse
+    from django.db.models import Q
+    from .permissoes_simples import tem_acesso_total_secao_promocoes, pode_gerenciar_escalas
+    
+    escala = get_object_or_404(EscalaServico, pk=pk)
+    militares_escalados = EscalaMilitar.objects.filter(escala=escala).values_list('militar_id', flat=True)
+    
+    # Verificar se é permitido adicionar militares à escala
+    pode_adicionar, mensagem_permissao = escala.pode_adicionar_militares(request.user)
+    
+    # Verificar se o usuário tem acesso total ou pode gerenciar escalas
+    tem_acesso_total = tem_acesso_total_secao_promocoes(request.user) or pode_gerenciar_escalas(request.user)
+    
+    # Verificar se há termo de pesquisa
+    termo_pesquisa = request.GET.get('q', '').strip()
+    
+    # SEMPRE filtrar inicialmente pela organização da escala, independente do tipo de acesso
+    organizacao_escala = escala.organizacao
+    
+    # Debug: Log da organização da escala
+    print(f"🔍 DEBUG: Buscando militares para organização: '{organizacao_escala}'")
+    print(f"🔍 DEBUG: Termo de pesquisa: '{termo_pesquisa}'")
+    
+    # Se houver termo de pesquisa, buscar em TODOS os militares ativos
+    if termo_pesquisa:
+        print(f"🔍 DEBUG: Buscando em TODOS os militares ativos com termo: '{termo_pesquisa}'")
+        militares_organizacao = Militar.objects.filter(
+            classificacao='ATIVO'
+        ).filter(
+            Q(nome_completo__icontains=termo_pesquisa) |
+            Q(nome_guerra__icontains=termo_pesquisa) |
+            Q(matricula__icontains=termo_pesquisa)
+        ).distinct()
+    else:
+        # Sem termo de pesquisa: listar apenas os militares da organização da escala
+        print(f"🔍 DEBUG: Listando militares da organização: '{organizacao_escala}'")
+        # Primeiro, tentar busca exata
+        militares_organizacao = Militar.objects.filter(
+            classificacao='ATIVO',
+            lotacoes__status='ATUAL',
+            lotacoes__ativo=True
+            ).filter(
+                Q(lotacoes__orgao__nome=organizacao_escala) |
+                Q(lotacoes__grande_comando__nome=organizacao_escala) |
+                Q(lotacoes__unidade__nome=organizacao_escala) |
+                Q(lotacoes__sub_unidade__nome=organizacao_escala) |
+                Q(lotacoes__lotacao=organizacao_escala)
+            ).distinct()
+    
+    # Se não encontrou resultados exatos e NÃO há termo de pesquisa, tentar busca por partes
+    if not termo_pesquisa and not militares_organizacao.exists():
+        print(f"🔍 DEBUG: Busca exata não encontrou resultados, tentando busca por partes...")
+        # Dividir o nome da organização em partes para busca mais flexível
+        partes_organizacao = organizacao_escala.split(' - ')
+        if len(partes_organizacao) >= 2:
+            nome_principal = partes_organizacao[0].strip()
+            sigla = partes_organizacao[1].strip()
+            print(f"🔍 DEBUG: Nome principal: '{nome_principal}', Sigla: '{sigla}'")
+            
+            militares_organizacao = Militar.objects.filter(
+                classificacao='ATIVO',
+                lotacoes__status='ATUAL',
+                lotacoes__ativo=True
+            ).filter(
+                Q(lotacoes__orgao__nome=nome_principal) |
+                Q(lotacoes__grande_comando__nome=nome_principal) |
+                Q(lotacoes__unidade__nome=nome_principal) |
+                Q(lotacoes__sub_unidade__nome=nome_principal) |
+                Q(lotacoes__orgao__sigla=sigla) |
+                Q(lotacoes__grande_comando__sigla=sigla) |
+                Q(lotacoes__unidade__sigla=sigla) |
+                Q(lotacoes__sub_unidade__sigla=sigla) |
+                Q(lotacoes__lotacao=organizacao_escala)
+            ).distinct()
+            
+            print(f"🔍 DEBUG: Busca por partes encontrou {militares_organizacao.count()} militares")
+    
+    # Se ainda não encontrou resultados e NÃO há termo de pesquisa, tentar busca mais ampla por palavras-chave
+    if not termo_pesquisa and not militares_organizacao.exists():
+        print(f"🔍 DEBUG: Busca por partes não encontrou resultados, tentando busca ampla...")
+        
+        # Extrair palavras-chave da organização
+        palavras_chave = []
+        if 'Subgrupamento' in organizacao_escala:
+            palavras_chave.append('Subgrupamento')
+        if 'Grupamento' in organizacao_escala:
+            palavras_chave.append('Grupamento')
+        if 'Bombeiros' in organizacao_escala:
+            palavras_chave.append('Bombeiros')
+        if 'Militar' in organizacao_escala:
+            palavras_chave.append('Militar')
+        
+        print(f"🔍 DEBUG: Palavras-chave: {palavras_chave}")
+        
+        if palavras_chave:
+            # Buscar militares que tenham pelo menos uma das palavras-chave
+            query = Q()
+            for palavra in palavras_chave:
+                query |= (
+                    Q(lotacoes__orgao__nome=palavra) |
+                    Q(lotacoes__grande_comando__nome=palavra) |
+                    Q(lotacoes__unidade__nome=palavra) |
+                    Q(lotacoes__sub_unidade__nome=palavra) |
+                    Q(lotacoes__lotacao=palavra)
+                )
+            
+            militares_organizacao = Militar.objects.filter(
+                classificacao='ATIVO',
+                lotacoes__status='ATUAL',
+                lotacoes__ativo=True
+            ).filter(query).distinct()
+            
+            print(f"🔍 DEBUG: Busca ampla encontrou {militares_organizacao.count()} militares")
+    
+    # Ordenar por hierarquia militar e antiguidade
+    # Hierarquia: Oficiais (CB, TC, MJ, CP, 1T, 2T), Aspirantes (AS), Subtenentes (ST), Sargentos (1S, 2S, 3S), Cabos (CAB), Soldados (SD)
+    ordem_hierarquica = ['CB', 'TC', 'MJ', 'CP', '1T', '2T', 'AS', 'ST', '1S', '2S', '3S', 'CAB', 'SD']
+    
+    # Criar expressão Case para ordenação hierárquica
+    from django.db.models import Case, When, Value, IntegerField
+    hierarquia_ordem = Case(
+        *[When(posto_graduacao=posto, then=Value(i)) for i, posto in enumerate(ordem_hierarquica)],
+        default=Value(len(ordem_hierarquica)),
+        output_field=IntegerField()
+    )
+    
+    # Ordenar por hierarquia (mais graduado primeiro) e depois por antiguidade (mais antigo primeiro)
+    militares_organizacao = militares_organizacao.order_by(
+        hierarquia_ordem,  # Hierarquia militar
+        'data_promocao_atual',  # Data de promoção (mais antiga primeiro)
+        'numeracao_antiguidade'  # Numeração de antiguidade como desempate
+    ).values('id', 'nome_completo', 'posto_graduacao', 'data_promocao_atual', 'numeracao_antiguidade')
+    
+    # Converter para lista e marcar quais já estão escalados
+    militares = []
+    for militar in militares_organizacao:
+        ja_escalado = militar['id'] in militares_escalados
+        
+        # Verificar disponibilidade do militar (limite de 24h por dia)
+        # Sempre verificar disponibilidade, mesmo se já estiver escalado (para permitir múltiplos turnos)
+        militar_obj = Militar.objects.get(id=militar['id'])
+        disponivel_24h, horas_atuais, horas_restantes, mensagem_disponibilidade = EscalaMilitar.verificar_disponibilidade_militar_dia(
+            militar_obj, escala.data
+        )
+        
+        # Calcular tempo no posto atual
+        tempo_posto = ""
+        if militar['data_promocao_atual']:
+            from datetime import date
+            hoje = date.today()
+            dias_no_posto = (hoje - militar['data_promocao_atual']).days
+            anos = dias_no_posto // 365
+            meses = (dias_no_posto % 365) // 30
+            if anos > 0:
+                tempo_posto = f"{anos}a {meses}m"
+            elif meses > 0:
+                tempo_posto = f"{meses}m"
+            else:
+                tempo_posto = f"{dias_no_posto}d"
+        
+        # Obter o nome completo do posto/graduação
+        posto_display = militar['posto_graduacao']
+        posto_choices = {
+            'CB': 'Coronel',
+            'TC': 'Tenente-Coronel',
+            'MJ': 'Major',
+            'CP': 'Capitão',
+            '1T': '1º Tenente',
+            '2T': '2º Tenente',
+            'AS': 'Aspirante',
+            'ST': 'Subtenente',
+            '1S': '1º Sargento',
+            '2S': '2º Sargento',
+            '3S': '3º Sargento',
+            'CAB': 'Cabo',
+            'SD': 'Soldado'
+        }
+        posto_graduacao_display = posto_choices.get(militar['posto_graduacao'], militar['posto_graduacao'])
+        
+        # Determinar status de disponibilidade
+        # Priorizar disponibilidade de 24h sobre status de "já escalado" para permitir múltiplos turnos
+        if not disponivel_24h:
+            status_disponibilidade = "indisponivel_24h"
+            mensagem_status = f"Indisponível - {mensagem_disponibilidade}"
+        elif ja_escalado:
+            status_disponibilidade = "ja_escalado"
+            mensagem_status = f"Já escalado - {mensagem_disponibilidade}"
+        else:
+            status_disponibilidade = "disponivel"
+            mensagem_status = f"Disponível - {mensagem_disponibilidade}"
+        
+        militares.append({
+            'id': militar['id'],
+            'nome_completo': militar['nome_completo'],
+            'posto_graduacao': militar['posto_graduacao'],
+            'posto_graduacao_display': posto_graduacao_display,
+            'data_promocao_atual': militar['data_promocao_atual'].strftime('%d/%m/%Y') if militar['data_promocao_atual'] else '',
+            'numeracao_antiguidade': militar['numeracao_antiguidade'] or 0,
+            'tempo_posto': tempo_posto,
+            'ja_escalado': ja_escalado,
+            'disponivel_24h': disponivel_24h,
+            'horas_atuais': round(horas_atuais, 1),
+            'horas_restantes': round(horas_restantes, 1),
+            'status_disponibilidade': status_disponibilidade,
+            'mensagem_disponibilidade': mensagem_status
+        })
+    
+    print(f"🔍 DEBUG: Total de militares encontrados: {len(militares)}")
+    print(f"🔍 DEBUG: Já escalados: {sum(1 for m in militares if m['ja_escalado'])}")
+    print(f"🔍 DEBUG: Indisponíveis (24h): {sum(1 for m in militares if m['status_disponibilidade'] == 'indisponivel_24h')}")
+    print(f"🔍 DEBUG: Disponíveis: {sum(1 for m in militares if m['status_disponibilidade'] == 'disponivel')}")
+    for militar in militares[:5]:  # Mostrar apenas os primeiros 5
+        if militar['ja_escalado']:
+            status = "✓ ESCALADO"
+        elif militar['status_disponibilidade'] == 'indisponivel_24h':
+            status = f"❌ INDISPONÍVEL ({militar['horas_atuais']:.1f}h)"
+        else:
+            status = f"○ DISPONÍVEL ({militar['horas_restantes']:.1f}h restantes)"
+        print(f"🔍 DEBUG: - {militar['nome_completo']} ({militar['posto_graduacao']}) - {status}")
+    
+    return JsonResponse({
+        'militares': militares,
+        'organizacao': escala.organizacao,
+        'total_militares': len(militares),
+        'total_escalados': sum(1 for m in militares if m['ja_escalado']),
+        'total_indisponiveis_24h': sum(1 for m in militares if m['status_disponibilidade'] == 'indisponivel_24h'),
+        'total_disponiveis': sum(1 for m in militares if m['status_disponibilidade'] == 'disponivel'),
+        'acesso_total': tem_acesso_total,
+        'pode_adicionar_militares': pode_adicionar,
+        'mensagem_permissao': mensagem_permissao
+    })
+
+
+@login_required
+def api_militares_escalados(request, pk):
+    """API para buscar militares escalados na escala"""
+    from .models import EscalaServico, EscalaMilitar
+    from django.shortcuts import get_object_or_404
+    from django.http import JsonResponse
+    
+    escala = get_object_or_404(EscalaServico, pk=pk)
+    militares_escalados = EscalaMilitar.objects.filter(escala=escala).select_related('militar')
+    
+    militares = []
+    for escala_militar in militares_escalados:
+        militares.append({
+            'id': escala_militar.id,
+            'nome_completo': escala_militar.militar.nome_completo,
+            'posto_graduacao': escala_militar.militar.get_posto_graduacao_display(),
+            'funcao_display': escala_militar.get_funcao_display(),
+            'tipo_servico_display': escala_militar.get_tipo_servico_display(),
+            'tipo_servico': escala_militar.tipo_servico,
+            'turno_display': escala_militar.get_turno_display(),
+            'hora_inicio': escala_militar.hora_inicio.strftime('%H:%M'),
+            'hora_fim': escala_militar.hora_fim.strftime('%H:%M'),
+            'observacoes': escala_militar.observacoes or '',
+            'secao': escala_militar.secao or '',
+            'funcao_operacional': escala_militar.funcao_operacional or '',
+            'equipe': escala_militar.equipe or '',
+            'viatura': escala_militar.viatura or '',
+            'secao': escala_militar.secao or ''
+        })
+    
+    return JsonResponse({'militares': militares})
+
+
+@login_required
+def api_adicionar_militar(request, pk):
+    """API para adicionar militar individual à escala"""
+    from .models import EscalaServico, EscalaMilitar, Militar
+    from django.shortcuts import get_object_or_404
+    from django.http import JsonResponse
+    from django.contrib import messages
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Método não permitido'})
+    
+    escala = get_object_or_404(EscalaServico, pk=pk)
+    
+    # Verificar se é permitido adicionar militares à escala
+    pode_adicionar, mensagem_validacao = escala.pode_adicionar_militares(request.user)
+    if not pode_adicionar:
+        return JsonResponse({'success': False, 'message': mensagem_validacao})
+    
+    try:
+        militar_id = request.POST.get('militar_id')
+        funcao = request.POST.get('funcao')
+        tipo_servico = request.POST.get('tipo_servico')
+        turno = request.POST.get('turno')
+        hora_inicio = request.POST.get('hora_inicio')
+        hora_fim = request.POST.get('hora_fim')
+        observacoes = request.POST.get('observacoes', '')
+        
+        if not militar_id:
+            return JsonResponse({'success': False, 'message': 'Militar é obrigatório'})
+        
+        militar = Militar.objects.get(id=militar_id)
+        
+        # Verificação removida para permitir múltiplos turnos do mesmo militar na mesma escala
+        
+        # Verificar disponibilidade do militar (limite de 24h por dia)
+        if hora_inicio and hora_fim:
+            from datetime import datetime, time
+            hora_inicio_obj = datetime.strptime(hora_inicio, '%H:%M').time()
+            hora_fim_obj = datetime.strptime(hora_fim, '%H:%M').time()
+            
+            # Verificar conflitos com operações planejadas
+            tem_conflito, planejadas_conflitantes, mensagem_conflito = EscalaMilitar.verificar_conflitos_planejadas(
+                militar, escala.data, hora_inicio_obj, hora_fim_obj
+            )
+            
+            if tem_conflito:
+                return JsonResponse({
+                    'success': False,
+                    'message': mensagem_conflito,
+                    'conflitos_planejadas': planejadas_conflitantes,
+                    'tipo_erro': 'conflito_planejadas'
+                })
+            
+            disponivel, horas_atuais, horas_restantes, mensagem = EscalaMilitar.verificar_disponibilidade_militar_dia(
+                militar, escala.data, hora_inicio_obj, hora_fim_obj
+            )
+            
+            if not disponivel:
+                return JsonResponse({
+                    'success': False, 
+                    'message': mensagem,
+                    'horas_atuais': horas_atuais,
+                    'horas_restantes': horas_restantes,
+                    'tipo_erro': 'limite_horas'
+                })
+        
+        escala_militar = EscalaMilitar.objects.create(
+            escala=escala,
+            militar=militar,
+            funcao=funcao,
+            tipo_servico=tipo_servico,
+            turno=turno,
+            hora_inicio=hora_inicio,
+            hora_fim=hora_fim,
+            observacoes=observacoes
+        )
+        
+        # Atualizar automaticamente o banco de horas (cada turno separadamente)
+        try:
+            from .models import BancoHoras
+            from datetime import datetime, timedelta
+            from decimal import Decimal
+            
+            if escala_militar.hora_fim and escala_militar.hora_inicio:
+                inicio = datetime.combine(escala.data, escala_militar.hora_inicio)
+                fim = datetime.combine(escala.data, escala_militar.hora_fim)
+                
+                # Se a hora fim for menor que a hora início, assumir que é no dia seguinte
+                if fim <= inicio:
+                    fim += timedelta(days=1)
+                
+                duracao = fim - inicio
+                horas_turno = Decimal(str(duracao.total_seconds() / 3600))
+                
+                if horas_turno > 0:
+                    # Verificar se já existe movimentação para este turno específico
+                    movimentacao_existente = BancoHoras.objects.filter(
+                        militar=militar,
+                        data_movimentacao=escala.data,
+                        tipo_movimentacao='ENTRADA',
+                        escala_militar=escala_militar
+                    ).first()
+                    
+                    if movimentacao_existente:
+                        # Atualizar movimentação existente
+                        saldo_anterior = BancoHoras.calcular_saldo_militar(militar, escala.data)
+                        saldo_atual = saldo_anterior + horas_turno
+                        
+                        movimentacao_existente.horas = horas_turno
+                        movimentacao_existente.saldo_anterior = saldo_anterior
+                        movimentacao_existente.saldo_atual = saldo_atual
+                        movimentacao_existente.observacoes = f"Turno {escala_militar.hora_inicio} - {escala_militar.hora_fim} da escala {escala}"
+                        movimentacao_existente.save()
+                    else:
+                        # Criar nova movimentação para este turno
+                        saldo_anterior = BancoHoras.calcular_saldo_militar(militar, escala.data)
+                        saldo_atual = saldo_anterior + horas_turno
+                        
+                        BancoHoras.objects.create(
+                            militar=militar,
+                            data_movimentacao=escala.data,
+                            tipo_movimentacao='ENTRADA',
+                            horas=horas_turno,
+                            saldo_anterior=saldo_anterior,
+                            saldo_atual=saldo_atual,
+                            escala=escala,
+                            escala_militar=escala_militar,
+                            observacoes=f"Turno {escala_militar.hora_inicio} - {escala_militar.hora_fim} da escala {escala}",
+                            criado_por=escala.criado_por
+                        )
+        except Exception as e:
+            # Log do erro mas não falha a operação principal
+            print(f"Erro ao atualizar banco de horas para {militar.nome_completo}: {str(e)}")
+        
+        return JsonResponse({
+            'success': True, 
+            'message': f'Militar {militar.nome_completo} adicionado à escala com sucesso! Banco de horas atualizado automaticamente.'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Erro ao adicionar militar: {str(e)}'})
+
+
+@login_required
+def api_adicionar_coletivo(request, pk):
+    """API para adicionar militares coletivamente à escala"""
+    from .models import EscalaServico, EscalaMilitar, Militar
+    from django.shortcuts import get_object_or_404
+    from django.http import JsonResponse
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Método não permitido'})
+    
+    escala = get_object_or_404(EscalaServico, pk=pk)
+    
+    # Verificar se é permitido adicionar militares à escala
+    pode_adicionar, mensagem_validacao = escala.pode_adicionar_militares(request.user)
+    if not pode_adicionar:
+        return JsonResponse({'success': False, 'message': mensagem_validacao})
+    
+    try:
+        # Receber militares como string separada por vírgula
+        militares_str = request.POST.get('militares_coletivo', '')
+        if militares_str:
+            militares_ids = [int(id.strip()) for id in militares_str.split(',') if id.strip().isdigit()]
+        else:
+            militares_ids = []
+            
+        funcao = request.POST.get('funcao_coletivo')
+        tipo_servico = request.POST.get('tipo_servico_coletivo')
+        turno = request.POST.get('turno_coletivo')
+        hora_inicio = request.POST.get('hora_inicio_coletivo')
+        hora_fim = request.POST.get('hora_fim_coletivo')
+        observacoes = request.POST.get('observacoes_coletivo', '')
+        
+        # Campos específicos para escalas operacionais (dados individuais)
+        dados_operacionais = {}
+        dados_operacionais_str = request.POST.get('dados_operacionais', '')
+        if dados_operacionais_str:
+            import json
+            try:
+                dados_operacionais = json.loads(dados_operacionais_str)
+            except json.JSONDecodeError:
+                dados_operacionais = {}
+        
+        # Campos específicos para escalas administrativas (dados individuais)
+        dados_administrativos = {}
+        dados_administrativos_str = request.POST.get('dados_administrativos', '')
+        if dados_administrativos_str:
+            import json
+            try:
+                dados_administrativos = json.loads(dados_administrativos_str)
+            except json.JSONDecodeError:
+                dados_administrativos = {}
+        
+        if not militares_ids:
+            return JsonResponse({'success': False, 'message': 'Selecione pelo menos um militar'})
+        
+        adicionados = 0
+        indisponiveis = 0
+        
+        for militar_id in militares_ids:
+            try:
+                militar = Militar.objects.get(id=militar_id)
+                
+                # Verificação removida para permitir múltiplos turnos do mesmo militar na mesma escala
+                
+                # Verificar disponibilidade do militar (limite de 24h por dia)
+                if hora_inicio and hora_fim:
+                    from datetime import datetime, time
+                    hora_inicio_obj = datetime.strptime(hora_inicio, '%H:%M').time()
+                    hora_fim_obj = datetime.strptime(hora_fim, '%H:%M').time()
+                    
+                    disponivel, horas_atuais, horas_restantes, mensagem = EscalaMilitar.verificar_disponibilidade_militar_dia(
+                        militar, escala.data, hora_inicio_obj, hora_fim_obj
+                    )
+                    
+                    if not disponivel:
+                        # Pular este militar se não estiver disponível
+                        indisponiveis += 1
+                        continue
+                
+                # Buscar dados operacionais específicos para este militar
+                dados_militar = next((d for d in dados_operacionais if str(d.get('militar_id')) == str(militar_id)), {})
+                
+                # Buscar dados administrativos específicos para este militar
+                dados_admin = next((d for d in dados_administrativos if str(d.get('militar_id')) == str(militar_id)), {})
+                
+                escala_militar = EscalaMilitar.objects.create(
+                    escala=escala,
+                    militar=militar,
+                    funcao=funcao,
+                    tipo_servico=tipo_servico,
+                    turno=turno,
+                    hora_inicio=hora_inicio,
+                    hora_fim=hora_fim,
+                    secao=dados_admin.get('secao_administrativa', ''),
+                    observacoes=observacoes,
+                    funcao_operacional=dados_militar.get('funcao_operacional', ''),
+                    equipe=dados_militar.get('equipe', ''),
+                    viatura=dados_militar.get('viatura', '')
+                )
+                
+                adicionados += 1
+                
+            except Militar.DoesNotExist:
+                continue
+        
+        # Atualizar banco de horas para cada turno individualmente
+        if adicionados > 0:
+            try:
+                from .models import BancoHoras
+                from datetime import datetime, timedelta
+                from decimal import Decimal
+                
+                # Processar cada escala_militar individualmente
+                for escala_militar in escala.militares.all():
+                    try:
+                        if escala_militar.hora_fim and escala_militar.hora_inicio:
+                            inicio = datetime.combine(escala.data, escala_militar.hora_inicio)
+                            fim = datetime.combine(escala.data, escala_militar.hora_fim)
+                            
+                            # Se a hora fim for menor que a hora início, assumir que é no dia seguinte
+                            if fim <= inicio:
+                                fim += timedelta(days=1)
+                            
+                            duracao = fim - inicio
+                            horas_turno = Decimal(str(duracao.total_seconds() / 3600))
+                            
+                            if horas_turno > 0:
+                                # Verificar se já existe movimentação para este turno específico
+                                movimentacao_existente = BancoHoras.objects.filter(
+                                    militar=escala_militar.militar,
+                                    data_movimentacao=escala.data,
+                                    tipo_movimentacao='ENTRADA',
+                                    escala_militar=escala_militar
+                                ).first()
+                                
+                                if movimentacao_existente:
+                                    # Atualizar movimentação existente
+                                    saldo_anterior = BancoHoras.calcular_saldo_militar(escala_militar.militar, escala.data)
+                                    saldo_atual = saldo_anterior + horas_turno
+                                    
+                                    movimentacao_existente.horas = horas_turno
+                                    movimentacao_existente.saldo_anterior = saldo_anterior
+                                    movimentacao_existente.saldo_atual = saldo_atual
+                                    movimentacao_existente.observacoes = f"Turno {escala_militar.hora_inicio} - {escala_militar.hora_fim} da escala {escala}"
+                                    movimentacao_existente.save()
+                                else:
+                                    # Criar nova movimentação para este turno
+                                    saldo_anterior = BancoHoras.calcular_saldo_militar(escala_militar.militar, escala.data)
+                                    saldo_atual = saldo_anterior + horas_turno
+                                    
+                                    BancoHoras.objects.create(
+                                        militar=escala_militar.militar,
+                                        data_movimentacao=escala.data,
+                                        tipo_movimentacao='ENTRADA',
+                                        horas=horas_turno,
+                                        saldo_anterior=saldo_anterior,
+                                        saldo_atual=saldo_atual,
+                                        escala=escala,
+                                        escala_militar=escala_militar,
+                                        observacoes=f"Turno {escala_militar.hora_inicio} - {escala_militar.hora_fim} da escala {escala}",
+                                        criado_por=escala.criado_por
+                                    )
+                    except Exception as e:
+                        print(f"Erro ao processar turno para {escala_militar.militar.nome_completo}: {str(e)}")
+                        continue
+            except Exception as e:
+                print(f"Erro ao atualizar banco de horas: {str(e)}")
+        
+        if adicionados > 0:
+            message = f'{adicionados} militar(es) adicionado(s) com sucesso! Banco de horas atualizado automaticamente.'
+            if indisponiveis > 0:
+                message += f' {indisponiveis} não puderam ser adicionados (indisponíveis).'
+            return JsonResponse({'success': True, 'message': message})
+        else:
+            return JsonResponse({'success': False, 'message': 'Nenhum militar foi adicionado. Todos estavam indisponíveis.'})
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Erro ao adicionar militares: {str(e)}'})
+
+
+@login_required
+def api_remover_militar(request, pk):
+    """API para remover militar da escala"""
+    from .models import EscalaServico, EscalaMilitar, AlteracaoEscala
+    from django.shortcuts import get_object_or_404
+    from django.http import JsonResponse
+    from django.utils import timezone
+    import json
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Método não permitido'})
+    
+    escala = get_object_or_404(EscalaServico, pk=pk)
+    
+    # Verificar se é permitido fazer alterações na escala (inclui verificação de superusuário)
+    pode_alterar, mensagem_validacao = escala.pode_adicionar_militares(request.user)
+    if not pode_alterar:
+        return JsonResponse({'success': False, 'message': mensagem_validacao})
+    
+    try:
+        # Verificar se é requisição com FormData (upload de arquivo)
+        if request.content_type and 'multipart/form-data' in request.content_type:
+            escala_militar_id = request.POST.get('escala_militar_id')
+            justificativa = request.POST.get('justificativa', '').strip()
+            observacoes = request.POST.get('observacoes', '').strip()
+            arquivo = request.FILES.get('arquivo')
+        else:
+            # Requisição JSON (compatibilidade)
+            data = json.loads(request.body)
+            escala_militar_id = data.get('escala_militar_id')
+            justificativa = data.get('justificativa', '').strip()
+            observacoes = data.get('observacoes', '').strip()
+            arquivo = None
+        
+        if not escala_militar_id:
+            return JsonResponse({'success': False, 'message': 'ID do militar é obrigatório'})
+        
+        # Se a escala está aprovada, justificativa é obrigatória
+        if escala.status == 'aprovada' and not justificativa:
+            return JsonResponse({
+                'success': False, 
+                'message': 'Justificativa é obrigatória para alterações em escalas aprovadas'
+            })
+        
+        escala_militar = EscalaMilitar.objects.get(id=escala_militar_id, escala=escala)
+        militar_nome = escala_militar.militar.nome_completo
+        
+        # Salvar dados anteriores para o registro de alteração
+        dados_anteriores = {
+            'militar_id': escala_militar.militar.id,
+            'militar_nome': militar_nome,
+            'funcao': escala_militar.funcao,
+            'tipo_servico': escala_militar.tipo_servico,
+            'turno': escala_militar.turno,
+            'hora_inicio': escala_militar.hora_inicio.strftime('%H:%M'),
+            'hora_fim': escala_militar.hora_fim.strftime('%H:%M'),
+            'funcao_operacional': escala_militar.funcao_operacional,
+            'equipe': escala_militar.equipe,
+            'viatura': escala_militar.viatura,
+            'observacoes': escala_militar.observacoes
+        }
+        
+        # Remover movimentações do banco de horas antes de remover o militar
+        from .models import BancoHoras
+        try:
+            # Buscar e remover movimentações relacionadas a este turno específico
+            movimentacoes_banco = BancoHoras.objects.filter(
+                militar=escala_militar.militar,
+                data_movimentacao=escala.data,
+                tipo_movimentacao='ENTRADA',
+                escala_militar=escala_militar
+            )
+            
+            for movimentacao in movimentacoes_banco:
+                movimentacao.delete()
+            
+            # Recalcular saldos após remoção
+            BancoHoras.recalcular_todos_saldos()
+            
+        except Exception as e:
+            print(f"Erro ao atualizar banco de horas na remoção: {str(e)}")
+        
+        # Remover o militar
+        escala_militar.delete()
+        
+        # Registrar alteração se a escala estiver aprovada
+        if escala.status == 'aprovada':
+            # Combinar justificativa e observações
+            justificativa_completa = justificativa
+            if observacoes:
+                justificativa_completa += f"\n\nObservações: {observacoes}"
+            
+            alteracao = AlteracaoEscala.objects.create(
+                escala=escala,
+                alterado_por=request.user,
+                tipo_alteracao='REMOVER_MILITAR',
+                justificativa=justificativa_completa,
+                militar_afetado=escala_militar.militar,
+                dados_anteriores=dados_anteriores,
+                dados_novos={},
+                valida_ate_data=escala.data
+            )
+            
+            # Salvar arquivo se fornecido
+            if arquivo:
+                from django.core.files.storage import default_storage
+                from django.core.files.base import ContentFile
+                import os
+                from datetime import datetime
+                
+                # Gerar nome único para o arquivo
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                nome_arquivo = f"alteracao_{alteracao.id}_{timestamp}_{arquivo.name}"
+                
+                # Salvar arquivo
+                caminho_arquivo = default_storage.save(f'alteracoes_escalas/{nome_arquivo}', arquivo)
+                
+                # Atualizar registro com caminho do arquivo
+                alteracao.dados_anteriores['arquivo_anexo'] = caminho_arquivo
+                alteracao.dados_anteriores['nome_arquivo_original'] = arquivo.name
+                alteracao.save()
+        
+        return JsonResponse({
+            'success': True, 
+            'message': f'Militar {militar_nome} removido da escala com sucesso!'
+        })
+        
+    except EscalaMilitar.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Militar não encontrado na escala'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Erro ao remover militar: {str(e)}'})
+
+
+@login_required
+def visualizar_documento_alteracao(request, alteracao_id):
+    """Visualizar documento anexado em alteração de escala"""
+    from .models import AlteracaoEscala
+    from django.shortcuts import get_object_or_404
+    from django.http import FileResponse, Http404
+    from django.core.files.storage import default_storage
+    import os
+    
+    try:
+        alteracao = get_object_or_404(AlteracaoEscala, id=alteracao_id)
+        
+        # Verificar se há arquivo anexado
+        if not alteracao.dados_anteriores or 'arquivo_anexo' not in alteracao.dados_anteriores:
+            raise Http404("Documento não encontrado")
+        
+        caminho_arquivo = alteracao.dados_anteriores['arquivo_anexo']
+        nome_original = alteracao.dados_anteriores.get('nome_arquivo_original', 'documento')
+        
+        # Verificar se o arquivo existe
+        if not default_storage.exists(caminho_arquivo):
+            raise Http404("Arquivo não encontrado no servidor")
+        
+        # Abrir arquivo
+        arquivo = default_storage.open(caminho_arquivo, 'rb')
+        
+        # Determinar content type baseado na extensão
+        extensao = os.path.splitext(nome_original)[1].lower()
+        content_types = {
+            '.pdf': 'application/pdf',
+            '.doc': 'application/msword',
+            '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png'
+        }
+        
+        content_type = content_types.get(extensao, 'application/octet-stream')
+        
+        # Configurar headers para visualização inline
+        response = FileResponse(arquivo, content_type=content_type)
+        response['Content-Disposition'] = f'inline; filename="{nome_original}"'
+        
+        return response
+        
+    except Exception as e:
+        raise Http404(f"Erro ao carregar documento: {str(e)}")
+
+@login_required
+def api_secoes_disponiveis(request):
+    """API para buscar seções disponíveis baseadas nas escalas existentes"""
+    from .models import EscalaMilitar
+    from django.http import JsonResponse
+    from django.db.models import Q
+    
+    try:
+        # Buscar seções únicas de escalas administrativas
+        secoes = EscalaMilitar.objects.filter(
+            tipo_servico='administrativo',
+            secao__isnull=False
+        ).exclude(
+            secao=''
+        ).values_list('secao', flat=True).distinct().order_by('secao')
+        
+        # Converter para lista e filtrar por termo de busca se fornecido
+        termo_busca = request.GET.get('q', '').strip()
+        secoes_lista = list(secoes)
+        
+        if termo_busca:
+            secoes_lista = [s for s in secoes_lista if termo_busca.lower() in s.lower()]
+        
+        return JsonResponse({
+            'success': True,
+            'secoes': secoes_lista[:20]  # Limitar a 20 resultados
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erro ao buscar seções: {str(e)}'
+        })
+
+@login_required
+def api_equipes_disponiveis(request):
+    """API para buscar equipes disponíveis baseadas nas escalas existentes"""
+    from .models import EscalaMilitar
+    from django.http import JsonResponse
+    from django.db.models import Q
+    
+    try:
+        # Buscar todas as equipes únicas das escalas
+        equipes = EscalaMilitar.objects.filter(
+            equipe__isnull=False,
+            equipe__gt=''
+        ).values_list('equipe', flat=True).distinct().order_by('equipe')
+        
+        # Buscar também viaturas associadas às equipes
+        equipes_com_viatura = {}
+        for equipe in equipes:
+            viatura = EscalaMilitar.objects.filter(
+                equipe=equipe,
+                viatura__isnull=False,
+                viatura__gt=''
+            ).values_list('viatura', flat=True).first()
+            
+            if viatura:
+                equipes_com_viatura[equipe] = viatura
+        
+        # Formatar dados para autocomplete
+        equipes_data = []
+        for equipe in equipes:
+            equipes_data.append({
+                'nome': equipe,
+                'viatura': equipes_com_viatura.get(equipe, ''),
+                'label': equipe  # Apenas o nome da equipe, sem viatura
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'equipes': equipes_data
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erro ao buscar equipes: {str(e)}'
+        })
+
+
+@login_required
+def api_funcoes_operacionais_disponiveis(request):
+    """API para buscar funções operacionais disponíveis baseadas nas escalas existentes"""
+    from .models import EscalaMilitar
+    from django.http import JsonResponse
+    
+    try:
+        # Buscar todas as funções operacionais únicas das escalas
+        funcoes = EscalaMilitar.objects.filter(
+            funcao_operacional__isnull=False,
+            funcao_operacional__gt=''
+        ).values_list('funcao_operacional', flat=True).distinct().order_by('funcao_operacional')
+        
+        # Formatar dados para autocomplete
+        funcoes_data = []
+        for funcao in funcoes:
+            funcoes_data.append({
+                'nome': funcao,
+                'label': funcao
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'funcoes': funcoes_data
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erro ao buscar funções operacionais: {str(e)}'
+        })
+
+
+@login_required
+def api_revisar_escala(request, pk):
+    """API para revisar uma escala"""
+    from .models import EscalaServico
+    from django.shortcuts import get_object_or_404
+    from django.http import JsonResponse
+    from django.utils import timezone
+    import json
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Método não permitido'})
+    
+    escala = get_object_or_404(EscalaServico, pk=pk)
+    
+    try:
+        data = json.loads(request.body)
+        observacoes = data.get('observacoes', '')
+        
+        # Atualizar escala
+        escala.status = 'em_revisao'
+        escala.revisado_por = request.user
+        escala.data_revisao = timezone.now()
+        escala.observacoes_revisao = observacoes
+        escala.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Escala enviada para revisão com sucesso!'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erro ao revisar escala: {str(e)}'
+        })
+
+
+@login_required
+def api_aprovar_escala(request, pk):
+    """API para aprovar uma escala"""
+    from .models import EscalaServico
+    from django.shortcuts import get_object_or_404
+    from django.http import JsonResponse
+    from django.utils import timezone
+    import json
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Método não permitido'})
+    
+    escala = get_object_or_404(EscalaServico, pk=pk)
+    
+    try:
+        data = json.loads(request.body)
+        observacoes = data.get('observacoes', '')
+        
+        # Atualizar escala
+        escala.status = 'aprovada'
+        escala.aprovado_por = request.user
+        escala.data_aprovacao = timezone.now()
+        escala.observacoes_aprovacao = observacoes
+        escala.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Escala aprovada com sucesso!'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erro ao aprovar escala: {str(e)}'
+        })
+
+
+@login_required
+def api_viaturas_disponiveis(request):
+    """API para buscar viaturas disponíveis baseadas nas escalas existentes"""
+    from .models import EscalaMilitar
+    from django.http import JsonResponse
+    
+    try:
+        # Buscar todas as viaturas únicas das escalas
+        viaturas = EscalaMilitar.objects.filter(
+            viatura__isnull=False,
+            viatura__gt=''
+        ).values_list('viatura', flat=True).distinct().order_by('viatura')
+        
+        # Formatar dados para autocomplete
+        viaturas_data = []
+        for viatura in viaturas:
+            viaturas_data.append({
+                'nome': viatura,
+                'label': viatura
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'viaturas': viaturas_data
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erro ao buscar viaturas: {str(e)}'
+        })
+
+
+@login_required
+def api_organizacoes_disponiveis(request):
+    """API para buscar organizações disponíveis baseado no acesso hierárquico do usuário"""
+    from django.http import JsonResponse
+    from .permissoes_simples import obter_funcao_militar_ativa
+    from .models import UsuarioFuncaoMilitar, Orgao, GrandeComando, Unidade, SubUnidade
+    
+    try:
+        print(f"DEBUG: Iniciando api_organizacoes_disponiveis para usuário: {request.user}")
+        # Obter função atual do usuário
+        funcao_atual = obter_funcao_militar_ativa(request.user)
+        print(f"DEBUG: Função atual obtida: {funcao_atual}")
+        
+        # Se não há função ativa na sessão, buscar a primeira função ativa do usuário
+        if not funcao_atual:
+            funcao_atual = UsuarioFuncaoMilitar.objects.filter(
+                usuario=request.user,
+                ativo=True
+            ).select_related('funcao_militar').first()
+            print(f"DEBUG: Função ativa buscada no banco: {funcao_atual}")
+        
+        # BYPASS COMPLETO PARA SUPERUSUÁRIOS
+        if request.user.is_superuser:
+            print(f"DEBUG: Usuário superusuário - carregando todas as organizações")
+            organizacoes = []
+            
+            # Adicionar órgãos
+            for orgao in Orgao.objects.filter(ativo=True).order_by('nome'):
+                organizacoes.append({
+                    'id': f'orgao_{orgao.id}',
+                    'nome': orgao.nome,
+                    'tipo': 'orgao',
+                    'nivel': 1
+                })
+            
+            # Adicionar grandes comandos
+            for gc in GrandeComando.objects.filter(ativo=True).order_by('nome'):
+                organizacoes.append({
+                    'id': f'gc_{gc.id}',
+                    'nome': f"{gc.orgao.nome} | {gc.nome}",
+                    'tipo': 'grande_comando',
+                    'nivel': 2
+                })
+            
+            # Adicionar unidades
+            for u in Unidade.objects.filter(ativo=True).order_by('nome'):
+                organizacoes.append({
+                    'id': f'unidade_{u.id}',
+                    'nome': f"{u.grande_comando.orgao.nome} | {u.grande_comando.nome} | {u.nome}",
+                    'tipo': 'unidade',
+                    'nivel': 3
+                })
+            
+            # Adicionar subunidades
+            for s in SubUnidade.objects.filter(ativo=True).order_by('nome'):
+                organizacoes.append({
+                    'id': f'sub_{s.id}',
+                    'nome': f"{s.unidade.grande_comando.orgao.nome} | {s.unidade.grande_comando.nome} | {s.unidade.nome} | {s.nome}",
+                    'tipo': 'subunidade',
+                    'nivel': 4
+                })
+        
+            print(f"DEBUG: Retornando {len(organizacoes)} organizações para superusuário")
+            return JsonResponse({
+                'success': True,
+                'organizacoes': organizacoes,
+                'total': len(organizacoes)
+            })
+        
+        # Para usuários com função militar, usar o sistema hierárquico
+        if funcao_atual and funcao_atual.funcao_militar:
+            funcao_militar = funcao_atual.funcao_militar
+            print(f"DEBUG: Usuário com função - acesso: {funcao_militar.acesso}")
+            print(f"DEBUG: Função militar: {funcao_militar}")
+            print(f"DEBUG: Função atual: {funcao_atual}")
+            organizacoes = []
+            
+            # TIPO DE ACESSO = TOTAL: Acesso total
+            if funcao_militar.acesso == 'TOTAL':
+                # Adicionar órgãos
+                for orgao in Orgao.objects.filter(ativo=True).order_by('nome'):
+                    organizacoes.append({
+                        'id': f'orgao_{orgao.id}',
+                        'nome': orgao.nome,
+                        'tipo': 'orgao',
+                        'nivel': 1
+                    })
+                
+                # Adicionar grandes comandos
+                for gc in GrandeComando.objects.filter(ativo=True).order_by('nome'):
+                    organizacoes.append({
+                        'id': f'gc_{gc.id}',
+                        'nome': f"{gc.orgao.nome} | {gc.nome}",
+                        'tipo': 'grande_comando',
+                        'nivel': 2
+                    })
+                
+                # Adicionar unidades
+                for u in Unidade.objects.filter(ativo=True).order_by('nome'):
+                    organizacoes.append({
+                        'id': f'unidade_{u.id}',
+                        'nome': f"{u.grande_comando.orgao.nome} | {u.grande_comando.nome} | {u.nome}",
+                        'tipo': 'unidade',
+                        'nivel': 3
+                    })
+                
+                # Adicionar subunidades
+                for s in SubUnidade.objects.filter(ativo=True).order_by('nome'):
+                    organizacoes.append({
+                        'id': f'sub_{s.id}',
+                        'nome': f"{s.unidade.grande_comando.orgao.nome} | {s.unidade.grande_comando.nome} | {s.unidade.nome} | {s.nome}",
+                        'tipo': 'subunidade',
+                        'nivel': 4
+                    })
+            
+            # TIPO DE ACESSO = ORGAO: Acesso ao órgão + TODAS suas descendências
+            elif funcao_militar.acesso == 'ORGAO':
+                if funcao_atual.orgao:
+                    # Adicionar órgão
+                    organizacoes.append({
+                        'id': f'orgao_{funcao_atual.orgao.id}',
+                        'nome': funcao_atual.orgao.nome,
+                        'tipo': 'orgao',
+                        'nivel': 1
+                    })
+                    
+                    # Adicionar grandes comandos
+                    grandes_comandos = GrandeComando.objects.filter(orgao=funcao_atual.orgao, ativo=True)
+                    for gc in grandes_comandos.order_by('nome'):
+                        organizacoes.append({
+                            'id': f'gc_{gc.id}',
+                            'nome': f"{funcao_atual.orgao.nome} | {gc.nome}",
+                            'tipo': 'grande_comando',
+                            'nivel': 2
+                        })
+                    
+                    # Adicionar unidades
+                    unidades = Unidade.objects.filter(grande_comando__in=grandes_comandos, ativo=True)
+                    for u in unidades.order_by('nome'):
+                        organizacoes.append({
+                            'id': f'unidade_{u.id}',
+                            'nome': f"{funcao_atual.orgao.nome} | {u.grande_comando.nome} | {u.nome}",
+                            'tipo': 'unidade',
+                            'nivel': 3
+                        })
+                    
+                    # Adicionar subunidades
+                    subunidades = SubUnidade.objects.filter(unidade__in=unidades, ativo=True)
+                    for s in subunidades.order_by('nome'):
+                        organizacoes.append({
+                            'id': f'sub_{s.id}',
+                            'nome': f"{funcao_atual.orgao.nome} | {s.unidade.grande_comando.nome} | {s.unidade.nome} | {s.nome}",
+                            'tipo': 'subunidade',
+                            'nivel': 4
+                        })
+            
+            # TIPO DE ACESSO = GRANDE_COMANDO: Acesso ao grande comando + TODAS suas descendências
+            elif funcao_militar.acesso == 'GRANDE_COMANDO':
+                if funcao_atual.grande_comando:
+                    # Adicionar grande comando
+                    organizacoes.append({
+                        'id': f'gc_{funcao_atual.grande_comando.id}',
+                        'nome': f"{funcao_atual.grande_comando.orgao.nome} | {funcao_atual.grande_comando.nome}",
+                        'tipo': 'grande_comando',
+                        'nivel': 2
+                    })
+                    
+                    # Adicionar unidades
+                    unidades = Unidade.objects.filter(grande_comando=funcao_atual.grande_comando, ativo=True)
+                    for u in unidades.order_by('nome'):
+                        organizacoes.append({
+                            'id': f'unidade_{u.id}',
+                            'nome': f"{funcao_atual.grande_comando.orgao.nome} | {funcao_atual.grande_comando.nome} | {u.nome}",
+                            'tipo': 'unidade',
+                            'nivel': 3
+                        })
+                    
+                    # Adicionar subunidades
+                    subunidades = SubUnidade.objects.filter(unidade__in=unidades, ativo=True)
+                    for s in subunidades.order_by('nome'):
+                        organizacoes.append({
+                            'id': f'sub_{s.id}',
+                            'nome': f"{funcao_atual.grande_comando.orgao.nome} | {s.unidade.grande_comando.nome} | {s.unidade.nome} | {s.nome}",
+                            'tipo': 'subunidade',
+                            'nivel': 4
+                        })
+            
+            # TIPO DE ACESSO = UNIDADE: Acesso à unidade + TODAS suas subunidades
+            elif funcao_militar.acesso == 'UNIDADE':
+                if funcao_atual.unidade:
+                    # Adicionar unidade
+                    organizacoes.append({
+                        'id': f'unidade_{funcao_atual.unidade.id}',
+                        'nome': f"{funcao_atual.unidade.grande_comando.orgao.nome} | {funcao_atual.unidade.grande_comando.nome} | {funcao_atual.unidade.nome}",
+                        'tipo': 'unidade',
+                        'nivel': 3
+                    })
+                    
+                    # Adicionar subunidades
+                    subunidades = SubUnidade.objects.filter(unidade=funcao_atual.unidade, ativo=True)
+                    for s in subunidades.order_by('nome'):
+                        organizacoes.append({
+                            'id': f'sub_{s.id}',
+                            'nome': f"{funcao_atual.unidade.grande_comando.orgao.nome} | {funcao_atual.unidade.grande_comando.nome} | {funcao_atual.unidade.nome} | {s.nome}",
+                            'tipo': 'subunidade',
+                            'nivel': 4
+                        })
+            
+            # TIPO DE ACESSO = SUBUNIDADE: Acesso apenas à subunidade
+            elif funcao_militar.acesso == 'SUBUNIDADE':
+                if funcao_atual.sub_unidade:
+                    organizacoes.append({
+                        'id': f'sub_{funcao_atual.sub_unidade.id}',
+                        'nome': f"{funcao_atual.sub_unidade.unidade.grande_comando.orgao.nome} | {funcao_atual.sub_unidade.unidade.grande_comando.nome} | {funcao_atual.sub_unidade.unidade.nome} | {funcao_atual.sub_unidade.nome}",
+                        'tipo': 'subunidade',
+                        'nivel': 4
+                    })
+            
+            print(f"DEBUG: Retornando {len(organizacoes)} organizações para usuário com função")
+            return JsonResponse({
+                'success': True,
+                'organizacoes': organizacoes,
+                'total': len(organizacoes)
+            })
+        
+        # Se não tem função ativa, retornar lista vazia
+        print(f"DEBUG: Usuário sem função ativa - retornando lista vazia")
+        print(f"DEBUG: funcao_atual: {funcao_atual}")
+        if funcao_atual:
+            print(f"DEBUG: funcao_atual.funcao_militar: {funcao_atual.funcao_militar}")
+        return JsonResponse({
+            'success': True,
+            'organizacoes': [],
+            'total': 0
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao buscar organizações: {str(e)}'
+        })
+
+
+@login_required
+def gerar_escalas_mes(request):
+    """Gerar escalas do mês via AJAX"""
+    if request.method == 'POST':
+        try:
+            from datetime import datetime, timedelta, time
+            from django.http import JsonResponse
+            from .models import EscalaServico, EscalaMilitar
+            
+            # Obter dados do formulário
+            organizacao = request.POST.get('organizacao')
+            mes = int(request.POST.get('mes'))
+            ano = int(request.POST.get('ano'))
+            sobrescrever_existentes = request.POST.get('sobrescrever_existentes') == 'on'
+            
+            # Configurações serão definidas individualmente para cada escala
+            # Não usar valores padrão fixos
+            
+            # Validar dados obrigatórios
+            if not all([organizacao, mes, ano]):
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Todos os campos obrigatórios devem ser preenchidos'
+                })
+            
+            # Calcular dias do mês
+            primeiro_dia = datetime(ano, mes, 1)
+            ultimo_dia = datetime(ano, mes + 1, 1) - timedelta(days=1)
+            dias_no_mes = ultimo_dia.day
+            
+            # Usar o nome da organização diretamente (já vem formatado da API)
+            nome_organizacao = organizacao
+            
+            # Mapear códigos para nomes dos meses
+            meses_nomes = {
+                1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril',
+                5: 'Maio', 6: 'Junho', 7: 'Julho', 8: 'Agosto',
+                9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'
+            }
+            
+            # Configurações padrão para escalas (serão definidas individualmente depois)
+            tipo_servico_padrao = 'operacional'
+            turno_padrao = '8h'
+            hora_inicio_padrao = time(8, 0)  # 08:00
+            hora_fim_padrao = time(16, 0)   # 16:00
+            
+            # Lista de escalas criadas
+            escalas_criadas = []
+            escalas_existentes = 0
+            
+            # Verificar se já existem escalas para esta organização no mês
+            escalas_existentes_mes = EscalaServico.objects.filter(
+                data__year=ano,
+                data__month=mes,
+                organizacao=nome_organizacao
+            )
+            
+            if escalas_existentes_mes.exists() and not sobrescrever_existentes:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Já existem escalas para {nome_organizacao} em {meses_nomes[mes]}/{ano}. Marque a opção "Sobrescrever escalas existentes" para continuar.'
+                })
+            
+            # Gerar escalas para cada dia do mês (TODOS os dias)
+            for dia in range(1, dias_no_mes + 1):
+                data_escala = datetime(ano, mes, dia).date()
+                
+                # Verificar se já existe escala para esta data/organização
+                escala_existente = EscalaServico.objects.filter(
+                    data=data_escala,
+                    organizacao=nome_organizacao
+                ).first()
+                
+                if escala_existente:
+                    if sobrescrever_existentes:
+                        # Atualizar escala existente
+                        escala_existente.tipo_servico = tipo_servico_padrao
+                        escala_existente.turno = turno_padrao
+                        escala_existente.hora_inicio = hora_inicio_padrao
+                        escala_existente.hora_fim = hora_fim_padrao
+                        escala_existente.status = 'pendente'
+                        escala_existente.save()
+                        escalas_criadas.append(escala_existente)
+                    else:
+                        escalas_existentes += 1
+                else:
+                    # Criar nova escala
+                    nova_escala = EscalaServico.objects.create(
+                        data=data_escala,
+                        organizacao=nome_organizacao,
+                        tipo_servico=tipo_servico_padrao,
+                        turno=turno_padrao,
+                        hora_inicio=hora_inicio_padrao,
+                        hora_fim=hora_fim_padrao,
+                        status='pendente',
+                        criado_por=request.user
+                    )
+                    escalas_criadas.append(nova_escala)
+            
+            # Sincronizar banco de horas automaticamente após criar escalas
+            if escalas_criadas:
+                try:
+                    from .models import BancoHoras
+                    resultado_sincronizacao = BancoHoras.sincronizar_banco_horas_escalas(
+                        data_inicio=primeiro_dia.date(),
+                        data_fim=ultimo_dia.date()
+                    )
+                    print(f"Sincronização automática: {resultado_sincronizacao}")
+                except Exception as e:
+                    print(f"Erro na sincronização automática: {str(e)}")
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Escalas geradas com sucesso!',
+                'detalhes': {
+                    'organizacao': nome_organizacao,
+                    'mes': meses_nomes.get(mes, mes),
+                    'ano': ano,
+                    'total_escalas': len(escalas_criadas),
+                    'escalas_existentes': escalas_existentes,
+                    'dias_no_mes': dias_no_mes,
+                    'escalas_geradas': [
+                        {
+                            'data': escala.data.strftime('%d/%m/%Y'),
+                            'organizacao': escala.organizacao,
+                            'status': escala.get_status_display()
+                        } for escala in escalas_criadas[:5]  # Mostrar apenas as primeiras 5
+                    ]
+                }
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Erro ao gerar escalas: {str(e)}'
+            })
+    
+    return JsonResponse({
+        'success': False,
+        'error': 'Método não permitido'
+    })
+
+
+@login_required
+def escalas_controle(request):
+    """Controle de escalas - listar todas as instâncias organizacionais com estatísticas"""
+    from .models import Militar, EscalaServico, Orgao, GrandeComando, Unidade, SubUnidade
+    from django.db.models import Count, Q
+    from datetime import datetime
+    
+    def contar_militares_escalas(escalas_instancia):
+        """Função auxiliar para contar militares escalados"""
+        militares_escalados = set()
+        
+        for escala in escalas_instancia:
+            for escala_militar in escala.militares.all():
+                militar = escala_militar.militar
+                militares_escalados.add(militar.id)
+        
+        return len(militares_escalados)
+    
+    # Obter mês e ano atual
+    hoje = datetime.now()
+    mes_atual = hoje.month
+    ano_atual = hoje.year
+    
+    # Listas para separar instâncias com e sem escalas
+    instancias_com_escalas = []
+    instancias_sem_escalas = []
+    
+    # Estatísticas gerais
+    total_instancias = 0
+    total_efetivo_geral = 0
+    total_prontos_geral = 0
+    total_escalados_geral = 0
+    
+    # Conjuntos para evitar duplicação de militares
+    militares_unicos_geral = set()
+    militares_prontos_unicos = set()
+    militares_afastados_unicos = set()
+    militares_escalados_unicos = set()
+    
+    # 1. PROCESSAR ÓRGÃOS
+    orgaos = Orgao.objects.filter(ativo=True).order_by('nome')
+    for orgao in orgaos:
+        total_instancias += 1
+        
+        # Buscar militares lotados diretamente no órgão (sem dependências)
+        militares_orgao = Militar.objects.filter(
+            lotacoes__orgao=orgao,
+            lotacoes__grande_comando__isnull=True,
+            lotacoes__unidade__isnull=True,
+            lotacoes__sub_unidade__isnull=True,
+            lotacoes__status='ATUAL',
+            lotacoes__ativo=True
+        ).distinct()
+        
+        # Estatísticas do órgão
+        total_efetivo = militares_orgao.count()
+        # Todos os tipos de afastamento (exceto PRONTO e ATIVO)
+        afastados = militares_orgao.exclude(
+            situacao__in=['PRONTO', 'ATIVO']
+        ).count()
+        # Prontos = Efetivo Total - Afastados (matemática correta)
+        prontos = total_efetivo - afastados
+        
+        # Adicionar militares únicos aos conjuntos gerais
+        for militar in militares_orgao:
+            militares_unicos_geral.add(militar.id)
+            # Considerar prontos todos os que não estão afastados (PRONTO + ATIVO)
+            if militar.situacao in ['PRONTO', 'ATIVO']:
+                militares_prontos_unicos.add(militar.id)
+            # Considerar afastados todos os que não estão prontos
+            else:
+                militares_afastados_unicos.add(militar.id)
+        
+        # Buscar escalas do órgão no mês
+        escalas_orgao = EscalaServico.objects.filter(
+            data__month=mes_atual,
+            data__year=ano_atual
+        ).filter(
+            Q(organizacao__icontains=orgao.nome) |
+            Q(organizacao__icontains=orgao.sigla) |
+            Q(organizacao__icontains=orgao.nome_completo)
+        )
+        
+        # Contar militares escalados
+        militares_escalados = contar_militares_escalas(escalas_orgao)
+        
+        # Verificar se há escalas para o órgão
+        escalas_mes = EscalaServico.objects.filter(
+            data__month=mes_atual,
+            data__year=ano_atual
+        ).filter(
+            Q(organizacao__icontains=orgao.nome) |
+            Q(organizacao__icontains=orgao.sigla)
+        ).exists()
+        
+        quantidade_escalas = EscalaServico.objects.filter(
+            data__month=mes_atual,
+            data__year=ano_atual
+        ).filter(
+            Q(organizacao__icontains=orgao.nome) |
+            Q(organizacao__icontains=orgao.sigla)
+        ).count()
+        
+        dados_instancia = {
+            'tipo': 'Órgão',
+            'nome': orgao.nome_completo,
+            'sigla': orgao.sigla,
+            'total_efetivo': total_efetivo,
+            'prontos': prontos,
+            'afastados': afastados,
+            'operacionais': militares_escalados,
+            'escalas_mes': escalas_mes,
+            'quantidade_escalas': quantidade_escalas
+        }
+        
+        if escalas_mes:
+            instancias_com_escalas.append(dados_instancia)
+        else:
+            instancias_sem_escalas.append(dados_instancia)
+        
+        # Adicionar militares escalados únicos
+        for escala in escalas_orgao:
+            for escala_militar in escala.militares.all():
+                militar = escala_militar.militar
+                militares_escalados_unicos.add(militar.id)
+    
+    # 2. PROCESSAR GRANDES COMANDOS
+    grandes_comandos = GrandeComando.objects.filter(ativo=True).order_by('orgao__nome', 'nome')
+    for gc in grandes_comandos:
+        total_instancias += 1
+        
+        # Buscar militares lotados diretamente no grande comando (sem dependências)
+        militares_gc = Militar.objects.filter(
+            lotacoes__grande_comando=gc,
+            lotacoes__unidade__isnull=True,
+            lotacoes__sub_unidade__isnull=True,
+            lotacoes__status='ATUAL',
+            lotacoes__ativo=True
+        ).distinct()
+        
+        # Estatísticas do grande comando
+        total_efetivo = militares_gc.count()
+        # Todos os tipos de afastamento (exceto PRONTO e ATIVO)
+        afastados = militares_gc.exclude(
+            situacao__in=['PRONTO', 'ATIVO']
+        ).count()
+        # Prontos = Efetivo Total - Afastados (matemática correta)
+        prontos = total_efetivo - afastados
+        
+        # Adicionar militares únicos aos conjuntos gerais
+        for militar in militares_gc:
+            militares_unicos_geral.add(militar.id)
+            # Considerar prontos todos os que não estão afastados (PRONTO + ATIVO)
+            if militar.situacao in ['PRONTO', 'ATIVO']:
+                militares_prontos_unicos.add(militar.id)
+            # Considerar afastados todos os que não estão prontos
+            else:
+                militares_afastados_unicos.add(militar.id)
+        
+        # Buscar escalas do grande comando no mês
+        escalas_gc = EscalaServico.objects.filter(
+            data__month=mes_atual,
+            data__year=ano_atual
+        ).filter(
+            Q(organizacao__icontains=gc.nome) |
+            Q(organizacao__icontains=gc.sigla) |
+            Q(organizacao__icontains=gc.nome_completo)
+        )
+        
+        # Contar militares escalados
+        militares_escalados = contar_militares_escalas(escalas_gc)
+        
+        # Verificar se há escalas para o grande comando
+        escalas_mes = escalas_gc.exists()
+        quantidade_escalas = escalas_gc.count()
+        
+        dados_instancia = {
+            'tipo': 'Grande Comando',
+            'nome': gc.nome_completo,
+            'sigla': gc.sigla,
+            'total_efetivo': total_efetivo,
+            'prontos': prontos,
+            'afastados': afastados,
+            'operacionais': militares_escalados,
+            'escalas_mes': escalas_mes,
+            'quantidade_escalas': quantidade_escalas
+        }
+        
+        if escalas_mes:
+            instancias_com_escalas.append(dados_instancia)
+        else:
+            instancias_sem_escalas.append(dados_instancia)
+        
+        # Adicionar militares escalados únicos
+        for escala in escalas_gc:
+            for escala_militar in escala.militares.all():
+                militar = escala_militar.militar
+                militares_escalados_unicos.add(militar.id)
+    
+    # 3. PROCESSAR UNIDADES
+    unidades = Unidade.objects.filter(ativo=True).order_by('grande_comando__orgao__nome', 'grande_comando__nome', 'nome')
+    for unidade in unidades:
+        total_instancias += 1
+        
+        # Buscar militares lotados diretamente na unidade (sem dependências)
+        militares_unidade = Militar.objects.filter(
+            lotacoes__unidade=unidade,
+            lotacoes__sub_unidade__isnull=True,
+            lotacoes__status='ATUAL',
+            lotacoes__ativo=True
+        ).distinct()
+        
+        # Estatísticas da unidade
+        total_efetivo = militares_unidade.count()
+        # Todos os tipos de afastamento (exceto PRONTO e ATIVO)
+        afastados = militares_unidade.exclude(
+            situacao__in=['PRONTO', 'ATIVO']
+        ).count()
+        # Prontos = Efetivo Total - Afastados (matemática correta)
+        prontos = total_efetivo - afastados
+        
+        # Adicionar militares únicos aos conjuntos gerais
+        for militar in militares_unidade:
+            militares_unicos_geral.add(militar.id)
+            # Considerar prontos todos os que não estão afastados (PRONTO + ATIVO)
+            if militar.situacao in ['PRONTO', 'ATIVO']:
+                militares_prontos_unicos.add(militar.id)
+            # Considerar afastados todos os que não estão prontos
+            else:
+                militares_afastados_unicos.add(militar.id)
+        
+        # Buscar escalas da unidade no mês (apenas da instância específica)
+        escalas_unidade = EscalaServico.objects.filter(
+            data__month=mes_atual,
+            data__year=ano_atual
+        ).filter(
+            Q(organizacao__icontains=unidade.nome) |
+            Q(organizacao__icontains=unidade.sigla)
+        ).exclude(
+            organizacao__icontains='Subgrupamento'  # Excluir escalas de subunidades
+        )
+        
+        # Contar militares escalados
+        militares_escalados = contar_militares_escalas(escalas_unidade)
+        
+        # Verificar se há escalas para a unidade
+        escalas_mes = escalas_unidade.exists()
+        quantidade_escalas = escalas_unidade.count()
+        
+        dados_instancia = {
+            'tipo': 'Unidade',
+            'nome': unidade.nome,
+            'sigla': unidade.sigla,
+            'total_efetivo': total_efetivo,
+            'prontos': prontos,
+            'afastados': afastados,
+            'operacionais': militares_escalados,
+            'escalas_mes': escalas_mes,
+            'quantidade_escalas': quantidade_escalas
+        }
+        
+        if escalas_mes:
+            instancias_com_escalas.append(dados_instancia)
+        else:
+            instancias_sem_escalas.append(dados_instancia)
+        
+        # Adicionar militares escalados únicos
+        for escala in escalas_unidade:
+            for escala_militar in escala.militares.all():
+                militar = escala_militar.militar
+                militares_escalados_unicos.add(militar.id)
+    
+    # 4. PROCESSAR SUBUNIDADES
+    subunidades = SubUnidade.objects.filter(ativo=True).order_by('unidade__grande_comando__orgao__nome', 'unidade__grande_comando__nome', 'unidade__nome', 'nome')
+    for sub in subunidades:
+        total_instancias += 1
+        
+        # Buscar militares lotados na subunidade
+        militares_sub = Militar.objects.filter(
+            lotacoes__sub_unidade=sub,
+            lotacoes__status='ATUAL',
+            lotacoes__ativo=True
+        ).distinct()
+        
+        # Estatísticas da subunidade
+        total_efetivo = militares_sub.count()
+        # Todos os tipos de afastamento (exceto PRONTO e ATIVO)
+        afastados = militares_sub.exclude(
+            situacao__in=['PRONTO', 'ATIVO']
+        ).count()
+        # Prontos = Efetivo Total - Afastados (matemática correta)
+        prontos = total_efetivo - afastados
+        
+        # Adicionar militares únicos aos conjuntos gerais
+        for militar in militares_sub:
+            militares_unicos_geral.add(militar.id)
+            # Considerar prontos todos os que não estão afastados (PRONTO + ATIVO)
+            if militar.situacao in ['PRONTO', 'ATIVO']:
+                militares_prontos_unicos.add(militar.id)
+            # Considerar afastados todos os que não estão prontos
+            else:
+                militares_afastados_unicos.add(militar.id)
+        
+        # Buscar escalas da subunidade no mês
+        escalas_subunidade = EscalaServico.objects.filter(
+            data__month=mes_atual,
+            data__year=ano_atual
+        ).filter(
+            Q(organizacao__icontains=sub.nome) |
+            Q(organizacao__icontains=sub.sigla)
+        )
+        
+        # Contar militares escalados
+        militares_escalados = contar_militares_escalas(escalas_subunidade)
+        
+        # Verificar se há escalas para a subunidade
+        escalas_mes = escalas_subunidade.exists()
+        quantidade_escalas = escalas_subunidade.count()
+        
+        dados_instancia = {
+            'tipo': 'Subunidade',
+            'nome': sub.nome,
+            'sigla': sub.sigla,
+            'total_efetivo': total_efetivo,
+            'prontos': prontos,
+            'afastados': afastados,
+            'operacionais': militares_escalados,
+            'escalas_mes': escalas_mes,
+            'quantidade_escalas': quantidade_escalas
+        }
+        
+        if escalas_mes:
+            instancias_com_escalas.append(dados_instancia)
+        else:
+            instancias_sem_escalas.append(dados_instancia)
+        
+        # Adicionar militares escalados únicos
+        for escala in escalas_subunidade:
+            for escala_militar in escala.militares.all():
+                militar = escala_militar.militar
+                militares_escalados_unicos.add(militar.id)
+    
+    # Calcular taxa de conformidade
+    taxa_conformidade = (len(instancias_com_escalas) / total_instancias * 100) if total_instancias > 0 else 0
+    
+    # Calcular estatísticas gerais únicas (sem duplicação)
+    total_efetivo_geral = len(militares_unicos_geral)
+    total_prontos_geral = len(militares_prontos_unicos)
+    total_afastados_geral = len(militares_afastados_unicos)
+    total_escalados_geral = len(militares_escalados_unicos)
+    
+    context = {
+        'title': 'Controle de Escalas',
+        'page_title': 'Controle de Escalas',
+        'instancias_com_escalas': instancias_com_escalas,
+        'instancias_sem_escalas': instancias_sem_escalas,
+        'total_instancias': total_instancias,
+        'total_efetivo_geral': total_efetivo_geral,
+        'total_prontos_geral': total_prontos_geral,
+        'total_afastados_geral': total_afastados_geral,
+        'total_escalados_geral': total_escalados_geral,
+        'taxa_conformidade': taxa_conformidade,
+        'mes_atual': mes_atual,
+        'ano_atual': ano_atual
+    }
+    
+    return render(request, 'militares/escalas_controle.html', context)
+
+
+@login_required
+def api_verificar_conflitos_planejadas(request):
+    """API para verificar conflitos com operações planejadas antes de adicionar militar à escala"""
+    from .models import Militar, EscalaMilitar
+    from django.http import JsonResponse
+    from datetime import datetime
+    
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Método não permitido'})
+    
+    militar_id = request.GET.get('militar_id')
+    data = request.GET.get('data')
+    hora_inicio = request.GET.get('hora_inicio')
+    hora_fim = request.GET.get('hora_fim')
+    
+    if not all([militar_id, data, hora_inicio, hora_fim]):
+        return JsonResponse({'success': False, 'message': 'Parâmetros obrigatórios: militar_id, data, hora_inicio, hora_fim'})
+    
+    try:
+        militar = Militar.objects.get(id=militar_id)
+        data_obj = datetime.strptime(data, '%Y-%m-%d').date()
+        hora_inicio_obj = datetime.strptime(hora_inicio, '%H:%M').time()
+        hora_fim_obj = datetime.strptime(hora_fim, '%H:%M').time()
+        
+        # Verificar conflitos com operações planejadas
+        tem_conflito, planejadas_conflitantes, mensagem = EscalaMilitar.verificar_conflitos_planejadas(
+            militar, data_obj, hora_inicio_obj, hora_fim_obj
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'tem_conflito': tem_conflito,
+            'conflitos': planejadas_conflitantes,
+            'mensagem': mensagem
+        })
+        
+    except Militar.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Militar não encontrado'})
+    except ValueError as e:
+        return JsonResponse({'success': False, 'message': f'Erro de formato de data/hora: {str(e)}'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Erro interno: {str(e)}'})

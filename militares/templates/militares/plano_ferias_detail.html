@@ -1,0 +1,1144 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load militares_extras %}
+
+{% block title %}Plano de Férias - Detalhes{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-calendar-alt me-2 text-info"></i>Plano de Férias
+                    </h2>
+                    <p class="text-muted mb-0">{{ plano.titulo }}</p>
+                </div>
+                <div>
+                    {% if user.is_superuser %}
+                    <!-- Botão Editar sempre visível para superusuários -->
+                    <a href="{% url 'militares:plano_ferias_update' plano.pk %}" class="btn btn-primary me-2">
+                        <i class="fas fa-edit me-2"></i>Editar
+                    </a>
+                    {% elif menu_permissions.BOTAO_PLANO_FERIAS_EDITAR %}
+                    <a href="{% url 'militares:plano_ferias_update' plano.pk %}" class="btn btn-primary me-2">
+                        <i class="fas fa-edit me-2"></i>Editar
+                    </a>
+                    {% endif %}
+                    <a href="{% url 'militares:ferias_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Voltar
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Informações do Plano -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-info-circle me-2"></i>Informações do Plano
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <strong class="text-muted">Título:</strong>
+                                    <p class="mb-0">{{ plano.titulo }}</p>
+                                </div>
+                                <div class="col-md-3">
+                                    <strong class="text-muted">Ano de Referência:</strong>
+                                    <p class="mb-0">
+                                        <span class="badge bg-primary fs-6">{{ plano.ano_referencia }}</span>
+                                    </p>
+                                </div>
+                                <div class="col-md-3">
+                                    <strong class="text-muted">Ano do Plano:</strong>
+                                    <p class="mb-0">
+                                        <span class="badge bg-info fs-6">{{ plano.ano_plano }}</span>
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <strong class="text-muted">Status:</strong>
+                                    <p class="mb-0">
+                                        {% if plano.status == 'RASCUNHO' %}
+                                            <span class="badge bg-secondary">{{ plano.get_status_display }}</span>
+                                        {% elif plano.status == 'EM_APROVACAO' %}
+                                            <span class="badge bg-warning text-dark">{{ plano.get_status_display }}</span>
+                                        {% elif plano.status == 'APROVADO' %}
+                                            <span class="badge bg-success">{{ plano.get_status_display }}</span>
+                                        {% elif plano.status == 'PUBLICADO' %}
+                                            <span class="badge bg-primary">{{ plano.get_status_display }}</span>
+                                        {% elif plano.status == 'CANCELADO' %}
+                                            <span class="badge bg-danger">{{ plano.get_status_display }}</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            {% if plano.descricao %}
+                            <div class="mb-3">
+                                <strong class="text-muted">Descrição:</strong>
+                                <p class="mb-0">{{ plano.descricao|linebreaks }}</p>
+                            </div>
+                            {% endif %}
+                            
+                            {% if plano.documento_referencia or plano.numero_documento %}
+                            <div class="row mb-3">
+                                {% if plano.documento_referencia %}
+                                <div class="col-md-6">
+                                    <strong class="text-muted">Documento de Referência:</strong>
+                                    <p class="mb-0">{{ plano.documento_referencia }}</p>
+                                </div>
+                                {% endif %}
+                                {% if plano.numero_documento %}
+                                <div class="col-md-6">
+                                    <strong class="text-muted">Documento de Publicação:</strong>
+                                    <p class="mb-0">{{ plano.numero_documento }}</p>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong class="text-muted">Criado por:</strong>
+                                    <p class="mb-0">{{ plano.criado_por.get_full_name|default:plano.criado_por.username }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong class="text-muted">Data de Criação:</strong>
+                                    <p class="mb-0">{{ plano.data_criacao|date:"d/m/Y H:i" }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Estatísticas -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-calendar-alt fa-2x mb-2 text-primary"></i>
+                            <h4 class="mb-1 text-primary">{{ plano.total_ferias }}</h4>
+                            <p class="mb-0 text-muted">Total de Férias</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card info">
+                        <div class="card-body text-center">
+                            <i class="fas fa-calendar-check fa-2x mb-2 text-info"></i>
+                            <h4 class="mb-1 text-info">{{ plano.ferias_planejadas }}</h4>
+                            <p class="mb-0 text-muted">Planejadas</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card warning">
+                        <div class="card-body text-center">
+                            <i class="fas fa-umbrella-beach fa-2x mb-2 text-warning"></i>
+                            <h4 class="mb-1 text-warning">{{ plano.ferias_gozando }}</h4>
+                            <p class="mb-0 text-muted">Usufruindo</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card success">
+                        <div class="card-body text-center">
+                            <i class="fas fa-check-circle fa-2x mb-2 text-success"></i>
+                            <h4 class="mb-1 text-success">{{ plano.ferias_gozadas }}</h4>
+                            <p class="mb-0 text-muted">Usufruídas</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+                    
+            <!-- Lista de Militares Ativos e Férias do Plano -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-users me-2"></i>Militares Ativos - Férias do Plano
+                            </h6>
+                            <span class="badge bg-primary">{{ plano.total_ferias }} férias cadastradas</span>
+                        </div>
+                        <div class="card-body">
+                            <!-- Filtros -->
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="card-title mb-0">
+                                        <i class="fas fa-filter me-2"></i>Filtros
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <form method="get" action="{% url 'militares:plano_ferias_detail' plano.pk %}" class="row g-3">
+                                        <div class="col-md-3">
+                                            <label for="filtro_nome" class="form-label">Nome</label>
+                                            <input type="text" class="form-control" id="filtro_nome" name="filtro_nome" 
+                                                   value="{{ filtro_nome|default:'' }}" placeholder="Digite o nome do militar">
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label for="filtro_cpf" class="form-label">CPF</label>
+                                            <input type="text" class="form-control" id="filtro_cpf" name="filtro_cpf" 
+                                                   value="{{ filtro_cpf|default:'' }}" placeholder="Digite o CPF">
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label for="filtro_om" class="form-label">OM (Organização Militar)</label>
+                                            <select class="form-select" id="filtro_om" name="filtro_om">
+                                                <option value="">Todas</option>
+                                                {% for value, label in oms_disponiveis %}
+                                                    <option value="{{ value }}" {% if filtro_om == value %}selected{% endif %}>{{ label }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label for="filtro_status" class="form-label">Status</label>
+                                            <select class="form-select" id="filtro_status" name="filtro_status">
+                                                <option value="">Todos</option>
+                                                {% for value, label in status_disponiveis %}
+                                                    <option value="{{ value }}" {% if filtro_status == value %}selected{% endif %}>{{ label }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label for="filtro_mes" class="form-label">Mês</label>
+                                            <select class="form-select" id="filtro_mes" name="filtro_mes">
+                                                <option value="">Todos os meses</option>
+                                                {% for mes in meses_disponiveis %}
+                                                    <option value="{{ mes.valor }}" {% if filtro_mes == mes.valor %}selected{% endif %}>{{ mes.nome }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="col-md-1 d-flex align-items-end">
+                                            <div class="btn-group w-100" role="group">
+                                                <button type="submit" class="btn btn-primary" title="Aplicar filtros">
+                                                    <i class="fas fa-search"></i>
+                                                </button>
+                                                {% if filtro_nome or filtro_cpf or filtro_om or filtro_status or filtro_mes %}
+                                                <a href="{% url 'militares:plano_ferias_detail' plano.pk %}" class="btn btn-outline-secondary" title="Limpar filtros">
+                                                    <i class="fas fa-times"></i>
+                                                </a>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                            
+                            <!-- Botão de Homologação em Massa -->
+                            {% if plano.status == 'RASCUNHO' or plano.status == 'APROVADO' or plano.status == 'PUBLICADO' %}
+                            <div class="mb-3">
+                                <button type="button" class="btn btn-success" id="btnHomologarSelecionadas" disabled data-bs-toggle="modal" data-bs-target="#modalConfirmarHomologacaoMassa">
+                                    <i class="fas fa-check-double me-2"></i>Homologar Selecionadas
+                                    <span class="badge bg-light text-dark ms-2" id="contadorSelecionadas">0</span>
+                                </button>
+                            </div>
+                            {% endif %}
+                            
+                            <div class="table-responsive">
+                                <table class="table table-hover table-bordered">
+                                    <thead class="table-light">
+                                        <tr>
+                                            {% if plano.status == 'RASCUNHO' or plano.status == 'APROVADO' or plano.status == 'PUBLICADO' %}
+                                            <th width="50">
+                                                <input type="checkbox" id="selecionarTodos" title="Selecionar todos">
+                                            </th>
+                                            {% endif %}
+                                            <th>Posto/Graduação</th>
+                                            <th>CPF</th>
+                                            <th>Lotação</th>
+                                            <th>Mês de Férias</th>
+                                            <th>Qt. Dias</th>
+                                            <th>Data Início</th>
+                                            <th>Data Término</th>
+                                            <th>Status</th>
+                                            <th>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for ferias in ferias_do_plano %}
+                                        <tr>
+                                            {% if plano.status == 'RASCUNHO' or plano.status == 'APROVADO' or plano.status == 'PUBLICADO' %}
+                                            <td>
+                                                {% if ferias.status == 'PLANEJADA' or ferias.status == 'GOZANDO' or ferias.status == 'GOZADA' %}
+                                                <input type="checkbox" name="ferias_ids" value="{{ ferias.pk }}" class="checkbox-ferias" 
+                                                       data-ferias-id="{{ ferias.pk }}">
+                                                {% endif %}
+                                            </td>
+                                            {% endif %}
+                                            <td>
+                                                <strong>{{ ferias.militar.nome_completo }}</strong><br>
+                                                <small class="text-muted">{{ ferias.militar.get_posto_graduacao_display }}</small>
+                                            </td>
+                                            <td>
+                                                <small>{{ ferias.militar.cpf|default:"-"|slice:":11" }}</small>
+                                            </td>
+                                            <td>
+                                                <small>
+                                                    {% with lotacao=ferias.militar.lotacao_atual %}
+                                                        {% if lotacao %}
+                                                            <span data-bs-toggle="tooltip" data-bs-placement="top" title="{{ lotacao.hierarquia_organograma }}">
+                                                                {{ lotacao.instancia_om_nome|truncatechars:30 }}
+                                                            </span>
+                                                        {% else %}
+                                                            <span class="text-muted">Não informado</span>
+                                                        {% endif %}
+                                                    {% endwith %}
+                                                </small>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-info">{{ ferias.data_inicio|date:"F"|title }}</span>
+                                            </td>
+                                            <td>
+                                                <span class="fw-bold text-primary">{{ ferias.quantidade_dias }} dias</span>
+                                            </td>
+                                            <td>
+                                                <small>{{ ferias.data_inicio|date:"d/m/Y" }}</small>
+                                            </td>
+                                            <td>
+                                                <small>{{ ferias.data_fim|date:"d/m/Y" }}</small>
+                                            </td>
+                                            <td>
+                                                {% if ferias.status == 'PLANEJADA' %}
+                                                    <span class="badge bg-info">{{ ferias.get_status_display }}</span>
+                                                {% elif ferias.status == 'GOZANDO' %}
+                                                    <span class="badge bg-warning text-dark">{{ ferias.get_status_display }}</span>
+                                                {% elif ferias.status == 'GOZADA' %}
+                                                    <span class="badge bg-success">{{ ferias.get_status_display }}</span>
+                                                {% elif ferias.status == 'CANCELADA' %}
+                                                    <span class="badge bg-danger">{{ ferias.get_status_display }}</span>
+                                                {% elif ferias.status == 'REPROGRAMADA' %}
+                                                    {% with motivo=motivos_reprogramacao|lookup:ferias.pk %}
+                                                    <span class="badge bg-secondary" 
+                                                          {% if motivo %}data-bs-toggle="tooltip" data-bs-placement="top" title="Motivo: {{ motivo }}"{% endif %}>
+                                                        {{ ferias.get_status_display }}
+                                                        {% if motivo %}
+                                                        <i class="fas fa-info-circle ms-1"></i>
+                                                        {% endif %}
+                                                    </span>
+                                                    {% if motivo %}
+                                                    <br><small class="text-muted d-block mt-1" style="font-size: 0.75rem;">
+                                                        <i class="fas fa-comment-alt me-1"></i>{{ motivo|truncatechars:50 }}
+                                                    </small>
+                                                    {% endif %}
+                                                    {% endwith %}
+                                                {% else %}
+                                                    <span class="badge bg-secondary">{{ ferias.get_status_display }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm" role="group">
+                                                    {% if plano.status == 'RASCUNHO' %}
+                                                        <!-- Plano em RASCUNHO -->
+                                                        {% if user.is_superuser %}
+                                                            <!-- Esconder botão de editar se férias homologada -->
+                                                            {% if not ferias.observacoes or '✓ Homologado em' not in ferias.observacoes %}
+                                                            <a href="{% url 'militares:ferias_update' ferias.pk %}" class="btn btn-outline-primary" title="Editar">
+                                                                <i class="fas fa-edit"></i>
+                                                            </a>
+                                                            {% endif %}
+                                                            <a href="{% url 'militares:ferias_delete' ferias.pk %}" class="btn btn-outline-danger" title="Excluir">
+                                                                <i class="fas fa-trash"></i>
+                                                            </a>
+                                                        {% endif %}
+                                                        <!-- Botão Homologar/Desomologar (toggle) -->
+                                                        {% if not ferias.observacoes or '✓ Homologado em' not in ferias.observacoes %}
+                                                        <button type="button" class="btn btn-sm btn-success" title="Homologar Férias" data-bs-toggle="modal" data-bs-target="#modalConfirmarHomologacao{{ ferias.pk }}">
+                                                            <i class="fas fa-check-circle me-1"></i>Homologar
+                                                        </button>
+                                                        {% else %}
+                                                        <button type="button" class="btn btn-sm btn-danger" title="Desomologar Férias" data-bs-toggle="modal" data-bs-target="#modalConfirmarDesomologacao{{ ferias.pk }}">
+                                                            <i class="fas fa-undo me-1"></i>Desomologar
+                                                        </button>
+                                                        {% endif %}
+                                                    {% elif plano.status == 'APROVADO' or plano.status == 'PUBLICADO' %}
+                                                        <!-- Plano APROVADO ou PUBLICADO -->
+                                                        {% if user.is_superuser %}
+                                                        <!-- Botão Editar sempre visível para superusuários -->
+                                                        <a href="{% url 'militares:ferias_update' ferias.pk %}" class="btn btn-sm btn-outline-primary" title="Editar">
+                                                            <i class="fas fa-edit"></i>
+                                                        </a>
+                                                        {% endif %}
+                                                        <!-- Botão Homologar/Desomologar (toggle) -->
+                                                        {% if not ferias.observacoes or '✓ Homologado em' not in ferias.observacoes %}
+                                                        <button type="button" class="btn btn-sm btn-success" title="Homologar Férias" data-bs-toggle="modal" data-bs-target="#modalConfirmarHomologacao{{ ferias.pk }}">
+                                                            <i class="fas fa-check-circle me-1"></i>Homologar
+                                                        </button>
+                                                        {% else %}
+                                                        <button type="button" class="btn btn-sm btn-danger" title="Desomologar Férias" data-bs-toggle="modal" data-bs-target="#modalConfirmarDesomologacao{{ ferias.pk }}">
+                                                            <i class="fas fa-undo me-1"></i>Desomologar
+                                                        </button>
+                                                        {% endif %}
+                                                        <!-- Botão Reprogramar - apenas para PLANEJADA e GOZANDO (não para GOZADA) -->
+                                                        {% if ferias.status == 'PLANEJADA' or ferias.status == 'GOZANDO' %}
+                                                        <button type="button" class="btn btn-sm btn-warning btn-reprogramar-ferias" title="Reprogramar Férias" data-bs-toggle="modal" data-bs-target="#modalReprogramarFerias{{ ferias.pk }}" data-ferias-id="{{ ferias.pk }}">
+                                                            <i class="fas fa-redo me-1"></i>Reprogramar
+                                                        </button>
+                                                        {% endif %}
+                                                    {% else %}
+                                                        <!-- Plano em outros status (não RASCUNHO, não aprovado) -->
+                                                        {% if user.is_superuser %}
+                                                            <a href="{% url 'militares:ferias_update' ferias.pk %}" class="btn btn-outline-primary" title="Editar">
+                                                                <i class="fas fa-edit"></i>
+                                                            </a>
+                                                            <a href="{% url 'militares:ferias_delete' ferias.pk %}" class="btn btn-outline-danger" title="Excluir">
+                                                                <i class="fas fa-trash"></i>
+                                                            </a>
+                                                        {% endif %}
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                        
+                                        <!-- Militares sem férias cadastradas -->
+                                        {% for militar in militares_sem_ferias %}
+                                        <tr class="table-secondary">
+                                            <td>
+                                                <strong>{{ militar.nome_completo }}</strong><br>
+                                                <small class="text-muted">{{ militar.get_posto_graduacao_display }}</small>
+                                            </td>
+                                            <td>
+                                                <small>{{ militar.cpf|default:"-"|slice:":11" }}</small>
+                                            </td>
+                                            <td>
+                                                <small>
+                                                    {% with lotacao=militar.lotacao_atual %}
+                                                        {% if lotacao %}
+                                                            <span data-bs-toggle="tooltip" data-bs-placement="top" title="{{ lotacao.hierarquia_organograma }}">
+                                                                {{ lotacao.instancia_om_nome|truncatechars:30 }}
+                                                            </span>
+                                                        {% else %}
+                                                            <span class="text-muted">Não informado</span>
+                                                        {% endif %}
+                                                    {% endwith %}
+                                                </small>
+                                            </td>
+                                            <td colspan="4" class="text-center text-muted">
+                                                <small><em>Sem férias cadastradas</em></small>
+                                            </td>
+                                            <td>
+                                                <a href="{% url 'militares:ferias_create_para_plano' plano.pk militar.pk %}" class="btn btn-sm btn-success" title="Adicionar Férias">
+                                                    <i class="fas fa-plus me-1"></i>Adicionar
+                                                </a>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            {% if not ferias_do_plano and not militares_sem_ferias %}
+                                <div class="alert alert-info text-center">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Nenhum militar ativo encontrado.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Zona de Perigo -->
+            {% if menu_permissions.BOTAO_PLANO_FERIAS_EXCLUIR or user.is_superuser %}
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header bg-danger text-white">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-exclamation-triangle me-2"></i>Zona de Perigo
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted small">Esta ação não pode ser desfeita.</p>
+                            <a href="{% url 'militares:plano_ferias_delete' plano.pk %}" class="btn btn-danger btn-sm">
+                                <i class="fas fa-trash me-2"></i>Excluir Plano
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação de Homologação em Massa -->
+{% if plano.status == 'RASCUNHO' or plano.status == 'APROVADO' or plano.status == 'PUBLICADO' %}
+<div class="modal fade" id="modalConfirmarHomologacaoMassa" tabindex="-1" aria-labelledby="modalConfirmarHomologacaoMassaLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="modalConfirmarHomologacaoMassaLabel">
+                    <i class="fas fa-check-double me-2"></i>Confirmar Homologação em Massa
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <form method="post" action="{% url 'militares:ferias_homologar_em_massa' plano.pk %}" id="formHomologarMassa">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Atenção!</strong> Você está prestes a homologar <span id="totalSelecionadasConfirmacao" class="fw-bold">0</span> férias.
+                    </div>
+                    <p>Esta ação registrará a homologação das férias selecionadas nas observações <strong>sem alterar o status atual</strong>.</p>
+                    <p class="text-muted mb-0"><small>O status das férias permanecerá o mesmo após a homologação. Deseja continuar?</small></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check-double me-2"></i>Sim, Homologar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modais de Confirmação de Homologação Individual -->
+{% for ferias in ferias_do_plano %}
+{% if plano.status == 'RASCUNHO' or plano.status == 'APROVADO' or plano.status == 'PUBLICADO' %}
+{% if not ferias.observacoes or '✓ Homologado em' not in ferias.observacoes %}
+<div class="modal fade" id="modalConfirmarHomologacao{{ ferias.pk }}" tabindex="-1" aria-labelledby="modalConfirmarHomologacao{{ ferias.pk }}Label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="modalConfirmarHomologacao{{ ferias.pk }}Label">
+                    <i class="fas fa-check-circle me-2"></i>Confirmar Homologação
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <form method="post" action="{% url 'militares:ferias_homologar' ferias.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Atenção!</strong> Você está prestes a homologar as férias de <strong>{{ ferias.militar.nome_completo }}</strong>.
+                    </div>
+                    <p><strong>Militar:</strong> {{ ferias.militar.get_posto_graduacao_display }} {{ ferias.militar.nome_completo }}</p>
+                    <p><strong>Período:</strong> {{ ferias.data_inicio|date:"d/m/Y" }} a {{ ferias.data_fim|date:"d/m/Y" }}</p>
+                    <p><strong>Dias:</strong> {{ ferias.quantidade_dias }} dias</p>
+                    <hr>
+                    <p>Esta ação registrará a homologação das férias nas observações sem alterar o status atual (<span class="badge bg-info">{{ ferias.get_status_display }}</span>).</p>
+                    <p class="text-muted mb-0"><small>O status permanecerá: <span class="badge bg-info">{{ ferias.get_status_display }}</span></small></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check-circle me-2"></i>Sim, Homologar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+<!-- Modais de Desomologação -->
+{% for ferias in ferias_do_plano %}
+{% if plano.status == 'RASCUNHO' or plano.status == 'APROVADO' or plano.status == 'PUBLICADO' %}
+{% if ferias.observacoes and '✓ Homologado em' in ferias.observacoes %}
+<!-- Modal Desomologar Férias {{ ferias.pk }} -->
+<div class="modal fade" id="modalConfirmarDesomologacao{{ ferias.pk }}" tabindex="-1" role="dialog" aria-labelledby="modalConfirmarDesomologacao{{ ferias.pk }}Label" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="modalConfirmarDesomologacao{{ ferias.pk }}Label">
+                    <i class="fas fa-undo me-2"></i>Confirmar Desomologação
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <form method="post" action="{% url 'militares:ferias_desomologar' ferias.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Atenção!</strong> Você está prestes a desomologar as férias de <strong>{{ ferias.militar.nome_completo }}</strong>.
+                    </div>
+                    <p><strong>Militar:</strong> {{ ferias.militar.get_posto_graduacao_display }} {{ ferias.militar.nome_completo }}</p>
+                    <p><strong>Período:</strong> {{ ferias.data_inicio|date:"d/m/Y" }} a {{ ferias.data_fim|date:"d/m/Y" }}</p>
+                    <p><strong>Dias:</strong> {{ ferias.quantidade_dias }} dias</p>
+                    <p><strong>Status atual:</strong> <span class="badge bg-info">{{ ferias.get_status_display }}</span></p>
+                    <hr>
+                    <p>Esta ação removerá a marcação de homologação das observações das férias.</p>
+                    <p class="text-muted"><small>O status atual (<span class="badge bg-info">{{ ferias.get_status_display }}</span>) não será alterado.</small></p>
+                    {% if plano.status == 'RASCUNHO' %}
+                    <div class="alert alert-info mt-2 mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <small>Após desomologar, você poderá editar estas férias novamente.</small>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-undo me-2"></i>Sim, Desomologar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+{% endfor %}
+
+<!-- Modais de Reprogramação -->
+{% for ferias in ferias_do_plano %}
+<!-- Reprogramar apenas após aprovação do plano e para PLANEJADA e GOZANDO -->
+{% if plano.status == 'APROVADO' or plano.status == 'PUBLICADO' %}
+{% if ferias.status == 'PLANEJADA' or ferias.status == 'GOZANDO' %}
+<!-- Modal Reprogramar Férias {{ ferias.pk }} -->
+<div class="modal fade" id="modalReprogramarFerias{{ ferias.pk }}" tabindex="-1" role="dialog" aria-labelledby="modalReprogramarFerias{{ ferias.pk }}Label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="modalReprogramarFerias{{ ferias.pk }}Label">
+                    <i class="fas fa-redo me-2"></i>Reprogramar Férias
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <form method="post" action="{% url 'militares:ferias_reprogramar' ferias.pk %}" class="needs-validation" novalidate>
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Atenção!</strong> Ao reprogramar, a férias atual será cancelada e uma nova será criada.
+                    </div>
+                    
+                    <div class="mb-3">
+                        <p><strong>Militar:</strong> {{ ferias.militar.get_posto_graduacao_display }} {{ ferias.militar.nome_completo }}</p>
+                        <p><strong>Período:</strong> {{ ferias.data_inicio|date:"d/m/Y" }} a {{ ferias.data_fim|date:"d/m/Y" }}</p>
+                        <p><strong>Dias:</strong> {{ ferias.quantidade_dias }} dias</p>
+                        {% if ferias.status == 'GOZANDO' %}
+                        <div class="alert alert-info mt-2 mb-0">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Férias em andamento:</strong> Ao reprogramar, apenas os dias restantes serão transferidos para a nova férias.
+                            Os dias já gozados serão registrados na férias atual.
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    {% if ferias.status == 'GOZANDO' %}
+                    <hr>
+                    
+                    <h6 class="mb-3"><i class="fas fa-calendar-check me-2"></i>Período Gozado</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label for="data_fim_gozando_{{ ferias.pk }}" class="form-label">
+                                Data de Término da Férias em Andamento <span class="text-danger">*</span>
+                            </label>
+                            <input type="date" class="form-control" id="data_fim_gozando_{{ ferias.pk }}" name="data_fim_gozando" 
+                                   value="{% now 'Y-m-d' %}" required>
+                            <small class="form-text text-muted">Informe a data em que a férias em andamento terminou ou terminará</small>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <hr>
+                    
+                    <h6 class="mb-3"><i class="fas fa-calendar-alt me-2"></i>Novo Período</h6>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="nova_data_inicio_{{ ferias.pk }}" class="form-label">
+                                Nova Data de Início <span class="text-danger">*</span>
+                            </label>
+                            <input type="date" class="form-control" id="nova_data_inicio_{{ ferias.pk }}" name="nova_data_inicio" 
+                                   value="{{ ferias.data_inicio|date:'Y-m-d' }}" required>
+                            <small class="form-text text-muted">Data de início do novo período de férias</small>
+                        </div>
+                        
+                        {% if ferias.status == 'GOZANDO' %}
+                        <!-- Input hidden para data_fim quando GOZANDO (será calculado automaticamente) -->
+                        <input type="hidden" id="nova_data_fim_{{ ferias.pk }}" name="nova_data_fim" value="">
+                        {% else %}
+                        <div class="col-md-6 mb-3">
+                            <label for="nova_data_fim_{{ ferias.pk }}" class="form-label">
+                                Nova Data de Fim <span class="text-danger">*</span>
+                            </label>
+                            <input type="date" class="form-control" id="nova_data_fim_{{ ferias.pk }}" name="nova_data_fim" 
+                                   value="{{ ferias.data_fim|date:'Y-m-d' }}" required>
+                            <small class="form-text text-muted">Data de fim do novo período de férias</small>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="col-md-12 mb-3">
+                            <label for="nova_quantidade_dias_{{ ferias.pk }}" class="form-label">
+                                Nova Quantidade de Dias <span class="text-danger">*</span>
+                            </label>
+                            <input type="number" class="form-control" id="nova_quantidade_dias_{{ ferias.pk }}" name="nova_quantidade_dias" 
+                                   value="{% if ferias.status == 'GOZANDO' %}0{% else %}{{ ferias.quantidade_dias }}{% endif %}" min="1" max="30" {% if ferias.status == 'GOZANDO' %}readonly{% else %}required{% endif %}>
+                            <small class="form-text text-muted">
+                                {% if ferias.status == 'GOZANDO' %}
+                                    <span class="text-info"><i class="fas fa-info-circle"></i> Dias restantes (calculado automaticamente)</span>
+                                {% else %}
+                                    Quantidade de dias do novo período
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+                    
+                    {% if ferias.status == 'GOZANDO' %}
+                    <!-- Campos hidden com dados para cálculo JavaScript -->
+                    <input type="hidden" id="ferias_data_inicio_{{ ferias.pk }}" value="{{ ferias.data_inicio|date:'Y-m-d' }}">
+                    <input type="hidden" id="ferias_quantidade_dias_{{ ferias.pk }}" value="{{ ferias.quantidade_dias }}">
+                    <input type="hidden" id="ferias_status_{{ ferias.pk }}" value="{{ ferias.status }}">
+                    {% endif %}
+                    
+                    <hr>
+                    
+                    <div class="mb-3">
+                        <label for="motivo_reprogramacao_{{ ferias.pk }}" class="form-label">
+                            Motivo da Reprogramação <span class="text-danger">*</span>
+                        </label>
+                        <textarea class="form-control" id="motivo_reprogramacao_{{ ferias.pk }}" name="motivo_reprogramacao" 
+                                  rows="4" placeholder="Descreva o motivo pelo qual está reprogramando estas férias..." required></textarea>
+                        <small class="form-text text-muted">Este motivo será registrado nas observações da férias cancelada e da nova férias criada.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-redo me-2"></i>Confirmar Reprogramação
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+{% endfor %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Verificar se Bootstrap está disponível
+    if (typeof bootstrap === 'undefined') {
+        console.error('Bootstrap não está carregado!');
+        return;
+    }
+    
+    // Função auxiliar para abrir modais manualmente
+    function abrirModal(targetId) {
+        const modalElement = document.querySelector(targetId);
+        if (modalElement) {
+            try {
+                const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+                modal.show();
+                return true;
+            } catch (e) {
+                console.error('Erro ao abrir modal:', e);
+                return false;
+            }
+        }
+        console.error('Modal não encontrado:', targetId);
+        return false;
+    }
+    
+    // Configurar abertura manual de todos os modais (como fallback)
+    // Mas permitir que o Bootstrap faça seu trabalho primeiro
+    document.querySelectorAll('[data-bs-toggle="modal"]').forEach(function(botao) {
+        botao.addEventListener('click', function(e) {
+            const targetId = this.getAttribute('data-bs-target');
+            if (targetId) {
+                // Aguardar um pouco para ver se o Bootstrap abriu
+                setTimeout(function() {
+                    const modalElement = document.querySelector(targetId);
+                    if (modalElement) {
+                        const modalInstance = bootstrap.Modal.getInstance(modalElement);
+                        // Se o modal não abriu, abrir manualmente
+                        if (!modalInstance || !modalElement.classList.contains('show')) {
+                            abrirModal(targetId);
+                        }
+                        
+                        // Se for botão de reprogramar, configurar cálculo de data
+                        const botaoOriginal = document.querySelector('[data-bs-target="' + targetId + '"].btn-reprogramar-ferias');
+                        if (botaoOriginal && botaoOriginal.getAttribute('data-ferias-id')) {
+                            const feriasId = botaoOriginal.getAttribute('data-ferias-id');
+                            setTimeout(function() {
+                                // Verificar se é férias GOZANDO e calcular dias restantes
+                                const statusInput = document.getElementById('ferias_status_' + feriasId);
+                                if (statusInput && statusInput.value === 'GOZANDO') {
+                                    calcularDiasRestantes(feriasId);
+                                }
+                                configurarCalculoDataFim(feriasId);
+                            }, 300);
+                        }
+                    }
+                }, 150);
+            }
+        });
+    });
+    
+    // Configurar listeners para modais quando forem abertos (para ações após abertura)
+    document.querySelectorAll('.modal').forEach(function(modalElement) {
+        modalElement.addEventListener('shown.bs.modal', function(e) {
+            // Quando o modal de reprogramação for aberto, configurar cálculo de data (garantir)
+            const modalId = this.id;
+            if (modalId && modalId.startsWith('modalReprogramarFerias')) {
+                const feriasId = modalId.replace('modalReprogramarFerias', '');
+                if (feriasId) {
+                    setTimeout(function() {
+                        // Verificar se é férias GOZANDO e calcular dias restantes
+                        const statusInput = document.getElementById('ferias_status_' + feriasId);
+                        if (statusInput && statusInput.value === 'GOZANDO') {
+                            calcularDiasRestantes(feriasId);
+                        }
+                        configurarCalculoDataFim(feriasId);
+                    }, 100);
+                }
+            }
+        });
+    });
+    
+    // Função para calcular dias restantes quando férias está GOZANDO
+    function calcularDiasRestantes(feriasId) {
+        const dataInicioOriginalInput = document.getElementById('ferias_data_inicio_' + feriasId);
+        const quantidadeDiasOriginalInput = document.getElementById('ferias_quantidade_dias_' + feriasId);
+        const quantidadeDiasInput = document.getElementById('nova_quantidade_dias_' + feriasId);
+        const dataFimInput = document.getElementById('nova_data_fim_' + feriasId);
+        const novaDataInicioInput = document.getElementById('nova_data_inicio_' + feriasId);
+        const dataFimGozandoInput = document.getElementById('data_fim_gozando_' + feriasId);
+        
+        if (!dataInicioOriginalInput || !quantidadeDiasOriginalInput || !quantidadeDiasInput) {
+            return;
+        }
+        
+        const dataInicioOriginal = new Date(dataInicioOriginalInput.value + 'T00:00:00');
+        const quantidadeDiasOriginal = parseInt(quantidadeDiasOriginalInput.value) || 0;
+        
+        // Usar data fim informada pelo usuário ou hoje como padrão
+        let dataFimGozando = new Date();
+        if (dataFimGozandoInput && dataFimGozandoInput.value) {
+            dataFimGozando = new Date(dataFimGozandoInput.value + 'T00:00:00');
+        }
+        dataFimGozando.setHours(0, 0, 0, 0);
+        
+        // Calcular dias já gozados (desde data_inicio até data_fim_gozando, inclusive)
+        const diffTime = dataFimGozando - dataInicioOriginal;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        const diasJaGozados = Math.min(Math.max(diffDays, 0), quantidadeDiasOriginal);
+        const diasRestantes = Math.max(quantidadeDiasOriginal - diasJaGozados, 0);
+        
+        // Preencher campo de quantidade de dias com os dias restantes
+        quantidadeDiasInput.value = diasRestantes;
+        
+        // Se houver data início informada, calcular data fim automaticamente
+        if (novaDataInicioInput && novaDataInicioInput.value && diasRestantes > 0) {
+            calcularDataFimReprogramacao(feriasId);
+        }
+    }
+    
+    // Garantir que os formulários dentro dos modais sejam submetidos corretamente
+    // Usar o evento submit do formulário
+    document.querySelectorAll('.modal form').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            console.log('=== EVENTO SUBMIT CAPTURADO ===');
+            console.log('Formulário:', form.action);
+            console.log('Método:', form.method);
+            
+            // Se for formulário com validação, validar
+            if (form.classList.contains('needs-validation')) {
+                console.log('Validando formulário...');
+                if (!form.checkValidity()) {
+                    console.log('Formulário inválido!');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    form.classList.add('was-validated');
+                    const firstInvalid = form.querySelector(':invalid');
+                    if (firstInvalid) {
+                        console.log('Campo inválido encontrado:', firstInvalid.id);
+                        firstInvalid.focus();
+                        firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                    return false;
+                }
+                console.log('Formulário válido!');
+            }
+            
+            // Se tudo estiver OK, permitir o submit
+            console.log('Permitindo submit do formulário:', form.action);
+            console.log('=== FIM DO EVENTO SUBMIT ===');
+        });
+    });
+    
+    // Adicionar listener específico aos botões de submit para debug
+    document.querySelectorAll('.modal button[type="submit"]').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            console.log('=== BOTÃO SUBMIT CLICADO ===');
+            const form = this.closest('form');
+            if (form) {
+                console.log('Formulário encontrado:', form.action);
+                console.log('Dados do formulário:');
+                const formData = new FormData(form);
+                for (let [key, value] of formData.entries()) {
+                    console.log(`  ${key}: ${value}`);
+                }
+            } else {
+                console.error('Formulário não encontrado!');
+            }
+        });
+    });
+    
+    // Função para calcular data fim baseado na data início e quantidade de dias
+    function calcularDataFimReprogramacao(feriasId) {
+        const dataInicioInput = document.getElementById('nova_data_inicio_' + feriasId);
+        const dataFimInput = document.getElementById('nova_data_fim_' + feriasId);
+        const quantidadeDiasInput = document.getElementById('nova_quantidade_dias_' + feriasId);
+        
+        if (!dataInicioInput || !quantidadeDiasInput) {
+            return;
+        }
+        
+        // dataFimInput pode ser um input hidden (para GOZANDO) ou input date (para PLANEJADA)
+        if (!dataFimInput) {
+            return;
+        }
+        
+        const dataInicio = dataInicioInput.value;
+        
+        if (!dataInicio) {
+            return;
+        }
+        
+        let quantidadeDias = 30;
+        if (quantidadeDiasInput.value && quantidadeDiasInput.value.trim() !== '') {
+            quantidadeDias = parseInt(quantidadeDiasInput.value) || 30;
+        } else {
+            quantidadeDiasInput.value = 30;
+            quantidadeDias = 30;
+        }
+        
+        if (quantidadeDias < 1) {
+            quantidadeDias = 1;
+            quantidadeDiasInput.value = 1;
+        }
+        
+        try {
+            const inicio = new Date(dataInicio + 'T00:00:00');
+            
+            if (isNaN(inicio.getTime())) {
+                return;
+            }
+            
+            const fim = new Date(inicio);
+            fim.setDate(fim.getDate() + quantidadeDias - 1);
+            
+            const ano = fim.getFullYear();
+            const mes = String(fim.getMonth() + 1).padStart(2, '0');
+            const dia = String(fim.getDate()).padStart(2, '0');
+            const dataFimFormatada = `${ano}-${mes}-${dia}`;
+            
+            dataFimInput.value = dataFimFormatada;
+        } catch (e) {
+            console.error('Erro ao calcular data fim:', e);
+        }
+    }
+    
+    // Configurar listeners para calcular data fim automaticamente
+    function configurarCalculoDataFim(feriasId) {
+        const dataInicioInput = document.getElementById('nova_data_inicio_' + feriasId);
+        const dataFimInput = document.getElementById('nova_data_fim_' + feriasId);
+        const quantidadeDiasInput = document.getElementById('nova_quantidade_dias_' + feriasId);
+        
+        if (!dataInicioInput || !dataFimInput || !quantidadeDiasInput) {
+            return;
+        }
+        
+        // Remover listeners anteriores se existirem
+        const novaDataInicio = dataInicioInput.cloneNode(true);
+        dataInicioInput.parentNode.replaceChild(novaDataInicio, dataInicioInput);
+        
+        const novaDataFim = dataFimInput.cloneNode(true);
+        dataFimInput.parentNode.replaceChild(novaDataFim, dataFimInput);
+        
+        const novaQuantidadeDias = quantidadeDiasInput.cloneNode(true);
+        quantidadeDiasInput.parentNode.replaceChild(novaQuantidadeDias, quantidadeDiasInput);
+        
+        // Adicionar novos listeners
+        const dataInicio = document.getElementById('nova_data_inicio_' + feriasId);
+        const dataFim = document.getElementById('nova_data_fim_' + feriasId);
+        const quantidadeDias = document.getElementById('nova_quantidade_dias_' + feriasId);
+        
+        if (dataInicio) {
+            dataInicio.addEventListener('change', function() {
+                // Se for GOZANDO, recalcular dias restantes primeiro
+                const statusInput = document.getElementById('ferias_status_' + feriasId);
+                if (statusInput && statusInput.value === 'GOZANDO') {
+                    calcularDiasRestantes(feriasId);
+                }
+                calcularDataFimReprogramacao(feriasId);
+            });
+            
+            dataInicio.addEventListener('input', function() {
+                setTimeout(function() {
+                    // Se for GOZANDO, recalcular dias restantes primeiro
+                    const statusInput = document.getElementById('ferias_status_' + feriasId);
+                    if (statusInput && statusInput.value === 'GOZANDO') {
+                        calcularDiasRestantes(feriasId);
+                    }
+                    calcularDataFimReprogramacao(feriasId);
+                }, 100);
+            });
+        }
+        
+        // Se for GOZANDO, adicionar listener ao campo data_fim_gozando
+        const statusInput = document.getElementById('ferias_status_' + feriasId);
+        if (statusInput && statusInput.value === 'GOZANDO') {
+            const dataFimGozando = document.getElementById('data_fim_gozando_' + feriasId);
+            if (dataFimGozando) {
+                dataFimGozando.addEventListener('change', function() {
+                    calcularDiasRestantes(feriasId);
+                });
+                
+                dataFimGozando.addEventListener('input', function() {
+                    setTimeout(function() {
+                        calcularDiasRestantes(feriasId);
+                    }, 100);
+                });
+            }
+        }
+        
+        if (quantidadeDias) {
+            quantidadeDias.addEventListener('change', function() {
+                if (dataInicio && dataInicio.value) {
+                    calcularDataFimReprogramacao(feriasId);
+                }
+            });
+            
+            quantidadeDias.addEventListener('input', function() {
+                setTimeout(function() {
+                    if (dataInicio && dataInicio.value) {
+                        calcularDataFimReprogramacao(feriasId);
+                    }
+                }, 300);
+            });
+        }
+        
+        // Calcular imediatamente se já houver valores
+        if (dataInicio && dataInicio.value && !dataFim.value) {
+            calcularDataFimReprogramacao(feriasId);
+        }
+    }
+    
+    // Inicializar tooltips do Bootstrap
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+    
+    // Funcionalidade de selecionar todos para homologação
+    {% if plano.status == 'RASCUNHO' or plano.status == 'APROVADO' or plano.status == 'PUBLICADO' %}
+    const selecionarTodos = document.getElementById('selecionarTodos');
+    const checkboxesFerias = document.querySelectorAll('.checkbox-ferias');
+    const btnHomologarSelecionadas = document.getElementById('btnHomologarSelecionadas');
+    const contadorSelecionadas = document.getElementById('contadorSelecionadas');
+    const formHomologarMassa = document.getElementById('formHomologarMassa');
+    
+    function atualizarContador() {
+        const selecionados = document.querySelectorAll('.checkbox-ferias:checked');
+        const total = selecionados.length;
+        contadorSelecionadas.textContent = total;
+        btnHomologarSelecionadas.disabled = total === 0;
+        
+        // Atualizar estado do "Selecionar Todos"
+        if (selecionarTodos) {
+            const totalCheckboxes = checkboxesFerias.length;
+            selecionarTodos.checked = total > 0 && total === totalCheckboxes;
+            selecionarTodos.indeterminate = total > 0 && total < totalCheckboxes;
+        }
+    }
+    
+    if (selecionarTodos) {
+        selecionarTodos.addEventListener('change', function() {
+            checkboxesFerias.forEach(function(checkbox) {
+                checkbox.checked = selecionarTodos.checked;
+            });
+            atualizarContador();
+        });
+    }
+    
+    checkboxesFerias.forEach(function(checkbox) {
+        checkbox.addEventListener('change', atualizarContador);
+    });
+    
+    // Atualizar contador no modal de confirmação quando o modal for aberto
+    const modalConfirmarHomologacao = document.getElementById('modalConfirmarHomologacaoMassa');
+    // formHomologarMassa já foi declarado acima, não redeclarar
+    
+    if (modalConfirmarHomologacao && formHomologarMassa) {
+        modalConfirmarHomologacao.addEventListener('show.bs.modal', function() {
+            const selecionados = document.querySelectorAll('.checkbox-ferias:checked');
+            const total = selecionados.length;
+            const totalConfirmacao = document.getElementById('totalSelecionadasConfirmacao');
+            if (totalConfirmacao) {
+                totalConfirmacao.textContent = total;
+            }
+            
+            // Limpar inputs hidden anteriores
+            const checkboxesAntigos = formHomologarMassa.querySelectorAll('input[name="ferias_ids"]');
+            checkboxesAntigos.forEach(function(cb) {
+                cb.remove();
+            });
+            
+            // Adicionar os IDs das férias selecionadas ao formulário
+            selecionados.forEach(function(checkbox) {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'ferias_ids';
+                input.value = checkbox.value;
+                formHomologarMassa.appendChild(input);
+            });
+        });
+        
+        // Garantir que o formulário seja submetido corretamente
+        formHomologarMassa.addEventListener('submit', function(e) {
+            const selecionados = document.querySelectorAll('.checkbox-ferias:checked');
+            if (selecionados.length === 0) {
+                e.preventDefault();
+                alert('Selecione pelo menos uma férias para homologar!');
+                return false;
+            }
+            
+            // Verificar se os inputs hidden foram criados
+            const inputsHidden = formHomologarMassa.querySelectorAll('input[name="ferias_ids"]');
+            if (inputsHidden.length === 0) {
+                // Se não houver inputs hidden, criar agora
+                selecionados.forEach(function(checkbox) {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'ferias_ids';
+                    input.value = checkbox.value;
+                    formHomologarMassa.appendChild(input);
+                });
+            }
+        });
+        
+        // Garantir que o botão do modal funcione (fallback caso o submit não funcione)
+        const btnSimHomologar = formHomologarMassa.querySelector('button[type="submit"]');
+        if (btnSimHomologar) {
+            btnSimHomologar.addEventListener('click', function(e) {
+                // Deixar o submit padrão do formulário acontecer
+                // O listener do submit acima já cuida da validação
+            });
+        }
+    }
+    
+    atualizarContador();
+    {% endif %}
+});
+</script>
+
+{% endblock %}
+

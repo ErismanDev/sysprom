@@ -1,0 +1,269 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Almoxarifado - Subcategorias{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-tag me-2 text-primary"></i>Subcategorias de Materiais
+                    </h2>
+                    <p class="text-muted mb-0">Gerenciar subcategorias do almoxarifado</p>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-primary" id="btnCriarSubcategoria">
+                        <i class="fas fa-plus me-2"></i>Nova Subcategoria
+                    </button>
+                    <a href="{% url 'militares:categoria_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-list me-2"></i>Categorias
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Pesquisa</label>
+                            <input type="text" name="search" class="form-control" 
+                                   value="{{ search }}" placeholder="Nome, descrição ou categoria...">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Categoria</label>
+                            <select name="categoria" class="form-select">
+                                <option value="">Todas</option>
+                                {% for cat in categorias %}
+                                    <option value="{{ cat.id }}" {% if categoria == cat.id|stringformat:"s" or categoria == cat.id %}selected{% endif %}>
+                                        {{ cat.nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Status</label>
+                            <select name="ativo" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="1" {% if ativo == '1' %}selected{% endif %}>Ativos</option>
+                                <option value="0" {% if ativo == '0' %}selected{% endif %}>Inativos</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary me-2">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                            <a href="{% url 'militares:subcategoria_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Limpar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Tabela de Subcategorias -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Lista de Subcategorias
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if subcategorias %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Categoria</th>
+                                        <th>Nome</th>
+                                        <th>Descrição</th>
+                                        <th>Itens Vinculados</th>
+                                        <th>Status</th>
+                                        <th>Data Criação</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for subcategoria in subcategorias %}
+                                    <tr>
+                                        <td>
+                                            <span class="badge bg-primary">{{ subcategoria.categoria.nome }}</span>
+                                        </td>
+                                        <td><strong>{{ subcategoria.nome }}</strong></td>
+                                        <td>
+                                            {% if subcategoria.descricao %}
+                                                {{ subcategoria.descricao|truncatechars:50 }}
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">{{ subcategoria.itens_almoxarifado.count }}</span>
+                                        </td>
+                                        <td>
+                                            {% if subcategoria.ativo %}
+                                                <span class="badge bg-success">Ativo</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Inativo</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ subcategoria.data_criacao|date:"d/m/Y H:i" }}</td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <button type="button" class="btn btn-outline-primary btn-editar-subcategoria" 
+                                                        data-subcategoria-id="{{ subcategoria.pk }}" title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-outline-danger btn-excluir-subcategoria" 
+                                                        data-subcategoria-id="{{ subcategoria.pk }}" title="Excluir">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if is_paginated %}
+                        <nav aria-label="Paginação">
+                            <ul class="pagination justify-content-center">
+                                {% if page_obj.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}{% if categoria %}&categoria={{ categoria }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">Primeira</a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if categoria %}&categoria={{ categoria }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">Anterior</a>
+                                    </li>
+                                {% endif %}
+                                
+                                <li class="page-item active">
+                                    <span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+                                </li>
+                                
+                                {% if page_obj.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if categoria %}&categoria={{ categoria }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">Próxima</a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if categoria %}&categoria={{ categoria }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">Última</a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-tag fa-3x mb-3 text-muted" style="opacity: 0.3;"></i>
+                            <p class="text-muted">Nenhuma subcategoria encontrada</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Criar/Editar Subcategoria -->
+<div class="modal fade" id="subcategoriaModal" tabindex="-1" aria-labelledby="subcategoriaModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" id="subcategoriaModalContent">
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Excluir Subcategoria -->
+<div class="modal fade" id="excluirSubcategoriaModal" tabindex="-1" aria-labelledby="excluirSubcategoriaModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" id="excluirSubcategoriaModalContent">
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-danger" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const subcategoriaModal = new bootstrap.Modal(document.getElementById('subcategoriaModal'));
+    const excluirSubcategoriaModal = new bootstrap.Modal(document.getElementById('excluirSubcategoriaModal'));
+    
+    // Botão criar subcategoria
+    document.getElementById('btnCriarSubcategoria').addEventListener('click', function() {
+        fetch('{% url "militares:subcategoria_create" %}', {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                document.getElementById('subcategoriaModalContent').innerHTML = data.html;
+                subcategoriaModal.show();
+            }
+        });
+    });
+    
+    // Botões editar subcategoria
+    document.querySelectorAll('.btn-editar-subcategoria').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const subcategoriaId = this.getAttribute('data-subcategoria-id');
+            fetch(`/militares/almoxarifado/subcategorias/list/${subcategoriaId}/editar/`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    document.getElementById('subcategoriaModalContent').innerHTML = data.html;
+                    subcategoriaModal.show();
+                }
+            });
+        });
+    });
+    
+    // Botões excluir subcategoria
+    document.querySelectorAll('.btn-excluir-subcategoria').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const subcategoriaId = this.getAttribute('data-subcategoria-id');
+            fetch(`/militares/almoxarifado/subcategorias/list/${subcategoriaId}/excluir/`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    document.getElementById('excluirSubcategoriaModalContent').innerHTML = data.html;
+                    excluirSubcategoriaModal.show();
+                }
+            });
+        });
+    });
+});
+</script>
+{% endblock %}
+

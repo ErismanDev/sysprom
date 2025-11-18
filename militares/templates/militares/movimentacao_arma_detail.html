@@ -1,0 +1,260 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Detalhes da Movimentação{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-exchange-alt me-2 text-primary"></i>Detalhes da Movimentação
+                    </h2>
+                    <p class="text-muted mb-0">
+                        {% if movimentacao.tipo_movimentacao == 'MANUTENCAO' %}
+                            <i class="fas fa-wrench me-2"></i>Envio para Manutenção
+                        {% elif movimentacao.tipo_movimentacao == 'RETORNO_MANUTENCAO' %}
+                            <i class="fas fa-undo me-2"></i>Retorno de Manutenção
+                        {% else %}
+                            {{ movimentacao.get_tipo_movimentacao_display }}
+                        {% endif %}
+                    </p>
+                </div>
+                <div>
+                    <a href="{% url 'militares:arma_detail' arma.pk %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Voltar para Arma
+                    </a>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-8">
+                    <!-- Informações Gerais -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-info-circle me-2"></i>Informações Gerais
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <strong>Arma:</strong><br>
+                                    <a href="{% url 'militares:arma_detail' arma.pk %}">
+                                        <strong>{{ arma.numero_serie }}</strong>
+                                    </a>
+                                    <br>
+                                    <small class="text-muted">{{ arma.marca }} {{ arma.modelo }}</small>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <strong>Data e Hora:</strong><br>
+                                    {{ movimentacao.data_movimentacao|date:"d/m/Y H:i" }}
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <strong>Tipo de Movimentação:</strong><br>
+                                    {% if movimentacao.tipo_movimentacao == 'MANUTENCAO' %}
+                                        <span class="badge bg-warning text-dark fs-6">Envio para Manutenção</span>
+                                    {% elif movimentacao.tipo_movimentacao == 'RETORNO_MANUTENCAO' %}
+                                        <span class="badge bg-success fs-6">Retorno de Manutenção</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary fs-6">{{ movimentacao.get_tipo_movimentacao_display }}</span>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <strong>Responsável pela Movimentação:</strong><br>
+                                    {% if movimentacao.responsavel_movimentacao %}
+                                        {{ movimentacao.responsavel_movimentacao.get_full_name|default:movimentacao.responsavel_movimentacao.username }}
+                                    {% else %}
+                                        <span class="text-muted">Não informado</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Informações de Manutenção -->
+                    {% if movimentacao.tipo_movimentacao == 'MANUTENCAO' or movimentacao.tipo_movimentacao == 'RETORNO_MANUTENCAO' %}
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-wrench me-2"></i>Informações de Manutenção
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                {% if movimentacao.tipo_manutencao %}
+                                <div class="col-md-6 mb-3">
+                                    <strong>Tipo de Manutenção:</strong><br>
+                                    {% if movimentacao.tipo_manutencao == 'INTERNA' %}
+                                        <span class="badge bg-info fs-6">Interna</span>
+                                    {% elif movimentacao.tipo_manutencao == 'EXTERNA' %}
+                                        <span class="badge bg-danger fs-6">Externa</span>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                                
+                                {% if movimentacao.tipo_manutencao == 'INTERNA' %}
+                                    <div class="col-md-12 mb-3">
+                                        <strong>Organização Militar de Destino:</strong><br>
+                                        {% if movimentacao.sub_unidade_manutencao %}
+                                            {{ movimentacao.sub_unidade_manutencao.nome }}
+                                            {% if movimentacao.sub_unidade_manutencao.unidade %}
+                                                <br><small class="text-muted">{{ movimentacao.sub_unidade_manutencao.unidade.grande_comando.orgao.nome }} > {{ movimentacao.sub_unidade_manutencao.unidade.grande_comando.nome }} > {{ movimentacao.sub_unidade_manutencao.unidade.nome }}</small>
+                                            {% endif %}
+                                        {% elif movimentacao.unidade_manutencao %}
+                                            {{ movimentacao.unidade_manutencao.nome }}
+                                            {% if movimentacao.unidade_manutencao.grande_comando %}
+                                                <br><small class="text-muted">{{ movimentacao.unidade_manutencao.grande_comando.orgao.nome }} > {{ movimentacao.unidade_manutencao.grande_comando.nome }}</small>
+                                            {% endif %}
+                                        {% elif movimentacao.grande_comando_manutencao %}
+                                            {{ movimentacao.grande_comando_manutencao.nome }}
+                                            {% if movimentacao.grande_comando_manutencao.orgao %}
+                                                <br><small class="text-muted">{{ movimentacao.grande_comando_manutencao.orgao.nome }}</small>
+                                            {% endif %}
+                                        {% elif movimentacao.orgao_manutencao %}
+                                            {{ movimentacao.orgao_manutencao.nome }}
+                                        {% else %}
+                                            <span class="text-muted">Não informado</span>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    {% if movimentacao.militar_recebeu_manutencao %}
+                                    <div class="col-md-12 mb-3">
+                                        <strong>Militar que Recebeu:</strong><br>
+                                        {{ movimentacao.militar_recebeu_manutencao.get_posto_graduacao_display }} {{ movimentacao.militar_recebeu_manutencao.nome_completo }}
+                                        {% if movimentacao.militar_recebeu_manutencao.matricula %}
+                                            <br><small class="text-muted">Matrícula: {{ movimentacao.militar_recebeu_manutencao.matricula }}</small>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+                                    
+                                {% elif movimentacao.tipo_manutencao == 'EXTERNA' %}
+                                    <div class="col-md-12 mb-3">
+                                        <strong>Empresa de Manutenção:</strong><br>
+                                        {{ movimentacao.empresa_manutencao|default:"Não informado" }}
+                                    </div>
+                                    
+                                    {% if movimentacao.cnpj_empresa_manutencao %}
+                                    <div class="col-md-6 mb-3">
+                                        <strong>CNPJ:</strong><br>
+                                        {{ movimentacao.cnpj_empresa_manutencao }}
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% if movimentacao.responsavel_empresa_manutencao %}
+                                    <div class="col-md-6 mb-3">
+                                        <strong>Responsável na Empresa:</strong><br>
+                                        {{ movimentacao.responsavel_empresa_manutencao }}
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% if movimentacao.endereco_empresa_manutencao %}
+                                    <div class="col-md-12 mb-3">
+                                        <strong>Endereço da Empresa:</strong><br>
+                                        {{ movimentacao.endereco_empresa_manutencao|linebreaks }}
+                                    </div>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Material Acompanhando -->
+                    {% if movimentacao.quantidade_carregadores or movimentacao.quantidade_municoes_catalogadas %}
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-box me-2"></i>Material Acompanhando
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                {% if movimentacao.quantidade_carregadores %}
+                                <div class="col-md-6 mb-3">
+                                    <strong>Quantidade de Carregadores:</strong><br>
+                                    <span class="fs-5">{{ movimentacao.quantidade_carregadores }}</span>
+                                </div>
+                                {% endif %}
+                                
+                                {% if movimentacao.numeracao_carregadores %}
+                                <div class="col-md-12 mb-3">
+                                    <strong>Numeração dos Carregadores:</strong><br>
+                                    <p class="mb-0">{{ movimentacao.numeracao_carregadores|linebreaks }}</p>
+                                </div>
+                                {% endif %}
+                                
+                                {% if movimentacao.quantidade_municoes_catalogadas %}
+                                <div class="col-md-6 mb-3">
+                                    <strong>Quantidade de Munições Catalogadas:</strong><br>
+                                    <span class="fs-5">{{ movimentacao.quantidade_municoes_catalogadas }}</span>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Observações -->
+                    {% if movimentacao.observacoes %}
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-comment me-2"></i>Observações
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-0">{{ movimentacao.observacoes|linebreaks }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-info-circle me-2"></i>Informações do Sistema
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <strong>Data de Criação:</strong><br>
+                                {{ movimentacao.data_criacao|date:"d/m/Y H:i" }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-tools me-2"></i>Ações
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                <a href="{% url 'militares:arma_detail' arma.pk %}" class="btn btn-outline-info">
+                                    <i class="fas fa-eye me-2"></i>Ver Arma
+                                </a>
+                                {% if user.is_superuser %}
+                                    {% if movimentacao.tipo_movimentacao == 'MANUTENCAO' and arma.situacao == 'EM_MANUTENCAO' %}
+                                        <a href="{% url 'militares:arma_movimentar' arma.pk %}?tipo=RETORNO_MANUTENCAO" class="btn btn-success">
+                                            <i class="fas fa-undo me-2"></i>Registrar Retorno
+                                        </a>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

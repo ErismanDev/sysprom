@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load militar_permissions %}
+
+{% block title %}Funções de {{ militar.nome_guerra }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Cabeçalho -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h4 class="mb-0">
+                                <i class="fas fa-briefcase me-2"></i>Funções de {{ militar.nome_guerra }}
+                            </h4>
+                            <small class="opacity-75">
+                                <i class="fas fa-user me-1"></i>{{ militar.nome_completo }} - {{ militar.get_posto_graduacao_display }}
+                            </small>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <a href="{% url 'militares:militar_detail' militar.pk %}" class="btn btn-light btn-sm me-2">
+                                <i class="fas fa-arrow-left me-1"></i>Voltar ao Militar
+                            </a>
+                            {% if menu_permissions.MILITARES_EDITAR %}
+                            <a href="{% url 'militares:militar_funcao_create' militar.pk %}" class="btn btn-success btn-sm">
+                                <i class="fas fa-plus me-1"></i>Adicionar Função
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Informações do Militar -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-2">
+                            {% if militar.foto %}
+                                <img src="{{ militar.foto.url }}" alt="Foto" class="rounded" style="width: 100px; height: 100px; object-fit: cover;">
+                            {% else %}
+                                <div class="bg-light rounded d-flex align-items-center justify-content-center" style="width: 100px; height: 100px;">
+                                    <i class="fas fa-user text-muted fa-2x"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-10">
+                            <h5 class="mb-1">{{ militar.nome_completo }}</h5>
+                            <p class="mb-1">
+                                <strong class="text-primary">{{ militar.get_posto_graduacao_display }}</strong>
+                                <span class="text-muted">- {{ militar.nome_guerra }}</span>
+                            </p>
+                            <small class="text-muted">Matrícula: {{ militar.matricula }}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Lista de Funções -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Funções Exercidas
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if funcoes %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th class="fw-bold text-primary">Função</th>
+                                        <th class="fw-bold text-primary">Tipo</th>
+                                        <th class="fw-bold text-primary">Status</th>
+                                        <th class="fw-bold text-primary">Período</th>
+                                        <th class="fw-bold text-primary">Duração</th>
+                                        <th class="fw-bold text-primary">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for funcao in funcoes %}
+                                    <tr class="{% if funcao.status == 'ATUAL' %}table-success{% elif funcao.status == 'TEMPORARIA' %}table-warning{% else %}table-light{% endif %}">
+                                        <td>
+                                            <div class="d-flex flex-column">
+                                                <strong class="text-primary">{{ funcao.funcao_militar.nome }}</strong>
+                                                <small class="text-muted">
+                                                    <i class="fas fa-tag me-1"></i>{{ funcao.funcao_militar.get_grupo_display }}
+                                                    <span class="ms-2">
+                                                        <i class="fas fa-shield-alt me-1"></i>{{ funcao.funcao_militar.get_acesso_sigilo_display }}
+                                                    </span>
+                                                </small>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">{{ funcao.get_tipo_funcao_display }}</span>
+                                        </td>
+                                        <td>
+                                            {% if funcao.status == 'ATUAL' %}
+                                                <span class="badge bg-success">
+                                                    <i class="fas fa-check me-1"></i>{{ funcao.status_display }}
+                                                </span>
+                                            {% elif funcao.status == 'ANTERIOR' %}
+                                                <span class="badge bg-secondary">
+                                                    <i class="fas fa-history me-1"></i>{{ funcao.status_display }}
+                                                </span>
+                                            {% elif funcao.status == 'TEMPORARIA' %}
+                                                <span class="badge bg-warning text-dark">
+                                                    <i class="fas fa-clock me-1"></i>{{ funcao.status_display }}
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="d-flex flex-column">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-calendar me-1"></i>{{ funcao.data_inicio|date:"d/m/Y" }}
+                                                </small>
+                                                {% if funcao.data_fim %}
+                                                    <small class="text-muted">
+                                                        <i class="fas fa-calendar-check me-1"></i>{{ funcao.data_fim|date:"d/m/Y" }}
+                                                    </small>
+                                                {% else %}
+                                                    <small class="text-success">
+                                                        <i class="fas fa-infinity me-1"></i>Em andamento
+                                                    </small>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">{{ funcao.duracao_formatada }}</small>
+                                        </td>
+                                        {% if menu_permissions.MILITARES_EDITAR %}
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <a href="{% url 'militares:militar_funcao_update' militar.pk funcao.pk %}" class="btn btn-outline-primary" title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <a href="{% url 'militares:militar_funcao_delete' militar.pk funcao.pk %}" class="btn btn-outline-danger" title="Excluir" 
+                                                   onclick="return confirm('Tem certeza que deseja excluir esta função?')">
+                                                    <i class="fas fa-trash"></i>
+                                                </a>
+                                            </div>
+                                        </td>
+                                        {% endif %}
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="text-center mt-3">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Exibindo {{ funcoes|length }} função(ões)
+                            </small>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-briefcase fa-3x mb-3" style="opacity: 0.3;"></i>
+                            <p class="mb-2">Nenhuma função cadastrada</p>
+                            <small>As funções exercidas pelo militar serão exibidas aqui</small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

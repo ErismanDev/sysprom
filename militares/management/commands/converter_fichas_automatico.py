@@ -29,7 +29,7 @@ class Command(BaseCommand):
 
     def converter_militares_recentes(self):
         """Converte fichas de militares promovidos recentemente"""
-        self.stdout.write('🔄 Convertendo fichas de militares recentemente promovidos...')
+        self.stdout.write('[CONVERTENDO] Fichas de militares recentemente promovidos...')
         
         # Buscar promoções dos últimos 30 dias
         data_limite = timezone.now().date() - timedelta(days=30)
@@ -65,7 +65,7 @@ class Command(BaseCommand):
 
     def converter_todos_militares(self):
         """Converte fichas de todos os militares que precisam"""
-        self.stdout.write('🔄 Convertendo fichas de todos os militares...')
+        self.stdout.write('[CONVERTENDO] Fichas de todos os militares...')
         
         # Buscar todos os militares oficiais
         militares_oficiais = Militar.objects.filter(

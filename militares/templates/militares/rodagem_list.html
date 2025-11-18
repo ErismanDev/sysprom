@@ -1,0 +1,447 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Rodagens - Controle de Rodagem{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="mb-4">
+                <h2 class="mb-0">
+                    <i class="fas fa-route me-2 text-primary"></i>Controle de Rodagem
+                </h2>
+                <p class="text-muted mb-0">Gerenciar rodagens/uso das viaturas</p>
+            </div>
+            
+            <!-- Cards de Estatísticas -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-list fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_rodagens }}</h4>
+                            <p class="mb-0">Total de Rodagens</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card info">
+                        <div class="card-body text-center">
+                            <i class="fas fa-tachometer-alt fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_km_rodados|floatformat:0 }}</h4>
+                            <p class="mb-0">Total KM Rodados</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card warning">
+                        <div class="card-body text-center">
+                            <i class="fas fa-clock fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ rodagens_em_andamento }}</h4>
+                            <p class="mb-0">Em Andamento</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card success">
+                        <div class="card-body text-center">
+                            <i class="fas fa-check-circle fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ rodagens_finalizadas }}</h4>
+                            <p class="mb-0">Finalizadas</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Buscar</label>
+                            <input type="text" name="search" class="form-control" value="{{ search }}" placeholder="Placa, destino...">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Viatura</label>
+                            <select name="viatura" class="form-select">
+                                <option value="">Todas</option>
+                                {% for viatura in viaturas %}
+                                    <option value="{{ viatura.pk }}" {% if viatura_id == viatura.pk|stringformat:"s" %}selected{% endif %}>
+                                        {{ viatura.placa }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="EM_ANDAMENTO" {% if status == 'EM_ANDAMENTO' %}selected{% endif %}>Em Andamento</option>
+                                <option value="FINALIZADA" {% if status == 'FINALIZADA' %}selected{% endif %}>Finalizada</option>
+                                <option value="CANCELADA" {% if status == 'CANCELADA' %}selected{% endif %}>Cancelada</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Objetivo</label>
+                            <select name="objetivo" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="OPERACAO" {% if objetivo == 'OPERACAO' %}selected{% endif %}>Operação</option>
+                                <option value="TREINAMENTO" {% if objetivo == 'TREINAMENTO' %}selected{% endif %}>Treinamento</option>
+                                <option value="MANUTENCAO" {% if objetivo == 'MANUTENCAO' %}selected{% endif %}>Manutenção</option>
+                                <option value="ADMINISTRATIVO" {% if objetivo == 'ADMINISTRATIVO' %}selected{% endif %}>Administrativo</option>
+                                <option value="TRANSPORTE" {% if objetivo == 'TRANSPORTE' %}selected{% endif %}>Transporte</option>
+                                <option value="OUTROS" {% if objetivo == 'OUTROS' %}selected{% endif %}>Outros</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Período</label>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <input type="date" name="data_inicio" class="form-control" value="{{ data_inicio }}" placeholder="Data início">
+                                </div>
+                                <div class="col-6">
+                                    <input type="date" name="data_fim" class="form-control" value="{{ data_fim }}" placeholder="Data fim">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-12">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-2"></i>Filtrar
+                            </button>
+                            <a href="{% url 'militares:rodagem_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-2"></i>Limpar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Tabela de Rodagens -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-table me-2"></i>Rodagens Registradas
+                    </h6>
+                    {% if 'VIATURAS_CRIAR' in menu_permissions or user.is_superuser %}
+                    <a href="{% url 'militares:rodagem_create' %}" class="btn btn-success btn-sm">
+                        <i class="fas fa-plus me-2"></i>Nova Rodagem
+                    </a>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if rodagens %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Viatura</th>
+                                        <th>Data de Saída</th>
+                                        <th>Hora de Saída</th>
+                                        <th>Data de Retorno</th>
+                                        <th>Hora de Retorno</th>
+                                        <th>KM Inicial</th>
+                                        <th>KM Final</th>
+                                        <th>KM Rodado</th>
+                                        <th>Objetivo</th>
+                                        <th>Destino</th>
+                                        <th>Status</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for rodagem in rodagens %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ rodagem.viatura.placa }}</strong>
+                                                {% if rodagem.viatura.prefixo %}
+                                                    <br><small class="text-muted">{{ rodagem.viatura.prefixo }}</small>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {{ rodagem.data_saida|date:"d/m/Y" }}
+                                            </td>
+                                            <td>
+                                                {{ rodagem.hora_saida|time:"H:i" }}
+                                            </td>
+                                            <td>
+                                                {% if rodagem.data_retorno %}
+                                                    {{ rodagem.data_retorno|date:"d/m/Y" }}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if rodagem.hora_retorno %}
+                                                    {{ rodagem.hora_retorno|time:"H:i" }}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ rodagem.km_inicial }}</td>
+                                            <td>
+                                                {% if rodagem.km_final %}
+                                                    {{ rodagem.km_final }}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <strong>{{ rodagem.km_rodado }}</strong>
+                                            </td>
+                                            <td>{{ rodagem.get_objetivo_display }}</td>
+                                            <td>
+                                                {% if rodagem.destino %}
+                                                    {{ rodagem.destino|truncatewords:5 }}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if rodagem.status == 'EM_ANDAMENTO' %}
+                                                    <span class="badge bg-warning">Em Andamento</span>
+                                                {% elif rodagem.status == 'FINALIZADA' %}
+                                                    <span class="badge bg-success">Finalizada</span>
+                                                {% elif rodagem.status == 'CANCELADA' %}
+                                                    <span class="badge bg-danger">Cancelada</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    {% if rodagem.status == 'EM_ANDAMENTO' %}
+                                                        {% if 'VIATURAS_EDITAR' in menu_permissions or user.is_superuser %}
+                                                        <button type="button" class="btn btn-sm btn-success" title="Encerrar Rodagem" onclick="abrirModalEncerrarRodagem({{ rodagem.pk }})">
+                                                            <i class="fas fa-check-circle"></i>
+                                                        </button>
+                                                        {% endif %}
+                                                    {% endif %}
+                                                    {% if 'VIATURAS_VISUALIZAR' in menu_permissions or user.is_superuser %}
+                                                    <a href="{% url 'militares:rodagem_detail' rodagem.pk %}" class="btn btn-sm btn-info" title="Visualizar">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                    {% endif %}
+                                                    {% if 'VIATURAS_EDITAR' in menu_permissions or user.is_superuser %}
+                                                    <a href="{% url 'militares:rodagem_update' rodagem.pk %}" class="btn btn-sm btn-primary" title="Editar">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                    {% endif %}
+                                                    {% if 'VIATURAS_EXCLUIR' in menu_permissions or user.is_superuser %}
+                                                    <a href="{% url 'militares:rodagem_delete' rodagem.pk %}" class="btn btn-sm btn-danger" title="Excluir" onclick="return confirm('Tem certeza que deseja excluir esta rodagem?');">
+                                                        <i class="fas fa-trash"></i>
+                                                    </a>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if is_paginated %}
+                            <nav aria-label="Paginação">
+                                <ul class="pagination justify-content-center">
+                                    {% if page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}{% if viatura_id %}&viatura={{ viatura_id }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if objetivo %}&objetivo={{ objetivo }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}">Primeira</a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if viatura_id %}&viatura={{ viatura_id }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if objetivo %}&objetivo={{ objetivo }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}">Anterior</a>
+                                        </li>
+                                    {% endif %}
+                                    
+                                    <li class="page-item disabled">
+                                        <span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+                                    </li>
+                                    
+                                    {% if page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if viatura_id %}&viatura={{ viatura_id }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if objetivo %}&objetivo={{ objetivo }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}">Próxima</a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if viatura_id %}&viatura={{ viatura_id }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if objetivo %}&objetivo={{ objetivo }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}">Última</a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>Nenhuma rodagem encontrada.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.stats-card {
+    border-left: 4px solid #007bff;
+    transition: transform 0.2s;
+}
+.stats-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+.stats-card.info {
+    border-left-color: #17a2b8;
+}
+.stats-card.warning {
+    border-left-color: #ffc107;
+}
+.stats-card.success {
+    border-left-color: #28a745;
+}
+</style>
+
+<!-- Modais para Encerrar Rodagem -->
+{% for rodagem in rodagens %}
+    {% if rodagem.status == 'EM_ANDAMENTO' %}
+    <div class="modal fade" id="modalEncerrarRodagem{{ rodagem.pk }}" tabindex="-1" aria-labelledby="modalEncerrarRodagemLabel{{ rodagem.pk }}" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="modalEncerrarRodagemLabel{{ rodagem.pk }}">
+                        <i class="fas fa-check-circle me-2"></i>Encerrar Rodagem
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <form method="post" action="{% url 'militares:rodagem_encerrar' rodagem.pk %}">
+                    {% csrf_token %}
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <p><strong>Viatura:</strong> {{ rodagem.viatura.placa }}</p>
+                            <p><strong>KM Inicial:</strong> {{ rodagem.km_inicial }}</p>
+                            <p><strong>Saída:</strong> {{ rodagem.data_saida|date:"d/m/Y" }} às {{ rodagem.hora_saida|time:"H:i" }}</p>
+                        </div>
+                        <hr>
+                        <div class="mb-3">
+                            <label for="data_retorno_{{ rodagem.pk }}" class="form-label">
+                                <i class="fas fa-calendar-check me-2"></i>Data de Retorno <span class="text-danger">*</span>
+                            </label>
+                            <input type="date" class="form-control" id="data_retorno_{{ rodagem.pk }}" name="data_retorno" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="hora_retorno_{{ rodagem.pk }}" class="form-label">
+                                <i class="fas fa-clock me-2"></i>Hora de Retorno <span class="text-danger">*</span>
+                            </label>
+                            <input type="time" class="form-control" id="hora_retorno_{{ rodagem.pk }}" name="hora_retorno" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="km_final_{{ rodagem.pk }}" class="form-label">
+                                <i class="fas fa-tachometer-alt me-2"></i>KM Final <span class="text-danger">*</span>
+                            </label>
+                            <input type="number" class="form-control" id="km_final_{{ rodagem.pk }}" name="km_final" min="{{ rodagem.km_inicial }}" placeholder="KM no momento do retorno" required>
+                            <small class="form-text text-muted">KM no momento do retorno da viatura</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-check-circle me-2"></i>Encerrar Rodagem
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+{% endfor %}
+
+<script>
+function abrirModalEncerrarRodagem(rodagemId) {
+    // Abrir o modal usando Bootstrap
+    const modalElement = document.getElementById('modalEncerrarRodagem' + rodagemId);
+    if (modalElement) {
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+        
+        // Preencher data e hora de retorno com valores atuais de Brasília
+        const dataRetorno = document.getElementById('data_retorno_' + rodagemId);
+        const horaRetorno = document.getElementById('hora_retorno_' + rodagemId);
+        
+        if (dataRetorno && !dataRetorno.value) {
+            const now = new Date();
+            const brasiliaDate = new Intl.DateTimeFormat('pt-BR', {
+                timeZone: 'America/Sao_Paulo',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            }).formatToParts(now);
+            
+            const year = brasiliaDate.find(part => part.type === 'year').value;
+            const month = brasiliaDate.find(part => part.type === 'month').value;
+            const day = brasiliaDate.find(part => part.type === 'day').value;
+            dataRetorno.value = `${year}-${month}-${day}`;
+        }
+        
+        if (horaRetorno && !horaRetorno.value) {
+            const now = new Date();
+            const brasiliaTime = new Intl.DateTimeFormat('pt-BR', {
+                timeZone: 'America/Sao_Paulo',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            }).formatToParts(now);
+            
+            const hours = brasiliaTime.find(part => part.type === 'hour').value;
+            const minutes = brasiliaTime.find(part => part.type === 'minute').value;
+            horaRetorno.value = `${hours}:${minutes}`;
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Preencher data e hora de retorno quando o modal for aberto
+    {% for rodagem in rodagens %}
+        {% if rodagem.status == 'EM_ANDAMENTO' %}
+        const modal{{ rodagem.pk }} = document.getElementById('modalEncerrarRodagem{{ rodagem.pk }}');
+        if (modal{{ rodagem.pk }}) {
+            modal{{ rodagem.pk }}.addEventListener('show.bs.modal', function() {
+                const dataRetorno = document.getElementById('data_retorno_{{ rodagem.pk }}');
+                const horaRetorno = document.getElementById('hora_retorno_{{ rodagem.pk }}');
+                
+                if (dataRetorno && !dataRetorno.value) {
+                    const now = new Date();
+                    const brasiliaDate = new Intl.DateTimeFormat('pt-BR', {
+                        timeZone: 'America/Sao_Paulo',
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit'
+                    }).formatToParts(now);
+                    
+                    const year = brasiliaDate.find(part => part.type === 'year').value;
+                    const month = brasiliaDate.find(part => part.type === 'month').value;
+                    const day = brasiliaDate.find(part => part.type === 'day').value;
+                    dataRetorno.value = `${year}-${month}-${day}`;
+                }
+                
+                if (horaRetorno && !horaRetorno.value) {
+                    const now = new Date();
+                    const brasiliaTime = new Intl.DateTimeFormat('pt-BR', {
+                        timeZone: 'America/Sao_Paulo',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                    }).formatToParts(now);
+                    
+                    const hours = brasiliaTime.find(part => part.type === 'hour').value;
+                    const minutes = brasiliaTime.find(part => part.type === 'minute').value;
+                    horaRetorno.value = `${hours}:${minutes}`;
+                }
+            });
+        }
+        {% endif %}
+    {% endfor %}
+});
+</script>
+{% endblock %}
+

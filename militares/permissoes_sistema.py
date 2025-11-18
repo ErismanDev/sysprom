@@ -11,7 +11,7 @@ from django.shortcuts import redirect
 from django.contrib import messages
 from django.http import HttpResponseForbidden
 from django.contrib.auth.decorators import login_required
-from .models import UsuarioFuncao, PermissaoFuncao
+from .models import UsuarioFuncaoMilitar
 
 
 # ============================================================================
@@ -38,24 +38,47 @@ def tem_permissao(user, modulo, acesso):
         return True
     
     # Verificar se o usuário tem alguma função ativa
-    funcoes_usuario = UsuarioFuncao.objects.filter(
+    funcoes_usuario = UsuarioFuncaoMilitar.objects.filter(
         usuario=user,
-        status='ATIVO'
-    ).select_related('cargo_funcao')
+        ativo=True
+    ).select_related('funcao_militar')
     
     if not funcoes_usuario.exists():
         return False
     
     # Verificar se alguma das funções do usuário tem a permissão específica
+    # Verificar diretamente no modelo PermissaoFuncao para garantir compatibilidade
+    from .models import PermissaoFuncao
+    
+    # Normalizar módulo e acesso para maiúsculas
+    modulo_upper = modulo.upper()
+    acesso_upper = acesso.upper()
+    
     for funcao in funcoes_usuario:
-        permissao = PermissaoFuncao.objects.filter(
-            cargo_funcao=funcao.cargo_funcao,
-            modulo=modulo,
-            acesso=acesso,
+        funcao_militar = funcao.funcao_militar
+        if not funcao_militar or not funcao_militar.ativo:
+            continue
+        
+        # Verificar permissão no formato (modulo, acesso)
+        tem_perm = PermissaoFuncao.objects.filter(
+            funcao_militar=funcao_militar,
+            modulo=modulo_upper,
+            acesso=acesso_upper,
             ativo=True
         ).exists()
         
-        if permissao:
+        if tem_perm:
+            return True
+        
+        # Verificar também formato antigo {modulo}_{acesso}
+        modulo_busca = f"{modulo_upper}_{acesso_upper}"
+        tem_perm_antigo = PermissaoFuncao.objects.filter(
+            funcao_militar=funcao_militar,
+            modulo=modulo_busca,
+            ativo=True
+        ).exists()
+        
+        if tem_perm_antigo:
             return True
     
     return False
@@ -80,23 +103,21 @@ def tem_permissao_modulo(user, modulo):
         return True
     
     # Verificar funções ativas do usuário
-    funcoes_usuario = UsuarioFuncao.objects.filter(
+    funcoes_usuario = UsuarioFuncaoMilitar.objects.filter(
         usuario=user,
-        status='ATIVO'
-    ).select_related('cargo_funcao')
+        ativo=True
+    ).select_related('funcao_militar')
     
     if not funcoes_usuario.exists():
         return False
     
     # Verificar se alguma função tem permissão no módulo
+    # Usar o sistema de permissões granulares
+    from .permissoes_simples import tem_permissao as tem_permissao_granular
+    
     for funcao in funcoes_usuario:
-        permissao = PermissaoFuncao.objects.filter(
-            cargo_funcao=funcao.cargo_funcao,
-            modulo=modulo,
-            ativo=True
-        ).exists()
-        
-        if permissao:
+        # Verificar se tem pelo menos permissão de visualizar
+        if tem_permissao_granular(user, modulo.lower(), 'visualizar'):
             return True
     
     return False
@@ -164,25 +185,14 @@ def obter_permissoes_usuario(user, modulo=None):
             return [(mod, acc) for mod in modulos for acc in acessos]
     
     # Buscar permissões das funções do usuário
-    funcoes_usuario = UsuarioFuncao.objects.filter(
+    funcoes_usuario = UsuarioFuncaoMilitar.objects.filter(
         usuario=user,
-        status='ATIVO'
-    ).select_related('cargo_funcao')
+        ativo=True
+    ).select_related('funcao_militar')
     
-    permissoes = []
-    for funcao in funcoes_usuario:
-        queryset = PermissaoFuncao.objects.filter(
-            cargo_funcao=funcao.cargo_funcao,
-            ativo=True
-        )
-        
-        if modulo:
-            queryset = queryset.filter(modulo=modulo)
-        
-        for permissao in queryset:
-            permissoes.append((permissao.modulo, permissao.acesso))
-    
-    return list(set(permissoes))  # Remover duplicatas
+    # Sistema antigo removido - usar permissões granulares
+    # Retornar lista vazia por compatibilidade
+    return []
 
 
 def pode_executar_acao(user, modulo, acao):
@@ -225,11 +235,15 @@ def requer_permissao(modulo, acesso):
     def decorator(view_func):
         @wraps(view_func)
         def _wrapped_view(request, *args, **kwargs):
-            if tem_permissao(request.user, modulo, acesso):
+            # Converter para minúsculas e substituir underscore
+            modulo_lower = modulo.lower().replace('_', '_')
+            acesso_lower = acesso.lower()
+            
+            if tem_permissao(request.user, modulo_lower, acesso_lower):
                 return view_func(request, *args, **kwargs)
             else:
                 messages.error(request, f'Você não tem permissão para {acesso.lower()} {modulo.lower()}.')
-                return redirect('militares:militar_dashboard')
+                return redirect('militares:home')
         return _wrapped_view
     return decorator
 
@@ -248,7 +262,7 @@ def requer_permissao_modulo(modulo):
                 return view_func(request, *args, **kwargs)
             else:
                 messages.error(request, f'Você não tem acesso ao módulo {modulo.lower()}.')
-                return redirect('militares:militar_dashboard')
+                return redirect('militares:home')
         return _wrapped_view
     return decorator
 
@@ -276,7 +290,7 @@ def requer_acao_http(modulo, acao):
                 }
                 acao_desc = mapeamento_acoes.get(request.method, 'acessar')
                 messages.error(request, f'Você não tem permissão para {acao_desc} {modulo.lower()}.')
-                return redirect('militares:militar_dashboard')
+                return redirect('militares:home')
         return _wrapped_view
     return decorator
 
@@ -388,6 +402,11 @@ def requer_perm_promocoes_homologar(view_func):
 def requer_perm_promocoes_admin(view_func):
     """Decorator para administrar promoções"""
     return requer_permissao('PROMOCOES', 'ADMINISTRAR')(view_func)
+
+# Reordenação de Antiguidade
+def requer_perm_reordenar_antiguidade(view_func):
+    """Decorator para reordenar antiguidade"""
+    return requer_permissao('MILITARES', 'REORDENAR_ANTIGUIDADE')(view_func)
 
 # Vagas
 def requer_perm_vagas(acesso='VISUALIZAR'):
@@ -582,4 +601,5 @@ def permissoes_context(request):
         'tem_permissao_modulo': lambda modulo: tem_permissao_modulo(request.user, modulo),
         'obter_permissoes': lambda modulo=None: obter_permissoes_usuario(request.user, modulo),
         'permissoes_usuario': obter_permissoes_usuario(request.user),
+        'pode_reordenar_antiguidade': lambda: tem_permissao(request.user, 'MILITARES', 'REORDENAR_ANTIGUIDADE'),
     } 

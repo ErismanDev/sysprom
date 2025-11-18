@@ -15,9 +15,9 @@
                     <p class="text-muted mb-0">Gerenciar cadastro de armas particulares dos militares</p>
                 </div>
                 <div>
-                    <a href="{% url 'militares:arma_particular_create' %}" class="btn btn-primary">
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#criarArmaParticularModal">
                         <i class="fas fa-plus me-2"></i>Nova Arma Particular
-                    </a>
+                    </button>
                 </div>
             </div>
             
@@ -132,9 +132,9 @@
                         <i class="fas fa-list me-2"></i>Lista de Armas Particulares
                     </h6>
                     <div>
-                        <a href="{% url 'militares:arma_particular_create' %}" class="btn btn-success btn-sm">
+                        <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#criarArmaParticularModal">
                             <i class="fas fa-plus me-2"></i>Nova Arma Particular
-                        </a>
+                        </button>
                     </div>
                 </div>
                 <div class="card-body">
@@ -183,14 +183,18 @@
                                                 {% endif %}
                                             </td>
                                             <td>
-                                                <a href="{% url 'militares:arma_particular_detail' arma.pk %}" 
-                                                   class="btn btn-sm btn-info" title="Visualizar">
+                                                <button type="button" 
+                                                        class="btn btn-sm btn-info btn-visualizar-arma-particular" 
+                                                        title="Visualizar"
+                                                        data-arma-id="{{ arma.pk }}">
                                                     <i class="fas fa-eye"></i>
-                                                </a>
-                                                <a href="{% url 'militares:arma_particular_update' arma.pk %}" 
-                                                   class="btn btn-sm btn-primary" title="Editar">
+                                                </button>
+                                                <button type="button" 
+                                                        class="btn btn-sm btn-primary btn-editar-arma-particular" 
+                                                        title="Editar"
+                                                        data-arma-id="{{ arma.pk }}">
                                                     <i class="fas fa-edit"></i>
-                                                </a>
+                                                </button>
                                                 <a href="{% url 'militares:arma_particular_delete' arma.pk %}" 
                                                    class="btn btn-sm btn-danger" title="Excluir">
                                                     <i class="fas fa-trash"></i>
@@ -251,6 +255,425 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Modal de criar arma particular
+    const criarArmaParticularModal = document.getElementById('criarArmaParticularModal');
+    const criarArmaParticularModalContent = document.getElementById('criarArmaParticularModalContent');
+    
+    if (criarArmaParticularModal && criarArmaParticularModalContent) {
+        criarArmaParticularModal.addEventListener('show.bs.modal', function(event) {
+            criarArmaParticularModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            fetch('{% url "militares:arma_particular_create" %}', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.html) {
+                    criarArmaParticularModalContent.innerHTML = data.html;
+                    
+                    // Aguardar um pouco para garantir que o DOM foi atualizado
+                    setTimeout(function() {
+                        // Re-executar scripts que podem estar no conteúdo carregado
+                        const scripts = criarArmaParticularModalContent.querySelectorAll('script');
+                        scripts.forEach(function(oldScript) {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(attr => {
+                                newScript.setAttribute(attr.name, attr.value);
+                            });
+                            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                            oldScript.parentNode.replaceChild(newScript, oldScript);
+                        });
+                        
+                        // Garantir que o Select2 seja inicializado após os scripts serem executados
+                        setTimeout(function() {
+                            if (typeof $ !== 'undefined' && typeof $.fn.select2 !== 'undefined') {
+                                const militarSelect = $('.militar-select2');
+                                if (militarSelect.length && !militarSelect.hasClass('select2-hidden-accessible')) {
+                                    militarSelect.select2({
+                                        placeholder: 'Digite o nome, matrícula ou posto do militar...',
+                                        allowClear: true,
+                                        minimumInputLength: 2,
+                                        dropdownParent: $('#criarArmaParticularModal'),
+                                        ajax: {
+                                            url: '{% url "militares:militar-autocomplete" %}',
+                                            dataType: 'json',
+                                            delay: 250,
+                                            data: function (params) {
+                                                return {
+                                                    q: params.term || ''
+                                                };
+                                            },
+                                            processResults: function (data) {
+                                                return {
+                                                    results: data.results || []
+                                                };
+                                            },
+                                            cache: true
+                                        },
+                                        language: {
+                                            inputTooShort: function () {
+                                                return 'Digite pelo menos 2 caracteres...';
+                                            },
+                                            noResults: function () {
+                                                return 'Nenhum militar encontrado';
+                                            },
+                                            searching: function () {
+                                                return 'Buscando...';
+                                            }
+                                        }
+                                    });
+                                }
+                            }
+                        }, 200);
+                    }, 100);
+                } else {
+                    criarArmaParticularModalContent.innerHTML = `
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title">
+                                <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body text-center py-4">
+                            <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                            <h5>Erro ao Carregar</h5>
+                            <p class="text-muted">Não foi possível carregar o formulário. Tente novamente.</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar formulário:', error);
+                criarArmaParticularModalContent.innerHTML = `
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body text-center py-4">
+                        <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                        <h5>Erro ao Carregar</h5>
+                        <p class="text-muted">Não foi possível carregar o formulário. Tente novamente.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                `;
+            });
+        });
+        
+        // Limpar conteúdo quando fechar o modal
+        criarArmaParticularModal.addEventListener('hidden.bs.modal', function() {
+            criarArmaParticularModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+        });
+    }
+    
+    // Botões de visualizar arma particular
+    document.addEventListener('click', function(e) {
+        const btnVisualizar = e.target.closest('.btn-visualizar-arma-particular');
+        if (btnVisualizar) {
+            e.preventDefault();
+            const armaId = btnVisualizar.getAttribute('data-arma-id');
+            if (armaId) {
+                // Abrir modal
+                const modal = new bootstrap.Modal(document.getElementById('detalhesArmaParticularModal'));
+                const modalContent = document.getElementById('detalhesArmaParticularModalContent');
+                
+                // Mostrar loading
+                modalContent.innerHTML = `
+                    <div class="modal-body text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                        <p class="mt-3 text-muted">Carregando detalhes...</p>
+                    </div>
+                `;
+                
+                // Abrir modal
+                modal.show();
+                
+                // Carregar detalhes
+                const detailUrl = `/militares/armas-particulares/${armaId}/`;
+                fetch(detailUrl, {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.html) {
+                        modalContent.innerHTML = data.html;
+                        
+                        // Adicionar listener para o botão de editar dentro do modal
+                        const btnEditarModal = modalContent.querySelector('.btn-editar-arma-particular-modal');
+                        if (btnEditarModal) {
+                            btnEditarModal.addEventListener('click', function() {
+                                const modalDetalhes = bootstrap.Modal.getInstance(document.getElementById('detalhesArmaParticularModal'));
+                                if (modalDetalhes) {
+                                    modalDetalhes.hide();
+                                }
+                                
+                                // Abrir modal de edição
+                                setTimeout(function() {
+                                    const btnEditar = document.querySelector(`.btn-editar-arma-particular[data-arma-id="${armaId}"]`);
+                                    if (btnEditar) {
+                                        btnEditar.click();
+                                    }
+                                }, 300);
+                            });
+                        }
+                    } else {
+                        modalContent.innerHTML = `
+                            <div class="modal-header bg-danger text-white">
+                                <h5 class="modal-title">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                                </h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body text-center py-4">
+                                <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                                <h5>Erro ao Carregar</h5>
+                                <p class="text-muted">Não foi possível carregar os detalhes. Tente novamente.</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar detalhes:', error);
+                    modalContent.innerHTML = `
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title">
+                                <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body text-center py-4">
+                            <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                            <h5>Erro ao Carregar</h5>
+                            <p class="text-muted">Não foi possível carregar os detalhes. Tente novamente.</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                        </div>
+                    `;
+                });
+            }
+            return;
+        }
+        
+        // Botões de editar arma particular
+        const btnEditar = e.target.closest('.btn-editar-arma-particular');
+        if (btnEditar) {
+            e.preventDefault();
+            const armaId = btnEditar.getAttribute('data-arma-id');
+            if (armaId) {
+                // Abrir modal
+                const modal = new bootstrap.Modal(document.getElementById('criarArmaParticularModal'));
+                const modalContent = document.getElementById('criarArmaParticularModalContent');
+                
+                // Mostrar loading
+                modalContent.innerHTML = `
+                    <div class="modal-body text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                        <p class="mt-3 text-muted">Carregando formulário...</p>
+                    </div>
+                `;
+                
+                // Abrir modal
+                modal.show();
+                
+                // Carregar formulário de edição
+                const updateUrl = `/militares/armas-particulares/${armaId}/editar/`;
+                fetch(updateUrl, {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.html) {
+                        modalContent.innerHTML = data.html;
+                        
+                        // Aguardar um pouco para garantir que o DOM foi atualizado
+                        setTimeout(function() {
+                            // Re-executar scripts que podem estar no conteúdo carregado
+                            const scripts = modalContent.querySelectorAll('script');
+                            scripts.forEach(function(oldScript) {
+                                const newScript = document.createElement('script');
+                                Array.from(oldScript.attributes).forEach(attr => {
+                                    newScript.setAttribute(attr.name, attr.value);
+                                });
+                                newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                                oldScript.parentNode.replaceChild(newScript, oldScript);
+                            });
+                            
+                            // Garantir que o Select2 seja inicializado após os scripts serem executados
+                            setTimeout(function() {
+                                if (typeof $ !== 'undefined' && typeof $.fn.select2 !== 'undefined') {
+                                    const militarSelect = $('.militar-select2');
+                                    if (militarSelect.length && !militarSelect.hasClass('select2-hidden-accessible')) {
+                                        militarSelect.select2({
+                                            placeholder: 'Digite o nome, matrícula ou posto do militar...',
+                                            allowClear: true,
+                                            minimumInputLength: 2,
+                                            dropdownParent: $('#criarArmaParticularModal'),
+                                            ajax: {
+                                                url: '{% url "militares:militar-autocomplete" %}',
+                                                dataType: 'json',
+                                                delay: 250,
+                                                data: function (params) {
+                                                    return {
+                                                        q: params.term || ''
+                                                    };
+                                                },
+                                                processResults: function (data) {
+                                                    return {
+                                                        results: data.results || []
+                                                    };
+                                                },
+                                                cache: true
+                                            },
+                                            language: {
+                                                inputTooShort: function () {
+                                                    return 'Digite pelo menos 2 caracteres...';
+                                                },
+                                                noResults: function () {
+                                                    return 'Nenhum militar encontrado';
+                                                },
+                                                searching: function () {
+                                                    return 'Buscando...';
+                                                }
+                                            }
+                                        });
+                                    }
+                                }
+                            }, 200);
+                        }, 100);
+                    } else {
+                        modalContent.innerHTML = `
+                            <div class="modal-header bg-danger text-white">
+                                <h5 class="modal-title">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                                </h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body text-center py-4">
+                                <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                                <h5>Erro ao Carregar</h5>
+                                <p class="text-muted">Não foi possível carregar o formulário. Tente novamente.</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar formulário:', error);
+                    modalContent.innerHTML = `
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title">
+                                <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body text-center py-4">
+                            <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                            <h5>Erro ao Carregar</h5>
+                            <p class="text-muted">Não foi possível carregar o formulário. Tente novamente.</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                        </div>
+                    `;
+                });
+            }
+        }
+    });
+});
+</script>
+
+<!-- Modal para Criar/Editar Arma Particular -->
+<div class="modal fade" id="criarArmaParticularModal" tabindex="-1" aria-labelledby="criarArmaParticularModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="criarArmaParticularModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Detalhes da Arma Particular -->
+<div class="modal fade" id="detalhesArmaParticularModal" tabindex="-1" aria-labelledby="detalhesArmaParticularModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="detalhesArmaParticularModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando detalhes...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Limpar conteúdo quando fechar o modal de detalhes
+    const detalhesArmaParticularModal = document.getElementById('detalhesArmaParticularModal');
+    const detalhesArmaParticularModalContent = document.getElementById('detalhesArmaParticularModalContent');
+    
+    if (detalhesArmaParticularModal && detalhesArmaParticularModalContent) {
+        detalhesArmaParticularModal.addEventListener('hidden.bs.modal', function() {
+            detalhesArmaParticularModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando detalhes...</p>
+                </div>
+            `;
+        });
+    }
+});
+</script>
 {% endblock %}
 
 

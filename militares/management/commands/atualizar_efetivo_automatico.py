@@ -25,7 +25,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self.stdout.write(
-            self.style.SUCCESS('🔄 Iniciando atualização automática do efetivo...')
+            self.style.SUCCESS('[INICIANDO] Atualização automática do efetivo...')
         )
         
         try:
@@ -69,7 +69,7 @@ class Command(BaseCommand):
 📅 Data/Hora: {data_atual}
 👥 Militares processados: {resultado.get('militares_processados', 0)}
 🆕 Vagas criadas: {resultado.get('vagas_criadas', 0)}
-🔄 Vagas atualizadas: {resultado.get('vagas_atualizadas', 0)}
+[RESULTADO] Vagas atualizadas: {resultado.get('vagas_atualizadas', 0)}
 📈 Previsões atualizadas: {resultado.get('previsoes_atualizadas', 0)}
 
 📋 EFETIVO POR POSTO/QUADRO:

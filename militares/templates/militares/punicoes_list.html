@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ titulo_pagina }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="mb-0"><i class="fas fa-gavel me-2"></i>{{ titulo_pagina }}</h2>
+        <div class="d-flex gap-2">
+            {% if 'PUNICOES_CRIAR' in menu_permissions or user.is_superuser %}
+            <div class="input-group">
+                <input type="number" id="nova-punicao-militar-id" class="form-control" placeholder="ID do militar">
+                <button class="btn btn-danger" type="button" onclick="criarPunicao()"><i class="fas fa-plus me-2"></i>Nova</button>
+            </div>
+            {% endif %}
+            <a href="{% url 'militares:militar_list' %}" class="btn btn-outline-secondary"><i class="fas fa-users me-2"></i>Efetivo</a>
+        </div>
+    </div>
+
+    <form method="get" class="mb-3">
+        <div class="input-group">
+            <input type="text" name="q" value="{{ busca }}" class="form-control" placeholder="Buscar por nome, nome de guerra ou matrícula">
+            <button class="btn btn-primary" type="submit"><i class="fas fa-search me-2"></i>Buscar</button>
+        </div>
+    </form>
+
+    <div class="card">
+        <div class="card-body">
+            {% if punicoes %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Militar</th>
+                            <th>Tipo</th>
+                            <th>Documento</th>
+                            <th>Autoridade</th>
+                            <th>Descrição</th>
+                            {% if 'PUNICOES_EDITAR' in menu_permissions or 'PUNICOES_EXCLUIR' in menu_permissions or user.is_superuser %}
+                            <th class="text-end">Ações</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in punicoes %}
+                        <tr>
+                            <td>{{ p.data_punicao|date:"d/m/Y" }}</td>
+                            <td>
+                                <a href="{% url 'militares:militar_detail' p.militar.pk %}">
+                                    {{ p.militar.get_posto_graduacao_display }} {{ p.militar.nome_guerra }}
+                                </a>
+                                <div class="text-muted small">Mat: {{ p.militar.matricula }}</div>
+                            </td>
+                            <td><span class="badge bg-danger">{{ p.get_tipo_display }}</span></td>
+                            <td>{{ p.numero_documento|default:"-" }}</td>
+                            <td>{{ p.autoridade_puniu }}</td>
+                            <td>{{ p.descricao|truncatechars:100 }}</td>
+                            {% if 'PUNICOES_EDITAR' in menu_permissions or 'PUNICOES_EXCLUIR' in menu_permissions or user.is_superuser %}
+                            <td class="text-end">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    {% if 'PUNICOES_EDITAR' in menu_permissions or user.is_superuser %}
+                                    <a href="{% url 'militares:punicao_update' p.pk %}" class="btn btn-outline-primary" title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    {% endif %}
+                                    {% if 'PUNICOES_EXCLUIR' in menu_permissions or user.is_superuser %}
+                                    <a href="{% url 'militares:punicao_delete' p.pk %}" class="btn btn-outline-danger" title="Excluir" onclick="return confirm('Confirmar exclusão?')">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info mb-0"><i class="fas fa-info-circle me-2"></i>Nenhuma punição encontrada.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function criarPunicao() {
+    const id = document.getElementById('nova-punicao-militar-id').value;
+    if (!id) { alert('Informe o ID do militar.'); return; }
+    window.location.href = `{% url 'militares:punicao_create' 0 %}`.replace('/0/', `/${id}/`);
+}
+</script>
+{% endblock %}
+
+

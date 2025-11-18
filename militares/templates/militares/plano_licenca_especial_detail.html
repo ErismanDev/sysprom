@@ -1,0 +1,688 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load militares_extras %}
+
+{% block title %}Plano de Licenças Especiais - Detalhes{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-calendar-check me-2 text-info"></i>Plano de Licenças Especiais
+                    </h2>
+                    <p class="text-muted mb-0">{{ plano.titulo }}</p>
+                </div>
+                <div>
+                    {% if menu_permissions.BOTAO_PLANO_LICENCA_ESPECIAL_EDITAR or user.is_superuser %}
+                    <a href="{% url 'militares:plano_licenca_especial_update' plano.pk %}" class="btn btn-primary me-2">
+                        <i class="fas fa-edit me-2"></i>Editar
+                    </a>
+                    {% endif %}
+                    <a href="{% url 'militares:plano_licenca_especial_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Voltar
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Informações do Plano -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-info-circle me-2"></i>Informações do Plano
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <strong class="text-muted">Título:</strong>
+                                    <p class="mb-0">{{ plano.titulo }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong class="text-muted">Ano do Plano:</strong>
+                                    <p class="mb-0">
+                                        <span class="badge bg-info fs-6">{{ plano.ano_plano }}</span>
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <strong class="text-muted">Status:</strong>
+                                    <p class="mb-0">
+                                        {% if plano.status == 'RASCUNHO' %}
+                                            <span class="badge bg-secondary">{{ plano.get_status_display }}</span>
+                                        {% elif plano.status == 'EM_APROVACAO' %}
+                                            <span class="badge bg-warning text-dark">{{ plano.get_status_display }}</span>
+                                        {% elif plano.status == 'APROVADO' %}
+                                            <span class="badge bg-success">{{ plano.get_status_display }}</span>
+                                        {% elif plano.status == 'PUBLICADO' %}
+                                            <span class="badge bg-primary">{{ plano.get_status_display }}</span>
+                                        {% elif plano.status == 'CANCELADO' %}
+                                            <span class="badge bg-danger">{{ plano.get_status_display }}</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            {% if plano.descricao %}
+                            <div class="mb-3">
+                                <strong class="text-muted">Descrição:</strong>
+                                <p class="mb-0">{{ plano.descricao|linebreaks }}</p>
+                            </div>
+                            {% endif %}
+                            
+                            {% if plano.documento_referencia or plano.numero_documento %}
+                            <div class="row mb-3">
+                                {% if plano.documento_referencia %}
+                                <div class="col-md-6">
+                                    <strong class="text-muted">Documento de Referência:</strong>
+                                    <p class="mb-0">{{ plano.documento_referencia }}</p>
+                                </div>
+                                {% endif %}
+                                {% if plano.numero_documento %}
+                                <div class="col-md-6">
+                                    <strong class="text-muted">Documento de Publicação:</strong>
+                                    <p class="mb-0">{{ plano.numero_documento }}</p>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong class="text-muted">Criado por:</strong>
+                                    <p class="mb-0">{{ plano.criado_por.get_full_name|default:plano.criado_por.username }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong class="text-muted">Data de Criação:</strong>
+                                    <p class="mb-0">{{ plano.data_criacao|date:"d/m/Y H:i" }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Estatísticas -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-calendar-check fa-2x mb-2 text-primary"></i>
+                            <h4 class="mb-1 text-primary">{{ plano.total_licencas }}</h4>
+                            <p class="mb-0 text-muted">Total de Licenças</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card info">
+                        <div class="card-body text-center">
+                            <i class="fas fa-calendar-alt fa-2x mb-2 text-info"></i>
+                            <h4 class="mb-1 text-info">{{ plano.licencas_planejadas }}</h4>
+                            <p class="mb-0 text-muted">Planejadas</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card warning">
+                        <div class="card-body text-center">
+                            <i class="fas fa-clock fa-2x mb-2 text-warning"></i>
+                            <h4 class="mb-1 text-warning">{{ plano.licencas_gozando }}</h4>
+                            <p class="mb-0 text-muted">Usufruindo</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card success">
+                        <div class="card-body text-center">
+                            <i class="fas fa-check-circle fa-2x mb-2 text-success"></i>
+                            <h4 class="mb-1 text-success">{{ plano.licencas_gozadas }}</h4>
+                            <p class="mb-0 text-muted">Usufruídas</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Lista de Licenças Especiais do Plano -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-list me-2"></i>Licenças Especiais do Plano
+                                <span class="badge bg-primary ms-2">{{ plano.total_licencas }} licenças cadastradas</span>
+                            </h6>
+                            {% if menu_permissions.BOTAO_LICENCA_ESPECIAL_NOVO or user.is_superuser %}
+                            <a href="{% url 'militares:licenca_especial_create_para_plano' plano.pk %}" class="btn btn-success btn-sm">
+                                <i class="fas fa-plus me-1"></i>Adicionar Licença Especial
+                            </a>
+                            {% endif %}
+                        </div>
+                        <div class="card-body">
+                            <!-- Filtros -->
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="card-title mb-0">
+                                        <i class="fas fa-filter me-2"></i>Filtros
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <form method="get" action="{% url 'militares:plano_licenca_especial_detail' plano.pk %}" class="row g-3">
+                                        <div class="col-md-3">
+                                            <label for="filtro_nome" class="form-label">Nome</label>
+                                            <input type="text" class="form-control" id="filtro_nome" name="filtro_nome" 
+                                                   value="{{ filtro_nome|default:'' }}" placeholder="Digite o nome do militar">
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label for="filtro_cpf" class="form-label">CPF</label>
+                                            <input type="text" class="form-control" id="filtro_cpf" name="filtro_cpf" 
+                                                   value="{{ filtro_cpf|default:'' }}" placeholder="Digite o CPF">
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label for="filtro_status" class="form-label">Status</label>
+                                            <select class="form-select" id="filtro_status" name="filtro_status">
+                                                <option value="">Todos</option>
+                                                <option value="PLANEJADA" {% if filtro_status == 'PLANEJADA' %}selected{% endif %}>Planejada</option>
+                                                <option value="GOZANDO" {% if filtro_status == 'GOZANDO' %}selected{% endif %}>Usufruindo</option>
+                                                <option value="GOZADA" {% if filtro_status == 'GOZADA' %}selected{% endif %}>Usufruída</option>
+                                                <option value="CANCELADA" {% if filtro_status == 'CANCELADA' %}selected{% endif %}>Cancelada</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label for="filtro_decenio" class="form-label">Decênio</label>
+                                            <input type="number" class="form-control" id="filtro_decenio" name="filtro_decenio" 
+                                                   value="{{ filtro_decenio|default:'' }}" placeholder="Ex: 1, 2, 3..." min="1" max="10">
+                                        </div>
+                                        <div class="col-md-3 d-flex align-items-end">
+                                            <div class="btn-group w-100" role="group">
+                                                <button type="submit" class="btn btn-primary" title="Aplicar filtros">
+                                                    <i class="fas fa-search me-1"></i>Filtrar
+                                                </button>
+                                                {% if filtro_nome or filtro_cpf or filtro_status or filtro_decenio %}
+                                                <a href="{% url 'militares:plano_licenca_especial_detail' plano.pk %}" class="btn btn-outline-secondary" title="Limpar filtros">
+                                                    <i class="fas fa-times"></i>
+                                                </a>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                            
+                            <div class="table-responsive">
+                                <table class="table table-hover table-bordered">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Militar</th>
+                                            <th>CPF</th>
+                                            <th>Decênio</th>
+                                            <th>Período do Decênio</th>
+                                            <th>Quantidade de Meses</th>
+                                            <th>Data Início</th>
+                                            <th>Data Fim</th>
+                                            <th>Status</th>
+                                            <th>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for licenca in licencas %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ licenca.militar.nome_completo }}</strong><br>
+                                                <small class="text-muted">{{ licenca.militar.get_posto_graduacao_display|posto_com_bm }}</small>
+                                            </td>
+                                            <td>
+                                                <small>{{ licenca.militar.cpf|default:"-" }}</small>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-info">{{ licenca.decenio }}º</span>
+                                            </td>
+                                            <td>
+                                                {% if licenca.periodo_decenio != "-" %}
+                                                <div class="card border-primary shadow-sm mb-0" style="max-width: 300px;">
+                                                    <div class="card-body p-2">
+                                                        <div class="d-flex align-items-center">
+                                                            <div class="me-2">
+                                                                <i class="fas fa-calendar-check text-primary"></i>
+                                                            </div>
+                                                            <div class="flex-grow-1">
+                                                                <small class="text-muted d-block">Período do {{ licenca.decenio }}º Decênio:</small>
+                                                                <strong class="text-primary">{{ licenca.periodo_decenio }}</strong>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {% else %}
+                                                <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <span class="fw-bold text-primary">{{ licenca.quantidade_meses }} meses</span>
+                                            </td>
+                                            <td>
+                                                <small>{{ licenca.data_inicio|date:"d/m/Y" }}</small>
+                                            </td>
+                                            <td>
+                                                <small>{{ licenca.data_fim|date:"d/m/Y"|default:"-" }}</small>
+                                            </td>
+                                            <td>
+                                                {% if licenca.status == 'PLANEJADA' %}
+                                                    <span class="badge bg-info">{{ licenca.get_status_display }}</span>
+                                                {% elif licenca.status == 'GOZANDO' %}
+                                                    <span class="badge bg-warning text-dark">{{ licenca.get_status_display }}</span>
+                                                {% elif licenca.status == 'GOZADA' %}
+                                                    <span class="badge bg-success">{{ licenca.get_status_display }}</span>
+                                                {% elif licenca.status == 'CANCELADA' %}
+                                                    <span class="badge bg-danger">{{ licenca.get_status_display }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    {% if menu_permissions.BOTAO_LICENCA_ESPECIAL_VISUALIZAR or user.is_superuser %}
+                                                    <a href="{% url 'militares:licenca_especial_detail' licenca.pk %}" class="btn btn-sm btn-info" title="Visualizar">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                    {% endif %}
+                                                    
+                                                    {% if plano.status == 'RASCUNHO' or plano.status == 'EM_APROVACAO' or plano.status == 'APROVADO' or plano.status == 'PUBLICADO' %}
+                                                        <!-- Botão Homologar/Desomologar (toggle) -->
+                                                        {% if not licenca.observacoes or '✓ Homologado em' not in licenca.observacoes %}
+                                                        <button type="button" class="btn btn-sm btn-success" title="Homologar Licença Especial" data-bs-toggle="modal" data-bs-target="#modalConfirmarHomologacao{{ licenca.pk }}">
+                                                            <i class="fas fa-check-circle me-1"></i>Homologar
+                                                        </button>
+                                                        {% else %}
+                                                        <button type="button" class="btn btn-sm btn-danger" title="Desomologar Licença Especial" data-bs-toggle="modal" data-bs-target="#modalConfirmarDesomologacao{{ licenca.pk }}">
+                                                            <i class="fas fa-undo me-1"></i>Desomologar
+                                                        </button>
+                                                        {% endif %}
+                                                    {% endif %}
+                                                    
+                                                    <!-- Botão Reprogramar - apenas para PLANEJADA e GOZANDO (não para GOZADA) -->
+                                                    {% if licenca.status == 'PLANEJADA' or licenca.status == 'GOZANDO' %}
+                                                    <button type="button" class="btn btn-sm btn-warning btn-reprogramar-licenca" title="Reprogramar Licença Especial" data-bs-toggle="modal" data-bs-target="#modalReprogramarLicenca{{ licenca.pk }}" data-licenca-id="{{ licenca.pk }}">
+                                                        <i class="fas fa-redo me-1"></i>Reprogramar
+                                                    </button>
+                                                    {% endif %}
+                                                    
+                                                    {% if menu_permissions.BOTAO_LICENCA_ESPECIAL_EDITAR or user.is_superuser %}
+                                                    <a href="{% url 'militares:licenca_especial_update' licenca.pk %}" class="btn btn-sm btn-outline-primary" title="Editar">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                    {% endif %}
+                                                    {% if menu_permissions.BOTAO_LICENCA_ESPECIAL_EXCLUIR or user.is_superuser %}
+                                                    <a href="{% url 'militares:licenca_especial_delete' licenca.pk %}" class="btn btn-sm btn-danger" title="Excluir">
+                                                        <i class="fas fa-trash"></i>
+                                                    </a>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="9" class="text-center text-muted">
+                                                <i class="fas fa-info-circle me-2"></i>
+                                                Nenhuma licença especial cadastrada neste plano ainda.
+                                                {% if menu_permissions.BOTAO_LICENCA_ESPECIAL_NOVO or user.is_superuser %}
+                                                <br>
+                                                <a href="{% url 'militares:licenca_especial_create_para_plano' plano.pk %}" class="btn btn-sm btn-success mt-2">
+                                                    <i class="fas fa-plus me-1"></i>Adicionar primeira licença
+                                                </a>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modais de Homologação e Reprogramação -->
+{% for licenca in licencas %}
+{% if plano.status == 'RASCUNHO' or plano.status == 'EM_APROVACAO' or plano.status == 'APROVADO' or plano.status == 'PUBLICADO' %}
+{% if not licenca.observacoes or '✓ Homologado em' not in licenca.observacoes %}
+<!-- Modal Confirmar Homologação {{ licenca.pk }} -->
+<div class="modal fade" id="modalConfirmarHomologacao{{ licenca.pk }}" tabindex="-1" role="dialog" aria-labelledby="modalConfirmarHomologacao{{ licenca.pk }}Label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="modalConfirmarHomologacao{{ licenca.pk }}Label">
+                    <i class="fas fa-check-circle me-2"></i>Confirmar Homologação
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <form method="post" action="{% url 'militares:licenca_especial_homologar' licenca.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Atenção!</strong> Você está prestes a homologar a licença especial de <strong>{{ licenca.militar.nome_completo }}</strong>.
+                    </div>
+                    <p><strong>Militar:</strong> {{ licenca.militar.get_posto_graduacao_display }} {{ licenca.militar.nome_completo }}</p>
+                    <p><strong>Decênio:</strong> {{ licenca.decenio }}º</p>
+                    <p><strong>Período:</strong> {{ licenca.data_inicio|date:"d/m/Y" }} a {{ licenca.data_fim|date:"d/m/Y"|default:"-" }}</p>
+                    <p><strong>Meses:</strong> {{ licenca.quantidade_meses }} meses</p>
+                    <hr>
+                    <p>Esta ação registrará a homologação da licença especial nas observações sem alterar o status atual (<span class="badge bg-info">{{ licenca.get_status_display }}</span>).</p>
+                    <p class="text-muted mb-0"><small>O status permanecerá: <span class="badge bg-info">{{ licenca.get_status_display }}</span></small></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check-circle me-2"></i>Sim, Homologar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% else %}
+<!-- Modal Desomologar Licença Especial {{ licenca.pk }} -->
+<div class="modal fade" id="modalConfirmarDesomologacao{{ licenca.pk }}" tabindex="-1" role="dialog" aria-labelledby="modalConfirmarDesomologacao{{ licenca.pk }}Label" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="modalConfirmarDesomologacao{{ licenca.pk }}Label">
+                    <i class="fas fa-undo me-2"></i>Confirmar Desomologação
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <form method="post" action="{% url 'militares:licenca_especial_desomologar' licenca.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Atenção!</strong> Você está prestes a desomologar a licença especial de <strong>{{ licenca.militar.nome_completo }}</strong>.
+                    </div>
+                    <p><strong>Militar:</strong> {{ licenca.militar.get_posto_graduacao_display }} {{ licenca.militar.nome_completo }}</p>
+                    <p><strong>Decênio:</strong> {{ licenca.decenio }}º</p>
+                    <p><strong>Período:</strong> {{ licenca.data_inicio|date:"d/m/Y" }} a {{ licenca.data_fim|date:"d/m/Y"|default:"-" }}</p>
+                    <p><strong>Meses:</strong> {{ licenca.quantidade_meses }} meses</p>
+                    <p><strong>Status atual:</strong> <span class="badge bg-info">{{ licenca.get_status_display }}</span></p>
+                    <hr>
+                    <p>Esta ação removerá a marcação de homologação das observações da licença especial.</p>
+                    <p class="text-muted"><small>O status atual (<span class="badge bg-info">{{ licenca.get_status_display }}</span>) não será alterado.</small></p>
+                    {% if plano.status == 'RASCUNHO' %}
+                    <div class="alert alert-info mt-2 mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <small>Após desomologar, você poderá editar esta licença especial novamente.</small>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-undo me-2"></i>Sim, Desomologar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+
+{% if licenca.status == 'PLANEJADA' or licenca.status == 'GOZANDO' %}
+<!-- Modal Reprogramar Licença Especial {{ licenca.pk }} -->
+<div class="modal fade" id="modalReprogramarLicenca{{ licenca.pk }}" tabindex="-1" role="dialog" aria-labelledby="modalReprogramarLicenca{{ licenca.pk }}Label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="modalReprogramarLicenca{{ licenca.pk }}Label">
+                    <i class="fas fa-redo me-2"></i>Reprogramar Licença Especial
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <form method="post" action="{% url 'militares:licenca_especial_reprogramar' licenca.pk %}" class="needs-validation" novalidate>
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Atenção!</strong> Ao reprogramar, a licença atual será cancelada e uma nova será criada.
+                    </div>
+                    
+                    <div class="mb-3">
+                        <p><strong>Militar:</strong> {{ licenca.militar.get_posto_graduacao_display }} {{ licenca.militar.nome_completo }}</p>
+                        <p><strong>Decênio:</strong> {{ licenca.decenio }}º</p>
+                        <p><strong>Período:</strong> {{ licenca.data_inicio|date:"d/m/Y" }} a {{ licenca.data_fim|date:"d/m/Y"|default:"-" }}</p>
+                        <p><strong>Meses:</strong> {{ licenca.quantidade_meses }} meses</p>
+                        {% if licenca.status == 'GOZANDO' %}
+                        <div class="alert alert-info mt-2 mb-0">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Licença em andamento:</strong> Ao reprogramar, apenas os meses restantes serão transferidos para a nova licença.
+                            Os meses já gozados serão registrados na licença atual.
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    {% if licenca.status == 'GOZANDO' %}
+                    <hr>
+                    
+                    <h6 class="mb-3"><i class="fas fa-calendar-check me-2"></i>Período Gozado</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label for="data_fim_gozando_{{ licenca.pk }}" class="form-label">
+                                Data de Término da Licença em Andamento <span class="text-danger">*</span>
+                            </label>
+                            <input type="date" class="form-control" id="data_fim_gozando_{{ licenca.pk }}" name="data_fim_gozando" 
+                                   value="{% now 'Y-m-d' %}" required>
+                            <small class="form-text text-muted">Informe a data em que a licença em andamento terminou ou terminará</small>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <hr>
+                    
+                    <h6 class="mb-3"><i class="fas fa-calendar-alt me-2"></i>Novo Período</h6>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="nova_data_inicio_{{ licenca.pk }}" class="form-label">
+                                Nova Data de Início <span class="text-danger">*</span>
+                            </label>
+                            <input type="date" class="form-control" id="nova_data_inicio_{{ licenca.pk }}" name="nova_data_inicio" 
+                                   value="{{ licenca.data_inicio|date:'Y-m-d' }}" required>
+                            <small class="form-text text-muted">Data de início do novo período de licença</small>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="nova_quantidade_meses_{{ licenca.pk }}" class="form-label">
+                                Nova Quantidade de Meses <span class="text-danger">*</span>
+                            </label>
+                            <input type="number" class="form-control" id="nova_quantidade_meses_{{ licenca.pk }}" name="nova_quantidade_meses" 
+                                   value="{% if licenca.status == 'GOZANDO' %}0{% else %}{{ licenca.quantidade_meses }}{% endif %}" min="1" max="12" {% if licenca.status == 'GOZANDO' %}readonly{% else %}required{% endif %}>
+                            <small class="form-text text-muted">
+                                {% if licenca.status == 'GOZANDO' %}
+                                    <span class="text-info"><i class="fas fa-info-circle"></i> Meses restantes (calculado automaticamente)</span>
+                                {% else %}
+                                    Quantidade de meses do novo período
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+                    
+                    {% if licenca.status == 'GOZANDO' %}
+                    <!-- Campos hidden com dados para cálculo JavaScript -->
+                    <input type="hidden" id="licenca_data_inicio_{{ licenca.pk }}" value="{{ licenca.data_inicio|date:'Y-m-d' }}">
+                    <input type="hidden" id="licenca_quantidade_meses_{{ licenca.pk }}" value="{{ licenca.quantidade_meses }}">
+                    <input type="hidden" id="licenca_status_{{ licenca.pk }}" value="{{ licenca.status }}">
+                    {% endif %}
+                    
+                    <hr>
+                    
+                    <div class="mb-3">
+                        <label for="motivo_reprogramacao_{{ licenca.pk }}" class="form-label">
+                            Motivo da Reprogramação <span class="text-danger">*</span>
+                        </label>
+                        <textarea class="form-control" id="motivo_reprogramacao_{{ licenca.pk }}" name="motivo_reprogramacao" 
+                                  rows="4" placeholder="Descreva o motivo pelo qual está reprogramando esta licença especial..." required></textarea>
+                        <small class="form-text text-muted">Este motivo será registrado nas observações da licença cancelada e da nova licença criada.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-redo me-2"></i>Confirmar Reprogramação
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Verificar se Bootstrap está disponível
+    if (typeof bootstrap === 'undefined') {
+        console.error('Bootstrap não está carregado!');
+        return;
+    }
+    
+    // Função auxiliar para abrir modais manualmente
+    function abrirModal(targetId) {
+        const modalElement = document.querySelector(targetId);
+        if (modalElement) {
+            try {
+                const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+                modal.show();
+                return true;
+            } catch (e) {
+                console.error('Erro ao abrir modal:', e);
+                return false;
+            }
+        }
+        console.error('Modal não encontrado:', targetId);
+        return false;
+    }
+    
+    // Configurar abertura manual de todos os modais (como fallback)
+    document.querySelectorAll('[data-bs-toggle="modal"]').forEach(function(botao) {
+        botao.addEventListener('click', function(e) {
+            const targetId = this.getAttribute('data-bs-target');
+            if (targetId) {
+                // Aguardar um pouco para ver se o Bootstrap abriu
+                setTimeout(function() {
+                    const modalElement = document.querySelector(targetId);
+                    if (modalElement) {
+                        const modalInstance = bootstrap.Modal.getInstance(modalElement);
+                        // Se o modal não abriu, abrir manualmente
+                        if (!modalInstance || !modalElement.classList.contains('show')) {
+                            abrirModal(targetId);
+                        }
+                    }
+                }, 150);
+            }
+        });
+    });
+    
+    // Configurar listeners para modais quando forem abertos
+    document.querySelectorAll('.modal').forEach(function(modalElement) {
+        modalElement.addEventListener('shown.bs.modal', function(e) {
+            // Quando o modal de reprogramação for aberto, configurar cálculo de data (se necessário)
+            const modalId = this.id;
+            if (modalId && modalId.startsWith('modalReprogramarLicenca')) {
+                const licencaId = modalId.replace('modalReprogramarLicenca', '');
+                if (licencaId) {
+                    setTimeout(function() {
+                        // Verificar se é licença GOZANDO e calcular meses restantes
+                        const statusInput = document.getElementById('licenca_status_' + licencaId);
+                        if (statusInput && statusInput.value === 'GOZANDO') {
+                            calcularMesesRestantes(licencaId);
+                        }
+                        configurarCalculoDataFim(licencaId);
+                    }, 100);
+                }
+            }
+        });
+    });
+    
+    // Função para calcular meses restantes quando licença está GOZANDO
+    function calcularMesesRestantes(licencaId) {
+        const dataInicioOriginalInput = document.getElementById('licenca_data_inicio_' + licencaId);
+        const quantidadeMesesOriginalInput = document.getElementById('licenca_quantidade_meses_' + licencaId);
+        const quantidadeMesesInput = document.getElementById('nova_quantidade_meses_' + licencaId);
+        const dataFimGozandoInput = document.getElementById('data_fim_gozando_' + licencaId);
+        
+        if (!dataInicioOriginalInput || !quantidadeMesesOriginalInput || !quantidadeMesesInput || !dataFimGozandoInput) {
+            return;
+        }
+        
+        function atualizarMesesRestantes() {
+            const dataInicioOriginal = new Date(dataInicioOriginalInput.value);
+            const dataFimGozando = new Date(dataFimGozandoInput.value);
+            const quantidadeMesesOriginal = parseInt(quantidadeMesesOriginalInput.value) || 0;
+            
+            if (dataInicioOriginal && dataFimGozando && quantidadeMesesOriginal > 0) {
+                // Calcular diferença em meses
+                let mesesJaGozados = (dataFimGozando.getFullYear() - dataInicioOriginal.getFullYear()) * 12 + 
+                                   (dataFimGozando.getMonth() - dataInicioOriginal.getMonth());
+                if (dataFimGozando.getDate() < dataInicioOriginal.getDate()) {
+                    mesesJaGozados -= 1;
+                }
+                mesesJaGozados = Math.max(0, Math.min(mesesJaGozados, quantidadeMesesOriginal));
+                const mesesRestantes = Math.max(0, quantidadeMesesOriginal - mesesJaGozados);
+                
+                quantidadeMesesInput.value = mesesRestantes;
+            }
+        }
+        
+        dataFimGozandoInput.addEventListener('change', atualizarMesesRestantes);
+        atualizarMesesRestantes();
+    }
+    
+    // Função para configurar cálculo automático de data_fim baseado em data_inicio e quantidade_meses
+    function configurarCalculoDataFim(licencaId) {
+        const novaDataInicioInput = document.getElementById('nova_data_inicio_' + licencaId);
+        const novaQuantidadeMesesInput = document.getElementById('nova_quantidade_meses_' + licencaId);
+        
+        if (!novaDataInicioInput || !novaQuantidadeMesesInput) {
+            return;
+        }
+        
+        function calcularDataFim() {
+            const dataInicio = new Date(novaDataInicioInput.value);
+            const quantidadeMeses = parseInt(novaQuantidadeMesesInput.value) || 0;
+            
+            if (dataInicio && quantidadeMeses > 0) {
+                // Adicionar meses e subtrair 1 dia
+                const dataFim = new Date(dataInicio);
+                dataFim.setMonth(dataFim.getMonth() + quantidadeMeses);
+                dataFim.setDate(dataFim.getDate() - 1);
+                
+                // Formatar como YYYY-MM-DD
+                const ano = dataFim.getFullYear();
+                const mes = String(dataFim.getMonth() + 1).padStart(2, '0');
+                const dia = String(dataFim.getDate()).padStart(2, '0');
+                const dataFimFormatada = `${ano}-${mes}-${dia}`;
+                
+                // Se houver campo de data_fim, atualizar (mas não é obrigatório para GOZANDO)
+                const novaDataFimInput = document.getElementById('nova_data_fim_' + licencaId);
+                if (novaDataFimInput) {
+                    novaDataFimInput.value = dataFimFormatada;
+                }
+            }
+        }
+        
+        novaDataInicioInput.addEventListener('change', calcularDataFim);
+        novaQuantidadeMesesInput.addEventListener('change', calcularDataFim);
+        calcularDataFim();
+    }
+});
+</script>
+{% endblock %}
+

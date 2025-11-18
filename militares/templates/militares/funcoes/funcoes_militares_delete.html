@@ -1,0 +1,256 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Excluir Função Militar{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-exclamation-triangle"></i> Confirmar Exclusão
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% if pode_excluir %}
+                        <!-- Confirmação de Exclusão -->
+                        <div class="alert alert-warning">
+                            <h5 class="alert-heading">
+                                <i class="fas fa-exclamation-triangle"></i> Atenção!
+                            </h5>
+                            <p class="mb-0">
+                                Você está prestes a excluir permanentemente a função militar <strong>"{{ funcao.nome }}"</strong>.
+                                Esta ação não pode ser desfeita.
+                            </p>
+                        </div>
+
+                        <!-- Informações da Função -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0">Informações da Função a ser Excluída</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6 class="text-muted">Nome da Função</h6>
+                                        <p class="mb-3">{{ funcao.nome }}</p>
+                                        
+                                        <h6 class="text-muted">Grupo</h6>
+                                        <p class="mb-3">
+                                            <span class="badge bg-{% if funcao.grupo == 'ADMINISTRATIVO' %}primary{% elif funcao.grupo == 'OPERACIONAL' %}success{% elif funcao.grupo == 'COMISSAO' %}info{% elif funcao.grupo == 'GESTAO' %}warning{% else %}secondary{% endif %}">
+                                                {{ funcao.grupo_display }}
+                                            </span>
+                                        </p>
+                                        
+                                        <h6 class="text-muted">Nível</h6>
+                                        <p class="mb-3">
+                                            <span class="badge bg-primary">{{ funcao.nivel }}</span>
+                                        </p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6 class="text-muted">Acesso</h6>
+                                        <p class="mb-3">
+                                            <span class="badge bg-{% if funcao.acesso == 'TOTAL' %}success{% elif funcao.acesso == 'DEPARTAMENTO' %}warning{% elif funcao.acesso == 'UNIDADE' %}info{% elif funcao.acesso == 'ORGAO' %}primary{% elif funcao.acesso == 'SECAO' %}secondary{% else %}dark{% endif %}">
+                                                {{ funcao.acesso_display }}
+                                            </span>
+                                        </p>
+                                        
+                                        <h6 class="text-muted">Acesso/Sigilo</h6>
+                                        <p class="mb-3">
+                                            <span class="badge bg-{% if funcao.acesso_sigilo == 'NEGADO' %}danger{% elif funcao.acesso_sigilo == 'RESTRITO' %}warning{% elif funcao.acesso_sigilo == 'CONFIDENCIAL' %}info{% elif funcao.acesso_sigilo == 'SECRETO' %}primary{% else %}dark{% endif %}">
+                                                {{ funcao.acesso_sigilo_display }}
+                                            </span>
+                                        </p>
+                                        
+                                        <h6 class="text-muted">Publicação</h6>
+                                        <p class="mb-3">
+                                            <span class="badge bg-{% if funcao.publicacao == 'EDITOR_GERAL' %}danger{% elif funcao.publicacao == 'EDITOR_ADJUNTO' %}dark{% elif funcao.publicacao == 'EDITOR' %}primary{% elif funcao.publicacao == 'APROVADOR' %}warning{% elif funcao.publicacao == 'REVISOR' %}info{% elif funcao.publicacao == 'DIGITADOR' %}success{% else %}secondary{% endif %}">
+                                                {{ funcao.publicacao_display }}
+                                            </span>
+                                        </p>
+                                        
+                                        <h6 class="text-muted">Status</h6>
+                                        <p class="mb-3">
+                                            <span class="badge bg-{% if funcao.ativo %}success{% else %}danger{% endif %}">
+                                                {% if funcao.ativo %}Ativo{% else %}Inativo{% endif %}
+                                            </span>
+                                        </p>
+                                    </div>
+                                </div>
+                                
+                                {% if funcao.descricao %}
+                                <div class="row">
+                                    <div class="col-12">
+                                        <h6 class="text-muted">Descrição</h6>
+                                        <p class="mb-0">{{ funcao.descricao }}</p>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Formulário de Confirmação -->
+                        <form method="post" id="delete-form">
+                            {% csrf_token %}
+                            <div class="row">
+                                <div class="col-12">
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input" type="checkbox" id="confirm-delete" required>
+                                        <label class="form-check-label" for="confirm-delete">
+                                            <strong>Confirmo que desejo excluir permanentemente esta função militar</strong>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Botões de Ação -->
+                            <div class="row">
+                                <div class="col-12 text-center">
+                                    <button type="submit" class="btn btn-danger btn-lg" id="delete-btn" disabled>
+                                        <i class="fas fa-trash"></i> Excluir Função Militar
+                                    </button>
+                                    <a href="{% url 'militares:funcoes_militares_detail' funcao.id %}" class="btn btn-secondary btn-lg ms-2">
+                                        <i class="fas fa-arrow-left"></i> Cancelar
+                                    </a>
+                                </div>
+                            </div>
+                        </form>
+                    {% else %}
+                        <!-- Não pode excluir -->
+                        <div class="alert alert-danger">
+                            <h5 class="alert-heading">
+                                <i class="fas fa-ban"></i> Não é possível excluir esta função
+                            </h5>
+                            <p class="mb-0">
+                                Esta função militar não pode ser excluída pois está associada a <strong>{{ usuarios_associados }} usuário(s)</strong>.
+                                Para excluir esta função, primeiro remova todas as associações com usuários.
+                            </p>
+                        </div>
+
+                        <!-- Informações da Função -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0">Informações da Função</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6 class="text-muted">Nome da Função</h6>
+                                        <p class="mb-3">{{ funcao.nome }}</p>
+                                        
+                                        <h6 class="text-muted">Usuários Associados</h6>
+                                        <p class="mb-3">
+                                            <span class="badge bg-warning">{{ usuarios_associados }} usuário(s)</span>
+                                        </p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6 class="text-muted">Grupo</h6>
+                                        <p class="mb-3">
+                                            <span class="badge bg-{% if funcao.grupo == 'ADMINISTRATIVO' %}primary{% elif funcao.grupo == 'OPERACIONAL' %}success{% elif funcao.grupo == 'COMISSAO' %}info{% elif funcao.grupo == 'GESTAO' %}warning{% else %}secondary{% endif %}">
+                                                {{ funcao.grupo_display }}
+                                            </span>
+                                        </p>
+                                        
+                                        <h6 class="text-muted">Status</h6>
+                                        <p class="mb-3">
+                                            <span class="badge bg-{% if funcao.ativo %}success{% else %}danger{% endif %}">
+                                                {% if funcao.ativo %}Ativo{% else %}Inativo{% endif %}
+                                            </span>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Botões de Ação -->
+                        <div class="row">
+                            <div class="col-12 text-center">
+                                <a href="{% url 'militares:funcoes_militares_detail' funcao.id %}" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-eye"></i> Ver Detalhes
+                                </a>
+                                <a href="{% url 'militares:funcoes_militares_update' funcao.id %}" class="btn btn-warning btn-lg ms-2">
+                                    <i class="fas fa-edit"></i> Editar
+                                </a>
+                                <a href="{% url 'militares:funcoes_militares_list' %}" class="btn btn-secondary btn-lg ms-2">
+                                    <i class="fas fa-arrow-left"></i> Voltar à Lista
+                                </a>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Habilitar/desabilitar botão de exclusão baseado no checkbox
+    $('#confirm-delete').on('change', function() {
+        $('#delete-btn').prop('disabled', !$(this).is(':checked'));
+    });
+    
+    // Confirmação adicional antes de enviar o formulário
+    $('#delete-form').on('submit', function(e) {
+        if (!confirm('Tem certeza que deseja excluir permanentemente esta função militar? Esta ação não pode ser desfeita.')) {
+            e.preventDefault();
+            return false;
+        }
+        
+        // Adicionar loading ao botão
+        var submitBtn = $('#delete-btn');
+        submitBtn.prop('disabled', true);
+        submitBtn.html('<i class="fas fa-spinner fa-spin"></i> Excluindo...');
+    });
+});
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.card-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.alert {
+    border: none;
+    border-radius: 0.375rem;
+}
+
+.badge {
+    font-size: 0.875rem;
+}
+
+.text-muted {
+    color: #6c757d !important;
+}
+
+.btn-lg {
+    padding: 0.75rem 1.5rem;
+    font-size: 1.1rem;
+}
+
+.form-check-input:checked {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+.form-check-input:focus {
+    box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25);
+}
+
+#delete-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+</style>
+{% endblock %}

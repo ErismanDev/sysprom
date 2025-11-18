@@ -1,0 +1,278 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Viaturas - Lista{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-car me-2 text-primary"></i>Viaturas
+                    </h2>
+                    <p class="text-muted mb-0">Gerenciar cadastro de viaturas do CBMEPI</p>
+                </div>
+                <div>
+                    {% if 'VIATURAS_CRIAR' in menu_permissions or user.is_superuser %}
+                    <a href="{% url 'militares:viatura_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Nova Viatura
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Cards de Estatísticas -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-car fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ total_viaturas }}</h4>
+                            <p class="mb-0">Total de Viaturas</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card success">
+                        <div class="card-body text-center">
+                            <i class="fas fa-check-circle fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ viaturas_disponiveis }}</h4>
+                            <p class="mb-0">Disponíveis</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card warning">
+                        <div class="card-body text-center">
+                            <i class="fas fa-wrench fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ viaturas_manutencao }}</h4>
+                            <p class="mb-0">Em Manutenção</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card info">
+                        <div class="card-body text-center">
+                            <i class="fas fa-tasks fa-2x mb-2"></i>
+                            <h4 class="mb-1">{{ viaturas_em_uso }}</h4>
+                            <p class="mb-0">Em Uso</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtros
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Pesquisa</label>
+                            <input type="text" name="search" class="form-control" 
+                                   value="{{ search }}" placeholder="Placa, marca, modelo...">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Tipo</label>
+                            <select name="tipo" class="form-select">
+                                <option value="">Todos</option>
+                                {% for tipo_val, tipo_nome in tipos %}
+                                    <option value="{{ tipo_val }}" {% if tipo == tipo_val %}selected{% endif %}>
+                                        {{ tipo_nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-select">
+                                <option value="">Todos</option>
+                                {% for status_val, status_nome in status_list %}
+                                    <option value="{{ status_val }}" {% if status == status_val %}selected{% endif %}>
+                                        {{ status_nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Ativo</label>
+                            <select name="ativo" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="1" {% if ativo == '1' %}selected{% endif %}>Sim</option>
+                                <option value="0" {% if ativo == '0' %}selected{% endif %}>Não</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                            <a href="{% url 'militares:viatura_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Limpar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Lista de Viaturas -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Lista de Viaturas
+                    </h6>
+                    <div>
+                        {% if 'VIATURAS_CRIAR' in menu_permissions or user.is_superuser %}
+                        <a href="{% url 'militares:viatura_create' %}" class="btn btn-success btn-sm">
+                            <i class="fas fa-plus me-2"></i>Nova Viatura
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if viaturas %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Prefix/Placa</th>
+                                        <th>Tipo</th>
+                                        <th>Marca/Modelo</th>
+                                        <th>Ano</th>
+                                        <th>Status</th>
+                                        <th>Organização</th>
+                                        <th>KM Atual</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for viatura in viaturas %}
+                                        <tr>
+                                            <td>
+                                                {% if viatura.prefixo %}
+                                                    <span class="text-muted">{{ viatura.prefixo }}</span> -
+                                                {% endif %}
+                                                <strong>{{ viatura.placa }}</strong>
+                                                {% if not viatura.ativo %}
+                                                    <span class="badge bg-secondary ms-1">Inativa</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ viatura.get_tipo_display }}</td>
+                                            <td>{{ viatura.marca }} {{ viatura.modelo }}</td>
+                                            <td>{{ viatura.ano_fabricacao }}/{{ viatura.ano_modelo }}</td>
+                                            <td>
+                                                {% if viatura.status == 'DISPONIVEL' %}
+                                                    <span class="badge bg-success">{{ viatura.get_status_display }}</span>
+                                                {% elif viatura.status == 'EM_USO' %}
+                                                    <span class="badge bg-info">{{ viatura.get_status_display }}</span>
+                                                {% elif viatura.status == 'MANUTENCAO' %}
+                                                    <span class="badge bg-warning text-dark">{{ viatura.get_status_display }}</span>
+                                                {% elif viatura.status == 'BAIXA' %}
+                                                    <span class="badge bg-danger">{{ viatura.get_status_display }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <span data-bs-toggle="tooltip" 
+                                                      data-bs-placement="top" 
+                                                      title="{{ viatura.get_organizacao_display }}">
+                                                    {{ viatura.get_organizacao_instancia }}
+                                                </span>
+                                            </td>
+                                            <td>{{ viatura.km_atual|default:"0" }} km</td>
+                                            <td>
+                                                {% if 'VIATURAS_VISUALIZAR' in menu_permissions or user.is_superuser %}
+                                                <a href="{% url 'militares:viatura_detail' viatura.pk %}" 
+                                                   class="btn btn-sm btn-info" title="Visualizar">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                {% endif %}
+                                                {% if 'VIATURAS_EDITAR' in menu_permissions or user.is_superuser %}
+                                                <a href="{% url 'militares:viatura_update' viatura.pk %}" 
+                                                   class="btn btn-sm btn-primary" title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                {% endif %}
+                                                {% if 'VIATURAS_EDITAR' in menu_permissions or user.is_superuser %}
+                                                <a href="{% url 'militares:viatura_transferencia' viatura.pk %}" 
+                                                   class="btn btn-sm btn-warning" title="Transferir">
+                                                    <i class="fas fa-exchange-alt"></i>
+                                                </a>
+                                                {% endif %}
+                                                {% if 'VIATURAS_EXCLUIR' in menu_permissions or user.is_superuser %}
+                                                <a href="{% url 'militares:viatura_delete' viatura.pk %}" 
+                                                   class="btn btn-sm btn-danger" title="Excluir">
+                                                    <i class="fas fa-trash"></i>
+                                                </a>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginação -->
+                        {% if is_paginated %}
+                            <nav aria-label="Paginação">
+                                <ul class="pagination justify-content-center mt-4">
+                                    {% if page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}{% if tipo %}&tipo={{ tipo }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">
+                                                <i class="fas fa-angle-double-left"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if tipo %}&tipo={{ tipo }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">
+                                                <i class="fas fa-angle-left"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                    
+                                    <li class="page-item disabled">
+                                        <span class="page-link">
+                                            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                                        </span>
+                                    </li>
+                                    
+                                    {% if page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if tipo %}&tipo={{ tipo }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">
+                                                <i class="fas fa-angle-right"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if tipo %}&tipo={{ tipo }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if ativo %}&ativo={{ ativo }}{% endif %}">
+                                                <i class="fas fa-angle-double-right"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Nenhuma viatura encontrada.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar tooltips do Bootstrap
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+{% endblock %}
+

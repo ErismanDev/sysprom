@@ -1,0 +1,551 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Cautela Coletiva: {{ cautela.descricao }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-users me-2 text-warning"></i>{{ cautela.descricao }}
+                    </h2>
+                    <p class="text-muted mb-0">
+                        {% if cautela.ativa %}
+                        <span class="badge bg-success">Ativa</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Finalizada</span>
+                        {% endif %}
+                    </p>
+                </div>
+                <div>
+                    {% if pode_crud_pdf %}
+                    <a href="{% url 'militares:cautela_arma_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Voltar
+                    </a>
+                    {% endif %}
+                    {% if pode_crud_pdf %}
+                    <a href="{% url 'militares:cautela_arma_coletiva_pdf' cautela.pk %}" 
+                       class="btn btn-danger" 
+                       target="_blank"
+                       title="Gerar PDF da Cautela Coletiva">
+                        <i class="fas fa-file-pdf me-2"></i>Gerar PDF
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Declaração Fixa - Sempre Visível -->
+            <div class="card mb-4" style="position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <div class="card-header bg-warning text-dark">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-file-signature me-2"></i>Declaração de Responsabilidade
+                    </h6>
+                </div>
+                <div class="card-body p-3" style="background-color: #fff3cd;">
+                    <p class="mb-2 text-justify" style="font-size: 14px; line-height: 1.6;">
+                        <strong>Declaro, sob minha inteira responsabilidade,</strong> que recebi as armas descritas neste documento, em perfeitas condições de conservação e funcionamento, e que as utilizarei conforme legislação vigente, normas internas e ordens superiores. <strong>Comprometo-me a:</strong>
+                    </p>
+                    <ul class="mb-0 ps-4" style="font-size: 14px; line-height: 1.8;">
+                        <li>Zelar pela guarda, integridade e segurança das armas;</li>
+                        <li>Comunicar imediatamente qualquer pane, avaria, extravio, furto ou uso indevido;</li>
+                        <li>Devolver as armas no prazo e condições estabelecidos;</li>
+                        <li>Responder disciplinar, civil e criminalmente por qualquer irregularidade decorrente do uso ou guarda.</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Informações da Cautela -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Informações da Cautela</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Tipo:</strong> {{ cautela.get_tipo_finalidade_display }}</p>
+                            <p><strong>Responsável:</strong> 
+                                {% if cautela.responsavel %}
+                                {{ cautela.responsavel.get_posto_graduacao_display }} {{ cautela.responsavel.nome_completo }}
+                                {% else %}
+                                N/A
+                                {% endif %}
+                            </p>
+                            <p><strong>Data de Início:</strong> {{ cautela.data_inicio|date:"d/m/Y H:i" }}</p>
+                            {% if cautela.data_fim %}
+                            <p><strong>Data de Fim:</strong> {{ cautela.data_fim|date:"d/m/Y H:i" }}</p>
+                            {% endif %}
+                            {% if cautela.documento_referencia %}
+                            <p><strong>Documento de Referência:</strong> {{ cautela.documento_referencia }}</p>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Total de Armas:</strong> {{ cautela.get_total_armas }}</p>
+                            <p><strong>Organização:</strong> {{ cautela.get_organizacao }}</p>
+                            {% if not cautela.ativa and cautela.finalizado_por %}
+                            <p><strong>Armas Devolvidas:</strong> 
+                                <span class="badge bg-success">Sim</span>
+                                <br>
+                                <small class="text-muted">
+                                    Recebidas por: {{ cautela.finalizado_por.get_full_name|default:cautela.finalizado_por.username }}
+                                    {% if cautela.data_fim %}
+                                    em {{ cautela.data_fim|date:"d/m/Y H:i" }}
+                                    {% endif %}
+                                </small>
+                            </p>
+                            {% endif %}
+                            {% if cautela.observacoes %}
+                            <p><strong>Observações:</strong> {{ cautela.observacoes }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Informação de Devolução -->
+            {% if not cautela.ativa and cautela.finalizado_por %}
+            <div class="alert alert-success mb-4" role="alert">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-check-circle me-3" style="font-size: 2rem;"></i>
+                    <div>
+                        <h5 class="alert-heading mb-1">Armas Devolvidas</h5>
+                        <p class="mb-0">
+                            Todas as armas desta cautela foram devolvidas e recebidas por 
+                            <strong>{{ cautela.finalizado_por.get_full_name|default:cautela.finalizado_por.username }}</strong>
+                            {% if cautela.data_fim %}
+                            em <strong>{{ cautela.data_fim|date:"d/m/Y H:i" }}</strong>.
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Armas na Cautela -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Armas na Cautela</h5>
+                    {% if cautela.ativa %}
+                    <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#adicionarArmaModal">
+                        <i class="fas fa-plus me-2"></i>Adicionar Arma
+                    </button>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if cautela.armas.all %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Número de Série</th>
+                                    <th>Tipo</th>
+                                    <th>Calibre</th>
+                                    <th>Data Entrega</th>
+                                    <th>Data Devolução</th>
+                                    <th>Status</th>
+                                    {% if cautela.ativa %}
+                                    <th>Ações</th>
+                                    {% endif %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in cautela.armas.all %}
+                                <tr>
+                                    <td>{{ item.arma.numero_serie }}</td>
+                                    <td>{{ item.arma.get_tipo_display }}</td>
+                                    <td>{{ item.arma.get_calibre_display }}</td>
+                                    <td>{{ item.data_entrega|date:"d/m/Y H:i" }}</td>
+                                    <td>
+                                        {% if item.data_devolucao %}
+                                        {{ item.data_devolucao|date:"d/m/Y H:i" }}
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if item.devolvida %}
+                                        <span class="badge bg-secondary">Devolvida</span>
+                                        {% else %}
+                                        <span class="badge bg-success">Em Cautela</span>
+                                        {% endif %}
+                                    </td>
+                                    {% if cautela.ativa and not item.devolvida %}
+                                    <td>
+                                        {% if pode_crud_pdf %}
+                                        <form method="post" 
+                                              action="{% url 'militares:cautela_arma_coletiva_remover_arma' cautela.pk item.pk %}" 
+                                              style="display: inline;"
+                                              onsubmit="return confirm('Tem certeza que deseja devolver esta arma?');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-danger" title="Devolver Arma">
+                                                <i class="fas fa-undo"></i>
+                                            </button>
+                                        </form>
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                    {% elif cautela.ativa %}
+                                    <td>-</td>
+                                    {% endif %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Nenhuma arma adicionada a esta cautela coletiva.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Assinaturas Eletrônicas -->
+            {% if assinaturas %}
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-signature me-2"></i>Assinaturas Eletrônicas
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% for assinatura in assinaturas %}
+                        <div class="mb-3 p-3 border rounded" style="background-color: #fafafa;">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    {% if assinatura.tipo_assinatura == 'ENTREGANDO' %}
+                                        <span class="badge bg-info">Recebimento das Armas</span>
+                                    {% elif assinatura.tipo_assinatura == 'RECEBENDO' %}
+                                        <span class="badge bg-primary">Entrega das Armas</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ assinatura.get_tipo_assinatura_display }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-start">
+                                <div class="me-3">
+                                    <img src="{% static 'assinasyspro.png' %}" alt="Logo AssinaSysPro" width="100" height="70" style="background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius: 4px; padding: 5px;">
+                                </div>
+                                <div class="flex-grow-1">
+                                    <p class="mb-0 text-justify" style="font-size: 15px;">
+                                        Documento assinado eletronicamente por <strong>{% if assinatura.militar %}{{ assinatura.militar.get_posto_graduacao_display }} {{ assinatura.militar.nome_completo }}{% else %}{{ assinatura.assinado_por.get_full_name|default:assinatura.assinado_por.username }}{% endif %}</strong>{% if assinatura.funcao_assinatura %} - <strong>{{ assinatura.funcao_assinatura }}</strong>{% endif %}, em {{ assinatura.data_assinatura|date:"d/m/Y" }}, às {{ assinatura.data_assinatura|date:"H:i" }}, conforme horário oficial de Brasília, com fundamento na Portaria XXX/2025 Gab. Cmdo. Geral/CBMEPI de XX de XXXXX de 2025.
+                                    </p>
+                                    {% if assinatura.tipo_assinatura == 'ENTREGANDO' %}
+                                        <p class="mt-2 mb-0 text-success fw-bold">
+                                            <i class="fas fa-check-circle me-1"></i>Armas devolvidas e recebidas conforme registro acima.
+                                        </p>
+                                    {% endif %}
+                                    {% if assinatura.observacoes %}
+                                        <p class="mt-2 mb-0 text-muted small">
+                                            <strong>Observações:</strong> {{ assinatura.observacoes }}
+                                        </p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if cautela.ativa %}
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex gap-2 flex-wrap">
+                        {% if assinaturas|length == 0 %}
+                        <button type="button"
+                               class="btn btn-success btn-assinar-cautela-coletiva" 
+                               title="Assinar Cautela Coletiva"
+                               data-cautela-id="{{ cautela.pk }}">
+                            <i class="fas fa-signature me-2"></i>Assinar Cautela Coletiva
+                        </button>
+                        {% else %}
+                        <span class="badge bg-success align-self-center" title="Cautela já assinada">
+                            <i class="fas fa-check me-1"></i>Assinada
+                        </span>
+                        {% endif %}
+                        <form method="post" 
+                              action="{% url 'militares:cautela_arma_coletiva_finalizar' cautela.pk %}" 
+                              style="display: inline;"
+                              onsubmit="return confirm('Tem certeza que deseja finalizar esta cautela coletiva? Todas as armas serão devolvidas.');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-check-circle me-2"></i>Finalizar Cautela Coletiva
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Assinar Cautela Coletiva -->
+{% if cautela.ativa and assinaturas|length == 0 %}
+<div class="modal fade" id="modalAssinaturaCautelaColetiva{{ cautela.pk }}" tabindex="-1" aria-labelledby="modalAssinaturaCautelaColetivaLabel{{ cautela.pk }}" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="post" action="{% url 'militares:cautela_arma_coletiva_assinar' cautela.pk %}">
+                {% csrf_token %}
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="modalAssinaturaCautelaColetivaLabel{{ cautela.pk }}">
+                        <i class="fas fa-signature me-2"></i>Assinar Cautela Coletiva de Arma
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                
+                <!-- Declaração Fixa - Sempre Visível -->
+                <div class="p-3" style="background-color: #fff3cd; border-bottom: 2px solid #ffc107;">
+                    <h6 class="fw-bold mb-3">
+                        <i class="fas fa-file-signature me-2"></i>Declaração de Responsabilidade
+                    </h6>
+                    <p class="mb-2 text-justify" style="font-size: 14px; line-height: 1.6;">
+                        <strong>Declaro, sob minha inteira responsabilidade,</strong> que recebi as armas descritas neste documento, em perfeitas condições de conservação e funcionamento, e que as utilizarei conforme legislação vigente, normas internas e ordens superiores. <strong>Comprometo-me a:</strong>
+                    </p>
+                    <ul class="mb-0 ps-4" style="font-size: 14px; line-height: 1.8;">
+                        <li>Zelar pela guarda, integridade e segurança das armas;</li>
+                        <li>Comunicar imediatamente qualquer pane, avaria, extravio, furto ou uso indevido;</li>
+                        <li>Devolver as armas no prazo e condições estabelecidos;</li>
+                        <li>Responder disciplinar, civil e criminalmente por qualquer irregularidade decorrente do uso ou guarda.</li>
+                    </ul>
+                </div>
+                
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Responsável:</strong> {{ cautela.responsavel.get_posto_graduacao_display }} {{ cautela.responsavel.nome_completo }}<br>
+                        <strong>Descrição:</strong> {{ cautela.descricao }}<br>
+                        <strong>Total de Armas:</strong> {{ cautela.get_total_armas }} arma(s)
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="nome_responsavel_cautela_coletiva{{ cautela.pk }}" class="form-label">Nome do Responsável:</label>
+                        <input type="text" class="form-control" id="nome_responsavel_cautela_coletiva{{ cautela.pk }}" name="nome_responsavel" value="{{ cautela.responsavel.nome_completo }}" readonly>
+                        <div class="form-text">Nome do responsável pela cautela coletiva.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="senha_cautela_coletiva{{ cautela.pk }}" class="form-label">Senha:</label>
+                        <input type="password" class="form-control" id="senha_cautela_coletiva{{ cautela.pk }}" name="senha" placeholder="Digite sua senha para confirmar a assinatura" required autocomplete="current-password">
+                        <div class="form-text">Digite sua senha para confirmar a assinatura eletrônica e aceitar os termos acima.</div>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-signature me-1"></i>Confirmar Assinatura
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Modal para Adicionar Arma -->
+{% if cautela.ativa %}
+<div class="modal fade" id="adicionarArmaModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">Adicionar Arma à Cautela</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'militares:cautela_arma_coletiva_adicionar_arma' cautela.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="{{ form_item.arma.id_for_label }}" class="form-label">
+                            Arma <span class="text-danger">*</span>
+                        </label>
+                        {{ form_item.arma }}
+                        {% if form_item.arma.errors %}
+                            <div class="text-danger small">{{ form_item.arma.errors }}</div>
+                        {% endif %}
+                        <small class="form-text text-muted">Digite o número de série para buscar</small>
+                    </div>
+                    
+                    {% if form_item.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form_item.non_field_errors }}
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning">Adicionar Arma</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    // Inicializar Select2 no campo de arma quando o modal for aberto
+    const adicionarArmaModal = document.getElementById('adicionarArmaModal');
+    if (adicionarArmaModal) {
+        adicionarArmaModal.addEventListener('shown.bs.modal', function() {
+            setTimeout(() => {
+                if (typeof $ !== 'undefined' && $.fn.select2) {
+                    const $armaSelect = $('#id_arma_coletiva');
+                    if ($armaSelect.length && !$armaSelect.hasClass('select2-hidden-accessible')) {
+                        $armaSelect.select2({
+                            placeholder: 'Digite o número de série da arma ou clique para ver todas...',
+                            allowClear: true,
+                            minimumInputLength: 0,
+                            width: '100%',
+                            dropdownParent: $('#adicionarArmaModal'),
+                            ajax: {
+                                url: '{% url "militares:arma_list" %}',
+                                dataType: 'json',
+                                delay: 250,
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                },
+                                data: function (params) {
+                                    return {
+                                        q: params.term || '',
+                                        ajax: '1'
+                                    };
+                                },
+                                processResults: function (data) {
+                                    console.log('Dados recebidos:', data);
+                                    if (Array.isArray(data.results)) {
+                                        return { results: data.results };
+                                    }
+                                    if (data.results) {
+                                        return { results: data.results };
+                                    }
+                                    return { results: [] };
+                                },
+                                cache: true
+                            },
+                            language: {
+                                inputTooShort: function () { return 'Digite para buscar ou clique para ver todas...'; },
+                                noResults: function () { return 'Nenhuma arma encontrada'; },
+                                searching: function () { return 'Buscando...'; }
+                            }
+                        });
+                    }
+                }
+            }, 300);
+        });
+        
+        // Destruir Select2 quando o modal for fechado
+        adicionarArmaModal.addEventListener('hidden.bs.modal', function() {
+            if (typeof $ !== 'undefined' && $.fn.select2) {
+                const $armaSelect = $('#id_arma_coletiva');
+                if ($armaSelect.length && $armaSelect.hasClass('select2-hidden-accessible')) {
+                    $armaSelect.select2('destroy');
+                }
+            }
+        });
+    }
+})();
+</script>
+{% endif %}
+
+<script>
+// JavaScript para assinar cautela coletiva
+document.addEventListener('DOMContentLoaded', function() {
+    // Adicionar event listeners para os botões de assinatura coletiva
+    document.querySelectorAll('.btn-assinar-cautela-coletiva').forEach(function(button) {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            const cautelaId = this.getAttribute('data-cautela-id');
+            const modalId = '#modalAssinaturaCautelaColetiva' + cautelaId;
+            const modalElement = document.querySelector(modalId);
+            
+            if (modalElement) {
+                const modal = new bootstrap.Modal(modalElement);
+                modal.show();
+            } else {
+                console.error('Modal não encontrado:', modalId);
+                alert('Erro ao abrir modal de assinatura coletiva. Modal não encontrado.');
+            }
+        });
+    });
+    
+    // Interceptar submit dos formulários de assinatura coletiva
+    document.querySelectorAll('form[action*="cautelas-armas-coletivas"][action*="/assinar/"]').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(form);
+            const submitButton = form.querySelector('button[type="submit"]');
+            const originalText = submitButton.innerHTML;
+            const modalElement = form.closest('.modal');
+            
+            // Remover mensagens de erro anteriores
+            const errorAlert = form.querySelector('.alert-danger');
+            if (errorAlert) {
+                errorAlert.remove();
+            }
+            
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Assinando...';
+            
+            fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: formData
+            })
+            .then(response => {
+                return response.json().then(data => {
+                    return { ok: response.ok, data: data };
+                }).catch(() => {
+                    return { ok: response.ok, data: { success: false, message: 'Erro ao processar resposta do servidor.' } };
+                });
+            })
+            .then(({ ok, data }) => {
+                if (ok && data.success) {
+                    // Sucesso - fechar modal e recarregar página
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    if (modal) {
+                        modal.hide();
+                    }
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 500);
+                } else {
+                    // Erro - exibir mensagem no modal
+                    const errorMsg = data.message || 'Erro ao assinar cautela coletiva. Tente novamente.';
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'alert alert-danger alert-dismissible fade show';
+                    errorDiv.innerHTML = `
+                        <i class="fas fa-exclamation-triangle me-2"></i>${errorMsg}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+                    `;
+                    form.querySelector('.modal-body').insertBefore(errorDiv, form.querySelector('.modal-body').firstChild);
+                    
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'alert alert-danger alert-dismissible fade show';
+                errorDiv.innerHTML = `
+                    <i class="fas fa-exclamation-triangle me-2"></i>Erro ao processar assinatura. Tente novamente.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+                `;
+                form.querySelector('.modal-body').insertBefore(errorDiv, form.querySelector('.modal-body').firstChild);
+                
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalText;
+            });
+        });
+    });
+});
+</script>
+{% endblock %}
+

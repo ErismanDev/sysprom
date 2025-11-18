@@ -13,7 +13,7 @@ class Command(BaseCommand):
         quadro = options['quadro']
         
         militares = Militar.objects.filter(
-            situacao='AT',
+            classificacao='ATIVO',
             posto_graduacao=posto,
             quadro=quadro
         ).order_by('numeracao_antiguidade', 'pk')

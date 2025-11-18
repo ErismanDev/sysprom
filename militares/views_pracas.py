@@ -55,8 +55,79 @@ def calcular_proxima_data_promocao_pracas(data_atual=None):
 @login_required
 def ficha_conceito_pracas_list(request):
     """Lista ficha de conceito de praças"""
+    from .permissoes_simples import filtrar_fichas_conceito_por_usuario, pode_editar_fichas_conceito
+    
     militar_id = request.GET.get('militar')
     query = request.GET.get('q', '')
+    
+    # Verificar se é superusuário - tem acesso total sem função militar
+    if request.user.is_superuser:
+        if militar_id:
+            militar = get_object_or_404(Militar, pk=militar_id)
+            fichas_oficiais = list(militar.fichaconceitooficiais_set.all())
+            fichas_pracas = list(militar.fichaconceitopracas_set.all())
+            fichas = fichas_oficiais + fichas_pracas
+            fichas.sort(key=lambda x: x.data_registro, reverse=True)
+            pracas_sem_ficha = []
+            pracas_com_ficha = fichas
+        else:
+            militar = None
+            pracas = Militar.objects.filter(
+                classificacao='ATIVO',
+                posto_graduacao__in=['SD', 'CAB', '3S', '2S', '1S', 'ST']
+            )
+            if query:
+                pracas = pracas.filter(
+                    Q(nome_completo__icontains=query) |
+                    Q(nome_guerra__icontains=query) |
+                    Q(matricula__icontains=query) |
+                    Q(cpf__icontains=query) |
+                    Q(email__icontains=query)
+                )
+            pracas_com_ficha = list(FichaConceitoPracas.objects.filter(militar__in=pracas))
+            pracas_sem_ficha = list(pracas.exclude(
+                Q(fichaconceitooficiais__isnull=False) | Q(fichaconceitopracas__isnull=False)
+            ))
+            hierarquia_pracas = {
+                'ST': 1, '1S': 2, '2S': 3, '3S': 4, 'CAB': 5, 'SD': 6,
+            }
+            pracas_com_ficha.sort(key=lambda x: (
+                hierarquia_pracas.get(x.militar.posto_graduacao, 999),
+                x.militar.numeracao_antiguidade or 999999,
+                x.militar.nome_completo
+            ))
+            pracas_sem_ficha.sort(key=lambda x: (
+                hierarquia_pracas.get(x.posto_graduacao, 999),
+                x.numeracao_antiguidade or 999999,
+                x.nome_completo
+            ))
+        
+        # Estatísticas para superusuário
+        total_pracas_ativos = Militar.objects.filter(
+            classificacao='ATIVO',
+            posto_graduacao__in=['SD', 'CAB', '3S', '2S', '1S', 'ST']
+        ).count()
+        
+        total_fichas_pracas = len(pracas_com_ficha)
+        
+        context = {
+            'militar': militar,
+            'fichas': pracas_com_ficha + pracas_sem_ficha,  # Adicionar a variável fichas para superusuários
+            'pracas_com_ficha': pracas_com_ficha,
+            'pracas_sem_ficha': pracas_sem_ficha,
+            'total_pracas_ativos': total_pracas_ativos,
+            'total_fichas_pracas': total_fichas_pracas,
+            'query': query,
+            'is_superuser': True,  # Flag para identificar superusuário no template
+        }
+        
+        print(f"🔍 Fichas de Conceito Praças - Acesso SUPERUSUÁRIO para {request.user.username}:")
+        print(f"   - Total praças com ficha: {len(pracas_com_ficha)}")
+        print(f"   - Total praças sem ficha: {len(pracas_sem_ficha)}")
+        
+        return render(request, 'militares/ficha_conceito_pracas_list.html', context)
+    
+    # Para usuários normais, usar lógica original
     if militar_id:
         militar = get_object_or_404(Militar, pk=militar_id)
         fichas_oficiais = list(militar.fichaconceitooficiais_set.all())
@@ -68,7 +139,7 @@ def ficha_conceito_pracas_list(request):
     else:
         militar = None
         pracas = Militar.objects.filter(
-            situacao='AT',
+            classificacao='ATIVO',
             posto_graduacao__in=['SD', 'CAB', '3S', '2S', '1S', 'ST']
         )
         if query:
@@ -97,11 +168,18 @@ def ficha_conceito_pracas_list(request):
             x.nome_completo
         ))
     total_pracas_ativos = Militar.objects.filter(
-        situacao='AT',
+        classificacao='ATIVO',
         posto_graduacao__in=['SD', 'CAB', '3S', '2S', '1S', 'ST']
     ).count()
     # Montar lista final: primeiro os sem ficha, depois os com ficha
     fichas_final = pracas_sem_ficha + pracas_com_ficha
+    
+    # Aplicar filtro de permissão para usuários comuns
+    # Se não pode editar fichas, aplicar filtro (que permite ver própria ficha)
+    if not pode_editar_fichas_conceito(request.user) and not pode_visualizar_fichas_conceito(request.user):
+        fichas_final = filtrar_fichas_conceito_por_usuario(request.user, fichas_final)
+        pracas_com_ficha = filtrar_fichas_conceito_por_usuario(request.user, pracas_com_ficha)
+        pracas_sem_ficha = filtrar_fichas_conceito_por_usuario(request.user, pracas_sem_ficha)
     
     context = {
         'militar': militar,
@@ -113,6 +191,7 @@ def ficha_conceito_pracas_list(request):
         'pracas_sem_ficha_count': len(pracas_sem_ficha),
         'is_pracas': True,
         'query': query,
+        'pode_editar_fichas_conceito': pode_editar_fichas_conceito(request.user),
     }
     return render(request, 'militares/ficha_conceito_pracas_list.html', context)
 
@@ -123,7 +202,7 @@ def gerar_fichas_conceito_pracas_todos(request):
     if request.method == 'POST':
         # Buscar praças sem ficha de conceito
         pracas_sem_ficha = Militar.objects.filter(
-            situacao='AT',
+            classificacao='ATIVO',
             posto_graduacao__in=['SD', 'CAB', '3S', '2S', '1S', 'ST']
         ).exclude(
             Q(fichaconceitooficiais__isnull=False) | Q(fichaconceitopracas__isnull=False)
@@ -150,7 +229,7 @@ def gerar_fichas_conceito_pracas_todos(request):
             
             try:
                 ficha = FichaConceitoPracas.objects.create(militar=militar)
-                print(f"DEBUG: Ficha criada com sucesso para {militar.nome_completo} - Tempo no posto: {ficha.tempo_posto}")
+                print(f"DEBUG: Ficha criada com sucesso para {militar.nome_completo} - Tempo no posto: {ficha.tempo_posto_extenso}")
                 fichas_criadas += 1
             except Exception as e:
                 print(f"DEBUG: Erro ao criar ficha para {militar.nome_completo}: {e}")
@@ -169,7 +248,7 @@ def limpar_pontos_fichas_conceito_pracas(request):
     if request.method == 'POST':
         # Buscar fichas de praças
         pracas = Militar.objects.filter(
-            situacao='AT',
+            classificacao='ATIVO',
             posto_graduacao__in=['SD', 'CAB', '3S', '2S', '1S', 'ST']
         )
         fichas = FichaConceitoPracas.objects.filter(militar__in=pracas)
@@ -177,7 +256,9 @@ def limpar_pontos_fichas_conceito_pracas(request):
         fichas_atualizadas = 0
         for ficha in fichas:
             # Limpar todos os campos de pontos
-            ficha.tempo_posto = 0
+            ficha.tempo_posto_anos = 0
+            ficha.tempo_posto_meses = 0
+            ficha.tempo_posto_dias = 0
             ficha.cursos_especializacao = 0
             ficha.cursos_csbm = 0
             ficha.cursos_cfsd = 0
@@ -340,7 +421,7 @@ def quadro_acesso_pracas_detail(request, pk):
     # Buscar praças disponíveis para adicionar ao quadro
     militares_no_quadro = quadro.itemquadroacesso_set.values_list('militar_id', flat=True)
     pracas_disponiveis = Militar.objects.filter(
-        situacao='AT',
+        classificacao='ATIVO',
         posto_graduacao__in=['SD', 'CAB', '3S', '2S', '1S', 'ST'],
         apto_inspecao_saude=True
     ).exclude(
@@ -599,7 +680,7 @@ def quadro_acesso_pracas_pdf(request, pk):
                 # Preparar dados da tabela
                 from .utils import criptografar_cpf_lgpd
                 if quadro.tipo == 'MERECIMENTO':
-                    # Para quadros de merecimento: adicionar coluna de pontuação
+                    # Para quadros de merecimento: adicionar coluna de pontuação com larguras fixas alinhadas
                     header_data = [['ORD', 'CPF', 'GRADUAÇÃO', 'NOME', 'PONTUAÇÃO']]
                     for idx, item in enumerate(aptos, 1):
                         header_data.append([
@@ -609,44 +690,52 @@ def quadro_acesso_pracas_pdf(request, pk):
                             item.militar.nome_completo,
                             f"{item.pontuacao:.2f}" if item.pontuacao else "-"
                         ])
-                    
-                    # Calcular larguras das colunas baseado no conteúdo
-                    max_ord = max([len(str(row[0])) for row in header_data])
-                    max_ident = max([len(row[1]) for row in header_data])
-                    max_graduacao = max([len(row[2]) for row in header_data])
-                    max_pontuacao = max([len(row[4]) for row in header_data])
-                    
-                    # Definir larguras mínimas e ajustáveis
-                    col_widths = [
-                        max(1.2*cm, max_ord * 0.3*cm),  # ORD
-                        max(3*cm, max_ident * 0.3*cm),  # IDENT
-                        max(3*cm, max_graduacao * 0.3*cm),  # GRADUAÇÃO
-                        6*cm,  # NOME (reduzido para dar espaço à pontuação)
-                        max(2*cm, max_pontuacao * 0.3*cm)  # PONTUAÇÃO
-                    ]
+                    # Larguras fixas alinhadas: ORD 1.2, CPF 2.0, GRAD 2.4, NOME restante, PONT 2.0
+                    w_ord = 1.2*cm
+                    w_cpf = 2.0*cm
+                    w_grad = 2.4*cm
+                    w_pont = 2.0*cm
+                    nome_width = doc.width - (w_ord + w_cpf + w_grad + w_pont)
+                    col_widths = [w_ord, w_cpf, w_grad, nome_width, w_pont]
                 else:
-                    # Para quadros de antiguidade: estrutura original
-                    header_data = [['ORD', 'CPF', 'GRADUAÇÃO', 'NOME']]
-                    for idx, item in enumerate(aptos, 1):
-                        header_data.append([
-                            str(idx),
-                            criptografar_cpf_lgpd(item.militar.cpf),
-                            item.militar.get_posto_graduacao_display() if hasattr(item.militar, 'get_posto_graduacao_display') else item.militar.posto_graduacao,
-                            item.militar.nome_completo
-                        ])
-                    
-                    # Calcular larguras das colunas baseado no conteúdo
-                    max_ord = max([len(str(row[0])) for row in header_data])
-                    max_ident = max([len(row[1]) for row in header_data])
-                    max_graduacao = max([len(row[2]) for row in header_data])
-                    
-                    # Definir larguras mínimas e ajustáveis
-                    col_widths = [
-                        max(1.2*cm, max_ord * 0.3*cm),  # ORD
-                        max(3*cm, max_ident * 0.3*cm),  # IDENT
-                        max(3*cm, max_graduacao * 0.3*cm),  # GRADUAÇÃO
-                        8*cm  # NOME (fixo)
-                    ]
+                    # Para quadros de antiguidade: incluir coluna NOTA apenas SD→CAB e CAB→3S, larguras fixas
+                    incluir_nota = (transicao['origem'] == 'SD' and transicao['destino'] == 'CAB') or (transicao['origem'] == 'CAB' and transicao['destino'] == '3S')
+                    if incluir_nota:
+                        header_data = [['ORD', 'CPF', 'GRADUAÇÃO', 'NOME', 'NOTA']]
+                        for idx, item in enumerate(aptos, 1):
+                            if transicao['origem'] == 'SD' and transicao['destino'] == 'CAB':
+                                nota_val = getattr(item.militar, 'nota_chc', None)
+                            elif transicao['origem'] == 'CAB' and transicao['destino'] == '3S':
+                                nota_val = getattr(item.militar, 'nota_chsgt', None)
+                            else:
+                                nota_val = None
+                            header_data.append([
+                                str(idx),
+                                criptografar_cpf_lgpd(item.militar.cpf),
+                                item.militar.get_posto_graduacao_display() if hasattr(item.militar, 'get_posto_graduacao_display') else item.militar.posto_graduacao,
+                                item.militar.nome_completo,
+                                f"{float(nota_val):.2f}" if nota_val is not None else "-"
+                            ])
+                        w_ord = 1.2*cm
+                        w_cpf = 2.0*cm
+                        w_grad = 2.4*cm
+                        w_nota = 1.8*cm
+                        nome_width = doc.width - (w_ord + w_cpf + w_grad + w_nota)
+                        col_widths = [w_ord, w_cpf, w_grad, nome_width, w_nota]
+                    else:
+                        header_data = [['ORD', 'CPF', 'GRADUAÇÃO', 'NOME']]
+                        for idx, item in enumerate(aptos, 1):
+                            header_data.append([
+                                str(idx),
+                                criptografar_cpf_lgpd(item.militar.cpf),
+                                item.militar.get_posto_graduacao_display() if hasattr(item.militar, 'get_posto_graduacao_display') else item.militar.posto_graduacao,
+                                item.militar.nome_completo
+                            ])
+                        w_ord = 1.2*cm
+                        w_cpf = 2.0*cm
+                        w_grad = 2.4*cm
+                        nome_width = doc.width - (w_ord + w_cpf + w_grad)
+                        col_widths = [w_ord, w_cpf, w_grad, nome_width]
                 
                 table = Table(header_data, colWidths=col_widths)
                 # Aplicar estilo diferente baseado no tipo de quadro
@@ -694,11 +783,11 @@ def quadro_acesso_pracas_pdf(request, pk):
         # Se não houver assinatura, usar a data do quadro
         data_extenso = f"Teresina - PI, {quadro.data_promocao.day} de {meses_pt[quadro.data_promocao.month]} de {quadro.data_promocao.year}"
     
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 40))
     story.append(Paragraph(data_extenso, style_center))
     
     # Seção de Assinaturas Físicas (sem título)
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 40))
 
     # Buscar todas as assinaturas válidas do quadro (da mais recente para a mais antiga)
     assinaturas = quadro.assinaturas.filter(assinado_por__isnull=False).order_by('-data_assinatura')
@@ -732,7 +821,7 @@ def quadro_acesso_pracas_pdf(request, pk):
         story.append(Spacer(1, 12))
 
     # Seção de Assinaturas Eletrônicas (sem título)
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 40))
     
     # Processar assinaturas eletrônicas
     print(f"DEBUG: Processando {assinaturas.count()} assinaturas eletrônicas")
@@ -762,34 +851,29 @@ def quadro_acesso_pracas_pdf(request, pk):
         
         print(f"DEBUG: Assinatura eletrônica {i+1} - Nome: {nome_assinante}, Função: {funcao}")
         
-        # Adicionar logo do CBMEPI
-        logo_path = os.path.join(settings.STATIC_ROOT, 'logo_cbmepi.png')
-        if not os.path.exists(logo_path):
-            logo_path = os.path.join(settings.STATICFILES_DIRS[0], 'logo_cbmepi.png') if settings.STATICFILES_DIRS else os.path.join(settings.BASE_DIR, 'static', 'logo_cbmepi.png')
+        # Adicionar logo da assinatura eletrônica
+        from .utils import obter_caminho_assinatura_eletronica
+        logo_path = obter_caminho_assinatura_eletronica()
         
         # Tabela das assinaturas: Logo + Texto de assinatura
         assinatura_data = [
-            [Image(logo_path, width=1.5*cm, height=1.5*cm), Paragraph(texto_assinatura, style_small)]
+                            [Image(obter_caminho_assinatura_eletronica(), width=3.0*cm, height=2.0*cm), Paragraph(texto_assinatura, style_small)]
         ]
         
-        assinatura_table = Table(assinatura_data, colWidths=[2*cm, 14*cm])
+        assinatura_table = Table(assinatura_data, colWidths=[3*cm, 13*cm])
         assinatura_table.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # Logo centralizado
             ('ALIGN', (1, 0), (1, 0), 'LEFT'),    # Texto alinhado à esquerda
-            ('LEFTPADDING', (0, 0), (-1, -1), 2),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-            ('TOPPADDING', (0, 0), (-1, -1), 2),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+                                 ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                     ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+                     ('TOPPADDING', (0, 0), (-1, -1), 6),
+                     ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                     ('BOX', (0, 0), (-1, -1), 1, colors.grey),  # Borda do retângulo
         ]))
         
         story.append(assinatura_table)
-        
-        # Adicionar linha separadora entre assinaturas (exceto na última)
-        if i < len(assinaturas) - 1:
-            story.append(Spacer(1, 8))
-            story.append(HRFlowable(width="100%", thickness=0.5, spaceAfter=8, spaceBefore=8, color=colors.lightgrey))
-            story.append(Spacer(1, 8))
+        story.append(Spacer(1, 10))  # Espaçamento entre assinaturas
     
     # Se não houver assinaturas, mostrar mensagem
     if not assinaturas.exists():
@@ -797,7 +881,7 @@ def quadro_acesso_pracas_pdf(request, pk):
         story.append(Paragraph("Nenhuma assinatura registrada", style_center))
     
     # Rodapé com QR Code para conferência de veracidade
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 40))
     story.append(HRFlowable(width="100%", thickness=1, spaceAfter=10, spaceBefore=10, color=colors.grey))
     
     # Usar a função utilitária para gerar o autenticador
@@ -809,22 +893,26 @@ def quadro_acesso_pracas_pdf(request, pk):
         [autenticador['qr_img'], Paragraph(autenticador['texto_autenticacao'], style_small)]
     ]
     
-    rodape_table = Table(rodape_data, colWidths=[2*cm, 14*cm])
+    rodape_table = Table(rodape_data, colWidths=[3*cm, 13*cm])
     rodape_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # QR centralizado
         ('ALIGN', (1, 0), (1, 0), 'LEFT'),    # Texto alinhado à esquerda
-        ('LEFTPADDING', (0, 0), (-1, -1), 2),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LEFTPADDING', (0, 0), (-1, -1), 1),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 1),
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
 
     ]))
     
     story.append(rodape_table)
     
-    # Gerar PDF
-    doc.build(story)
+    # Usar função utilitária para criar rodapé do sistema
+    from .utils import criar_rodape_sistema_pdf
+    add_rodape_first, add_rodape_later = criar_rodape_sistema_pdf(request)
+    
+    # Gerar PDF com rodapé em todas as páginas
+    doc.build(story, onFirstPage=add_rodape_first, onLaterPages=add_rodape_later)
     
     # Configurar resposta para visualização no navegador
     buffer.seek(0)
@@ -1020,8 +1108,8 @@ def deshomologar_quadro_acesso_pracas(request, pk):
         
         # Verificar se a função existe e pertence ao usuário
         try:
-            funcao = UsuarioFuncao.objects.get(id=funcao_id, usuario=request.user)
-        except UsuarioFuncao.DoesNotExist:
+            funcao = UsuarioFuncaoMilitar.objects.get(id=funcao_id, usuario=request.user)
+        except UsuarioFuncaoMilitar.DoesNotExist:
             messages.error(request, 'Função inválida.')
             return redirect('militares:quadro_acesso_list')
         
@@ -1217,7 +1305,7 @@ def montar_quadro_acesso_pracas(request, pk):
                         messages.error(request, 'Apenas praças podem ser adicionadas a este quadro.')
                     else:
                         # Verificar regras básicas de elegibilidade
-                        if militar.situacao != 'AT':
+                        if militar.classificacao != 'ATIVO':
                             messages.error(request, f'Praça {militar.nome_completo} não está em situação ativa.')
                         elif not militar.apto_inspecao_saude:
                             messages.error(request, f'Praça {militar.nome_completo} não está apto em inspeção de saúde.')
@@ -1259,7 +1347,7 @@ def montar_quadro_acesso_pracas(request, pk):
             # Carregar automaticamente apenas militares aptos para ingresso
             militares_aptos = []
             pracas_ativos = Militar.objects.filter(
-                situacao='AT',
+                classificacao='ATIVO',
                 posto_graduacao__in=['SD', 'CAB', '3S', '2S', '1S', 'ST'],
                 apto_inspecao_saude=True
             )
@@ -1332,14 +1420,14 @@ def montar_quadro_acesso_pracas(request, pk):
     if quadro.tipo == 'MERECIMENTO':
         # Para merecimento: apenas 2º e 1º sargentos
         pracas_ativos = Militar.objects.filter(
-            situacao='AT',
+            classificacao='ATIVO',
             posto_graduacao__in=['2S', '1S'],  # Apenas 2º e 1º sargentos
             apto_inspecao_saude=True
         ).order_by('posto_graduacao', 'nome_completo')
     else:
         # Para antiguidade: todas as praças
         pracas_ativos = Militar.objects.filter(
-            situacao='AT',
+            classificacao='ATIVO',
             posto_graduacao__in=['SD', 'CAB', '3S', '2S', '1S', 'ST'],
             apto_inspecao_saude=True
         ).order_by('posto_graduacao', 'nome_completo')
@@ -1400,7 +1488,7 @@ def buscar_pracas_elegiveis(request):
             if quadro.tipo == 'MERECIMENTO':
                 # Para merecimento: apenas 2º e 1º sargentos
                 pracas = Militar.objects.filter(
-                    situacao='AT',
+                    classificacao='ATIVO',
                     posto_graduacao__in=['2S', '1S'],  # Apenas 2º e 1º sargentos
                     apto_inspecao_saude=True,
                     nome_completo__icontains=termo
@@ -1410,7 +1498,7 @@ def buscar_pracas_elegiveis(request):
             else:
                 # Para antiguidade: todas as praças
                 pracas = Militar.objects.filter(
-                    situacao='AT',
+                    classificacao='ATIVO',
                     posto_graduacao__in=['SD', 'CAB', '3S', '2S', '1S', 'ST'],
                     apto_inspecao_saude=True,
                     nome_completo__icontains=termo
@@ -1508,7 +1596,7 @@ def assinar_quadro_acesso_pracas(request, pk):
             return render(request, 'militares/assinar_quadro_acesso_pracas.html', context)
         
         # Obter função atual do usuário
-        from militares.models import UsuarioFuncao, MembroComissao
+        from militares.models import UsuarioFuncaoMilitar, MembroComissao
         
         # Primeiro, tentar buscar função na comissão
         membro_comissao = MembroComissao.objects.filter(
@@ -1522,13 +1610,13 @@ def assinar_quadro_acesso_pracas(request, pk):
             funcao_atual = membro_comissao.get_tipo_display()
         else:
             # Se não for membro de comissão, buscar função ativa do usuário
-            funcao_usuario = UsuarioFuncao.objects.filter(
+            funcao_usuario = UsuarioFuncaoMilitar.objects.filter(
                 usuario=request.user,
-                status='ATIVO'
+                ativo=True
             ).first()
             
             if funcao_usuario:
-                funcao_atual = funcao_usuario.cargo_funcao.nome
+                funcao_atual = funcao_usuario.funcao_militar.nome
             else:
                 funcao_atual = "Usuário do Sistema"
         
@@ -1593,7 +1681,7 @@ def adicionar_militar_quadro_pracas(request, pk):
             
             # Permitir adicionar qualquer militar (praças e oficiais) por motivos especiais
             # Apenas verificar se está ativo
-            if militar.situacao != 'AT':
+            if militar.classificacao != 'ATIVO':
                 messages.error(request, 'Apenas militares em situação ativa podem ser adicionados ao quadro.')
                 return redirect('militares:quadro_acesso_pracas_detail', pk=quadro.pk)
             
@@ -1670,22 +1758,22 @@ def buscar_pracas_disponiveis_modal(request, pk):
         if quadro.tipo == 'MERECIMENTO':
             # Para merecimento: apenas 2º e 1º sargentos
             base_qs = Militar.objects.filter(
-                situacao='AT', 
+                classificacao='ATIVO', 
                 quadro='PRACAS',
                 posto_graduacao__in=['2S', '1S']  # Apenas 2º e 1º sargentos
             ).exclude(id__in=militares_no_quadro)
         else:
             # Para antiguidade: todas as praças
-            base_qs = Militar.objects.filter(situacao='AT', quadro='PRACAS').exclude(id__in=militares_no_quadro)
+            base_qs = Militar.objects.filter(classificacao='ATIVO', quadro='PRACAS').exclude(id__in=militares_no_quadro)
     elif quadro.categoria == 'OFICIAIS':
         # Oficiais elegíveis: ativos, quadro diferente de 'PRACAS', não estão no quadro
-        base_qs = Militar.objects.filter(situacao='AT').exclude(quadro='PRACAS').exclude(id__in=militares_no_quadro)
+        base_qs = Militar.objects.filter(classificacao='ATIVO').exclude(quadro='PRACAS').exclude(id__in=militares_no_quadro)
     else:
         return JsonResponse({'militares': []})
 
     # Se termo de busca, permitir buscar qualquer militar ativo (praça ou oficial), exceto já no quadro
     if termo:
-        qs = Militar.objects.filter(situacao='AT').exclude(id__in=militares_no_quadro)
+        qs = Militar.objects.filter(classificacao='ATIVO').exclude(id__in=militares_no_quadro)
         qs = qs.filter(
             Q(nome_completo__icontains=termo) |
             Q(matricula__icontains=termo)
@@ -1760,14 +1848,14 @@ def remover_militar_quadro_pracas(request, pk, militar_id):
     return redirect('militares:quadro_acesso_pracas_detail', pk=quadro.pk)
 
 
-from .decorators import can_edit_ficha_conceito
+from .decorators import can_edit_ficha_conceito, ficha_conceito_visualizacao_required
 
 @login_required
 def ficha_conceito_pracas_form(request, militar_pk):
     """Formulário de ficha de conceito de praças com upload de documentos"""
     # Verificar permissão
     if not can_edit_ficha_conceito(request.user):
-        messages.error(request, 'Você não tem permissão para editar fichas de conceito. Apenas administradores, chefes da seção de promoções e diretores de gestão de pessoas podem editar.')
+        messages.error(request, 'Você não tem permissão para editar fichas de conceito. Apenas Chefe da Seção de Promoções e Auxiliar da Seção de Promoções podem editar.')
         return redirect('militares:ficha_conceito_pracas_list')
     militar = get_object_or_404(Militar, pk=militar_pk)
     
@@ -1852,17 +1940,20 @@ def ficha_conceito_pracas_delete(request, pk):
 
 
 @login_required
+@ficha_conceito_visualizacao_required
 def ficha_conceito_pracas_detail(request, pk):
     """Detalhes da ficha de conceito de praças"""
+    from .permissoes_simples import pode_editar_fichas_conceito
+    
     ficha = get_object_or_404(FichaConceitoPracas, pk=pk)
     
     # Calcular pontos detalhados para exibição
     pontos_detalhados = {
         'tempo_posto': {
-            'valor': ficha.tempo_posto,
-            'pontos': ficha.tempo_posto * 1.0,
+            'valor': ficha.tempo_posto_extenso,
+            'pontos': ficha.tempo_posto_anos * 1.0,
             'limite': None,
-            'descricao': 'Tempo de Serviço no Posto Atual'
+            'descricao': 'Tempo de Serviço no Posto Atual (apenas anos completos)'
         },
         'cursos_militares': {
             'valor': ficha.cursos_especializacao,
@@ -1904,7 +1995,7 @@ def ficha_conceito_pracas_detail(request, pk):
         },
         'punicoes': {
             'valor': ficha.punicao_repreensao + ficha.punicao_detencao + ficha.punicao_prisao,
-            'pontos': -(ficha.punicao_repreensao * 1.0 + ficha.punicao_detencao * 2.0 +
+            'pontos': -(ficha.punicao_repreensao * 1.0 + ficha.punicao_detencao * 2.0 + 
                        ficha.punicao_prisao * 5.0),
             'limite': None,
             'descricao': 'Punições'
@@ -1923,6 +2014,7 @@ def ficha_conceito_pracas_detail(request, pk):
         'pontos_detalhados': pontos_detalhados,
         'total_pontos': ficha.calcular_pontos(),
         'tipo_ficha': 'pracas',
+        'pode_editar_fichas_conceito': pode_editar_fichas_conceito(request.user),
     }
     
     response = render(request, 'militares/ficha_conceito_pracas_detail.html', context)
@@ -1930,3 +2022,201 @@ def ficha_conceito_pracas_detail(request, pk):
     response['Pragma'] = 'no-cache'
     response['Expires'] = '0'
     return response
+
+
+@login_required
+def titulos_publicacao_list(request):
+    """Lista títulos de publicações com filtros e paginação"""
+    from .models import TituloPublicacaoConfig
+    from django.core.paginator import Paginator
+    from django.db.models import Q
+    
+    # Buscar todos os títulos para filtros
+    titulos = TituloPublicacaoConfig.objects.all().order_by('ordem', 'titulo')
+    
+    # Filtros
+    query = request.GET.get('q', '').strip()
+    if query:
+        # Busca flexível por título, tópicos e tipo
+        palavras = query.split()
+        q_objects = Q()
+        
+        for palavra in palavras:
+            q_objects |= (
+                Q(titulo__icontains=palavra) |
+                Q(topicos__icontains=palavra) |
+                Q(tipo__icontains=palavra)
+            )
+        
+        # Também buscar pela query completa
+        q_objects |= (
+            Q(titulo__icontains=query) |
+            Q(topicos__icontains=query) |
+            Q(tipo__icontains=query)
+        )
+        
+        titulos = titulos.filter(q_objects)
+    
+    # Filtro por status (ativo/inativo)
+    status = request.GET.get('status', '')
+    if status == 'ativo':
+        titulos = titulos.filter(ativo=True)
+    elif status == 'inativo':
+        titulos = titulos.filter(ativo=False)
+    
+    # Filtro por tipo de publicação
+    tipo = request.GET.get('tipo', '')
+    if tipo:
+        titulos = titulos.filter(tipo=tipo)
+    
+    # Paginação
+    per_page = request.GET.get('per_page', '20')
+    try:
+        per_page = int(per_page)
+        if per_page not in [10, 20, 50, 100]:
+            per_page = 20
+    except (ValueError, TypeError):
+        per_page = 20
+    
+    paginator = Paginator(titulos, per_page)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Buscar todos os títulos para estatísticas (sem filtros)
+    total_titulos = TituloPublicacaoConfig.objects.count()
+    titulos_ativos = TituloPublicacaoConfig.objects.filter(ativo=True).count()
+    titulos_inativos = TituloPublicacaoConfig.objects.filter(ativo=False).count()
+    
+    # Opções para filtros
+    tipos_choices = TituloPublicacaoConfig.TIPO_CHOICES
+    
+    context = {
+        'titulos': page_obj,
+        'total_titulos': total_titulos,
+        'titulos_ativos': titulos_ativos,
+        'titulos_inativos': titulos_inativos,
+        'tipos_choices': tipos_choices,
+        'filtros': {
+            'query': query,
+            'status': status,
+            'tipo': tipo,
+            'per_page': per_page,
+        },
+        'resultados_count': titulos.count(),
+    }
+    
+    return render(request, 'militares/titulos_publicacao_list.html', context)
+
+
+@login_required
+def titulo_publicacao_create(request):
+    """Criar novo título de publicação"""
+    from .models import TituloPublicacaoConfig
+    from .forms import TituloPublicacaoForm
+    
+    if request.method == 'POST':
+        form = TituloPublicacaoForm(request.POST)
+        if form.is_valid():
+            titulo = form.save(commit=False)
+            titulo.criado_por = request.user
+            
+            # Se ordem não foi definida, definir automaticamente
+            if not titulo.ordem:
+                ultimo_titulo = TituloPublicacaoConfig.objects.order_by('-ordem').first()
+                titulo.ordem = (ultimo_titulo.ordem + 1) if ultimo_titulo else 1
+            
+            titulo.save()
+            messages.success(request, 'Título de publicação criado com sucesso!')
+            return redirect('militares:titulos_publicacao_list')
+    else:
+        form = TituloPublicacaoForm()
+    
+    context = {
+        'form': form,
+        'title': 'Novo Título de Publicação',
+        'action': 'Criar'
+    }
+    
+    return render(request, 'militares/titulo_publicacao_form.html', context)
+
+
+@login_required
+def titulo_publicacao_edit(request, pk):
+    """Editar título de publicação"""
+    from .models import TituloPublicacaoConfig
+    from .forms import TituloPublicacaoForm
+    
+    titulo = get_object_or_404(TituloPublicacaoConfig, pk=pk)
+    
+    if request.method == 'POST':
+        form = TituloPublicacaoForm(request.POST, instance=titulo)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Título de publicação atualizado com sucesso!')
+            return redirect('militares:titulos_publicacao_list')
+    else:
+        form = TituloPublicacaoForm(instance=titulo)
+    
+    context = {
+        'form': form,
+        'titulo': titulo,
+        'title': 'Editar Título de Publicação',
+        'action': 'Atualizar'
+    }
+    
+    return render(request, 'militares/titulo_publicacao_form.html', context)
+
+
+@login_required
+def titulo_publicacao_delete(request, pk):
+    """Excluir título de publicação"""
+    from .models import TituloPublicacaoConfig
+    
+    titulo = get_object_or_404(TituloPublicacaoConfig, pk=pk)
+    
+    if request.method == 'POST':
+        titulo.delete()
+        messages.success(request, 'Título de publicação excluído com sucesso!')
+        return redirect('militares:titulos_publicacao_list')
+    
+    context = {
+        'titulo': titulo
+    }
+    
+    return render(request, 'militares/titulo_publicacao_confirm_delete.html', context)
+
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def titulos_publicacao_reordenar(request):
+    """Reordenar numeração dos títulos de publicação"""
+    from .models import TituloPublicacaoConfig
+    
+    if request.method == 'POST':
+        try:
+            # Buscar todos os títulos ativos ordenados por ordem atual e depois por título
+            titulos = TituloPublicacaoConfig.objects.filter(ativo=True).order_by('ordem', 'titulo')
+            
+            # Reordenar sequencialmente
+            for i, titulo in enumerate(titulos, 1):
+                titulo.ordem = i
+                titulo.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'{titulos.count()} títulos reordenados com sucesso!'
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': f'Erro ao reordenar: {str(e)}'
+            })
+    
+    return JsonResponse({
+        'success': False,
+        'message': 'Método não permitido'
+    })
+
+
+# ===== MÓDULO DE PUBLICAÇÕES MOVIDO PARA views_publicacoes.py =====

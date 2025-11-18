@@ -1,0 +1,1739 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load militares_extras %}
+
+{% block title %}Arma: {{ arma.numero_serie }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex align-items-center gap-3">
+                        {% with imagem=arma.get_imagem %}
+                            {% if imagem %}
+                                <img src="{{ imagem.url }}" 
+                                     alt="{{ arma.marca }} {{ arma.modelo }}" 
+                                     class="img-thumbnail" 
+                                     style="width: 150px; height: 150px; object-fit: cover; cursor: pointer;"
+                                     data-bs-toggle="modal" 
+                                     data-bs-target="#imagemModal">
+                            {% else %}
+                                <div class="bg-light d-flex align-items-center justify-content-center img-thumbnail" 
+                                     style="width: 150px; height: 150px; border-radius: 4px; border: 1px solid #ddd;">
+                                    <i class="fas fa-gun text-muted fa-3x"></i>
+                                </div>
+                            {% endif %}
+                        {% endwith %}
+                        <div>
+                            <h2 class="mb-0">
+                                <i class="fas fa-gun me-2 text-danger"></i>{{ arma.numero_serie }}
+                            </h2>
+                            <p class="text-muted mb-0">{{ arma.get_tipo_display }} - {{ arma.marca }} {{ arma.modelo }} - {{ arma.get_calibre_display }}</p>
+                        </div>
+                    </div>
+                    <div>
+                        <a href="{% url 'militares:arma_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Voltar
+                        </a>
+                        <a href="{% url 'militares:arma_ficha_pdf' arma.pk %}" 
+                           target="_blank" 
+                           class="btn btn-danger">
+                            <i class="fas fa-file-pdf me-2"></i>Ficha PDF
+                        </a>
+                        {% if user.is_superuser %}
+                        <button type="button" 
+                                class="btn btn-primary btn-editar-arma" 
+                                data-arma-id="{{ arma.pk }}">
+                            <i class="fas fa-edit me-2"></i>Editar
+                        </button>
+                        <button type="button" 
+                                class="btn btn-warning btn-transferir-arma" 
+                                data-arma-id="{{ arma.pk }}"
+                                data-bs-toggle="modal"
+                                data-bs-target="#transferirArmaModal">
+                            <i class="fas fa-exchange-alt me-2"></i>Transferir
+                        </button>
+                        <button type="button" 
+                                class="btn btn-info btn-movimentar-arma" 
+                                data-arma-id="{{ arma.pk }}"
+                                data-tipo="MANUTENCAO"
+                                data-bs-toggle="modal"
+                                data-bs-target="#movimentarArmaModal">
+                            <i class="fas fa-wrench me-2"></i>Manutenção
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Modal para visualizar imagem em tamanho maior -->
+            {% with imagem=arma.get_imagem %}
+                {% if imagem %}
+                    <div class="modal fade" id="imagemModal" tabindex="-1">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">
+                                        {{ arma.marca }} {{ arma.modelo }} - {{ arma.numero_serie }}
+                                    </h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body text-center">
+                                    <img src="{{ imagem.url }}" 
+                                         alt="{{ arma.marca }} {{ arma.modelo }}" 
+                                         class="img-fluid" 
+                                         style="max-height: 70vh;"
+                                         onerror="this.src='{% static 'images/placeholder.png' %}'; this.onerror=null;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            {% endwith %}
+            
+            <div class="row">
+                <div class="col-12">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-info-circle me-2"></i>Informações da Arma
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <strong>Número de Série:</strong><br>
+                                    {{ arma.numero_serie }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <strong>Tipo:</strong><br>
+                                    {{ arma.get_tipo_display }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <strong>Marca:</strong><br>
+                                    {{ arma.marca }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <strong>Modelo:</strong><br>
+                                    {{ arma.modelo }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <strong>Calibre:</strong><br>
+                                    {{ arma.get_calibre_display }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <strong>Situação:</strong><br>
+                                    {% if arma.situacao == 'CAUTELA_INDIVIDUAL' %}
+                                        {% if cautela_coletiva_ativa %}
+                                            <span class="badge bg-warning text-dark">Cautela Coletiva</span>
+                                        {% else %}
+                                            <span class="badge bg-success">{{ arma.get_situacao_display }}</span>
+                                        {% endif %}
+                                    {% elif arma.situacao == 'RESERVA_ARMAMENTO' %}
+                                        <span class="badge bg-info">{{ arma.get_situacao_display }}</span>
+                                    {% elif arma.situacao == 'EM_MANUTENCAO' %}
+                                        <span class="badge bg-warning text-dark">{{ arma.get_situacao_display }}</span>
+                                    {% elif arma.situacao == 'EXTRAVIADO' %}
+                                        <span class="badge bg-danger">{{ arma.get_situacao_display }}</span>
+                                    {% elif arma.situacao == 'ANEXADO_INQUERITO_PM' %}
+                                        <span class="badge bg-dark">{{ arma.get_situacao_display }}</span>
+                                    {% elif arma.situacao == 'ANEXADO_INQUERITO_PC' %}
+                                        <span class="badge bg-secondary">{{ arma.get_situacao_display }}</span>
+                                    {% elif arma.situacao == 'INSERVIVEL' %}
+                                        <span class="badge bg-dark">{{ arma.get_situacao_display }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ arma.get_situacao_display }}</span>
+                                    {% endif %}
+                                </div>
+                                {% if arma.alma_raiada %}
+                                <div class="col-md-6 mb-3">
+                                    <strong>Alma Raiada:</strong><br>
+                                    <span class="badge bg-success">Sim</span>
+                                </div>
+                                {% if arma.quantidade_raias %}
+                                <div class="col-md-6 mb-3">
+                                    <strong>Quantidade de Raias:</strong><br>
+                                    {{ arma.quantidade_raias }}
+                                </div>
+                                {% endif %}
+                                {% if arma.direcao_raias %}
+                                <div class="col-md-6 mb-3">
+                                    <strong>Direção das Raias:</strong><br>
+                                    {{ arma.get_direcao_raias_display }}
+                                </div>
+                                {% endif %}
+                                {% else %}
+                                <div class="col-md-6 mb-3">
+                                    <strong>Alma Raiada:</strong><br>
+                                    <span class="badge bg-secondary">Não</span>
+                                </div>
+                                {% endif %}
+                                {% if arma.capacidade_carregador %}
+                                <div class="col-md-6 mb-3">
+                                    <strong>Capacidade do Carregador:</strong><br>
+                                    {{ arma.capacidade_carregador }} munições
+                                </div>
+                                {% endif %}
+                                {% if arma.configuracao_arma %}
+                                <div class="col-md-6 mb-3">
+                                    <strong>Configuração de Arma:</strong><br>
+                                    {{ arma.configuracao_arma.marca }} {{ arma.configuracao_arma.modelo }}
+                                </div>
+                                {% endif %}
+                                {% if arma.numero_registro_policia %}
+                                <div class="col-md-6 mb-3">
+                                    <strong>Nº Registro no Exército Brasileiro:</strong><br>
+                                    {{ arma.numero_registro_policia }}
+                                </div>
+                                {% endif %}
+                                {% if arma.numero_guia_transito %}
+                                <div class="col-md-6 mb-3">
+                                    <strong>Nº Guia de Trânsito:</strong><br>
+                                    {{ arma.numero_guia_transito }}
+                                </div>
+                                {% endif %}
+                                <div class="col-md-12 mb-3">
+                                    <strong>Organização Militar:</strong><br>
+                                    <i class="fas fa-building me-2 text-muted"></i>
+                                    <span data-bs-toggle="tooltip" 
+                                          data-bs-placement="top" 
+                                          title="{{ arma.get_organizacao_display }}">
+                                        {{ arma.get_organizacao_instancia }}
+                                    </span>
+                                </div>
+                                {% if arma.data_aquisicao or arma.valor_aquisicao or arma.fornecedor %}
+                                <div class="col-md-12 mb-3">
+                                    <hr>
+                                    <h6 class="mb-3"><i class="fas fa-dollar-sign me-2"></i>Dados de Aquisição</h6>
+                                    <div class="row">
+                                        {% if arma.data_aquisicao %}
+                                        <div class="col-md-4 mb-3">
+                                            <strong>Data de Aquisição:</strong><br>
+                                            {{ arma.data_aquisicao|date:"d/m/Y" }}
+                                        </div>
+                                        {% endif %}
+                                        {% if arma.valor_aquisicao %}
+                                        <div class="col-md-4 mb-3">
+                                            <strong>Valor de Aquisição:</strong><br>
+                                            R$ {{ arma.valor_aquisicao|floatformat:2 }}
+                                        </div>
+                                        {% endif %}
+                                        {% if arma.fornecedor %}
+                                        <div class="col-md-4 mb-3">
+                                            <strong>Fornecedor:</strong><br>
+                                            {{ arma.fornecedor }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                                <div class="col-md-6 mb-3">
+                                    <strong>Status:</strong><br>
+                                    {% if arma.ativo %}
+                                        <span class="badge bg-success">Ativa</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Inativa</span>
+                                    {% endif %}
+                                </div>
+                                {% if arma.estado_conservacao %}
+                                <div class="col-md-6 mb-3">
+                                    <strong>Estado de Conservação:</strong><br>
+                                    <span class="badge 
+                                        {% if arma.estado_conservacao == 'NOVA' %}bg-primary
+                                        {% elif arma.estado_conservacao == 'OTIMO' %}bg-success
+                                        {% elif arma.estado_conservacao == 'BOM' %}bg-info
+                                        {% elif arma.estado_conservacao == 'REGULAR' %}bg-warning text-dark
+                                        {% elif arma.estado_conservacao == 'RUIM' %}bg-danger
+                                        {% elif arma.estado_conservacao == 'INSERVIVEL' %}bg-dark
+                                        {% endif %}">
+                                        {{ arma.get_estado_conservacao_display }}
+                                    </span>
+                                </div>
+                                {% endif %}
+                                {% if arma.nome_tombamento or arma.numero_tombamento or arma.cod_tombamento or arma.local_tombamento %}
+                                <div class="col-12 mb-3">
+                                    <hr>
+                                    <h6 class="mb-3"><i class="fas fa-file-alt me-2"></i>Informações de Tombamento</h6>
+                                </div>
+                                {% if arma.nome_tombamento %}
+                                <div class="col-md-12 mb-3">
+                                    <strong>Nome do Tombamento:</strong><br>
+                                    {{ arma.nome_tombamento }}
+                                </div>
+                                {% endif %}
+                                <div class="row">
+                                    {% if arma.numero_tombamento %}
+                                    <div class="col-md-3 mb-3">
+                                        <strong>Nº Tombamento:</strong><br>
+                                        {{ arma.numero_tombamento }}
+                                    </div>
+                                    {% endif %}
+                                    {% if arma.cod_tombamento %}
+                                    <div class="col-md-3 mb-3">
+                                        <strong>COD:</strong><br>
+                                        {{ arma.cod_tombamento }}
+                                    </div>
+                                    {% endif %}
+                                    {% if arma.local_tombamento %}
+                                    <div class="col-md-3 mb-3">
+                                        <strong>Local:</strong><br>
+                                        {{ arma.local_tombamento }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                                <div class="col-md-12 mb-3">
+                                    <strong>Códigos de Identificação:</strong><br>
+                                    <div class="row">
+                                        <div class="col-md-4 mb-3">
+                                            <strong class="small">Código de Barras:</strong><br>
+                                            <div class="d-flex align-items-center gap-3 mt-2">
+                                                <svg id="barcode-{{ arma.pk }}" class="barcode" style="min-width: 200px; min-height: 60px; display: block;"></svg>
+                                                <div>
+                                                    <small class="text-muted d-block">{{ arma.numero_serie }}</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4 mb-3">
+                                            <!-- Coluna vazia ou para uso futuro -->
+                                        </div>
+                                        <div class="col-md-4 mb-3">
+                                            <strong class="small">QR Code:</strong><br>
+                                            <div class="d-flex align-items-center gap-3 mt-2">
+                                                <div class="bg-white p-2 rounded shadow-sm d-inline-block" style="border: 1px solid #dee2e6;">
+                                                    <img src="{% url 'militares:arma_qrcode' arma.pk %}?format=image" 
+                                                         alt="QR Code Arma {{ arma.numero_serie }}" 
+                                                         class="img-fluid"
+                                                         style="max-width: 150px; height: auto;">
+                                                </div>
+                                                <div>
+                                                    <small class="text-muted d-block">{{ arma.numero_serie }}</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if arma.situacao == 'ANEXADO_INQUERITO_PM' %}
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-file-alt me-2"></i>Dados do Inquérito PM
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {% if arma.numero_inquerito_pm %}
+                                <strong>Nº Inquérito PM:</strong> {{ arma.numero_inquerito_pm }}<br>
+                            {% endif %}
+                            {% if arma.encarregado_inquerito_pm %}
+                                <strong>Encarregado:</strong> {{ arma.encarregado_inquerito_pm.nome_completo }}<br>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% elif arma.situacao == 'ANEXADO_INQUERITO_PC' %}
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-file-alt me-2"></i>Dados do Inquérito PC
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {% if arma.numero_inquerito_pc %}
+                                <strong>Nº Inquérito PC:</strong> {{ arma.numero_inquerito_pc }}<br>
+                            {% endif %}
+                            {% if arma.delegado_inquerito_pc %}
+                                <strong>Delegado Responsável:</strong> {{ arma.delegado_inquerito_pc }}<br>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if arma.observacoes %}
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-sticky-note me-2"></i>Observações
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {{ arma.observacoes|linebreaks }}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Cautela Ativa Individual -->
+            {% if cautela_ativa and not cautela_coletiva_ativa %}
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card border-success">
+                        <div class="card-header bg-success text-white">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-user-shield me-2"></i>Cautela Ativa (Individual)
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p class="mb-2">
+                                        <strong>Militar:</strong> 
+                                        {% if cautela_ativa.militar_destino %}
+                                            {{ cautela_ativa.militar_destino.get_posto_graduacao_display }} {{ cautela_ativa.militar_destino.nome_completo }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </p>
+                                    <p class="mb-2">
+                                        <strong>Data de Entrega:</strong> 
+                                        {{ cautela_ativa.data_movimentacao|date:"d/m/Y H:i" }}
+                                    </p>
+                                    <p class="mb-2">
+                                        <strong>Entregue por:</strong> 
+                                        {% if cautela_ativa.responsavel_movimentacao %}
+                                            {{ cautela_ativa.responsavel_movimentacao.get_full_name|default:cautela_ativa.responsavel_movimentacao.username }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p class="mb-2">
+                                        <strong>Organização de Origem:</strong> 
+                                        {{ cautela_ativa.organizacao_origem|default:"-" }}
+                                    </p>
+                                    {% if cautela_ativa.quantidade_carregadores %}
+                                    <p class="mb-2">
+                                        <strong>Carregadores:</strong> 
+                                        {{ cautela_ativa.quantidade_carregadores }}
+                                        {% if cautela_ativa.numeracao_carregadores %}
+                                            - {{ cautela_ativa.numeracao_carregadores|truncatewords:10 }}
+                                        {% endif %}
+                                    </p>
+                                    {% endif %}
+                                    {% if cautela_ativa.quantidade_municoes_catalogadas %}
+                                    <p class="mb-2">
+                                        <strong>Munições Catalogadas:</strong> 
+                                        {{ cautela_ativa.quantidade_municoes_catalogadas }}
+                                    </p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if cautela_ativa.observacoes %}
+                            <div class="mt-3">
+                                <strong>Observações:</strong>
+                                <p class="mb-0">{{ cautela_ativa.observacoes|linebreaks }}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Cautela Coletiva Ativa -->
+            {% if cautela_coletiva_ativa %}
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card border-warning">
+                        <div class="card-header bg-warning text-dark">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-users me-2"></i>Cautela Coletiva Ativa
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p class="mb-2">
+                                        <strong>Descrição/Finalidade:</strong> 
+                                        <strong>{{ cautela_coletiva_ativa.cautela.descricao }}</strong>
+                                    </p>
+                                    <p class="mb-2">
+                                        <strong>Tipo:</strong> 
+                                        <span class="badge bg-info">{{ cautela_coletiva_ativa.cautela.get_tipo_finalidade_display }}</span>
+                                    </p>
+                                    <p class="mb-2">
+                                        <strong>Responsável:</strong> 
+                                        {% if cautela_coletiva_ativa.cautela.responsavel %}
+                                            {{ cautela_coletiva_ativa.cautela.responsavel.get_posto_graduacao_display }} {{ cautela_coletiva_ativa.cautela.responsavel.nome_completo }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </p>
+                                    <p class="mb-2">
+                                        <strong>Data de Início:</strong> 
+                                        {{ cautela_coletiva_ativa.cautela.data_inicio|date:"d/m/Y H:i" }}
+                                    </p>
+                                    <p class="mb-2">
+                                        <strong>Data de Entrega da Arma:</strong> 
+                                        {{ cautela_coletiva_ativa.data_entrega|date:"d/m/Y H:i" }}
+                                    </p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p class="mb-2">
+                                        <strong>Organização:</strong> 
+                                        {{ cautela_coletiva_ativa.cautela.get_organizacao|default:"-" }}
+                                    </p>
+                                    {% if cautela_coletiva_ativa.cautela.documento_referencia %}
+                                    <p class="mb-2">
+                                        <strong>Documento de Referência:</strong> 
+                                        {{ cautela_coletiva_ativa.cautela.documento_referencia }}
+                                    </p>
+                                    {% endif %}
+                                    <p class="mb-2">
+                                        <strong>Total de Armas na Cautela:</strong> 
+                                        <span class="badge bg-secondary">{{ cautela_coletiva_ativa.cautela.get_total_armas }} arma{{ cautela_coletiva_ativa.cautela.get_total_armas|pluralize }}</span>
+                                    </p>
+                                    <p class="mb-2">
+                                        <strong>Criado por:</strong> 
+                                        {% if cautela_coletiva_ativa.cautela.criado_por %}
+                                            {{ cautela_coletiva_ativa.cautela.criado_por.get_full_name|default:cautela_coletiva_ativa.cautela.criado_por.username }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                            {% if cautela_coletiva_ativa.cautela.observacoes %}
+                            <div class="mt-3">
+                                <strong>Observações:</strong>
+                                <p class="mb-0">{{ cautela_coletiva_ativa.cautela.observacoes|linebreaks }}</p>
+                            </div>
+                            {% endif %}
+                            <div class="mt-3">
+                                <a href="{% url 'militares:cautela_arma_coletiva_detail' cautela_coletiva_ativa.cautela.pk %}" 
+                                   class="btn btn-warning">
+                                    <i class="fas fa-eye me-2"></i>Ver Detalhes da Cautela Coletiva
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Histórico de Cautelas -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-user-shield me-2"></i>Histórico de Cautelas
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {% if historico_cautelas %}
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Data de Entrega</th>
+                                                <th>Militar</th>
+                                                <th>Organização</th>
+                                                <th>Carregadores</th>
+                                                <th>Munições</th>
+                                                <th>Entregue por</th>
+                                                <th>Data de Devolução</th>
+                                                <th>Devolvido por</th>
+                                                <th>Status</th>
+                                                <th>Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for cautela in historico_cautelas %}
+                                                <tr>
+                                                    <td>{{ cautela.data_entrega|date:"d/m/Y H:i" }}</td>
+                                                    <td>
+                                                        {% if cautela.militar %}
+                                                            <strong>{{ cautela.militar.get_posto_graduacao_display }} {{ cautela.militar.nome_completo }}</strong>
+                                                            {% if cautela.militar.matricula %}
+                                                                <br><small class="text-muted">Mat: {{ cautela.militar.matricula }}</small>
+                                                            {% endif %}
+                                                        {% else %}
+                                                            <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        <small>{{ cautela.get_organizacao|default:"-" }}</small>
+                                                    </td>
+                                                    <td>
+                                                        {% if cautela.quantidade_carregadores %}
+                                                            <strong>{{ cautela.quantidade_carregadores }}</strong>
+                                                            {% if cautela.numeracao_carregadores %}
+                                                                <br><small class="text-muted" title="{{ cautela.numeracao_carregadores }}">{{ cautela.numeracao_carregadores|truncatewords:5 }}</small>
+                                                            {% endif %}
+                                                        {% else %}
+                                                            <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        {% if cautela.quantidade_municoes_catalogadas %}
+                                                            <strong>{{ cautela.quantidade_municoes_catalogadas }}</strong>
+                                                        {% else %}
+                                                            <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        {% if cautela.entregue_por %}
+                                                            <small>{{ cautela.entregue_por.get_full_name|default:cautela.entregue_por.username }}</small>
+                                                        {% else %}
+                                                            <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        {% if cautela.data_devolucao %}
+                                                            {{ cautela.data_devolucao|date:"d/m/Y H:i" }}
+                                                        {% else %}
+                                                            <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        {% if cautela.devolvido_por %}
+                                                            <small>{{ cautela.devolvido_por.get_full_name|default:cautela.devolvido_por.username }}</small>
+                                                        {% else %}
+                                                            <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        {% if cautela.ativa %}
+                                                            <span class="badge bg-success">Ativa</span>
+                                                        {% else %}
+                                                            <span class="badge bg-secondary">Devolvida</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        <a href="{% url 'militares:cautela_arma_detail' cautela.pk %}" 
+                                                           class="btn btn-sm btn-outline-info" 
+                                                           title="Visualizar detalhes da cautela">
+                                                            <i class="fas fa-eye"></i>
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Nenhuma cautela individual registrada para esta arma.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Histórico de Cautelas Coletivas -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-users me-2 text-warning"></i>Histórico de Cautelas Coletivas
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {% if historico_cautelas_coletivas %}
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Data de Entrega</th>
+                                                <th>Descrição/Finalidade</th>
+                                                <th>Tipo</th>
+                                                <th>Responsável</th>
+                                                <th>Organização</th>
+                                                <th>Documento de Referência</th>
+                                                <th>Data de Devolução</th>
+                                                <th>Status</th>
+                                                <th>Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for item in historico_cautelas_coletivas %}
+                                                <tr>
+                                                    <td>{{ item.data_entrega|date:"d/m/Y H:i" }}</td>
+                                                    <td>
+                                                        <strong>{{ item.cautela.descricao }}</strong>
+                                                        {% if item.cautela.observacoes %}
+                                                            <br><small class="text-muted">{{ item.cautela.observacoes|truncatewords:10 }}</small>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge bg-info">{{ item.cautela.get_tipo_finalidade_display }}</span>
+                                                    </td>
+                                                    <td>
+                                                        {% if item.cautela.responsavel %}
+                                                            <strong>{{ item.cautela.responsavel.get_posto_graduacao_display }} {{ item.cautela.responsavel.nome_completo }}</strong>
+                                                            {% if item.cautela.responsavel.matricula %}
+                                                                <br><small class="text-muted">Mat: {{ item.cautela.responsavel.matricula }}</small>
+                                                            {% endif %}
+                                                        {% else %}
+                                                            <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        <small>{{ item.cautela.get_organizacao|default:"-" }}</small>
+                                                    </td>
+                                                    <td>
+                                                        {% if item.cautela.documento_referencia %}
+                                                            <small>{{ item.cautela.documento_referencia }}</small>
+                                                        {% else %}
+                                                            <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        {% if item.data_devolucao %}
+                                                            {{ item.data_devolucao|date:"d/m/Y H:i" }}
+                                                        {% else %}
+                                                            <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        {% if item.devolvida %}
+                                                            <span class="badge bg-secondary">Devolvida</span>
+                                                        {% elif item.cautela.ativa %}
+                                                            <span class="badge bg-warning text-dark">Ativa</span>
+                                                        {% else %}
+                                                            <span class="badge bg-secondary">Finalizada</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        <a href="{% url 'militares:cautela_arma_coletiva_detail' item.cautela.pk %}" 
+                                                           class="btn btn-sm btn-outline-warning" 
+                                                           title="Visualizar detalhes da cautela coletiva">
+                                                            <i class="fas fa-eye"></i>
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Nenhuma cautela coletiva registrada para esta arma.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Histórico de Manutenções -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-wrench me-2"></i>Histórico de Manutenções
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {% if movimentacoes_manutencao %}
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Data/Hora</th>
+                                                <th>Tipo</th>
+                                                <th>Tipo de Manutenção</th>
+                                                <th>Destino/Origem</th>
+                                                <th>Militar que Recebeu</th>
+                                                <th>Empresa</th>
+                                                <th>CNPJ</th>
+                                                <th>Responsável</th>
+                                                <th>Observações</th>
+                                                <th>Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for mov in movimentacoes_manutencao %}
+                                                <tr>
+                                                    <td>{{ mov.data_movimentacao|date:"d/m/Y H:i" }}</td>
+                                                    <td>
+                                                        {% if mov.tipo_movimentacao == 'MANUTENCAO' %}
+                                                            <span class="badge bg-warning text-dark">Envio para Manutenção</span>
+                                                        {% elif mov.tipo_movimentacao == 'RETORNO_MANUTENCAO' %}
+                                                            <span class="badge bg-success">Retorno de Manutenção</span>
+                                                        {% else %}
+                                                            <span class="badge bg-secondary">{{ mov.get_tipo_movimentacao_display }}</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        {% if mov.tipo_manutencao == 'INTERNA' %}
+                                                            <span class="badge bg-info">Interna</span>
+                                                        {% elif mov.tipo_manutencao == 'EXTERNA' %}
+                                                            <span class="badge bg-danger">Externa</span>
+                                                        {% else %}
+                                                            <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        {% if mov.tipo_manutencao == 'INTERNA' %}
+                                                            {% if mov.sub_unidade_manutencao %}
+                                                                {{ mov.sub_unidade_manutencao.nome }}
+                                                            {% elif mov.unidade_manutencao %}
+                                                                {{ mov.unidade_manutencao.nome }}
+                                                            {% elif mov.grande_comando_manutencao %}
+                                                                {{ mov.grande_comando_manutencao.nome }}
+                                                            {% elif mov.orgao_manutencao %}
+                                                                {{ mov.orgao_manutencao.nome }}
+                                                            {% else %}
+                                                                <span class="text-muted">-</span>
+                                                            {% endif %}
+                                                        {% elif mov.tipo_manutencao == 'EXTERNA' %}
+                                                            {{ mov.empresa_manutencao|default:"-" }}
+                                                        {% else %}
+                                                            <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        {% if mov.militar_recebeu_manutencao %}
+                                                            {{ mov.militar_recebeu_manutencao.get_posto_graduacao_display }} {{ mov.militar_recebeu_manutencao.nome_completo }}
+                                                        {% else %}
+                                                            <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        {% if mov.tipo_manutencao == 'EXTERNA' %}
+                                                            {{ mov.empresa_manutencao|default:"-" }}
+                                                        {% else %}
+                                                            <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        {% if mov.tipo_manutencao == 'EXTERNA' %}
+                                                            {{ mov.cnpj_empresa_manutencao|default:"-" }}
+                                                        {% else %}
+                                                            <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        {% if mov.responsavel_movimentacao %}
+                                                            {{ mov.responsavel_movimentacao.get_full_name|default:mov.responsavel_movimentacao.username }}
+                                                        {% else %}
+                                                            <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        {% if mov.observacoes %}
+                                                            <small title="{{ mov.observacoes|escape }}">{{ mov.observacoes|truncatewords:15 }}</small>
+                                                        {% else %}
+                                                            <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        <div class="btn-group" role="group">
+                                                            <a href="{% url 'militares:movimentacao_arma_detail' mov.pk %}" 
+                                                               class="btn btn-sm btn-outline-info" title="Visualizar manutenção">
+                                                                <i class="fas fa-eye"></i>
+                                                            </a>
+                                                            {% if user.is_superuser and arma.situacao == 'EM_MANUTENCAO' and mov.tipo_movimentacao == 'MANUTENCAO' and forloop.first %}
+                                                                <button type="button" 
+                                                                        class="btn btn-sm btn-success btn-movimentar-arma" 
+                                                                        data-arma-id="{{ arma.pk }}"
+                                                                        data-tipo="RETORNO_MANUTENCAO"
+                                                                        data-bs-toggle="modal"
+                                                                        data-bs-target="#movimentarArmaModal" 
+                                                                        title="Registrar retorno">
+                                                                    <i class="fas fa-undo"></i>
+                                                                </button>
+                                                            {% endif %}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Nenhuma movimentação de manutenção registrada para esta arma.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Histórico de Transferências -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-exchange-alt me-2"></i>Histórico de Transferências
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {% if transferencias %}
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Data</th>
+                                                <th>Origem</th>
+                                                <th>Destino</th>
+                                                <th>Carregadores</th>
+                                                <th>Munições</th>
+                                                <th>Transferido por</th>
+                                                <th>Observações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for transf in transferencias %}
+                                                <tr>
+                                                    <td>{{ transf.data_movimentacao|date:"d/m/Y H:i" }}</td>
+                                                    <td>
+                                                        <strong>{{ transf.organizacao_origem|default:"-" }}</strong>
+                                                    </td>
+                                                    <td>
+                                                        <strong class="text-success">{{ transf.organizacao_destino|default:"-" }}</strong>
+                                                    </td>
+                                                    <td>
+                                                        {% if transf.quantidade_carregadores %}
+                                                            <strong>{{ transf.quantidade_carregadores }}</strong>
+                                                            {% if transf.numeracao_carregadores %}
+                                                                <br><small class="text-muted" title="{{ transf.numeracao_carregadores }}">{{ transf.numeracao_carregadores|truncatewords:5 }}</small>
+                                                            {% endif %}
+                                                        {% else %}
+                                                            <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        {% if transf.quantidade_municoes_catalogadas %}
+                                                            <strong>{{ transf.quantidade_municoes_catalogadas }}</strong>
+                                                        {% else %}
+                                                            <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        {% if transf.responsavel_movimentacao %}
+                                                            {{ transf.responsavel_movimentacao.get_full_name|default:transf.responsavel_movimentacao.username }}
+                                                        {% else %}
+                                                            <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        {% if transf.observacoes %}
+                                                            <small title="{{ transf.observacoes|escape }}">{{ transf.observacoes|truncatewords:15 }}</small>
+                                                        {% else %}
+                                                            <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Nenhuma transferência registrada para esta arma.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Histórico de Alterações (Acordeon) -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="accordion" id="accordionHistoricoAlteracoes">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingHistoricoAlteracoes">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                        data-bs-target="#collapseHistoricoAlteracoes" aria-expanded="false" 
+                                        aria-controls="collapseHistoricoAlteracoes">
+                                    <i class="fas fa-clipboard-list me-2"></i>
+                                    <strong>Histórico de Alterações</strong>
+                                    {% if historico_alteracoes %}
+                                        <span class="badge bg-primary ms-2">{{ historico_alteracoes|length }}</span>
+                                    {% endif %}
+                                </button>
+                            </h2>
+                            <div id="collapseHistoricoAlteracoes" class="accordion-collapse collapse" 
+                                 aria-labelledby="headingHistoricoAlteracoes" 
+                                 data-bs-parent="#accordionHistoricoAlteracoes">
+                                <div class="accordion-body">
+                                    {% if historico_alteracoes %}
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-hover">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Data/Hora</th>
+                                                        <th>Campo</th>
+                                                        <th>Valor Anterior</th>
+                                                        <th>Valor Novo</th>
+                                                        <th>Alterado por</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for hist in historico_alteracoes %}
+                                                        <tr>
+                                                            <td>{{ hist.data_alteracao|date:"d/m/Y H:i" }}</td>
+                                                            <td><strong>{{ hist.campo_alterado }}</strong></td>
+                                                            <td><span class="text-muted">{{ hist.valor_anterior|default:"-" }}</span></td>
+                                                            <td><span class="text-success">{{ hist.valor_novo|default:"-" }}</span></td>
+                                                            <td>
+                                                                {% if hist.alterado_por %}
+                                                                    {{ hist.alterado_por.get_full_name|default:hist.alterado_por.username }}
+                                                                {% else %}
+                                                                    <span class="text-muted">-</span>
+                                                                {% endif %}
+                                                            </td>
+                                                        </tr>
+                                                        {% if hist.observacao %}
+                                                        <tr>
+                                                            <td colspan="5" class="text-muted small">
+                                                                <i class="fas fa-info-circle me-1"></i>{{ hist.observacao }}
+                                                            </td>
+                                                        </tr>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    {% else %}
+                                        <p class="text-muted mb-0">Nenhuma alteração registrada.</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modais de Assinatura (um para cada movimentação) -->
+{% for mov in movimentacoes %}
+    <!-- Modal Assinatura Entregando -->
+    <div class="modal fade" id="modalAssinaturaEntregando{{ mov.pk }}" tabindex="-1" aria-labelledby="modalAssinaturaEntregandoLabel{{ mov.pk }}" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="post" action="{% url 'militares:assinar_movimentacao_entregando' mov.pk %}">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalAssinaturaEntregandoLabel{{ mov.pk }}">
+                            <i class="fas fa-signature me-2"></i>Assinar como Entregador
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Você está assinando como entregador da movimentação de {{ mov.get_tipo_movimentacao_display }}.
+                        </div>
+                        <div class="mb-3">
+                            <label for="funcao_assinatura_entregando{{ mov.pk }}" class="form-label">Função para Assinatura:</label>
+                            <input type="text" class="form-control" id="funcao_assinatura_entregando{{ mov.pk }}" name="funcao_assinatura" placeholder="Ex: Chefe da Seção de Armamento" value="{{ request.session.funcao_atual_nome|default:'' }}">
+                            <div class="form-text">Informe a função que será exibida na assinatura.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="observacoes_entregando{{ mov.pk }}" class="form-label">Observações:</label>
+                            <textarea class="form-control" id="observacoes_entregando{{ mov.pk }}" name="observacoes" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="senha_entregando{{ mov.pk }}" class="form-label">Senha:</label>
+                            <input type="password" class="form-control" id="senha_entregando{{ mov.pk }}" name="senha" placeholder="Digite sua senha para confirmar a assinatura" required>
+                            <div class="form-text">Digite sua senha para confirmar a assinatura eletrônica.</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-signature me-1"></i>Confirmar Assinatura
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Assinatura Recebendo -->
+    {% if mov.militar_destino %}
+    <div class="modal fade" id="modalAssinaturaRecebendo{{ mov.pk }}" tabindex="-1" aria-labelledby="modalAssinaturaRecebendoLabel{{ mov.pk }}" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="post" action="{% url 'militares:assinar_movimentacao_recebendo' mov.pk %}">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalAssinaturaRecebendoLabel{{ mov.pk }}">
+                            <i class="fas fa-signature me-2"></i>Assinar como Recebedor
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Você está assinando como recebedor da movimentação de {{ mov.get_tipo_movimentacao_display }}.
+                            <br><strong>Militar de Destino:</strong> {{ mov.militar_destino.nome_completo }}
+                        </div>
+                        <div class="mb-3">
+                            <label for="funcao_assinatura_recebendo{{ mov.pk }}" class="form-label">Função para Assinatura:</label>
+                            <input type="text" class="form-control" id="funcao_assinatura_recebendo{{ mov.pk }}" name="funcao_assinatura" placeholder="Ex: Bombeiro Militar" value="{{ request.session.funcao_atual_nome|default:'Bombeiro Militar' }}">
+                            <div class="form-text">Informe a função que será exibida na assinatura.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="observacoes_recebendo{{ mov.pk }}" class="form-label">Observações:</label>
+                            <textarea class="form-control" id="observacoes_recebendo{{ mov.pk }}" name="observacoes" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="senha_recebendo{{ mov.pk }}" class="form-label">Senha:</label>
+                            <input type="password" class="form-control" id="senha_recebendo{{ mov.pk }}" name="senha" placeholder="Digite sua senha para confirmar a assinatura" required>
+                            <div class="form-text">Digite sua senha para confirmar a assinatura eletrônica.</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-signature me-1"></i>Confirmar Assinatura
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+{% endfor %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar tooltips do Bootstrap 5
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<!-- JsBarcode Library -->
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+<script>
+(function() {
+    let tentativasBarcode = 0;
+    const maxTentativas = 50;
+    
+    function gerarCodigoBarras() {
+        {% if arma.numero_serie %}
+        tentativasBarcode++;
+        const barcodeElement = document.getElementById('barcode-{{ arma.pk }}');
+        
+        if (!barcodeElement) {
+            console.warn('Elemento de código de barras não encontrado');
+            if (tentativasBarcode < maxTentativas) {
+                setTimeout(gerarCodigoBarras, 100);
+            }
+            return;
+        }
+        
+        if (typeof JsBarcode !== 'undefined') {
+            try {
+                JsBarcode("#barcode-{{ arma.pk }}", "{{ arma.numero_serie }}", {
+                    format: "CODE128",
+                    width: 2,
+                    height: 60,
+                    displayValue: true,
+                    fontSize: 14,
+                    margin: 10,
+                    background: "#ffffff",
+                    lineColor: "#000000"
+                });
+                console.log('Código de barras gerado com sucesso');
+            } catch (error) {
+                console.error('Erro ao gerar código de barras:', error);
+            }
+        } else {
+            if (tentativasBarcode < maxTentativas) {
+                setTimeout(gerarCodigoBarras, 100);
+            } else {
+                console.error('JsBarcode não foi carregado após múltiplas tentativas');
+            }
+        }
+        {% endif %}
+    }
+    
+    function inicializar() {
+        // Aguardar um pouco para garantir que o DOM está totalmente renderizado
+        setTimeout(function() {
+            gerarCodigoBarras();
+        }, 200);
+    }
+    
+    // Aguardar carregamento completo da página
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', inicializar);
+    } else {
+        // Se o DOM já está carregado, aguardar um pouco mais para garantir que as bibliotecas foram carregadas
+        window.addEventListener('load', inicializar);
+        // Também tentar imediatamente caso o load já tenha ocorrido
+        inicializar();
+    }
+})();
+</script>
+
+<!-- Modal para Editar Arma -->
+<div class="modal fade" id="editarArmaModal" tabindex="-1" aria-labelledby="editarArmaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="editarArmaModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Modal de Editar Arma
+    const editarArmaModal = document.getElementById('editarArmaModal');
+    const editarArmaModalContent = document.getElementById('editarArmaModalContent');
+    const botoesEditarArma = document.querySelectorAll('.btn-editar-arma');
+    
+    if (editarArmaModal && editarArmaModalContent) {
+        // Adicionar listener de clique nos botões de editar
+        botoesEditarArma.forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const armaId = this.getAttribute('data-arma-id');
+                if (!armaId) {
+                    console.error('ID da arma não encontrado');
+                    return;
+                }
+                
+                // Mostrar loading
+                editarArmaModalContent.innerHTML = `
+                    <div class="modal-body text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                        <p class="mt-3 text-muted">Carregando formulário...</p>
+                    </div>
+                `;
+                
+                // Abrir o modal
+                const modal = new bootstrap.Modal(editarArmaModal);
+                modal.show();
+                
+                // Carregar formulário de edição via AJAX
+                const urlBase = `/militares/armas/${armaId}/editar/`;
+                fetch(urlBase, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(async response => {
+                    if (!response.ok) {
+                        // Tentar ler a mensagem de erro do servidor
+                        let errorMessage = `Erro ${response.status}: ${response.statusText}`;
+                        let errorTraceback = null;
+                        try {
+                            const errorData = await response.json();
+                            if (errorData.error || errorData.message) {
+                                errorMessage = errorData.message || errorData.error;
+                            }
+                            if (errorData.traceback) {
+                                errorTraceback = errorData.traceback;
+                            }
+                        } catch (e) {
+                            // Se não conseguir ler como JSON, tentar como texto
+                            try {
+                                const errorText = await response.text();
+                                if (errorText) {
+                                    errorMessage = `Erro ${response.status}: ${errorText.substring(0, 200)}`;
+                                }
+                            } catch (e2) {
+                                // Manter mensagem padrão
+                            }
+                        }
+                        const error = new Error(errorMessage);
+                        if (errorTraceback) {
+                            error.traceback = errorTraceback;
+                        }
+                        throw error;
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.html) {
+                        editarArmaModalContent.innerHTML = data.html;
+                        
+                        // Re-executar scripts dentro do conteúdo carregado
+                        setTimeout(() => {
+                            const scripts = editarArmaModalContent.querySelectorAll('script');
+                            scripts.forEach(oldScript => {
+                                const newScript = document.createElement('script');
+                                Array.from(oldScript.attributes).forEach(attr => {
+                                    newScript.setAttribute(attr.name, attr.value);
+                                });
+                                newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                                oldScript.parentNode.replaceChild(newScript, oldScript);
+                            });
+                        }, 100);
+                    } else {
+                        editarArmaModalContent.innerHTML = `
+                            <div class="modal-header bg-danger text-white">
+                                <h5 class="modal-title">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                                </h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body text-center py-4">
+                                <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                                <h5>Erro ao Carregar</h5>
+                                <p class="text-muted">Não foi possível carregar o formulário. Tente novamente.</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar formulário:', error);
+                    const errorMessage = error.message || 'Erro desconhecido';
+                    const traceback = error.traceback || error.stack || error.toString();
+                    editarArmaModalContent.innerHTML = `
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title">
+                                <i class="fas fa-exclamation-triangle me-2"></i>Erro ao Carregar Formulário
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body py-4">
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <strong>Erro:</strong> ${errorMessage}
+                            </div>
+                            <p class="text-muted">Por favor, verifique os logs do servidor ou tente novamente mais tarde.</p>
+                            ${traceback ? `
+                            <details class="mt-3">
+                                <summary class="text-muted" style="cursor: pointer;">Detalhes técnicos</summary>
+                                <pre class="mt-2 p-2 bg-light border rounded" style="font-size: 0.85em; max-height: 200px; overflow-y: auto;">${traceback}</pre>
+                            </details>
+                            ` : ''}
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                        </div>
+                    `;
+                });
+            });
+        });
+        
+        // Limpar conteúdo quando fechar o modal
+        editarArmaModal.addEventListener('hidden.bs.modal', function() {
+            editarArmaModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+        });
+    } else {
+        console.error('Modal de editar arma não encontrado:', {
+            modal: editarArmaModal,
+            content: editarArmaModalContent
+        });
+    }
+});
+</script>
+
+<!-- Modal para Transferir Arma -->
+<div class="modal fade" id="transferirArmaModal" tabindex="-1" aria-labelledby="transferirArmaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="transferirArmaModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-warning" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Modal de Transferir Arma
+    const transferirArmaModal = document.getElementById('transferirArmaModal');
+    const transferirArmaModalContent = document.getElementById('transferirArmaModalContent');
+    const botoesTransferirArma = document.querySelectorAll('.btn-transferir-arma');
+    
+    if (transferirArmaModal && transferirArmaModalContent) {
+        // Adicionar listener de clique nos botões de transferir
+        botoesTransferirArma.forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const armaId = this.getAttribute('data-arma-id');
+                if (!armaId) {
+                    console.error('ID da arma não encontrado');
+                    return;
+                }
+                
+                // Mostrar loading
+                transferirArmaModalContent.innerHTML = `
+                    <div class="modal-body text-center py-5">
+                        <div class="spinner-border text-warning" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                        <p class="mt-3 text-muted">Carregando formulário...</p>
+                    </div>
+                `;
+                
+                // Abrir o modal
+                const modal = new bootstrap.Modal(transferirArmaModal);
+                modal.show();
+                
+                // Carregar formulário de transferência via AJAX
+                const urlBase = `/militares/armas/${armaId}/transferir/`;
+                fetch(urlBase, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(async response => {
+                    if (!response.ok) {
+                        // Tentar ler a mensagem de erro do servidor
+                        let errorMessage = `Erro ${response.status}: ${response.statusText}`;
+                        try {
+                            const errorData = await response.json();
+                            if (errorData.error || errorData.message) {
+                                errorMessage = errorData.error || errorData.message;
+                            }
+                        } catch (e) {
+                            // Se não conseguir ler como JSON, tentar como texto
+                            try {
+                                const errorText = await response.text();
+                                if (errorText) {
+                                    errorMessage = `Erro ${response.status}: ${errorText.substring(0, 200)}`;
+                                }
+                            } catch (e2) {
+                                // Manter mensagem padrão
+                            }
+                        }
+                        throw new Error(errorMessage);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.html) {
+                        transferirArmaModalContent.innerHTML = data.html;
+                        
+                        // Re-executar scripts dentro do conteúdo carregado
+                        setTimeout(() => {
+                            const scripts = transferirArmaModalContent.querySelectorAll('script');
+                            scripts.forEach(oldScript => {
+                                const newScript = document.createElement('script');
+                                Array.from(oldScript.attributes).forEach(attr => {
+                                    newScript.setAttribute(attr.name, attr.value);
+                                });
+                                newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                                oldScript.parentNode.replaceChild(newScript, oldScript);
+                            });
+                        }, 100);
+                    } else {
+                        transferirArmaModalContent.innerHTML = `
+                            <div class="modal-header bg-danger text-white">
+                                <h5 class="modal-title">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                                </h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body text-center py-4">
+                                <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                                <h5>Erro ao Carregar</h5>
+                                <p class="text-muted">Não foi possível carregar o formulário. Tente novamente.</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar formulário:', error);
+                    const errorMessage = error.message || 'Erro desconhecido';
+                    transferirArmaModalContent.innerHTML = `
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title">
+                                <i class="fas fa-exclamation-triangle me-2"></i>Erro ao Carregar Formulário
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body py-4">
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <strong>Erro:</strong> ${errorMessage}
+                            </div>
+                            <p class="text-muted">Por favor, verifique os logs do servidor ou tente novamente mais tarde.</p>
+                            <details class="mt-3">
+                                <summary class="text-muted" style="cursor: pointer;">Detalhes técnicos</summary>
+                                <pre class="mt-2 p-2 bg-light border rounded" style="font-size: 0.85em; max-height: 200px; overflow-y: auto;">${error.stack || error.toString()}</pre>
+                            </details>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                        </div>
+                    `;
+                });
+            });
+        });
+        
+        // Limpar conteúdo quando fechar o modal
+        transferirArmaModal.addEventListener('hidden.bs.modal', function() {
+            // Limpar conteúdo do modal
+            transferirArmaModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-warning" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            // Remover backdrops do Bootstrap
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            backdrops.forEach(backdrop => backdrop.remove());
+            
+            // Remover classe modal-open do body
+            document.body.classList.remove('modal-open');
+            
+            // Resetar estilos do body
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+        });
+    }
+});
+</script>
+
+<!-- Modal para Movimentar Arma -->
+<div class="modal fade" id="movimentarArmaModal" tabindex="-1" aria-labelledby="movimentarArmaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="movimentarArmaModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-info" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Modal de Movimentar Arma
+    const movimentarArmaModal = document.getElementById('movimentarArmaModal');
+    const movimentarArmaModalContent = document.getElementById('movimentarArmaModalContent');
+    const botoesMovimentarArma = document.querySelectorAll('.btn-movimentar-arma');
+    
+    if (movimentarArmaModal && movimentarArmaModalContent) {
+        // Adicionar listener de clique nos botões de movimentar
+        botoesMovimentarArma.forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const armaId = this.getAttribute('data-arma-id');
+                if (!armaId) {
+                    console.error('ID da arma não encontrado');
+                    return;
+                }
+                
+                // Mostrar loading
+                movimentarArmaModalContent.innerHTML = `
+                    <div class="modal-body text-center py-5">
+                        <div class="spinner-border text-info" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                        <p class="mt-3 text-muted">Carregando formulário...</p>
+                    </div>
+                `;
+                
+                // Abrir o modal
+                const modal = new bootstrap.Modal(movimentarArmaModal);
+                modal.show();
+                
+                // Carregar formulário de movimentação via AJAX
+                const tipoParam = this.getAttribute('data-tipo');
+                let urlBase = `/militares/armas/${armaId}/movimentar/`;
+                if (tipoParam) {
+                    urlBase += `?tipo=${tipoParam}`;
+                }
+                fetch(urlBase, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(async response => {
+                    console.log('Response status:', response.status);
+                    console.log('Response ok:', response.ok);
+                    
+                    if (!response.ok) {
+                        // Tentar ler a resposta JSON mesmo em caso de erro
+                        // Clonar a resposta para poder ler o body múltiplas vezes se necessário
+                        const responseClone = response.clone();
+                        try {
+                            const errData = await response.json();
+                            console.error('Erro do servidor:', errData);
+                            const error = new Error(errData.message || errData.error || `Erro ${response.status}: ${response.statusText}`);
+                            error.details = errData.details || errData.traceback || null;
+                            error.error = errData.error || null;
+                            throw error;
+                        } catch (parseError) {
+                            if (parseError.details || parseError.error) {
+                                // Já é um erro nosso, relançar
+                                throw parseError;
+                            }
+                            console.error('Erro ao parsear JSON de erro:', parseError);
+                            try {
+                                const text = await responseClone.text();
+                                console.error('Resposta de erro (texto):', text.substring(0, 500));
+                            } catch (textError) {
+                                console.error('Não foi possível ler o texto da resposta');
+                            }
+                            throw new Error(`Erro ${response.status}: ${response.statusText}`);
+                        }
+                    }
+                    const data = await response.json();
+                    console.log('Resposta JSON recebida:', data);
+                    return data;
+                })
+                .then(data => {
+                    // Verificar se há erro na resposta
+                    if (data.error) {
+                        throw new Error(data.message || data.error);
+                    }
+                    if (data.html) {
+                        movimentarArmaModalContent.innerHTML = data.html;
+                        
+                        // Re-executar scripts dentro do conteúdo carregado
+                        setTimeout(() => {
+                            const scripts = movimentarArmaModalContent.querySelectorAll('script');
+                            scripts.forEach(oldScript => {
+                                const newScript = document.createElement('script');
+                                Array.from(oldScript.attributes).forEach(attr => {
+                                    newScript.setAttribute(attr.name, attr.value);
+                                });
+                                newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                                oldScript.parentNode.replaceChild(newScript, oldScript);
+                            });
+                        }, 100);
+                    } else {
+                        movimentarArmaModalContent.innerHTML = `
+                            <div class="modal-header bg-danger text-white">
+                                <h5 class="modal-title">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                                </h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body text-center py-4">
+                                <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                                <h5>Erro ao Carregar</h5>
+                                <p class="text-muted">Não foi possível carregar o formulário. Tente novamente.</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar formulário:', error);
+                    console.error('Stack trace:', error.stack);
+                    console.error('Error details:', error.details);
+                    console.error('Error object:', error.error);
+                    
+                    const errorMessage = error.message || 'Erro desconhecido';
+                    const errorDetails = error.details || error.stack || error.toString();
+                    const errorType = error.error || 'Erro 500: Internal Server Error';
+                    
+                    movimentarArmaModalContent.innerHTML = `
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title">
+                                <i class="fas fa-exclamation-triangle me-2"></i>Erro ao Carregar Formulário
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body py-4">
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <strong>Erro:</strong> ${errorType}
+                            </div>
+                            <p class="text-muted">${errorMessage}</p>
+                            <p class="text-muted small">Por favor, verifique os logs do servidor ou tente novamente mais tarde.</p>
+                            <details class="mt-3">
+                                <summary class="text-muted" style="cursor: pointer;">▼ Detalhes técnicos</summary>
+                                <div class="mt-2 p-2 bg-light border rounded" style="font-size: 0.85em; max-height: 300px; overflow-y: auto;">
+                                    <pre class="mb-0">${errorDetails}</pre>
+                                </div>
+                            </details>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                        </div>
+                    `;
+                });
+            });
+        });
+        
+        // Limpar conteúdo quando fechar o modal
+        movimentarArmaModal.addEventListener('hidden.bs.modal', function() {
+            // Limpar backdrop se existir
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            backdrops.forEach(backdrop => backdrop.remove());
+            
+            // Remover classe modal-open do body
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+            
+            // Limpar conteúdo do modal
+            movimentarArmaModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-info" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            // Destruir instâncias do Select2 se existirem
+            if (typeof $ !== 'undefined' && $.fn.select2) {
+                $('#organograma-manutencao-select').select2('destroy');
+                $('#id_militar_recebeu_manutencao').select2('destroy');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
+
+

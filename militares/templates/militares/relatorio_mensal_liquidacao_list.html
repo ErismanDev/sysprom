@@ -1,0 +1,507 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .btn-group {
+        display: flex;
+        gap: 5px;
+    }
+    
+    .btn-group form {
+        margin: 0;
+    }
+    
+    .btn-group .btn {
+        flex: 1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Cabeçalho -->
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <div>
+            <h1 class="h3 mb-0">{{ page_title }}</h1>
+                <p class="text-muted mb-0">Relatório mensal de liquidação de operações planejadas</p>
+            </div>
+            {% if tem_dados %}
+            <div class="badge bg-primary" style="font-size: 1.1rem; padding: 10px 20px;">
+                <i class="fas fa-calendar me-2"></i>{{ mes_nome }}/{{ ano }}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Se não tiver dados, mostrar formulário -->
+    {% if not tem_dados %}
+    <!-- Formulário de Geração de Relatório -->
+    <div class="row mb-4">
+        <div class="col-md-8 offset-md-2">
+            <div class="card border-primary">
+                <div class="card-header bg-primary text-white">
+                    <i class="fas fa-file-excel me-2"></i>Gerar Relatório Mensal
+                </div>
+                <div class="card-body">
+                    <form method="GET" id="formRelatorio">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="mes" class="form-label">
+                                    <i class="fas fa-calendar-alt me-2"></i>Mês
+                                </label>
+                                <select class="form-select" id="mes" name="mes" required>
+                                    <option value="">Selecione o mês</option>
+                                    <option value="1">Janeiro</option>
+                                    <option value="2">Fevereiro</option>
+                                    <option value="3">Março</option>
+                                    <option value="4">Abril</option>
+                                    <option value="5">Maio</option>
+                                    <option value="6">Junho</option>
+                                    <option value="7">Julho</option>
+                                    <option value="8">Agosto</option>
+                                    <option value="9">Setembro</option>
+                                    <option value="10">Outubro</option>
+                                    <option value="11">Novembro</option>
+                                    <option value="12">Dezembro</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="ano" class="form-label">
+                                    <i class="fas fa-calendar me-2"></i>Ano
+                                </label>
+                                <input type="number" class="form-control" id="ano" name="ano" 
+                                       min="2020" max="2030" required>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary btn-lg w-100">
+                                    <i class="fas fa-search me-2"></i>Buscar Relatório
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Se tiver dados, mostrar relatório -->
+    {% if tem_dados %}
+    <!-- Estatísticas -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="flex-shrink-0 me-3">
+                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                            <i class="fas fa-users fa-2x"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h6 class="text-muted mb-1">Total de Militares</h6>
+                        <h2 class="mb-0 text-primary">{{ total_militares }}</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="flex-shrink-0 me-3">
+                        <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                            <i class="fas fa-calendar-check fa-2x"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h6 class="text-muted mb-1">Planejadas no Mês</h6>
+                        <h2 class="mb-0 text-success">{{ total_planejadas }}</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="flex-shrink-0 me-3">
+                        <div class="bg-warning text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                            <i class="fas fa-dollar-sign fa-2x"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h6 class="text-muted mb-1">Total a Receber</h6>
+                        <h2 class="mb-0 text-warning" data-valor-moeda="{{ total_geral }}">R$ {{ total_geral|floatformat:2 }}</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtro e Botões de Ação -->
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <form method="GET" action="{% url 'militares:relatorio_mensal_liquidacao' %}" class="d-flex gap-2">
+                <select name="mes" class="form-select" required>
+                    <option value="">Mês</option>
+                    <option value="1" {% if mes == 1 %}selected{% endif %}>Janeiro</option>
+                    <option value="2" {% if mes == 2 %}selected{% endif %}>Fevereiro</option>
+                    <option value="3" {% if mes == 3 %}selected{% endif %}>Março</option>
+                    <option value="4" {% if mes == 4 %}selected{% endif %}>Abril</option>
+                    <option value="5" {% if mes == 5 %}selected{% endif %}>Maio</option>
+                    <option value="6" {% if mes == 6 %}selected{% endif %}>Junho</option>
+                    <option value="7" {% if mes == 7 %}selected{% endif %}>Julho</option>
+                    <option value="8" {% if mes == 8 %}selected{% endif %}>Agosto</option>
+                    <option value="9" {% if mes == 9 %}selected{% endif %}>Setembro</option>
+                    <option value="10" {% if mes == 10 %}selected{% endif %}>Outubro</option>
+                    <option value="11" {% if mes == 11 %}selected{% endif %}>Novembro</option>
+                    <option value="12" {% if mes == 12 %}selected{% endif %}>Dezembro</option>
+                </select>
+                <input type="number" name="ano" class="form-control" value="{{ ano }}" min="2020" max="2030" required style="width: 100px;">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search me-1"></i>Buscar
+                </button>
+            <a href="{% url 'militares:relatorio_mensal_liquidacao' %}" class="btn btn-secondary">
+                    <i class="fas fa-times me-1"></i>Limpar
+                </a>
+            </form>
+        </div>
+        <div class="col-md-8 d-flex justify-content-end gap-2">
+            <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#modalRelatorioIndividual">
+                <i class="fas fa-user me-2"></i>Relatório Individual
+            </button>
+            <a href="{% url 'militares:relatorio_mensal_liquidacao' %}?mes={{ mes }}&ano={{ ano }}&acao=excel" class="btn btn-success" target="_blank">
+                    <i class="fas fa-file-excel me-2"></i>Exportar Excel
+                </a>
+            <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#modalAssinarPDF">
+                    <i class="fas fa-file-pdf me-2"></i>Exportar PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- Tabela de Dados -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center flex-wrap">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>Relatório de Liquidação - {{ mes_nome }}/{{ ano }}
+                    </h5>
+                    <div class="d-flex align-items-center gap-3">
+                        <small class="text-white" id="contadorResultados" style="font-size: 0.9rem;">
+                            <i class="fas fa-info-circle me-1"></i>{{ total_militares }} registros
+                        </small>
+                        <div class="input-group" style="max-width: 300px;">
+                            <span class="input-group-text bg-white">
+                                <i class="fas fa-search text-primary"></i>
+                            </span>
+                            <input type="text" class="form-control" id="filtroTabela" placeholder="Buscar...">
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped" id="tabelaRelatorio">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Posto</th>
+                                    <th>Nome</th>
+                                    <th>Matrícula</th>
+                                    <th>CPF</th>
+                                    <th>Banco</th>
+                                    <th>Agência</th>
+                                    <th>Conta</th>
+                                    <th class="text-center">Qtd Planejadas</th>
+                                    <th class="text-end">Total a Receber</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for militar_item in militares %}
+                                {% with militar=militar_item.militar %}
+                                    <tr>
+                                        <td>{{ militar.get_posto_graduacao_display }}</td>
+                                        <td>{{ militar.nome_completo }}</td>
+                                        <td>{{ militar.matricula }}</td>
+                                        <td>{{ militar.cpf }}</td>
+                                        <td>{{ militar.banco_nome|default:"-" }}</td>
+                                        <td>{{ militar.agencia|default:"-" }}</td>
+                                        <td>{{ militar.conta|default:"-" }}</td>
+                                        <td class="text-center">
+                                            <span class="badge {% if militar_item.quantidade_planejadas > limite_mensal %}bg-danger{% elif militar_item.quantidade_planejadas > 1 %}bg-warning{% else %}bg-info{% endif %} rounded-pill">
+                                                {{ militar_item.quantidade_planejadas }}
+                                            </span>
+                                        </td>
+                                        <td class="text-end">
+                                            <strong class="text-success" data-valor-moeda="{{ militar_item.total_valor }}">R$ {{ militar_item.total_valor|floatformat:2 }}</strong>
+                                            {% if militar_item.quantidade_planejadas > limite_mensal %}
+                                                <i class="fas fa-exclamation-triangle text-danger ms-2" title="Limite mensal ultrapassado!"></i>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endwith %}
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-secondary">
+                                <tr>
+                                    <th colspan="2" class="text-end"><strong>Totais:</strong></th>
+                                    <th colspan="5" class="text-muted">{{ total_militares }} militares</th>
+                                    <th class="text-center">
+                                        <strong>{{ total_planejadas }} planejadas</strong>
+                                    </th>
+                                    <th class="text-end">
+                                        <strong class="text-success" data-valor-moeda="{{ total_geral }}">R$ {{ total_geral|floatformat:2 }}</strong>
+                                    </th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Modal para Relatório Individual -->
+    <div class="modal fade" id="modalRelatorioIndividual" tabindex="-1" aria-labelledby="modalRelatorioIndividualLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title" id="modalRelatorioIndividualLabel">
+                        <i class="fas fa-user me-2"></i>Relatório Individual
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3">Selecione o militar e o tipo de relatório para gerar:</p>
+                    
+                    <div class="mb-3">
+                        <label for="militar_selecionado" class="form-label"><strong>Militar *</strong></label>
+                        <select class="form-select" id="militar_selecionado" name="militar_selecionado" required>
+                            <option value="">Selecione um militar...</option>
+                            {% for militar_item in militares %}
+                                <option value="{{ militar_item.militar.id }}">
+                                    {{ militar_item.militar.nome_completo }} - {{ militar_item.militar.matricula }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="tipo_relatorio" class="form-label"><strong>Tipo de Relatório *</strong></label>
+                        <select class="form-select" id="tipo_relatorio" name="tipo_relatorio" required>
+                            <option value="">Selecione o tipo...</option>
+                            <option value="mensal">Relatório Mensal ({{ mes_nome }}/{{ ano }})</option>
+                            <option value="anual">Relatório Anual ({{ ano }})</option>
+                        </select>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Informação:</strong> O relatório individual mostrará todas as operações planejadas do militar selecionado.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Cancelar
+                    </button>
+                    <button type="button" class="btn btn-info" id="btnGerarRelatorioIndividual">
+                        <i class="fas fa-user me-1"></i>Gerar Relatório
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Assinar PDF -->
+    <div class="modal fade" id="modalAssinarPDF" tabindex="-1" aria-labelledby="modalAssinarPDFLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="modalAssinarPDFLabel">
+                        <i class="fas fa-signature me-2"></i>Assinar PDF do Relatório
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3">Selecione a função que será exibida na assinatura do relatório de <strong>{{ mes_nome }}/{{ ano }}</strong>:</p>
+                    
+                    <div class="mb-3">
+                        <label for="funcao_assinatura" class="form-label"><strong>Função para Assinatura *</strong></label>
+                        <select class="form-select" id="funcao_assinatura" name="funcao_assinatura" required>
+                            <option value="">Selecione uma função...</option>
+                            {% for ufm in funcoes_usuario %}
+                                <option value="{{ ufm.funcao_militar.nome }}">
+                                    {{ ufm.funcao_militar.nome }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Atenção:</strong> A assinatura eletrônica tem a mesma validade de uma assinatura física.
+                            </div>
+                        </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Cancelar
+                    </button>
+                    <button type="button" class="btn btn-danger" id="btnGerarPDFAssinado">
+                        <i class="fas fa-file-pdf me-1"></i>Gerar PDF Assinado
+                    </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Preencher ano atual automaticamente
+    document.addEventListener('DOMContentLoaded', function() {
+        const anoInput = document.getElementById('ano');
+        if (anoInput) {
+            const anoAtual = new Date().getFullYear();
+            anoInput.value = anoAtual;
+        }
+        
+        // Converter dia da semana
+        const diasSemana = {
+            'Monday': 'Segunda',
+            'Tuesday': 'Terça',
+            'Wednesday': 'Quarta',
+            'Thursday': 'Quinta',
+            'Friday': 'Sexta',
+            'Saturday': 'Sábado',
+            'Sunday': 'Domingo'
+        };
+        
+        document.querySelectorAll('[data-dia-semana]').forEach(function(el) {
+            const dia = el.getAttribute('data-dia-semana');
+            if (diasSemana[dia]) {
+                el.textContent = diasSemana[dia];
+            }
+        });
+        
+        // Formatar valores monetários com pontuação brasileira
+        document.querySelectorAll('[data-valor-moeda]').forEach(function(el) {
+            const valor = parseFloat(el.getAttribute('data-valor-moeda'));
+            if (!isNaN(valor)) {
+                el.textContent = 'R$ ' + valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+        });
+        
+        // Filtro de busca na tabela
+        const filtroTabela = document.getElementById('filtroTabela');
+        if (filtroTabela) {
+            filtroTabela.addEventListener('keyup', function() {
+                const termo = this.value.toLowerCase();
+                const tabela = document.getElementById('tabelaRelatorio');
+                if (!tabela) return;
+                
+                const linhas = tabela.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+                let visiveis = 0;
+                
+                for (let i = 0; i < linhas.length; i++) {
+                    const linha = linhas[i];
+                    const texto = linha.textContent || linha.innerText;
+                    const mostrar = texto.toLowerCase().indexOf(termo) > -1;
+                    linha.style.display = mostrar ? '' : 'none';
+                    if (mostrar) visiveis++;
+                }
+                
+                // Atualizar contador
+                const contador = document.getElementById('contadorResultados');
+                if (contador) {
+                    if (termo) {
+                        contador.innerHTML = `<i class="fas fa-info-circle me-1"></i>${visiveis} de ${linhas.length} registros`;
+                    } else {
+                        contador.innerHTML = `<i class="fas fa-info-circle me-1"></i>${visiveis} registros`;
+                    }
+                }
+            });
+        }
+        
+        // Configurar modal de relatório individual
+        const militarSelecionado = document.getElementById('militar_selecionado');
+        const tipoRelatorio = document.getElementById('tipo_relatorio');
+        const btnGerarIndividual = document.getElementById('btnGerarRelatorioIndividual');
+        
+        if (militarSelecionado && tipoRelatorio && btnGerarIndividual) {
+            // Inicialmente desabilitar botão
+            btnGerarIndividual.disabled = true;
+            
+            // Habilitar/desabilitar botão baseado na seleção
+            function verificarSelecao() {
+                btnGerarIndividual.disabled = !militarSelecionado.value || !tipoRelatorio.value;
+            }
+            
+            militarSelecionado.addEventListener('change', verificarSelecao);
+            tipoRelatorio.addEventListener('change', verificarSelecao);
+            
+            // Ação do botão de gerar relatório individual
+            btnGerarIndividual.addEventListener('click', function() {
+                const militarId = militarSelecionado.value;
+                const tipo = tipoRelatorio.value;
+                
+                if (!militarId || !tipo) {
+                    alert('Por favor, selecione um militar e o tipo de relatório.');
+                    return;
+                }
+                
+                // Gerar relatório individual em nova aba
+                const url = "{% url 'militares:relatorio_individual_militar' %}?militar_id=" + militarId + "&mes={{ mes }}&ano={{ ano }}&tipo=" + tipo;
+                window.open(url, '_blank');
+                
+                // Fechar modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('modalRelatorioIndividual'));
+                if (modal) {
+                    modal.hide();
+                }
+            });
+        }
+        
+        // Configurar modal de assinatura PDF
+        const funcaoAssinatura = document.getElementById('funcao_assinatura');
+        const btnGerarPDF = document.getElementById('btnGerarPDFAssinado');
+        
+        if (funcaoAssinatura && btnGerarPDF) {
+            // Inicialmente desabilitar botão
+            btnGerarPDF.disabled = true;
+            
+            // Habilitar/desabilitar botão baseado na seleção da função
+            funcaoAssinatura.addEventListener('change', function() {
+                btnGerarPDF.disabled = !this.value;
+            });
+            
+            // Ação do botão de gerar PDF assinado
+            btnGerarPDF.addEventListener('click', function() {
+                const funcao = funcaoAssinatura.value;
+                
+                if (!funcao) {
+                    alert('Por favor, selecione uma função para a assinatura.');
+                    return;
+                }
+                
+                // Gerar PDF em nova aba com função selecionada
+                const url = "{% url 'militares:relatorio_mensal_liquidacao' %}?mes={{ mes }}&ano={{ ano }}&acao=pdf&funcao=" + encodeURIComponent(funcao);
+                window.open(url, '_blank');
+                
+                // Fechar modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('modalAssinarPDF'));
+                if (modal) {
+                    modal.hide();
+                }
+            });
+        }
+        
+    });
+</script>
+{% endblock %}
+

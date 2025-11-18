@@ -162,7 +162,7 @@ class Command(BaseCommand):
                     quadro_codigo = quadro_mapping.get(quadro, quadro)
 
                     # Mapear situação
-                    situacao_codigo = 'AT' if situacao.upper() in ['ATIVO', 'ATIVA'] else 'IN'
+                    classificacao_codigo = 'ATIVO' if situacao.upper() in ['ATIVO', 'ATIVA'] else 'INATIVO'
 
                     # Buscar militar existente por matrícula
                     militar = Militar.objects.filter(matricula=matricula).first()
@@ -182,7 +182,7 @@ class Command(BaseCommand):
                             militar.email = email
                             militar.telefone = telefone
                             militar.celular = celular
-                            militar.situacao = situacao_codigo
+                            militar.classificacao = classificacao_codigo
                             militar.observacoes = observacoes
                             militar.save()
 
@@ -207,7 +207,7 @@ class Command(BaseCommand):
                                 email=email,
                                 telefone=telefone,
                                 celular=celular,
-                                situacao=situacao_codigo,
+                                classificacao=classificacao_codigo,
                                 observacoes=observacoes,
                             )
 

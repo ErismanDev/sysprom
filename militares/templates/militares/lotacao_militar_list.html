@@ -1,0 +1,219 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load militar_permissions %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Cabeçalho -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h4 class="mb-0">
+                                <i class="fas fa-building me-2"></i>{{ title }}
+                            </h4>
+                            <small class="opacity-75">
+                                <i class="fas fa-user me-1"></i>{{ militar.nome_completo }} - {{ militar.get_posto_graduacao_display }}
+                            </small>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <a href="{% url 'militares:militar_detail' militar.pk %}" class="btn btn-light btn-sm">
+                                <i class="fas fa-arrow-left me-1"></i>Voltar ao Militar
+                            </a>
+                            {% if menu_permissions.LOTACOES_CRIAR %}
+                            <a href="{% url 'militares:lotacao_create' %}?militar={{ militar.pk }}" class="btn btn-success btn-sm">
+                                <i class="fas fa-plus me-1"></i>Nova Lotação
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lista de Lotações -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Histórico Completo de Lotações
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if lotacoes %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="fw-bold">Lotação</th>
+                                        <th class="fw-bold">Status</th>
+                                        <th class="fw-bold">Período</th>
+                                        <th class="fw-bold">Duração</th>
+                                        {% if menu_permissions.LOTACOES_EDITAR or menu_permissions.LOTACOES_EXCLUIR %}
+                                        <th class="fw-bold">Ações</th>
+                                        {% endif %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for lotacao in lotacoes %}
+                                    <tr class="{% if lotacao.status == 'ATUAL' %}table-success{% elif lotacao.status == 'ANTERIOR' %}table-light{% endif %}">
+                                        <td>
+                                            <div class="d-flex flex-column">
+                                                <strong class="text-primary fw-bold">{{ lotacao.lotacao|truncatechars:60 }}</strong>
+                                                {% if lotacao.hierarquia_organograma != "Sem vinculação ao organograma" %}
+                                                    <small class="text-success">
+                                                        <i class="fas fa-sitemap me-1"></i>{{ lotacao.nivel_organograma }}
+                                                    </small>
+                                                    <small class="text-muted" title="{{ lotacao.hierarquia_organograma }}">
+                                                        {{ lotacao.hierarquia_organograma|truncatechars:50 }}
+                                                    </small>
+                                                {% else %}
+                                                    <small class="text-muted">
+                                                        <i class="fas fa-minus me-1"></i>Sem vinculação ao organograma
+                                                    </small>
+                                                {% endif %}
+                                                {% if lotacao.observacoes %}
+                                                    <small class="text-muted mt-1">{{ lotacao.observacoes|truncatechars:50 }}</small>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex flex-column">
+                                                {% if lotacao.status == 'ATUAL' %}
+                                                    <span class="badge bg-success mb-1">{{ lotacao.status_display }}</span>
+                                                {% elif lotacao.status == 'ANTERIOR' %}
+                                                    <span class="badge bg-secondary mb-1">{{ lotacao.status_display }}</span>
+                                                {% elif lotacao.status == 'TEMPORARIA' %}
+                                                    <span class="badge bg-warning text-dark mb-1">{{ lotacao.status_display }}</span>
+                                                {% elif lotacao.status == 'COMANDO' %}
+                                                    <span class="badge bg-danger mb-1">{{ lotacao.status_display }}</span>
+                                                {% elif lotacao.status == 'AFASTAMENTO' %}
+                                                    <span class="badge bg-dark mb-1">{{ lotacao.status_display }}</span>
+                                                {% endif %}
+                                                <small class="text-muted">
+                                                    {% if lotacao.status == 'ATUAL' %}
+                                                        <i class="fas fa-clock me-1"></i>Em andamento
+                                                    {% else %}
+                                                        <i class="fas fa-calendar-check me-1"></i>Finalizada
+                                                    {% endif %}
+                                                </small>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex flex-column">
+                                                <span class="fw-bold">{{ lotacao.data_inicio|date:"d/m/Y" }}</span>
+                                                <small class="text-muted">Data de início</small>
+                                                {% if lotacao.data_fim %}
+                                                    <span class="fw-bold text-success mt-1">{{ lotacao.data_fim|date:"d/m/Y" }}</span>
+                                                    <small class="text-muted">Data de fim</small>
+                                                {% else %}
+                                                    <span class="fw-bold text-success mt-1">Atual</span>
+                                                    <small class="text-muted">Lotação em andamento</small>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex flex-column">
+                                                <span class="fw-bold text-primary">{{ lotacao.duracao_formatada }}</span>
+                                                <small class="text-muted">
+                                                    {% if lotacao.status == 'ATUAL' %}
+                                                        <i class="fas fa-hourglass-half me-1"></i>Tempo atual
+                                                    {% else %}
+                                                        <i class="fas fa-history me-1"></i>Tempo total
+                                                    {% endif %}
+                                                </small>
+                                            </div>
+                                        </td>
+                                        {% if menu_permissions.LOTACOES_EDITAR or menu_permissions.LOTACOES_EXCLUIR %}
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <a href="{% url 'militares:lotacao_detail' lotacao.pk %}" class="btn btn-outline-info btn-sm" title="Visualizar Detalhes">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                {% if menu_permissions.LOTACOES_EDITAR %}
+                                                <a href="{% url 'militares:lotacao_update' lotacao.pk %}" class="btn btn-outline-primary btn-sm" title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                {% endif %}
+                                                {% if menu_permissions.LOTACOES_EXCLUIR %}
+                                                <a href="{% url 'militares:lotacao_delete' lotacao.pk %}" class="btn btn-outline-danger btn-sm" title="Excluir" 
+                                                   onclick="return confirm('Tem certeza que deseja excluir esta lotação?')">
+                                                    <i class="fas fa-trash"></i>
+                                                </a>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        {% endif %}
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Estatísticas -->
+                        <div class="row mt-4">
+                            <div class="col-md-3">
+                                <div class="card bg-primary text-white">
+                                    <div class="card-body text-center">
+                                        <h5 class="card-title">{{ lotacoes|length }}</h5>
+                                        <p class="card-text">Total de Lotações</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-success text-white">
+                                    <div class="card-body text-center">
+                                        <h5 class="card-title">
+                                            {% for lotacao in lotacoes %}
+                                                {% if lotacao.status == 'ATUAL' %}1{% endif %}
+                                            {% empty %}0{% endfor %}
+                                        </h5>
+                                        <p class="card-text">Lotações Atuais</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-secondary text-white">
+                                    <div class="card-body text-center">
+                                        <h5 class="card-title">
+                                            {% for lotacao in lotacoes %}
+                                                {% if lotacao.status == 'ANTERIOR' %}1{% endif %}
+                                            {% empty %}0{% endfor %}
+                                        </h5>
+                                        <p class="card-text">Lotações Anteriores</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-info text-white">
+                                    <div class="card-body text-center">
+                                        <h5 class="card-title">
+                                            {% for lotacao in lotacoes %}
+                                                {% if lotacao.tipo_funcao == 'COMANDO' %}1{% endif %}
+                                            {% empty %}0{% endfor %}
+                                        </h5>
+                                        <p class="card-text">Funções de Comando</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-5">
+                            <i class="fas fa-building fa-4x mb-4" style="opacity: 0.3;"></i>
+                            <h5 class="mb-3">Nenhuma lotação cadastrada</h5>
+                            <p class="mb-4">Este militar ainda não possui lotações registradas no sistema.</p>
+                            {% if menu_permissions.LOTACOES_CRIAR %}
+                            <a href="{% url 'militares:lotacao_create' %}?militar={{ militar.pk }}" class="btn btn-primary btn-lg">
+                                <i class="fas fa-plus me-2"></i>Cadastrar Primeira Lotação
+                            </a>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

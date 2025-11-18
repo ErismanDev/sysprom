@@ -1,0 +1,568 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if arma %}Movimentar Arma{% else %}Nova Movimentação{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-exchange-alt me-2 text-warning"></i>
+                        {% if arma %}Movimentar Arma{% else %}Nova Movimentação{% endif %}
+                    </h2>
+                    <p class="text-muted mb-0">
+                        {% if arma %}Registrar movimentação da arma {{ arma.numero_serie }}{% else %}Registrar nova movimentação de arma{% endif %}
+                    </p>
+                </div>
+                <div>
+                    {% if arma %}
+                        <a href="{% url 'militares:arma_detail' arma.pk %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Voltar
+                        </a>
+                    {% else %}
+                        <a href="{% url 'militares:arma_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Voltar
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-edit me-2"></i>Dados da Movimentação
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <form method="post" novalidate>
+                                {% csrf_token %}
+                                
+                                <!-- Informações da Movimentação -->
+                                <h5 class="mb-3"><i class="fas fa-info-circle me-2"></i>Informações da Movimentação</h5>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{% if arma %}hidden_arma{% else %}{{ form.arma.id_for_label }}{% endif %}" class="form-label">
+                                            Arma <span class="text-danger">*</span>
+                                        </label>
+                                        {% if arma %}
+                                            <!-- Quando a arma já está selecionada, mostrar como texto e campo hidden -->
+                                            <input type="hidden" name="arma" value="{{ arma.pk }}" id="hidden_arma">
+                                            <input type="text" class="form-control" value="{{ arma.numero_serie }} - {{ arma.get_tipo_display }} ({{ arma.get_calibre_display }})" readonly style="background-color: #f8f9fa; cursor: not-allowed;">
+                                            <small class="form-text text-muted">Arma pré-selecionada</small>
+                                        {% else %}
+                                            {{ form.arma }}
+                                        {% endif %}
+                                        {% if form.arma.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.arma.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.tipo_movimentacao.id_for_label }}" class="form-label">
+                                            Tipo de Movimentação <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.tipo_movimentacao }}
+                                        {% if form.tipo_movimentacao.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.tipo_movimentacao.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.data_movimentacao.id_for_label }}" class="form-label">
+                                            Data e Hora da Movimentação <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.data_movimentacao }}
+                                        {% if form.data_movimentacao.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.data_movimentacao.errors }}</div>
+                                        {% endif %}
+                                        <small class="form-text text-muted">Data e hora atual do sistema (não editável)</small>
+                                    </div>
+                                </div>
+                                
+                                <!-- Campos para MANUTENCAO -->
+                                <div id="manutencao-campos" style="display: none;">
+                                    <hr>
+                                    <h5 class="mb-3"><i class="fas fa-wrench me-2"></i>Informações de Manutenção</h5>
+                                    
+                                    <!-- Tipo de Manutenção -->
+                                    <div class="row">
+                                        <div class="col-md-12 mb-3">
+                                            <label for="{{ form.tipo_manutencao.id_for_label }}" class="form-label">
+                                                Tipo de Manutenção <span class="text-danger">*</span>
+                                            </label>
+                                            {{ form.tipo_manutencao }}
+                                            {% if form.tipo_manutencao.errors %}
+                                                <div class="invalid-feedback d-block">{{ form.tipo_manutencao.errors }}</div>
+                                            {% endif %}
+                                            <small class="form-text text-muted">Selecione se a manutenção será realizada internamente ou externamente</small>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Campos para Manutenção INTERNA -->
+                                    <div id="manutencao-interna-campos" style="display: none;">
+                                        <div class="alert alert-info">
+                                            <i class="fas fa-info-circle me-2"></i>
+                                            <strong>Manutenção Interna:</strong> Informe a Organização Militar e quem recebeu a arma.
+                                        </div>
+                                        
+                                        <!-- Organograma de Manutenção -->
+                                        <div class="row">
+                                            <div class="col-md-12 mb-3">
+                                                <label for="organograma-manutencao-select" class="form-label">
+                                                    Organização Militar de Destino <span class="text-danger">*</span>
+                                                </label>
+                                                <select name="organograma_manutencao" id="organograma-manutencao-select" class="form-select">
+                                                    <option value="">Selecione uma opção do organograma...</option>
+                                                    {% for valor, texto in organizacoes %}
+                                                        <option value="{{ valor }}">{{ texto }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                                <small class="form-text text-muted">Selecione a organização militar onde a arma será encaminhada para manutenção</small>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Militar que recebeu -->
+                                        <div class="row">
+                                            <div class="col-md-12 mb-3">
+                                                <label for="{{ form.militar_recebeu_manutencao.id_for_label }}" class="form-label">
+                                                    Militar que Recebeu a Arma
+                                                </label>
+                                                {{ form.militar_recebeu_manutencao }}
+                                                {% if form.militar_recebeu_manutencao.errors %}
+                                                    <div class="invalid-feedback d-block">{{ form.militar_recebeu_manutencao.errors }}</div>
+                                                {% endif %}
+                                                <small class="form-text text-muted">Militar responsável por receber a arma na OM de manutenção</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Campos para Manutenção EXTERNA -->
+                                    <div id="manutencao-externa-campos" style="display: none;">
+                                        <div class="alert alert-warning">
+                                            <i class="fas fa-exclamation-triangle me-2"></i>
+                                            <strong>Manutenção Externa:</strong> Informe os dados da empresa responsável pela manutenção.
+                                        </div>
+                                        
+                                        <div class="row">
+                                            <div class="col-md-12 mb-3">
+                                                <label for="{{ form.empresa_manutencao.id_for_label }}" class="form-label">
+                                                    Nome da Empresa <span class="text-danger">*</span>
+                                                </label>
+                                                {{ form.empresa_manutencao }}
+                                                {% if form.empresa_manutencao.errors %}
+                                                    <div class="invalid-feedback d-block">{{ form.empresa_manutencao.errors }}</div>
+                                                {% endif %}
+                                                <small class="form-text text-muted">Nome completo da empresa de manutenção</small>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label for="{{ form.cnpj_empresa_manutencao.id_for_label }}" class="form-label">
+                                                    CNPJ da Empresa <span class="text-danger">*</span>
+                                                </label>
+                                                {{ form.cnpj_empresa_manutencao }}
+                                                {% if form.cnpj_empresa_manutencao.errors %}
+                                                    <div class="invalid-feedback d-block">{{ form.cnpj_empresa_manutencao.errors }}</div>
+                                                {% endif %}
+                                                <small class="form-text text-muted">Formato: XX.XXX.XXX/XXXX-XX</small>
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label for="{{ form.responsavel_empresa_manutencao.id_for_label }}" class="form-label">
+                                                    Responsável na Empresa
+                                                </label>
+                                                {{ form.responsavel_empresa_manutencao }}
+                                                {% if form.responsavel_empresa_manutencao.errors %}
+                                                    <div class="invalid-feedback d-block">{{ form.responsavel_empresa_manutencao.errors }}</div>
+                                                {% endif %}
+                                                <small class="form-text text-muted">Nome do responsável pela manutenção na empresa</small>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="row">
+                                            <div class="col-md-12 mb-3">
+                                                <label for="{{ form.endereco_empresa_manutencao.id_for_label }}" class="form-label">
+                                                    Endereço da Empresa
+                                                </label>
+                                                {{ form.endereco_empresa_manutencao }}
+                                                {% if form.endereco_empresa_manutencao.errors %}
+                                                    <div class="invalid-feedback d-block">{{ form.endereco_empresa_manutencao.errors }}</div>
+                                                {% endif %}
+                                                <small class="form-text text-muted">Endereço completo da empresa (Rua, número, bairro, cidade, CEP)</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Campos de Material (sempre visíveis) -->
+                                <hr>
+                                <h5 class="mb-3"><i class="fas fa-box me-2"></i>Material Acompanhando a Arma</h5>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.quantidade_carregadores.id_for_label }}" class="form-label">
+                                            Quantidade de Carregadores
+                                        </label>
+                                        {{ form.quantidade_carregadores }}
+                                        {% if form.quantidade_carregadores.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.quantidade_carregadores.errors }}</div>
+                                        {% endif %}
+                                        <small class="form-text text-muted">Quantidade de carregadores que acompanham a arma</small>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.quantidade_municoes_catalogadas.id_for_label }}" class="form-label">
+                                            Quantidade de Munições Catalogadas
+                                        </label>
+                                        {{ form.quantidade_municoes_catalogadas }}
+                                        {% if form.quantidade_municoes_catalogadas.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.quantidade_municoes_catalogadas.errors }}</div>
+                                        {% endif %}
+                                        <small class="form-text text-muted">Quantidade de munições catalogadas que acompanham a arma</small>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-12 mb-3">
+                                        <label for="{{ form.numeracao_carregadores.id_for_label }}" class="form-label">
+                                            Numeração dos Carregadores
+                                        </label>
+                                        {{ form.numeracao_carregadores }}
+                                        {% if form.numeracao_carregadores.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.numeracao_carregadores.errors }}</div>
+                                        {% endif %}
+                                        <small class="form-text text-muted">Digite a numeração de cada carregador, separada por vírgula ou quebra de linha. Ex: 001, 002, 003 ou 001\n002\n003</small>
+                                    </div>
+                                </div>
+                                
+                                <!-- Observações -->
+                                <hr>
+                                <div class="mb-3">
+                                    <label for="{{ form.observacoes.id_for_label }}" class="form-label">Observações</label>
+                                    {{ form.observacoes }}
+                                    {% if form.observacoes.errors %}
+                                        <div class="invalid-feedback d-block">{{ form.observacoes.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Nota sobre Assinaturas -->
+                                <hr>
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Assinaturas Eletrônicas:</strong> Após salvar a movimentação, você poderá assinar a movimentação eletronicamente através da página de detalhes da arma, usando botões que abrirão modais para confirmação com senha.
+                                </div>
+                                
+                                <div class="mt-4">
+                                    <button type="submit" class="btn btn-primary" id="btn-salvar-movimentacao">
+                                        <i class="fas fa-save me-2"></i>Salvar Movimentação
+                                    </button>
+                                    {% if arma %}
+                                        <a href="{% url 'militares:arma_detail' arma.pk %}" class="btn btn-secondary">
+                                            <i class="fas fa-times me-2"></i>Cancelar
+                                        </a>
+                                    {% else %}
+                                        <a href="{% url 'militares:arma_list' %}" class="btn btn-secondary">
+                                            <i class="fas fa-times me-2"></i>Cancelar
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Garantir que a data/hora seja carregada corretamente e seja readonly
+    const dataMovimentacaoInput = document.getElementById('{{ form.data_movimentacao.id_for_label }}');
+    if (dataMovimentacaoInput) {
+        // Sempre definir data/hora atual
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        dataMovimentacaoInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+        
+        // Tornar o campo readonly e com estilo indicativo
+        dataMovimentacaoInput.readOnly = true;
+        dataMovimentacaoInput.style.backgroundColor = '#f8f9fa';
+        dataMovimentacaoInput.style.cursor = 'not-allowed';
+    }
+    
+    // Campo de arma já está sendo tratado no template com campo hidden quando arma está pré-selecionada
+    
+    // Elementos do formulário
+    const tipoMovimentacaoSelect = document.getElementById('{{ form.tipo_movimentacao.id_for_label }}');
+    const tipoManutencaoSelect = document.getElementById('{{ form.tipo_manutencao.id_for_label }}');
+    const outrasMovimentacoesCampos = document.getElementById('outras-movimentacoes-campos');
+    const manutencaoCampos = document.getElementById('manutencao-campos');
+    const manutencaoInternaCampos = document.getElementById('manutencao-interna-campos');
+    const manutencaoExternaCampos = document.getElementById('manutencao-externa-campos');
+    // Função para atualizar o texto do botão
+    function atualizarTextoBotao() {
+        const tipoMov = tipoMovimentacaoSelect ? tipoMovimentacaoSelect.value : '';
+        const btnSalvar = document.getElementById('btn-salvar-movimentacao');
+        
+        if (btnSalvar) {
+            const icon = btnSalvar.querySelector('i');
+            if (tipoMov === 'MANUTENCAO') {
+                btnSalvar.innerHTML = '<i class="fas fa-wrench me-2"></i>Salvar Manutenção';
+            } else if (tipoMov === 'RETORNO_MANUTENCAO') {
+                btnSalvar.innerHTML = '<i class="fas fa-tools me-2"></i>Salvar Retorno de Manutenção';
+            } else {
+                btnSalvar.innerHTML = '<i class="fas fa-save me-2"></i>Salvar Movimentação';
+            }
+        }
+    }
+    
+    // Função para mostrar/ocultar campos baseado no tipo de movimentação
+    function toggleCamposMovimentacao() {
+        const tipoMov = tipoMovimentacaoSelect ? tipoMovimentacaoSelect.value : '';
+        const situacaoArma = '{% if arma %}{{ arma.situacao }}{% endif %}';
+        
+        // Esconder todos os campos primeiro
+        if (outrasMovimentacoesCampos) outrasMovimentacoesCampos.style.display = 'none';
+        if (manutencaoCampos) manutencaoCampos.style.display = 'none';
+        if (manutencaoInternaCampos) manutencaoInternaCampos.style.display = 'none';
+        if (manutencaoExternaCampos) manutencaoExternaCampos.style.display = 'none';
+        
+        // Mostrar campos baseado no tipo de movimentação
+        if (tipoMov === 'MANUTENCAO') {
+            if (manutencaoCampos) manutencaoCampos.style.display = 'block';
+            
+            // Não mostrar campos de outras movimentações para manutenção
+            if (outrasMovimentacoesCampos) outrasMovimentacoesCampos.style.display = 'none';
+            
+            // Inicializar campos de tipo de manutenção
+            toggleTipoManutencao();
+            
+            // Inicializar Select2 para militar que recebeu e organograma se já estiver em manutenção interna
+            const tipoManutencao = tipoManutencaoSelect ? tipoManutencaoSelect.value : '';
+            if (tipoManutencao === 'INTERNA') {
+                setTimeout(inicializarSelect2MilitarRecebeu, 200);
+                setTimeout(inicializarSelect2OrganogramaManutencao, 200);
+            }
+        } else if (tipoMov && tipoMov !== 'MANUTENCAO') {
+            // Para RETORNO_MANUTENCAO ou outros tipos
+            if (outrasMovimentacoesCampos) outrasMovimentacoesCampos.style.display = 'block';
+        }
+        
+        // Atualizar texto do botão
+        atualizarTextoBotao();
+        
+        // Se for TRANSFERENCIA, mostrar alerta
+        if (tipoMov === 'TRANSFERENCIA') {
+            alert('Transferências devem ser realizadas através da funcionalidade específica de transferência.');
+            tipoMovimentacaoSelect.value = '';
+            toggleCamposMovimentacao();
+        }
+    }
+    
+    // Inicializar campos ao carregar
+    toggleCamposMovimentacao();
+    atualizarTextoBotao();
+    
+    // Escutar mudanças no tipo de movimentação
+    if (tipoMovimentacaoSelect) {
+        tipoMovimentacaoSelect.addEventListener('change', toggleCamposMovimentacao);
+    }
+    
+    // Função para inicializar Select2 no campo de organograma de manutenção
+    function inicializarSelect2OrganogramaManutencao() {
+        if (typeof $ !== 'undefined' && typeof $.fn.select2 !== 'undefined') {
+            const organogramaSelect = $('#organograma-manutencao-select');
+            if (organogramaSelect.length && !organogramaSelect.hasClass('select2-hidden-accessible')) {
+                organogramaSelect.select2({
+                    placeholder: 'Digite para buscar uma organização...',
+                    allowClear: true,
+                    minimumInputLength: 0,
+                    language: {
+                        noResults: function () {
+                            return 'Nenhuma organização encontrada';
+                        },
+                        searching: function () {
+                            return 'Buscando...';
+                        }
+                    },
+                    matcher: function(params, data) {
+                        // Se não há termo de busca, mostrar todas as opções
+                        if ($.trim(params.term) === '') {
+                            return data;
+                        }
+                        // Caso contrário, filtrar por texto
+                        if (data.text.toLowerCase().indexOf(params.term.toLowerCase()) > -1) {
+                            return data;
+                        }
+                        return null;
+                    }
+                });
+            }
+        }
+    }
+    
+    // Função para inicializar Select2 no campo militar que recebeu (manutenção)
+    function inicializarSelect2MilitarRecebeu() {
+        if (typeof $ !== 'undefined' && typeof $.fn.select2 !== 'undefined') {
+            const militarRecebeuSelect = $('#{{ form.militar_recebeu_manutencao.id_for_label }}');
+            if (militarRecebeuSelect.length && !militarRecebeuSelect.hasClass('select2-hidden-accessible')) {
+                militarRecebeuSelect.select2({
+                    placeholder: 'Digite o nome, matrícula ou posto do militar...',
+                    allowClear: true,
+                    minimumInputLength: 2,
+                    language: {
+                        inputTooShort: function () {
+                            return 'Digite pelo menos 2 caracteres...';
+                        },
+                        noResults: function () {
+                            return 'Nenhum militar encontrado';
+                        },
+                        searching: function () {
+                            return 'Buscando...';
+                        }
+                    },
+                    ajax: {
+                        url: '{% url "militares:militar-autocomplete" %}',
+                        dataType: 'json',
+                        delay: 250,
+                        data: function (params) {
+                            return {
+                                q: params.term
+                            };
+                        },
+                        processResults: function (data) {
+                            return {
+                                results: data.results
+                            };
+                        },
+                        cache: true
+                    }
+                });
+            }
+        }
+    }
+    
+    // Função para mostrar/ocultar campos de tipo de manutenção
+    function toggleTipoManutencao() {
+        const tipoManutencao = tipoManutencaoSelect ? tipoManutencaoSelect.value : '';
+        
+        // Esconder ambos primeiro
+        if (manutencaoInternaCampos) manutencaoInternaCampos.style.display = 'none';
+        if (manutencaoExternaCampos) manutencaoExternaCampos.style.display = 'none';
+        
+        // Mostrar campos baseado no tipo
+        if (tipoManutencao === 'INTERNA') {
+            if (manutencaoInternaCampos) {
+                manutencaoInternaCampos.style.display = 'block';
+                // Inicializar Select2 quando os campos forem exibidos
+                setTimeout(inicializarSelect2MilitarRecebeu, 100);
+                setTimeout(inicializarSelect2OrganogramaManutencao, 100);
+            }
+        } else if (tipoManutencao === 'EXTERNA') {
+            if (manutencaoExternaCampos) manutencaoExternaCampos.style.display = 'block';
+        }
+    }
+    
+    // Escutar mudanças no tipo de manutenção
+    if (tipoManutencaoSelect) {
+        tipoManutencaoSelect.addEventListener('change', toggleTipoManutencao);
+        // Chamar uma vez para inicializar quando for manutenção
+        const tipoMov = tipoMovimentacaoSelect ? tipoMovimentacaoSelect.value : '';
+        if (tipoMov === 'MANUTENCAO') {
+            toggleTipoManutencao();
+        }
+    }
+    
+    
+    // Função para buscar e preencher a lotação atual do militar
+    function buscarLotacaoMilitar(militarId) {
+        if (!militarId || !organizacaoDestinoInput) return;
+        
+        const url = '{% url "militares:militar_lotacao_atual" 999 %}'.replace('999', militarId);
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.organizacao) {
+                    organizacaoDestinoInput.value = data.organizacao;
+                    // Tornar o campo readonly quando preenchido automaticamente
+                    organizacaoDestinoInput.readOnly = true;
+                    organizacaoDestinoInput.style.backgroundColor = '#f8f9fa';
+                } else {
+                    organizacaoDestinoInput.value = '';
+                    organizacaoDestinoInput.readOnly = false;
+                    organizacaoDestinoInput.style.backgroundColor = '';
+                    console.warn('Militar não possui lotação atual cadastrada');
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao buscar lotação do militar:', error);
+            });
+    }
+    
+    // Inicializar Select2 para o campo de militar destino
+    function inicializarSelect2Militar() {
+        if (typeof $ !== 'undefined' && typeof $.fn.select2 !== 'undefined') {
+            const militarSelect = $('#{{ form.militar_destino.id_for_label }}');
+            if (militarSelect.length && !militarSelect.hasClass('select2-hidden-accessible')) {
+                militarSelect.select2({
+                    placeholder: 'Digite o nome, matrícula ou posto do militar...',
+                    allowClear: true,
+                    minimumInputLength: 2,
+                    language: {
+                        inputTooShort: function () {
+                            return 'Digite pelo menos 2 caracteres...';
+                        },
+                        noResults: function () {
+                            return 'Nenhum militar encontrado';
+                        },
+                        searching: function () {
+                            return 'Buscando...';
+                        }
+                    },
+                    ajax: {
+                        url: '{% url "militares:militar-autocomplete" %}',
+                        dataType: 'json',
+                        delay: 250,
+                        data: function (params) {
+                            return {
+                                q: params.term
+                            };
+                        },
+                        processResults: function (data) {
+                            return {
+                                results: data.results
+                            };
+                        },
+                        cache: true
+                    }
+                }).on('select2:select', function (e) {
+                    // Quando um militar for selecionado, buscar sua lotação atual
+                    const militarId = e.params.data.id;
+                    buscarLotacaoMilitar(militarId);
+                }).on('select2:clear', function () {
+                    // Limpar organização quando o militar for removido
+                    if (organizacaoDestinoInput) {
+                        organizacaoDestinoInput.value = '';
+                        organizacaoDestinoInput.readOnly = false;
+                        organizacaoDestinoInput.style.backgroundColor = '';
+                    }
+                });
+                
+                // Se já houver um militar selecionado (na edição), buscar sua lotação
+                {% if form.militar_destino.value %}
+                buscarLotacaoMilitar({{ form.militar_destino.value }});
+                {% endif %}
+            }
+        }
+    }
+    
+    
+});
+</script>
+{% endblock %}

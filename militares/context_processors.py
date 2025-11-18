@@ -567,6 +567,14 @@ def menu_permissions_processor(request):
                 'COMISSOES_PRACAS_CRIAR': True,
                 'COMISSOES_PRACAS_EDITAR': True,
                 'COMISSOES_PRACAS_EXCLUIR': True,
+                'ARMAS_VISUALIZAR': True,
+                'ARMAS_CRIAR': True,
+                'ARMAS_EDITAR': True,
+                'ARMAS_EXCLUIR': True,
+                'MUNICOES_VISUALIZAR': True,
+                'MUNICOES_CRIAR': True,
+                'MUNICOES_EDITAR': True,
+                'MUNICOES_EXCLUIR': True,
                 'PUBLICACOES_VISUALIZAR': True,
                 'PUBLICACOES_CRIAR': True,
                 'PUBLICACOES_EDITAR': True,
@@ -856,8 +864,12 @@ def menu_permissions_processor(request):
                     menu_permissions['show_unidades'] = True
                 elif permissao.modulo == 'SUBMENU_SUB_UNIDADES':
                     menu_permissions['show_sub_unidades'] = True
-            # Mapear permissões granulares para ações específicas (não apenas VISUALIZAR)
-            elif permissao.modulo == 'INATIVOS' and permissao.acesso == 'REATIVAR':
+        
+        # Mapear permissões granulares para ações específicas (não apenas VISUALIZAR)
+        # Processar todas as permissões novamente para capturar ações específicas
+        for permissao in permissoes_granulares:
+            # Permissões de INATIVOS
+            if permissao.modulo == 'INATIVOS' and permissao.acesso == 'REATIVAR':
                 menu_permissions['INATIVOS_REATIVAR'] = True
             elif permissao.modulo == 'INATIVOS' and permissao.acesso == 'VISUALIZAR':
                 menu_permissions['INATIVOS_VISUALIZAR'] = True
@@ -865,6 +877,24 @@ def menu_permissions_processor(request):
                 menu_permissions['INATIVOS_EDITAR'] = True
             elif permissao.modulo == 'INATIVOS' and permissao.acesso == 'EXCLUIR':
                 menu_permissions['INATIVOS_EXCLUIR'] = True
+            # Permissões de ARMAS
+            elif permissao.modulo == 'ARMAS' and permissao.acesso == 'VISUALIZAR':
+                menu_permissions['ARMAS_VISUALIZAR'] = True
+            elif permissao.modulo == 'ARMAS' and permissao.acesso == 'CRIAR':
+                menu_permissions['ARMAS_CRIAR'] = True
+            elif permissao.modulo == 'ARMAS' and permissao.acesso == 'EDITAR':
+                menu_permissions['ARMAS_EDITAR'] = True
+            elif permissao.modulo == 'ARMAS' and permissao.acesso == 'EXCLUIR':
+                menu_permissions['ARMAS_EXCLUIR'] = True
+            # Permissões de MUNICOES
+            elif permissao.modulo == 'MUNICOES' and permissao.acesso == 'VISUALIZAR':
+                menu_permissions['MUNICOES_VISUALIZAR'] = True
+            elif permissao.modulo == 'MUNICOES' and permissao.acesso == 'CRIAR':
+                menu_permissions['MUNICOES_CRIAR'] = True
+            elif permissao.modulo == 'MUNICOES' and permissao.acesso == 'EDITAR':
+                menu_permissions['MUNICOES_EDITAR'] = True
+            elif permissao.modulo == 'MUNICOES' and permissao.acesso == 'EXCLUIR':
+                menu_permissions['MUNICOES_EXCLUIR'] = True
         
         # GARANTIR QUE O MENU PESSOAL SEMPRE APAREÇA
         # Quando uma função não tem permissões granulares selecionadas, 
@@ -1238,6 +1268,14 @@ def menu_permissions_processor(request):
         'COMISSOES_PRACAS_CRIAR': False,
         'COMISSOES_PRACAS_EDITAR': False,
         'COMISSOES_PRACAS_EXCLUIR': False,
+        'ARMAS_VISUALIZAR': False,
+        'ARMAS_CRIAR': False,
+        'ARMAS_EDITAR': False,
+        'ARMAS_EXCLUIR': False,
+        'MUNICOES_VISUALIZAR': False,
+        'MUNICOES_CRIAR': False,
+        'MUNICOES_EDITAR': False,
+        'MUNICOES_EXCLUIR': False,
         'PUBLICACOES_VISUALIZAR': False,
         'PUBLICACOES_CRIAR': False,
         'PUBLICACOES_EDITAR': False,

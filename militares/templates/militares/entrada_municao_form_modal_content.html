@@ -1,0 +1,184 @@
+{% load static %}
+
+<div class="modal-header bg-success text-white">
+    <h5 class="modal-title" id="criarEntradaMunicaoModalLabel">
+        <i class="fas fa-arrow-down me-2"></i>
+        Registrar Entrada de Munição
+    </h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+
+<form id="formCriarEntradaMunicao" method="post" action="{% url 'militares:entrada_municao_create' %}">
+    {% csrf_token %}
+    <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+        
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.municao.id_for_label }}" class="form-label">
+                    {{ form.municao.label }} <span class="text-danger">*</span>
+                </label>
+                {{ form.municao }}
+                {% if form.municao.errors %}
+                    <div class="invalid-feedback d-block">{{ form.municao.errors }}</div>
+                {% endif %}
+                <small class="form-text text-muted">Selecione a munição que está entrando no estoque</small>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.quantidade.id_for_label }}" class="form-label">
+                    {{ form.quantidade.label }} <span class="text-danger">*</span>
+                </label>
+                {{ form.quantidade }}
+                {% if form.quantidade.errors %}
+                    <div class="invalid-feedback d-block">{{ form.quantidade.errors }}</div>
+                {% endif %}
+                <small class="form-text text-muted">Quantidade de munições entrando</small>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+                <label for="{{ form.data_entrada.id_for_label }}" class="form-label">
+                    {{ form.data_entrada.label }} <span class="text-danger">*</span>
+                </label>
+                {{ form.data_entrada }}
+                {% if form.data_entrada.errors %}
+                    <div class="invalid-feedback d-block">{{ form.data_entrada.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="col-md-12 mb-3">
+                <label for="{{ form.observacoes.id_for_label }}" class="form-label">
+                    {{ form.observacoes.label }}
+                </label>
+                {{ form.observacoes }}
+                {% if form.observacoes.errors %}
+                    <div class="invalid-feedback d-block">{{ form.observacoes.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-success" id="btnSalvarEntrada">
+            <i class="fas fa-save me-2"></i>Registrar Entrada
+        </button>
+    </div>
+</form>
+
+<script>
+(function() {
+    setTimeout(function() {
+        // Garantir que a data seja formatada corretamente (timezone de Brasília)
+        const dataEntradaInput = document.getElementById('{{ form.data_entrada.id_for_label }}');
+        if (dataEntradaInput && !dataEntradaInput.value) {
+            // Obter data/hora atual de Brasília
+            const now = new Date();
+            const brasiliaDateTime = new Intl.DateTimeFormat('pt-BR', {
+                timeZone: 'America/Sao_Paulo',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            }).formatToParts(now);
+            
+            const year = brasiliaDateTime.find(part => part.type === 'year').value;
+            const month = brasiliaDateTime.find(part => part.type === 'month').value;
+            const day = brasiliaDateTime.find(part => part.type === 'day').value;
+            const hours = brasiliaDateTime.find(part => part.type === 'hour').value;
+            const minutes = brasiliaDateTime.find(part => part.type === 'minute').value;
+            
+            dataEntradaInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+        
+        // Submeter formulário via AJAX
+        const formCriarEntradaMunicao = document.getElementById('formCriarEntradaMunicao');
+        const btnSalvarEntrada = document.getElementById('btnSalvarEntrada');
+        
+        if (formCriarEntradaMunicao && btnSalvarEntrada) {
+            formCriarEntradaMunicao.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(formCriarEntradaMunicao);
+                const originalText = btnSalvarEntrada.innerHTML;
+                
+                // Desabilitar botão e mostrar loading
+                btnSalvarEntrada.disabled = true;
+                btnSalvarEntrada.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Salvando...';
+                
+                fetch(formCriarEntradaMunicao.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    }
+                })
+                .then(response => {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        return response.json();
+                    } else {
+                        return response.text().then(text => {
+                            throw new Error('Resposta não é JSON');
+                        });
+                    }
+                })
+                .then(data => {
+                    if (data.success) {
+                        // Fechar modal
+                        const modalElement = document.getElementById('criarEntradaMunicaoModal');
+                        if (modalElement) {
+                            const modal = bootstrap.Modal.getInstance(modalElement);
+                            if (modal) {
+                                modal.hide();
+                            }
+                        }
+                        
+                        // Recarregar página após um pequeno delay
+                        setTimeout(function() {
+                            if (data.redirect_url) {
+                                window.location.href = data.redirect_url;
+                            } else {
+                                window.location.reload();
+                            }
+                        }, 300);
+                    } else {
+                        // Mostrar erros
+                        let errorMessage = data.message || 'Erro ao registrar entrada de munição.';
+                        if (data.errors) {
+                            const errorList = [];
+                            for (const field in data.errors) {
+                                const fieldLabel = field === 'municao' ? 'Munição' : 
+                                                  field === 'quantidade' ? 'Quantidade' :
+                                                  field === 'data_entrada' ? 'Data de Entrada' :
+                                                  field === 'observacoes' ? 'Observações' : field;
+                                errorList.push(fieldLabel + ': ' + data.errors[field].join(', '));
+                            }
+                            if (errorList.length > 0) {
+                                errorMessage += '\n\n' + errorList.join('\n');
+                            }
+                        }
+                        alert(errorMessage);
+                        
+                        // Reabilitar botão
+                        btnSalvarEntrada.disabled = false;
+                        btnSalvarEntrada.innerHTML = originalText;
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro:', error);
+                    alert('Erro ao registrar entrada de munição. Tente novamente.');
+                    btnSalvarEntrada.disabled = false;
+                    btnSalvarEntrada.innerHTML = originalText;
+                });
+            });
+        }
+    }, 100);
+})();
+</script>
+

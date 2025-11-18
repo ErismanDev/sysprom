@@ -15,9 +15,11 @@
                     <p class="text-muted mb-0">Registro de entradas de munição no estoque</p>
                 </div>
                 <div>
-                    <a href="{% url 'militares:entrada_municao_create' %}" class="btn btn-success">
+                    {% if menu_permissions.MUNICOES_CRIAR or user.is_superuser %}
+                    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#criarEntradaMunicaoModal">
                         <i class="fas fa-plus me-2"></i>Nova Entrada
-                    </a>
+                    </button>
+                    {% endif %}
                     <a href="{% url 'militares:municao_list' %}" class="btn btn-outline-secondary">
                         <i class="fas fa-boxes me-2"></i>Estoque
                     </a>
@@ -59,9 +61,11 @@
                                     <tr>
                                         <th>Data</th>
                                         <th>Munição</th>
+                                        <th>OM</th>
                                         <th class="text-end">Quantidade</th>
                                         <th>Responsável</th>
                                         <th>Observações</th>
+                                        <th class="text-center">Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -70,12 +74,54 @@
                                             <td>{{ entrada.data_entrada|date:"d/m/Y H:i" }}</td>
                                             <td>
                                                 <a href="{% url 'militares:municao_detail' entrada.municao.pk %}">
-                                                    {{ entrada.municao.get_calibre_display }} - {{ entrada.municao.get_organizacao }}
+                                                    {{ entrada.municao.get_calibre_display }}
                                                 </a>
+                                            </td>
+                                            <td>
+                                                {% if entrada.municao.sub_unidade %}
+                                                    {{ entrada.municao.sub_unidade.nome }}
+                                                {% elif entrada.municao.unidade %}
+                                                    {{ entrada.municao.unidade.nome }}
+                                                {% elif entrada.municao.grande_comando %}
+                                                    {{ entrada.municao.grande_comando.nome }}
+                                                {% elif entrada.municao.orgao %}
+                                                    {{ entrada.municao.orgao.nome }}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
                                             </td>
                                             <td class="text-end"><strong>{{ entrada.quantidade }}</strong></td>
                                             <td>{{ entrada.responsavel.get_full_name|default:entrada.responsavel.username }}</td>
                                             <td>{{ entrada.observacoes|truncatewords:10|default:"-" }}</td>
+                                            <td class="text-center">
+                                                <div class="btn-group btn-group-sm" role="group">
+                                                    {% if menu_permissions.MUNICOES_VISUALIZAR or user.is_superuser %}
+                                                    <button type="button" class="btn btn-info btn-detalhes-entrada" 
+                                                            data-entrada-id="{{ entrada.pk }}" 
+                                                            data-bs-toggle="modal" 
+                                                            data-bs-target="#detalhesEntradaMunicaoModal"
+                                                            title="Ver Detalhes">
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                                    {% endif %}
+                                                    {% if menu_permissions.MUNICOES_EDITAR or user.is_superuser %}
+                                                    <button type="button" class="btn btn-warning btn-editar-entrada" 
+                                                            data-entrada-id="{{ entrada.pk }}"
+                                                            title="Editar">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    {% endif %}
+                                                    {% if menu_permissions.MUNICOES_EXCLUIR or user.is_superuser %}
+                                                    <button type="button" class="btn btn-danger btn-excluir-entrada" 
+                                                            data-entrada-id="{{ entrada.pk }}"
+                                                            data-bs-toggle="modal" 
+                                                            data-bs-target="#excluirEntradaMunicaoModal"
+                                                            title="Excluir">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
                                         </tr>
                                     {% endfor %}
                                 </tbody>
@@ -118,5 +164,346 @@
         </div>
     </div>
 </div>
+
+<!-- Modal para Detalhes da Entrada de Munição -->
+<div class="modal fade" id="detalhesEntradaMunicaoModal" tabindex="-1" aria-labelledby="detalhesEntradaMunicaoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" id="detalhesEntradaMunicaoModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando detalhes...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Excluir Entrada de Munição -->
+<div class="modal fade" id="excluirEntradaMunicaoModal" tabindex="-1" aria-labelledby="excluirEntradaMunicaoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" id="excluirEntradaMunicaoModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-danger" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando confirmação...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Criar Entrada de Munição -->
+<div class="modal fade" id="criarEntradaMunicaoModal" tabindex="-1" aria-labelledby="criarEntradaMunicaoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" id="criarEntradaMunicaoModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // URL base para entradas de munição
+    const baseUrl = '{% url "militares:entrada_municao_list" %}';
+    
+    // Função para obter CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    const csrftoken = getCookie('csrftoken');
+    // Modal de criar entrada de munição
+    const criarEntradaMunicaoModal = document.getElementById('criarEntradaMunicaoModal');
+    const criarEntradaMunicaoModalContent = document.getElementById('criarEntradaMunicaoModalContent');
+    
+    if (criarEntradaMunicaoModal && criarEntradaMunicaoModalContent) {
+        criarEntradaMunicaoModal.addEventListener('show.bs.modal', function(event) {
+            criarEntradaMunicaoModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            fetch('{% url "militares:entrada_municao_create" %}', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => {
+                // Verificar se a resposta é JSON
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    return response.json();
+                } else {
+                    // Se não for JSON, pode ser um erro HTML
+                    return response.text().then(text => {
+                        throw new Error('Resposta não é JSON. Status: ' + response.status);
+                    });
+                }
+            })
+            .then(data => {
+                // Verificar se há erro na resposta
+                if (data.success === false) {
+                    let errorMessage = data.message || 'Erro ao carregar formulário.';
+                    if (data.traceback && data.traceback.length > 0) {
+                        errorMessage += '<br><br><details><summary>Detalhes técnicos</summary><pre style="font-size: 0.8em; text-align: left; max-height: 200px; overflow-y: auto;">' + data.traceback + '</pre></details>';
+                    }
+                    criarEntradaMunicaoModalContent.innerHTML = `
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title">
+                                <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body text-center py-4">
+                            <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                            <h5>Erro ao Carregar</h5>
+                            <div class="text-muted">${errorMessage}</div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                if (data.html) {
+                    criarEntradaMunicaoModalContent.innerHTML = data.html;
+                    
+                    // Aguardar um pouco para garantir que o DOM foi atualizado
+                    setTimeout(function() {
+                        // Re-executar scripts que podem estar no conteúdo carregado
+                        const scripts = criarEntradaMunicaoModalContent.querySelectorAll('script');
+                        scripts.forEach(function(oldScript) {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(attr => {
+                                newScript.setAttribute(attr.name, attr.value);
+                            });
+                            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                            oldScript.parentNode.replaceChild(newScript, oldScript);
+                        });
+                    }, 100);
+                } else {
+                    criarEntradaMunicaoModalContent.innerHTML = `
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title">
+                                <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body text-center py-4">
+                            <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                            <h5>Erro ao Carregar</h5>
+                            <p class="text-muted">Não foi possível carregar o formulário. Tente novamente.</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar formulário:', error);
+                let errorMessage = 'Não foi possível carregar o formulário. Tente novamente.';
+                if (error.message) {
+                    errorMessage += '<br><small>' + error.message + '</small>';
+                }
+                criarEntradaMunicaoModalContent.innerHTML = `
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body text-center py-4">
+                        <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                        <h5>Erro ao Carregar</h5>
+                        <p class="text-muted">${errorMessage}</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                `;
+            });
+        });
+        
+        // Limpar conteúdo quando fechar o modal
+        criarEntradaMunicaoModal.addEventListener('hidden.bs.modal', function() {
+            criarEntradaMunicaoModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+        });
+    }
+    
+    // Botões de ação
+    // Detalhes
+    document.querySelectorAll('.btn-detalhes-entrada').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const entradaId = this.getAttribute('data-entrada-id');
+            const modalContent = document.getElementById('detalhesEntradaMunicaoModalContent');
+            
+            modalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando detalhes...</p>
+                </div>
+            `;
+            
+            // Carregar detalhes via AJAX (quando a view for criada)
+            fetch(`${baseUrl}${entradaId}/`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.text();
+                }
+                throw new Error('Erro ao carregar detalhes');
+            })
+            .then(html => {
+                modalContent.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                modalContent.innerHTML = `
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">Erro</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Erro ao carregar detalhes da entrada.</p>
+                    </div>
+                `;
+            });
+        });
+    });
+    
+    // Editar
+    document.querySelectorAll('.btn-editar-entrada').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const entradaId = this.getAttribute('data-entrada-id');
+            // Redirecionar para página de edição (quando criada)
+            window.location.href = `${baseUrl}${entradaId}/editar/`;
+        });
+    });
+    
+    // Excluir
+    document.querySelectorAll('.btn-excluir-entrada').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const entradaId = this.getAttribute('data-entrada-id');
+            const modalContent = document.getElementById('excluirEntradaMunicaoModalContent');
+            
+            modalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-danger" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando confirmação...</p>
+                </div>
+            `;
+            
+            // Carregar confirmação de exclusão via AJAX (quando a view for criada)
+            fetch(`${baseUrl}${entradaId}/excluir/`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.text();
+                }
+                throw new Error('Erro ao carregar confirmação');
+            })
+            .then(html => {
+                modalContent.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                // Mostrar confirmação simples se a view não existir
+                modalContent.innerHTML = `
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">Confirmar Exclusão</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Tem certeza que deseja excluir esta entrada de munição?</p>
+                        <p class="text-muted"><small>Esta ação não pode ser desfeita.</small></p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <form method="post" action="${baseUrl}${entradaId}/excluir/" style="display: inline;" id="formExcluirEntrada">
+                            <input type="hidden" name="csrfmiddlewaretoken" value="${csrftoken}">
+                            <button type="submit" class="btn btn-danger">Excluir</button>
+                        </form>
+                    </div>
+                `;
+            });
+        });
+    });
+    
+    // Limpar modais quando fecharem
+    const detalhesModal = document.getElementById('detalhesEntradaMunicaoModal');
+    const excluirModal = document.getElementById('excluirEntradaMunicaoModal');
+    
+    if (detalhesModal) {
+        detalhesModal.addEventListener('hidden.bs.modal', function() {
+            document.getElementById('detalhesEntradaMunicaoModalContent').innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando detalhes...</p>
+                </div>
+            `;
+        });
+    }
+    
+    if (excluirModal) {
+        excluirModal.addEventListener('hidden.bs.modal', function() {
+            document.getElementById('excluirEntradaMunicaoModalContent').innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-danger" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando confirmação...</p>
+                </div>
+            `;
+        });
+    }
+});
+</script>
 {% endblock %}
 

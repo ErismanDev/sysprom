@@ -7370,6 +7370,7 @@ class PermissaoFuncao(models.Model):
         
         # Módulos de Ações - Material Bélico/Armas
         ('ARMAS', 'Armas'),
+        ('MUNICOES', 'Munições'),
         
         # Módulos de Ações - Bens Móveis
         ('BENS_MOVEIS', 'Bens Móveis'),
@@ -17967,8 +17968,8 @@ class ArmaParticular(models.Model):
     numero_guia_transito = models.CharField(max_length=100, blank=True, null=True, verbose_name="Nº Guia de Trânsito")
     data_validade_guia = models.DateField(blank=True, null=True, verbose_name="Data de Validade da Guia")
     
-    # Autorização para uso no serviço
-    autorizado_uso_servico = models.BooleanField(default=False, verbose_name="Autorizado para Uso no Serviço", help_text="Se a arma está autorizada para uso durante o serviço")
+    # Autorizado a portar a arma
+    autorizado_uso_servico = models.BooleanField(default=False, verbose_name="Autorizado a Portar a Arma", help_text="Se o militar está autorizado a portar a arma")
     data_autorizacao = models.DateField(blank=True, null=True, verbose_name="Data de Autorização")
     data_vencimento_autorizacao = models.DateField(blank=True, null=True, verbose_name="Data de Vencimento da Autorização")
     autorizado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='armas_autorizadas', verbose_name="Autorizado por")

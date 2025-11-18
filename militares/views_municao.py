@@ -239,13 +239,71 @@ class EntradaMunicaoCreateView(LoginRequiredMixin, CreateView):
     template_name = 'militares/entrada_municao_form.html'
     success_url = reverse_lazy('militares:entrada_municao_list')
     
+    def dispatch(self, request, *args, **kwargs):
+        """Captura exceções e retorna JSON para requisições AJAX"""
+        try:
+            return super().dispatch(request, *args, **kwargs)
+        except Exception as e:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                import traceback
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Erro ao processar requisição: {str(e)}',
+                    'error': str(e),
+                    'traceback': traceback.format_exc() if request.user.is_superuser else None
+                }, status=500)
+            raise
+    
+    def get(self, request, *args, **kwargs):
+        # Se for requisição AJAX (GET), retornar HTML do formulário
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            try:
+                self.object = None
+                form = self.get_form()
+                context = self.get_context_data(form=form)
+                from django.template.loader import render_to_string
+                html = render_to_string('militares/entrada_municao_form_modal_content.html', context, request=request)
+                return JsonResponse({'html': html})
+            except Exception as e:
+                import traceback
+                error_msg = str(e)
+                error_trace = traceback.format_exc()
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Erro ao carregar formulário: {error_msg}',
+                    'error': error_msg,
+                    'traceback': error_trace if request.user.is_superuser else None
+                }, status=500)
+        return super().get(request, *args, **kwargs)
+    
     def form_valid(self, form):
         form.instance.responsavel = self.request.user
+        
+        # Se for requisição AJAX, retornar JSON
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            response = super().form_valid(form)
+            return JsonResponse({
+                'success': True,
+                'message': f'Entrada de {form.instance.quantidade} {form.instance.municao.get_calibre_display()} registrada com sucesso!',
+                'redirect_url': str(self.success_url)
+            })
+        
         messages.success(
             self.request, 
             f'Entrada de {form.instance.quantidade} {form.instance.municao.get_calibre_display()} registrada com sucesso!'
         )
         return super().form_valid(form)
+    
+    def form_invalid(self, form):
+        # Se for requisição AJAX e houver erros, retornar JSON com erros
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'errors': form.errors,
+                'message': 'Erro ao processar formulário. Verifique os campos.'
+            }, status=400)
+        messages.error(self.request, 'Por favor, corrija os erros no formulário.')
+        return super().form_invalid(form)
 
 
 class EntradaMunicaoListView(LoginRequiredMixin, ListView):

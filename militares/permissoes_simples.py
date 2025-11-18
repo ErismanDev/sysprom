@@ -1231,6 +1231,40 @@ def pode_gerenciar_orcamentos_planejadas(user):
     return funcao_militar.publicacao == 'FISCAL_PLANEJADAS'
 
 
+def tem_funcao_especial(user, funcoes_lista):
+    """
+    Verifica se o usuário tem alguma das funções especificadas na lista
+    
+    Args:
+        user: Usuário Django
+        funcoes_lista: String com nomes de funções separados por vírgula (ex: "Administrador do Sistema,Administrador")
+        
+    Returns:
+        bool: True se o usuário tem alguma das funções, False caso contrário
+    """
+    if not user or not user.is_authenticated:
+        return False
+    
+    # Superusuários sempre têm todas as funções
+    if user.is_superuser:
+        return True
+    
+    # Obter função militar da sessão ativa
+    funcao_usuario = obter_funcao_militar_ativa(user)
+    if not funcao_usuario or not funcao_usuario.ativo:
+        return False
+    
+    funcao_militar = funcao_usuario.funcao_militar
+    if not funcao_militar or not funcao_militar.ativo:
+        return False
+    
+    # Separar a lista de funções por vírgula
+    funcoes = [f.strip() for f in funcoes_lista.split(',') if f.strip()]
+    
+    # Verificar se o nome da função militar está na lista
+    return funcao_militar.nome in funcoes
+
+
 # ==================== FUNÇÕES ESPECÍFICAS PARA NOTAS RESERVADAS ====================
 
 

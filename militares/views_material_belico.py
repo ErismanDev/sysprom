@@ -860,10 +860,49 @@ class ArmaParticularDeleteView(LoginRequiredMixin, DeleteView):
     """Exclui arma particular"""
     model = ArmaParticular
     template_name = 'militares/arma_particular_confirm_delete.html'
+    context_object_name = 'arma_particular'
     success_url = reverse_lazy('militares:arma_particular_list')
     
+    def get(self, request, *args, **kwargs):
+        # Se for requisição AJAX (GET), retornar HTML do modal
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            self.object = self.get_object()
+            context = self.get_context_data()
+            from django.template.loader import render_to_string
+            html = render_to_string('militares/arma_particular_confirm_delete_modal_content.html', context, request=request)
+            return JsonResponse({'html': html})
+        return super().get(request, *args, **kwargs)
+    
+    def post(self, request, *args, **kwargs):
+        """Trata requisições POST (usado pelo DeleteView)"""
+        # Se for requisição AJAX, usar o método delete
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return self.delete(request, *args, **kwargs)
+        return super().post(request, *args, **kwargs)
+    
     def delete(self, request, *args, **kwargs):
-        messages.success(self.request, f'Arma particular {self.get_object().numero_serie} excluída com sucesso!')
+        self.object = self.get_object()
+        numero_serie = self.object.numero_serie
+        
+        # Se for requisição AJAX, retornar JSON
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            try:
+                self.object.delete()
+                return JsonResponse({
+                    'success': True,
+                    'message': f'Arma particular {numero_serie} excluída com sucesso!',
+                    'redirect_url': str(self.success_url)
+                })
+            except Exception as e:
+                import traceback
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Erro ao excluir arma particular: {str(e)}',
+                    'error': str(e),
+                    'traceback': traceback.format_exc() if request.user.is_superuser else None
+                }, status=500)
+        
+        messages.success(self.request, f'Arma particular {numero_serie} excluída com sucesso!')
         return super().delete(request, *args, **kwargs)
 
 

@@ -1,0 +1,118 @@
+{% load static %}
+
+<div class="modal-header bg-danger text-white">
+    <h5 class="modal-title" id="excluirArmaParticularModalLabel">
+        <i class="fas fa-exclamation-triangle me-2"></i>Confirmar Exclusão
+    </h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+
+<form id="formExcluirArmaParticular" method="post" action="{% url 'militares:arma_particular_delete' arma_particular.pk %}">
+    {% csrf_token %}
+    <div class="modal-body">
+        <p class="lead">Tem certeza que deseja excluir a arma particular abaixo?</p>
+        
+        <div class="alert alert-warning">
+            <strong>Militar:</strong> {{ arma_particular.militar.get_posto_graduacao_display }} {{ arma_particular.militar.nome_completo }}<br>
+            <strong>Matrícula:</strong> {{ arma_particular.militar.matricula }}<br>
+            <strong>Arma:</strong> {{ arma_particular.numero_serie }}<br>
+            <strong>Tipo:</strong> {{ arma_particular.get_tipo_display }}<br>
+            <strong>Marca/Modelo:</strong> {{ arma_particular.marca }} {{ arma_particular.modelo }}<br>
+            <strong>Calibre:</strong> {{ arma_particular.get_calibre_display }}
+        </div>
+        
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Atenção:</strong> Esta ação não pode ser desfeita. A arma particular será excluída permanentemente do sistema.
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <i class="fas fa-times me-2"></i>Cancelar
+        </button>
+        <button type="submit" class="btn btn-danger" id="btnConfirmarExclusao">
+            <i class="fas fa-trash me-2"></i>Sim, excluir
+        </button>
+    </div>
+</form>
+
+<script>
+(function() {
+    setTimeout(function() {
+        const formExcluirArmaParticular = document.getElementById('formExcluirArmaParticular');
+        const btnConfirmarExclusao = document.getElementById('btnConfirmarExclusao');
+        
+        if (formExcluirArmaParticular && btnConfirmarExclusao) {
+            formExcluirArmaParticular.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const originalText = btnConfirmarExclusao.innerHTML;
+                btnConfirmarExclusao.disabled = true;
+                btnConfirmarExclusao.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Excluindo...';
+                
+                // Obter CSRF token
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+                if (!csrfToken) {
+                    alert('Erro: Token de segurança não encontrado');
+                    btnConfirmarExclusao.disabled = false;
+                    btnConfirmarExclusao.innerHTML = originalText;
+                    return;
+                }
+                
+                const formData = new FormData(formExcluirArmaParticular);
+                
+                fetch(formExcluirArmaParticular.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': csrfToken.value,
+                    },
+                    credentials: 'same-origin'
+                })
+                .then(response => {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        return response.json();
+                    } else {
+                        return response.text().then(text => {
+                            throw new Error('Resposta não é JSON');
+                        });
+                    }
+                })
+                .then(data => {
+                    if (data.success) {
+                        // Fechar modal imediatamente
+                        const modalElement = document.getElementById('excluirArmaParticularModal');
+                        if (modalElement) {
+                            const modal = bootstrap.Modal.getInstance(modalElement);
+                            if (modal) {
+                                modal.hide();
+                            }
+                        }
+                        
+                        // Recarregar página imediatamente
+                        if (data.redirect_url) {
+                            window.location.href = data.redirect_url;
+                        } else {
+                            window.location.reload();
+                        }
+                    } else {
+                        // Mostrar erro
+                        alert(data.message || 'Erro ao excluir arma particular.');
+                        btnConfirmarExclusao.disabled = false;
+                        btnConfirmarExclusao.innerHTML = originalText;
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro:', error);
+                    alert('Erro ao excluir arma particular. Tente novamente.');
+                    btnConfirmarExclusao.disabled = false;
+                    btnConfirmarExclusao.innerHTML = originalText;
+                });
+            });
+        }
+    }, 100);
+})();
+</script>
+

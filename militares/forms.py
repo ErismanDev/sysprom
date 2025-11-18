@@ -6011,7 +6011,24 @@ class EntradaMunicaoForm(forms.ModelForm):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['data_entrada'].initial = timezone.now()
+        # Ordenar munições por calibre
+        self.fields['municao'].queryset = Municao.objects.all().order_by('calibre')
+        self.fields['municao'].empty_label = 'Selecione uma munição'
+        
+        # Configurar data inicial (timezone de Brasília)
+        try:
+            import pytz
+            brasilia_tz = pytz.timezone('America/Sao_Paulo')
+            now = timezone.now()
+            if timezone.is_aware(now):
+                agora_brasilia = now.astimezone(brasilia_tz)
+            else:
+                agora_brasilia = brasilia_tz.localize(now)
+            self.fields['data_entrada'].initial = agora_brasilia.strftime('%Y-%m-%dT%H:%M')
+        except Exception:
+            # Se houver erro, deixar vazio
+            pass
+        
         self.fields['observacoes'].required = False
 
 

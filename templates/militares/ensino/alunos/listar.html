@@ -1,0 +1,287 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Alunos - Módulo de Ensino{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="mb-0">
+                    <i class="fas fa-user-graduate me-2"></i>
+                    Alunos
+                </h1>
+                {% if menu_permissions.ENSINO_CRIAR or user.is_superuser %}
+                <a href="{% url 'militares:ensino_aluno_criar' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>
+                    Novo Aluno
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <input type="text" name="busca" class="form-control" placeholder="Buscar por matrícula, nome ou CPF..." value="{{ request.GET.busca }}">
+                </div>
+                <div class="col-md-2">
+                    <select name="tipo_aluno" class="form-select">
+                        <option value="">Todos os tipos</option>
+                        {% for tipo_value, tipo_label in tipos_aluno %}
+                            <option value="{{ tipo_value }}" {% if request.GET.tipo_aluno == tipo_value %}selected{% endif %}>
+                                {{ tipo_label }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select name="situacao" class="form-select">
+                        <option value="">Todas as situações</option>
+                        {% for situacao_value, situacao_label in situacoes %}
+                            <option value="{{ situacao_value }}" {% if request.GET.situacao == situacao_value %}selected{% endif %}>
+                                {{ situacao_label }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-2"></i>
+                        Buscar
+                    </button>
+                </div>
+                <div class="col-md-2">
+                    <a href="{% url 'militares:ensino_alunos_listar' %}" class="btn btn-secondary w-100">
+                        <i class="fas fa-times me-2"></i>
+                        Limpar Filtros
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Tabela de Alunos -->
+    <div class="card">
+        <div class="card-body">
+            {% if alunos %}
+                {% if is_apk or request.GET.apk %}
+                <div class="d-grid gap-3">
+                    {% for aluno in alunos %}
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body d-flex align-items-center">
+                            <div class="me-3">
+                                {% if aluno.foto %}
+                                    <img src="{{ aluno.foto.url }}" alt="Foto do aluno" class="rounded-circle" style="width: 48px; height: 48px; object-fit: cover;">
+                                {% elif aluno.tipo_aluno == 'BOMBEIRO' and aluno.militar and aluno.militar.foto %}
+                                    <img src="{{ aluno.militar.foto.url }}" alt="Foto do militar" class="rounded-circle" style="width: 48px; height: 48px; object-fit: cover;">
+                                {% else %}
+                                    <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                                        <i class="fas fa-user text-white"></i>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="fw-bold">
+                                    {% if aluno.tipo_aluno == 'BOMBEIRO' and aluno.militar %}
+                                        {{ aluno.militar.get_posto_graduacao_display }} {{ aluno.militar.nome_completo }}
+                                    {% elif aluno.tipo_aluno == 'OUTRA_FORCA' and aluno.nome_outra_forca %}
+                                        {{ aluno.nome_outra_forca }}
+                                    {% elif aluno.tipo_aluno == 'CIVIL' and aluno.nome_civil %}
+                                        {{ aluno.nome_civil }}
+                                    {% else %}
+                                        {{ aluno.get_pessoa_nome }}
+                                    {% endif %}
+                                </div>
+                                <div class="text-muted">
+                                    {% if aluno.matricula %}
+                                        Matrícula: {{ aluno.matricula }}
+                                    {% elif aluno.tipo_aluno == 'BOMBEIRO' and aluno.militar and aluno.militar.matricula %}
+                                        Matrícula: {{ aluno.militar.matricula }}
+                                    {% elif aluno.tipo_aluno == 'OUTRA_FORCA' and aluno.matricula_outra_forca %}
+                                        Matrícula: {{ aluno.matricula_outra_forca }}
+                                    {% endif %}
+                                </div>
+                                <div class="mt-1 text-muted">Tipo: {{ aluno.get_tipo_aluno_display }} • CPF: {{ aluno.get_cpf|default:"-" }}</div>
+                            </div>
+                            <div class="text-end">
+                                {% if aluno.situacao == 'ATIVO' %}
+                                    <span class="badge bg-success">{{ aluno.get_situacao_display }}</span>
+                                {% elif aluno.situacao == 'CONCLUIDO' %}
+                                    <span class="badge bg-primary">{{ aluno.get_situacao_display }}</span>
+                                {% elif aluno.situacao == 'DESLIGADO' %}
+                                    <span class="badge bg-danger">{{ aluno.get_situacao_display }}</span>
+                                {% elif aluno.situacao == 'TRANSFERIDO' %}
+                                    <span class="badge bg-warning">{{ aluno.get_situacao_display }}</span>
+                                {% elif aluno.situacao == 'JUBILADO' %}
+                                    <span class="badge bg-secondary">{{ aluno.get_situacao_display }}</span>
+                                {% elif aluno.situacao == 'EXCLUIDO' %}
+                                    <span class="badge bg-dark">{{ aluno.get_situacao_display }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ aluno.get_situacao_display }}</span>
+                                {% endif %}
+                                <div class="d-grid gap-2 mt-2">
+                                    {% if menu_permissions.ENSINO_VISUALIZAR or user.is_superuser %}
+                                    <a href="{% url 'militares:ensino_aluno_detalhes' pk=aluno.pk %}?apk=1" class="btn btn-outline-info btn-sm">
+                                        <i class="fas fa-eye me-1"></i>Ver
+                                    </a>
+                                    {% endif %}
+                                    {% if menu_permissions.ENSINO_EDITAR or user.is_superuser %}
+                                    <a href="{% url 'militares:ensino_aluno_editar' pk=aluno.pk %}?apk=1" class="btn btn-outline-warning btn-sm">
+                                        <i class="fas fa-edit me-1"></i>Editar
+                                    </a>
+                                    {% endif %}
+                                    <a href="{% url 'militares:ensino_aluno_ficha_pdf' pk=aluno.pk %}" target="_blank" class="btn btn-outline-danger btn-sm">
+                                        <i class="fas fa-file-pdf me-1"></i>PDF
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th class="text-center" style="width: 60px;">Nº</th>
+                                <th>Foto</th>
+                                <th>Aluno</th>
+                                <th>Tipo</th>
+                                <th>CPF</th>
+                                <th>Situação</th>
+                                <th>Data de Cadastro</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for aluno in alunos %}
+                            <tr>
+                                <td class="text-center">
+                                    {{ alunos.start_index|add:forloop.counter0 }}
+                                </td>
+                                <td>
+                                    {% if aluno.foto %}
+                                        <img src="{{ aluno.foto.url }}" alt="Foto do aluno" class="rounded-circle" style="width: 50px; height: 50px; object-fit: cover;">
+                                    {% elif aluno.tipo_aluno == 'BOMBEIRO' and aluno.militar and aluno.militar.foto %}
+                                        <img src="{{ aluno.militar.foto.url }}" alt="Foto do militar" class="rounded-circle" style="width: 50px; height: 50px; object-fit: cover;">
+                                    {% else %}
+                                        <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                            <i class="fas fa-user text-white"></i>
+                                        </div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if aluno.tipo_aluno == 'BOMBEIRO' and aluno.militar %}
+                                        <strong>{{ aluno.militar.get_posto_graduacao_display }} {{ aluno.militar.nome_completo }}</strong>
+                                    {% elif aluno.tipo_aluno == 'OUTRA_FORCA' and aluno.nome_outra_forca %}
+                                        <strong>{{ aluno.nome_outra_forca }}</strong>
+                                    {% elif aluno.tipo_aluno == 'CIVIL' and aluno.nome_civil %}
+                                        <strong>{{ aluno.nome_civil }}</strong>
+                                    {% else %}
+                                        <strong>{{ aluno.get_pessoa_nome }}</strong>
+                                    {% endif %}
+                                    {% if aluno.matricula %}
+                                        <br><small class="text-muted">Matrícula: {{ aluno.matricula }}</small>
+                                    {% elif aluno.tipo_aluno == 'BOMBEIRO' and aluno.militar and aluno.militar.matricula %}
+                                        <br><small class="text-muted">Matrícula: {{ aluno.militar.matricula }}</small>
+                                    {% elif aluno.tipo_aluno == 'OUTRA_FORCA' and aluno.matricula_outra_forca %}
+                                        <br><small class="text-muted">Matrícula: {{ aluno.matricula_outra_forca }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-primary">{{ aluno.get_tipo_aluno_display }}</span>
+                                </td>
+                                <td>
+                                    {{ aluno.get_cpf|default:"-" }}
+                                </td>
+                                <td>
+                                    {% if aluno.situacao == 'ATIVO' %}
+                                        <span class="badge bg-success">{{ aluno.get_situacao_display }}</span>
+                                    {% elif aluno.situacao == 'CONCLUIDO' %}
+                                        <span class="badge bg-primary">{{ aluno.get_situacao_display }}</span>
+                                    {% elif aluno.situacao == 'DESLIGADO' %}
+                                        <span class="badge bg-danger">{{ aluno.get_situacao_display }}</span>
+                                    {% elif aluno.situacao == 'TRANSFERIDO' %}
+                                        <span class="badge bg-warning">{{ aluno.get_situacao_display }}</span>
+                                    {% elif aluno.situacao == 'JUBILADO' %}
+                                        <span class="badge bg-secondary">{{ aluno.get_situacao_display }}</span>
+                                    {% elif aluno.situacao == 'EXCLUIDO' %}
+                                        <span class="badge bg-dark">{{ aluno.get_situacao_display }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ aluno.get_situacao_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ aluno.data_matricula|date:"d/m/Y" }}
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        {% if menu_permissions.ENSINO_VISUALIZAR or user.is_superuser %}
+                                        <a href="{% url 'militares:ensino_aluno_detalhes' pk=aluno.pk %}" class="btn btn-sm btn-info" title="Ver detalhes">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        {% endif %}
+                                        {% if menu_permissions.ENSINO_EDITAR or user.is_superuser %}
+                                        <a href="{% url 'militares:ensino_aluno_editar' pk=aluno.pk %}" class="btn btn-sm btn-warning" title="Editar">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        {% endif %}
+                                        <a href="{% url 'militares:ensino_aluno_ficha_pdf' pk=aluno.pk %}" target="_blank" class="btn btn-sm btn-danger" title="Gerar PDF da Ficha">
+                                            <i class="fas fa-file-pdf"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+                
+                <!-- Paginação -->
+                {% if alunos.has_other_pages %}
+                <nav aria-label="Paginação">
+                    <ul class="pagination justify-content-center">
+                        {% if alunos.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1{% if request.GET.busca %}&busca={{ request.GET.busca }}{% endif %}{% if request.GET.situacao %}&situacao={{ request.GET.situacao }}{% endif %}">Primeira</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ alunos.previous_page_number }}{% if request.GET.busca %}&busca={{ request.GET.busca }}{% endif %}{% if request.GET.situacao %}&situacao={{ request.GET.situacao }}{% endif %}">Anterior</a>
+                            </li>
+                        {% endif %}
+                        
+                        <li class="page-item active">
+                            <span class="page-link">
+                                Página {{ alunos.number }} de {{ alunos.paginator.num_pages }}
+                            </span>
+                        </li>
+                        
+                        {% if alunos.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ alunos.next_page_number }}{% if request.GET.busca %}&busca={{ request.GET.busca }}{% endif %}{% if request.GET.situacao %}&situacao={{ request.GET.situacao }}{% endif %}">Próxima</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ alunos.paginator.num_pages }}{% if request.GET.busca %}&busca={{ request.GET.busca }}{% endif %}{% if request.GET.situacao %}&situacao={{ request.GET.situacao }}{% endif %}">Última</a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Nenhum aluno encontrado.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+

@@ -11,12 +11,10 @@
     <link rel="icon" type="image/x-icon" href="{% static 'logo_cbmepi.png' %}">
     <link rel="shortcut icon" type="image/x-icon" href="{% static 'logo_cbmepi.png' %}">
     
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <!-- Font Awesome -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Bootstrap CSS (local) -->
+    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/bootstrap-icons.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/all.min.css' %}" rel="stylesheet">
     
     <style>
         :root {
@@ -32,6 +30,14 @@
             background-color: #ffffff;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             color: #333333;
+        }
+        img { max-width: 100%; height: auto; }
+        .img-fluid { max-width: 100%; height: auto; }
+        @media (max-width: 768px) {
+            .table { display: block; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .btn { white-space: normal; }
+            .container, .container-fluid { padding-left: 8px; padding-right: 8px; }
+            .card { margin-left: 0; margin-right: 0; }
         }
         
         /* Estilos Discretos e Elegantes para Card do Navbar */
@@ -1431,17 +1437,36 @@
                 width: 100%;
             }
         }
+        .apk-mode .container, .apk-mode .container-fluid { padding-left: 12px; padding-right: 12px; }
+        .apk-mode .navbar-brand img { width: 48px; height: 48px; }
+        .apk-ensino .btn { padding: .6rem 1rem; }
     </style>
     
     {% block extra_css %}{% endblock %}
     {% block ckeditor_media %}{% endblock %}
 </head>
-<body>
+<body class="{% if is_apk or request.GET.apk %}apk-mode{% endif %} {% if 'ensino' in request.path %}apk-ensino{% endif %}">
     <!-- CSRF Token para JavaScript -->
     {% csrf_token %}
     <script>
         // Disponibilizar CSRF token globalmente
         window.csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    </script>
+    <script>
+        {% if is_apk or request.GET.apk %}
+        (function(){
+            var anchors = document.querySelectorAll('a[href]');
+            anchors.forEach(function(a){
+                var href = a.getAttribute('href');
+                if (!href) return;
+                if (href.indexOf('http') === 0) return;
+                if (href.indexOf('#') === 0) return;
+                if (href.indexOf('apk=') !== -1) return;
+                var sep = href.indexOf('?') === -1 ? '?' : '&';
+                a.setAttribute('href', href + sep + 'apk=1');
+            });
+        })();
+        {% endif %}
     </script>
     
     <!-- Navbar -->
@@ -1524,12 +1549,19 @@
                         </div>
                     </div>
                 {% else %}
+                    {% if aluno_ensino and turma_ensino %}
                     <div class="text-white">
                         <div class="fw-bold fs-5">
-                            <i class="fas fa-exclamation-triangle me-2"></i>Nenhuma Função Selecionada
+                            <i class="fas fa-graduation-cap me-2"></i>Módulo de Ensino
                         </div>
-                        <div class="text-muted">Selecione uma função para continuar</div>
+                        <div class="text-muted">
+                            {% if curso_ensino %}
+                            <div><strong>Curso:</strong> {{ curso_ensino.nome }}</div>
+                            {% endif %}
+                            <div><strong>Turma:</strong> {{ turma_ensino.identificacao }}</div>
+                        </div>
                     </div>
+                    {% endif %}
                 {% endif %}
             </div>
             
@@ -1644,7 +1676,17 @@
                             </div>
                             <div class="nav-text-content">
                                 <div class="nav-title">
-                                    {% if user.militar %}
+                                    {% if aluno_ensino %}
+                                        {% if aluno_ensino.tipo_aluno == 'BOMBEIRO' and aluno_ensino.militar %}
+                                            {{ aluno_ensino.militar.get_posto_graduacao_display }} {{ aluno_ensino.militar.nome_completo }}
+                                        {% elif aluno_ensino.tipo_aluno == 'OUTRA_FORCA' and aluno_ensino.nome_outra_forca %}
+                                            {{ aluno_ensino.nome_outra_forca }}
+                                        {% elif aluno_ensino.tipo_aluno == 'CIVIL' and aluno_ensino.nome_civil %}
+                                            {{ aluno_ensino.nome_civil }}
+                                        {% else %}
+                                            {{ aluno_ensino.get_nome_completo|default:user.username }}
+                                        {% endif %}
+                                    {% elif user.militar %}
                                         {{ user.militar.get_posto_graduacao_display }} {{ user.militar.nome_guerra }}
                                     {% else %}
                                         {{ user.username }}
@@ -1666,6 +1708,36 @@
                                 <small class="text-muted">{{ funcao_atual.lotacao.nome }}</small>
                             </li>
                             <li><hr class="dropdown-divider"></li>
+                            {% if aluno_ensino or user.militar and menu_permissions.show_ensino_instrutores %}
+                            <li class="dropdown-header">
+                                <i class="fas fa-graduation-cap me-2"></i>Ensino
+                            </li>
+                            {% if aluno_ensino %}
+                            <li class="px-3 py-2">
+                                <div class="fw-bold" style="white-space: normal; word-wrap: break-word;">
+                                    Aluno:
+                                    {% if aluno_ensino.tipo_aluno == 'BOMBEIRO' and aluno_ensino.militar %}
+                                        {{ aluno_ensino.militar.get_posto_graduacao_display }} {{ aluno_ensino.militar.nome_completo }}
+                                    {% elif aluno_ensino.tipo_aluno == 'OUTRA_FORCA' and aluno_ensino.nome_outra_forca %}
+                                        {{ aluno_ensino.nome_outra_forca }}
+                                    {% elif aluno_ensino.tipo_aluno == 'CIVIL' and aluno_ensino.nome_civil %}
+                                        {{ aluno_ensino.nome_civil }}
+                                    {% else %}
+                                        {{ aluno_ensino.get_nome_completo|default:user.username }}
+                                    {% endif %}
+                                </div>
+                            </li>
+                            {% endif %}
+                            {% if user.militar and menu_permissions.show_ensino_instrutores %}
+                            <li class="px-3 py-2">
+                                <div class="fw-bold" style="white-space: normal; word-wrap: break-word;">
+                                    Instrutor:
+                                    {{ user.militar.get_posto_graduacao_display }} {{ user.militar.nome_completo }}
+                                </div>
+                            </li>
+                            {% endif %}
+                            <li><hr class="dropdown-divider"></li>
+                            {% endif %}
                             {% endif %}
                             
                             {% if menu_permissions.show_administracao %}
@@ -1677,9 +1749,15 @@
                             {% endif %}
                             
                             <li>
+                                {% if request.session.ensino_tipo and request.session.ensino_id %}
+                                <a class="dropdown-item modern-dropdown-item" href="{% url 'militares:ensino_alterar_senha' %}">
+                                    <i class="fas fa-key me-2"></i>Alterar Senha
+                                </a>
+                                {% else %}
                                 <a class="dropdown-item modern-dropdown-item" href="{% url 'militares:alterar_senha' %}">
                                     <i class="fas fa-key me-2"></i>Alterar Senha
                                 </a>
+                                {% endif %}
                             </li>
                             
                             <li><hr class="dropdown-divider"></li>
@@ -2439,6 +2517,151 @@
                         </li>
                         {% endif %}
                         
+                        <!-- Módulo de Ensino -->
+                        {% if menu_permissions.show_ensino or user.is_superuser %}
+                        <li class="nav-item">
+                            <a class="nav-link dropdown-toggle {% if 'ensino' in request.path %}active{% endif %}" 
+                               href="#" 
+                               data-bs-toggle="collapse" 
+                               data-bs-target="#ensinoSubmenu"
+                               aria-expanded="{% if 'ensino' in request.path %}true{% else %}false{% endif %}">
+                                <i class="fas fa-graduation-cap me-2"></i>
+                                Ensino
+                            </a>
+                            <div class="collapse {% if 'ensino' in request.path %}show{% endif %}" id="ensinoSubmenu">
+                                <ul class="nav flex-column ms-3">
+                                    <li class="nav-item">
+                                        <a class="nav-link {% if request.resolver_match.url_name == 'ensino_dashboard' %}active{% endif %}" 
+                                           href="{% url 'militares:ensino_dashboard' %}">
+                                            <i class="fas fa-chart-line me-2"></i>
+                                            Dashboard
+                                        </a>
+                                    </li>
+                                    
+                                    {% if menu_permissions.show_ensino_alunos or user.is_superuser %}
+                                    <li class="nav-item">
+                                        <a class="nav-link {% if 'ensino/alunos' in request.path %}active{% endif %}" 
+                                           href="{% url 'militares:ensino_alunos_listar' %}">
+                                            <i class="fas fa-user-graduate me-2"></i>
+                                            Alunos
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                    
+                                    {% if menu_permissions.show_ensino_instrutores or user.is_superuser %}
+                                    <li class="nav-item">
+                                        <a class="nav-link {% if 'ensino/instrutores' in request.path %}active{% endif %}" 
+                                           href="{% url 'militares:ensino_instrutores_listar' %}">
+                                            <i class="fas fa-chalkboard-teacher me-2"></i>
+                                            Instrutores
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                    
+                                    {% if menu_permissions.show_ensino_monitores or user.is_superuser %}
+                                    <li class="nav-item">
+                                        <a class="nav-link {% if 'ensino/monitores' in request.path %}active{% endif %}" 
+                                           href="{% url 'militares:ensino_monitores_listar' %}">
+                                            <i class="fas fa-user-tie me-2"></i>
+                                            Monitores
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                    
+                                    {% if menu_permissions.show_ensino_cursos or user.is_superuser %}
+                                    <li class="nav-item">
+                                        <a class="nav-link {% if 'ensino/cursos' in request.path %}active{% endif %}" 
+                                           href="{% url 'militares:ensino_cursos_listar' %}">
+                                            <i class="fas fa-book me-2"></i>
+                                            Cursos
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                    
+                                    {% if menu_permissions.ENSINO_CRIAR or user.is_superuser %}
+                                    <li class="nav-item">
+                                        <a class="nav-link {% if 'ensino/edicoes' in request.path %}active{% endif %}" 
+                                           href="{% url 'militares:ensino_edicoes_listar' %}">
+                                            <i class="fas fa-calendar-alt me-2"></i>
+                                            Edições de Curso
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                    
+                                    {% if menu_permissions.show_ensino_turmas or user.is_superuser %}
+                                    <li class="nav-item">
+                                        <a class="nav-link {% if 'ensino/turmas' in request.path %}active{% endif %}" 
+                                           href="{% url 'militares:ensino_turmas_listar' %}">
+                                            <i class="fas fa-users me-2"></i>
+                                            Turmas
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                    
+                                    {% if menu_permissions.show_ensino_disciplinas or user.is_superuser %}
+                                    <li class="nav-item">
+                                        <a class="nav-link {% if 'ensino/disciplinas' in request.path %}active{% endif %}" 
+                                           href="{% url 'militares:ensino_disciplinas_listar' %}">
+                                            <i class="fas fa-book-open me-2"></i>
+                                            Disciplinas
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                    
+                                    {% if menu_permissions.show_ensino_aulas or user.is_superuser %}
+                                    <li class="nav-item">
+                                        <a class="nav-link {% if 'ensino/aulas' in request.path %}active{% endif %}" 
+                                           href="{% url 'militares:ensino_aulas_listar' %}">
+                                            <i class="fas fa-chalkboard me-2"></i>
+                                            Aulas
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                    
+                                    {% if menu_permissions.show_ensino_quadros_trabalho_semanal or user.is_superuser %}
+                                    <li class="nav-item">
+                                        <a class="nav-link {% if 'ensino/quadros-trabalho-semanal' in request.path %}active{% endif %}" 
+                                           href="{% url 'militares:ensino_quadros_trabalho_semanal_listar' %}">
+                                            <i class="fas fa-calendar-week me-2"></i>
+                                            Quadro de Trabalho Semanal
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                    
+                                    {% if menu_permissions.ENSINO_EDITAR or user.is_superuser %}
+                                    <li class="nav-item">
+                                        <a class="nav-link {% if 'ensino/usuarios' in request.path %}active{% endif %}" 
+                                           href="{% url 'militares:ensino_usuarios_listar' %}">
+                                            <i class="fas fa-users-cog me-2"></i>
+                                            Controle de Usuários
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                    
+                                    {% if menu_permissions.show_ensino_avaliacoes or user.is_superuser %}
+                                    <li class="nav-item">
+                                        <a class="nav-link {% if 'ensino/avaliacoes' in request.path %}active{% endif %}" 
+                                           href="{% url 'militares:ensino_avaliacoes_listar' %}">
+                                            <i class="fas fa-clipboard-check me-2"></i>
+                                            Avaliações
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                    
+                                    {% if menu_permissions.show_ensino_certificados or user.is_superuser %}
+                                    <li class="nav-item">
+                                        <a class="nav-link {% if 'ensino/certificados' in request.path %}active{% endif %}" 
+                                           href="{% url 'militares:ensino_certificados_listar' %}">
+                                            <i class="fas fa-certificate me-2"></i>
+                                            Certificados
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                        </li>
+                        {% endif %}
+                        
                         {% if menu_permissions.show_publicacoes or user.is_superuser %}
                         <li class="nav-item">
                             <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="collapse" data-bs-target="#publicacoesSubmenu" 
@@ -2481,24 +2704,6 @@
                                            href="{% url 'militares:boletins_especiais_list' %}">
                                             <i class="fas fa-star me-2"></i>
                                             Boletins Especiais
-                                        </a>
-                                    </li>
-                                    {% endif %}
-                                    {% if menu_permissions.show_avisos or user.is_superuser %}
-                                    <li class="nav-item">
-                                        <a class="nav-link {% if request.resolver_match.url_name == 'avisos_list' %}active{% endif %}" 
-                                           href="{% url 'militares:avisos_list' %}">
-                                            <i class="fas fa-bell me-2"></i>
-                                            Avisos
-                                        </a>
-                                    </li>
-                                    {% endif %}
-                                    {% if menu_permissions.show_ordens_servico or user.is_superuser %}
-                                    <li class="nav-item">
-                                        <a class="nav-link {% if request.resolver_match.url_name == 'ordens_servico_list' %}active{% endif %}" 
-                                           href="{% url 'militares:ordens_servico_list' %}">
-                                            <i class="fas fa-clipboard-list me-2"></i>
-                                            Ordens de Serviço
                                         </a>
                                     </li>
                                     {% endif %}
@@ -2975,15 +3180,24 @@
         </div>
     </div>
 
-    <!-- jQuery -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- jQuery - Carregar primeiro -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+    <script>
+        // Garantir que o jQuery esteja disponível globalmente
+        if (typeof jQuery !== 'undefined') {
+            window.$ = window.jQuery = jQuery;
+        } else {
+            console.error('jQuery não foi carregado corretamente!');
+        }
+    </script>
     <!-- jQuery Mask Plugin -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
-    <!-- Select2 -->
+    <!-- Select2 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Select2 JS - Carregar após jQuery -->
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js" onerror="console.error('Erro ao carregar Select2')"></script>
+    <!-- Bootstrap JS (local) -->
+    <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
     <!-- Sistema de Mensagens -->
     <script src="{% static 'js/message-system.js' %}" onerror="console.error('Erro ao carregar message-system.js')"></script>
     <!-- Sistema de Visualização de Senha -->
@@ -3158,9 +3372,10 @@
                     return new bootstrap.Tooltip(tooltipTriggerEl);
                 });
                 
-                // Converter tooltips antigos (com title) para Bootstrap 5
-                $('[title]').each(function() {
-                    var $this = $(this);
+            // Converter tooltips antigos (com title) para Bootstrap 5
+            if (typeof jQuery !== 'undefined' && typeof jQuery.fn !== 'undefined') {
+                jQuery('[title]').each(function() {
+                    var $this = jQuery(this);
                     var title = $this.attr('title');
                     if (title && title.trim() !== '') {
                         $this.attr('data-bs-toggle', 'tooltip');
@@ -3172,9 +3387,11 @@
             }
             
             // Configurar Select2
-            if (typeof $.fn.select2 !== 'undefined') {
+            if (typeof jQuery !== 'undefined' && typeof jQuery.fn !== 'undefined' && typeof jQuery.fn.select2 !== 'undefined') {
                 // Configurar idioma padrão para português
-                $.fn.select2.defaults.set('language', 'pt-BR');
+                jQuery.fn.select2.defaults.set('language', 'pt-BR');
+            } else {
+                console.warn('Select2 não está disponível. Alguns campos podem não funcionar corretamente.');
             }
         });
     </script>
@@ -3392,7 +3609,8 @@
                 window.close();
                 // Se não conseguir fechar (alguns navegadores bloqueiam), redireciona para logout
                 if (!window.closed) {
-                    window.location.href = "{% url 'logout' %}";
+                    try { fetch("{% url 'logout' %}", { method: 'GET', credentials: 'include' }); } catch (e) {}
+                    window.location.href = "{% url 'militares:ensino_login' %}";
                 }
             }, 3000);
         }
@@ -3409,7 +3627,8 @@
         
         // Função para logout
         function logout() {
-            window.location.href = "{% url 'logout' %}";
+            try { fetch("{% url 'logout' %}", { method: 'GET', credentials: 'include' }); } catch (e) {}
+            window.location.href = "{% url 'militares:ensino_login' %}";
         }
         
         // Inicializar cronômetro quando a página carregar
@@ -3872,7 +4091,7 @@
                         // Restaurar dropdown
                         dropdown.innerHTML = originalContent;
                     });
-                    }; // Fechar função do botão de confirmação
+                }; // Fechar função do botão de confirmação
                 });
             });
         });

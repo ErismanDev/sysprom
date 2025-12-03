@@ -201,10 +201,9 @@ class PedidoRevisaoProvaForm(forms.ModelForm):
 
     class Meta:
         model = PedidoRevisaoProva
-        fields = ['fundamentacao', 'itens_solicitados']
+        fields = ['fundamentacao']
         widgets = {
             'fundamentacao': CKEditor5Widget(config_name='default'),
-            'itens_solicitados': CKEditor5Widget(config_name='default'),
         }
 
     def clean(self):

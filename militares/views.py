@@ -1956,33 +1956,42 @@ def militar_dashboard(request):
     return render(request, 'militares/dashboard.html', context)
 
 @login_required
-@diretor_gestao_chefe_promocoes_required
+@requer_perm_fichas_criar
 def ficha_conceito_create(request):
     """Cria nova ficha de conceito"""
+    militar = None
     if request.method == 'POST':
-        # Determinar qual formulário usar baseado no tipo de militar
-        militar_id = request.POST.get('militar')
+        militar_id = request.POST.get('militar') or request.GET.get('militar')
         if militar_id:
-            militar = Militar.objects.get(id=militar_id)
+            militar = get_object_or_404(Militar, id=militar_id)
             if militar.is_oficial():
-                form = FichaConceitoOficiaisForm(request.POST)
+                form = FichaConceitoOficiaisForm(request.POST, militar=militar)
             else:
-                form = FichaConceitoPracasForm(request.POST)
+                form = FichaConceitoPracasForm(request.POST, militar=militar)
         else:
-            # Formulário padrão para oficiais
             form = FichaConceitoOficiaisForm(request.POST)
-        
         if form.is_valid():
-            ficha = form.save()
+            ficha = form.save(commit=False)
+            if militar:
+                ficha.militar = militar
+            ficha.save()
             messages.success(request, f'Ficha de conceito registrada com sucesso!')
             return redirect('militares:ficha_conceito_list')
     else:
-        # Formulário padrão para oficiais
-        form = FichaConceitoOficiaisForm()
+        militar_id = request.GET.get('militar')
+        if militar_id:
+            militar = get_object_or_404(Militar, id=militar_id)
+            if militar.is_oficial():
+                form = FichaConceitoOficiaisForm(militar=militar)
+            else:
+                form = FichaConceitoPracasForm(militar=militar)
+        else:
+            form = FichaConceitoOficiaisForm()
     
     context = {
         'form': form,
         'title': 'Nova Ficha de Conceito',
+        'militar': militar,
     }
     
     return render(request, 'militares/ficha_conceito_form.html', context)

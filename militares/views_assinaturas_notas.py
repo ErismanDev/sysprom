@@ -1353,10 +1353,13 @@ def nota_gerar_pdf(request, pk):
                 
                 # Formatar data e hora
                 data_formatada = assinatura.data_assinatura.strftime('%d/%m/%Y')
-                hora_formatada = assinatura.data_assinatura.strftime('%H:%M')
+                hora_formatada = assinatura.data_assinatura.strftime('%H:%M:%S')
                 
                 # Texto da assinatura
-                texto_assinatura = f"Documento assinado eletronicamente por {nome_completo} - {funcao}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, com fundamento na Portaria XXX/2025 Gab. Cmdo. Geral/CBMEPI de XX de XXXXX de 2025."
+                texto_assinatura = (
+                    f"Documento assinado eletronicamente por {nome_completo}, em {data_formatada} {hora_formatada}, "
+                    f"conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
+                )
                 
                 # Adicionar logo da assinatura eletrônica
                 from .utils import obter_caminho_assinatura_eletronica

@@ -208,6 +208,10 @@ def secao_promocoes_dashboard(request):
         messages.error(request, 'Você não tem permissão para acessar o dashboard da seção de promoções.')
         return redirect('militares:militar_list')
     
+    ua = request.META.get('HTTP_USER_AGENT', '') or ''
+    qs_apk = request.GET.get('apk') in ('1', 'true', 'True')
+    is_apk = qs_apk or ('Android' in ua and 'Mobile' in ua) or ('wv' in ua) or ('okhttp' in ua) or ('Dalvik' in ua)
+
     # Estatísticas
     total_secoes = SecaoPromocoes.objects.count()
     secoes_ativas = SecaoPromocoes.objects.filter(status='ATIVA').count()
@@ -233,6 +237,7 @@ def secao_promocoes_dashboard(request):
         'secoes_suspensas': secoes_suspensas,
         'secoes_recentes': secoes_recentes,
         'militares_chefes': militares_chefes,
+        'is_apk': is_apk,
     }
     
     return render(request, 'militares/secao_promocoes/secao_promocoes_dashboard.html', context)

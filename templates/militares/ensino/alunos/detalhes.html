@@ -1,0 +1,1065 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Detalhes do Aluno - Módulo de Ensino{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="mb-0">
+                    <i class="fas fa-user-graduate me-2"></i>
+                    Detalhes do Aluno
+                </h1>
+                {% if is_apk or request.GET.apk %}
+                <div class="d-grid gap-2 ms-3" style="max-width: 260px;">
+                    {% if menu_permissions.ENSINO_EDITAR or user.is_superuser %}
+                    <a href="{% url 'militares:ensino_aluno_editar' pk=aluno.pk %}?apk=1" class="btn btn-warning">
+                        <i class="fas fa-edit me-2"></i>
+                        Editar
+                    </a>
+                    {% endif %}
+                    <a href="{% url 'militares:ensino_alunos_listar' %}?apk=1" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>
+                        Voltar
+                    </a>
+                </div>
+                {% else %}
+                <div>
+                    {% if menu_permissions.ENSINO_EDITAR or user.is_superuser %}
+                    <a href="{% url 'militares:ensino_aluno_editar' pk=aluno.pk %}" class="btn btn-warning">
+                        <i class="fas fa-edit me-2"></i>
+                        Editar
+                    </a>
+                    {% endif %}
+                    <a href="{% url 'militares:ensino_alunos_listar' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>
+                        Voltar
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Foto e Identificação -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user-circle me-2"></i>
+                        Foto e Identificação
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-2 text-center">
+                            {% if aluno.tipo_aluno == 'BOMBEIRO' and aluno.militar and aluno.militar.foto %}
+                                <img src="{{ aluno.militar.foto.url }}" alt="Foto do aluno" class="img-thumbnail rounded-circle" style="width: 150px; height: 150px; object-fit: cover;">
+                            {% elif aluno.foto %}
+                                <img src="{{ aluno.foto.url }}" alt="Foto do aluno" class="img-thumbnail rounded-circle" style="width: 150px; height: 150px; object-fit: cover;">
+                            {% else %}
+                                <div class="bg-secondary rounded-circle d-flex align-items-center justify-content-center mx-auto" style="width: 150px; height: 150px;">
+                                    <i class="fas fa-user text-white" style="font-size: 60px;"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-10">
+                            <h3 class="mb-2">{{ aluno.get_pessoa_nome }}</h3>
+                            <p class="mb-2">
+                                {% if aluno.tipo_aluno == 'BOMBEIRO' %}
+                                    <span class="badge bg-primary fs-6">Bombeiro Militar</span>
+                                {% elif aluno.tipo_aluno == 'OUTRA_FORCA' %}
+                                    <span class="badge bg-info fs-6">Militar de Outra Força</span>
+                                {% elif aluno.tipo_aluno == 'CIVIL' %}
+                                    <span class="badge bg-secondary fs-6">Civil</span>
+                                {% endif %}
+                                {% if aluno.situacao == 'ATIVO' %}
+                                    <span class="badge bg-success fs-6 ms-2">Ativo</span>
+                                {% elif aluno.situacao == 'CONCLUIDO' %}
+                                    <span class="badge bg-primary fs-6 ms-2">Concluído</span>
+                                {% elif aluno.situacao == 'DESLIGADO' %}
+                                    <span class="badge bg-danger fs-6 ms-2">Desligado</span>
+                                {% elif aluno.situacao == 'TRANSFERIDO' %}
+                                    <span class="badge bg-warning fs-6 ms-2">Transferido</span>
+                                {% elif aluno.situacao == 'JUBILADO' %}
+                                    <span class="badge bg-secondary fs-6 ms-2">Jubilado</span>
+                                {% elif aluno.situacao == 'EXCLUIDO' %}
+                                    <span class="badge bg-dark fs-6 ms-2">Excluído</span>
+                                {% else %}
+                                    <span class="badge bg-secondary fs-6 ms-2">{{ aluno.get_situacao_display }}</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Informações Principais -->
+        <div class="col-md-12">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Dados do Cadastro
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-user me-2"></i>Identificação
+                            </h6>
+                            <dl class="row">
+                                <dt class="col-sm-5">Tipo de Aluno:</dt>
+                                <dd class="col-sm-7">
+                                    <span class="badge bg-primary">{{ aluno.get_tipo_aluno_display }}</span>
+                                </dd>
+                                
+                                <dt class="col-sm-5">Situação:</dt>
+                                <dd class="col-sm-7">
+                                    {% if aluno.situacao == 'ATIVO' %}
+                                        <span class="badge bg-success">{{ aluno.get_situacao_display }}</span>
+                                    {% elif aluno.situacao == 'CONCLUIDO' %}
+                                        <span class="badge bg-primary">{{ aluno.get_situacao_display }}</span>
+                                    {% elif aluno.situacao == 'DESLIGADO' %}
+                                        <span class="badge bg-danger">{{ aluno.get_situacao_display }}</span>
+                                    {% elif aluno.situacao == 'TRANSFERIDO' %}
+                                        <span class="badge bg-warning">{{ aluno.get_situacao_display }}</span>
+                                    {% elif aluno.situacao == 'JUBILADO' %}
+                                        <span class="badge bg-secondary">{{ aluno.get_situacao_display }}</span>
+                                    {% elif aluno.situacao == 'EXCLUIDO' %}
+                                        <span class="badge bg-dark">{{ aluno.get_situacao_display }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ aluno.get_situacao_display }}</span>
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-5">Data de Cadastro:</dt>
+                                <dd class="col-sm-7">{{ aluno.data_matricula|date:"d/m/Y" }}</dd>
+                            </dl>
+                            
+                            <!-- Dados do Bombeiro Militar -->
+                            {% if aluno.tipo_aluno == 'BOMBEIRO' and aluno.militar %}
+                            <h6 class="text-primary mb-3 mt-4">
+                                <i class="fas fa-user-shield me-2"></i>Dados do Bombeiro Militar
+                            </h6>
+                            <dl class="row">
+                                <dt class="col-sm-5">Nome Completo:</dt>
+                                <dd class="col-sm-7"><strong>{{ aluno.militar.get_posto_graduacao_display }} {{ aluno.militar.nome_completo }}</strong></dd>
+                                
+                                <dt class="col-sm-5">CPF:</dt>
+                                <dd class="col-sm-7">{{ aluno.militar.cpf }}</dd>
+                                
+                                <dt class="col-sm-5">RG:</dt>
+                                <dd class="col-sm-7">{{ aluno.militar.rg|default:"-" }}</dd>
+                                
+                                <dt class="col-sm-5">Data de Nascimento:</dt>
+                                <dd class="col-sm-7">{{ aluno.militar.data_nascimento|date:"d/m/Y"|default:"-" }}</dd>
+                                
+                                <dt class="col-sm-5">E-mail:</dt>
+                                <dd class="col-sm-7">{{ aluno.militar.email|default:"-" }}</dd>
+                                
+                                <dt class="col-sm-5">Telefone:</dt>
+                                <dd class="col-sm-7">{{ aluno.militar.telefone|default:"-" }}</dd>
+                                
+                                <dt class="col-sm-5">Matrícula Militar:</dt>
+                                <dd class="col-sm-7">{{ aluno.militar.matricula }}</dd>
+                            </dl>
+                            {% endif %}
+                            
+                            <!-- Dados do Militar de Outra Força -->
+                            {% if aluno.tipo_aluno == 'OUTRA_FORCA' %}
+                            <h6 class="text-primary mb-3 mt-4">
+                                <i class="fas fa-user-shield me-2"></i>Dados do Militar de Outra Força
+                            </h6>
+                            <dl class="row">
+                                <dt class="col-sm-5">Nome Completo:</dt>
+                                <dd class="col-sm-7"><strong>{{ aluno.nome_outra_forca|default:"-" }}</strong></dd>
+                                
+                                <dt class="col-sm-5">Posto/Graduação:</dt>
+                                <dd class="col-sm-7">{{ aluno.get_posto_outra_forca_display|default:"-" }}</dd>
+                                
+                                <dt class="col-sm-5">Força Armada/Polícia:</dt>
+                                <dd class="col-sm-7">{{ aluno.get_forca_armada_display|default:"-" }}</dd>
+                                
+                                <dt class="col-sm-5">Matrícula/Identificação:</dt>
+                                <dd class="col-sm-7">{{ aluno.matricula_outra_forca|default:"-" }}</dd>
+                                
+                                <dt class="col-sm-5">CPF:</dt>
+                                <dd class="col-sm-7">{{ aluno.cpf_outra_forca|default:"-" }}</dd>
+                                
+                                <dt class="col-sm-5">RG:</dt>
+                                <dd class="col-sm-7">{{ aluno.rg_outra_forca|default:"-" }}</dd>
+                                
+                                <dt class="col-sm-5">Data de Nascimento:</dt>
+                                <dd class="col-sm-7">{{ aluno.data_nascimento_outra_forca|date:"d/m/Y"|default:"-" }}</dd>
+                                
+                                <dt class="col-sm-5">E-mail:</dt>
+                                <dd class="col-sm-7">{{ aluno.email_outra_forca|default:"-" }}</dd>
+                                
+                                <dt class="col-sm-5">Telefone:</dt>
+                                <dd class="col-sm-7">{{ aluno.telefone_outra_forca|default:"-" }}</dd>
+                                
+                                <dt class="col-sm-5">Instituição/Órgão:</dt>
+                                <dd class="col-sm-7">{{ aluno.instituicao_outra_forca|default:"-" }}</dd>
+                            </dl>
+                            {% endif %}
+                            
+                            <!-- Dados do Civil -->
+                            {% if aluno.tipo_aluno == 'CIVIL' %}
+                            <h6 class="text-primary mb-3 mt-4">
+                                <i class="fas fa-user me-2"></i>Dados do Civil
+                            </h6>
+                            <dl class="row">
+                                <dt class="col-sm-5">Nome Completo:</dt>
+                                <dd class="col-sm-7"><strong>{{ aluno.nome_civil|default:"-" }}</strong></dd>
+                                
+                                <dt class="col-sm-5">CPF:</dt>
+                                <dd class="col-sm-7">{{ aluno.cpf_civil|default:"-" }}</dd>
+                                
+                                <dt class="col-sm-5">RG:</dt>
+                                <dd class="col-sm-7">{{ aluno.rg_civil|default:"-" }}</dd>
+                                
+                                <dt class="col-sm-5">Data de Nascimento:</dt>
+                                <dd class="col-sm-7">{{ aluno.data_nascimento_civil|date:"d/m/Y"|default:"-" }}</dd>
+                                
+                                <dt class="col-sm-5">E-mail:</dt>
+                                <dd class="col-sm-7">{{ aluno.email_civil|default:"-" }}</dd>
+                                
+                                <dt class="col-sm-5">Telefone:</dt>
+                                <dd class="col-sm-7">{{ aluno.telefone_civil|default:"-" }}</dd>
+                                
+                                <dt class="col-sm-5">Formação Acadêmica:</dt>
+                                <dd class="col-sm-7">{{ aluno.formacao_civil|default:"-" }}</dd>
+                                
+                                <dt class="col-sm-5">Instituição de Ensino:</dt>
+                                <dd class="col-sm-7">{{ aluno.instituicao_civil|default:"-" }}</dd>
+                            </dl>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <!-- Endereço (Outra Força ou Civil) -->
+                            {% if aluno.tipo_aluno == 'OUTRA_FORCA' %}
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-map-marker-alt me-2"></i>Endereço
+                            </h6>
+                            <dl class="row">
+                                <dt class="col-sm-5">Endereço:</dt>
+                                <dd class="col-sm-7">{{ aluno.endereco_outra_forca|default:"-" }}</dd>
+                                
+                                <dt class="col-sm-5">Cidade:</dt>
+                                <dd class="col-sm-7">{{ aluno.cidade_outra_forca|default:"-" }}</dd>
+                                
+                                <dt class="col-sm-5">UF:</dt>
+                                <dd class="col-sm-7">{{ aluno.get_uf_outra_forca_display|default:"-" }}</dd>
+                                
+                                <dt class="col-sm-5">CEP:</dt>
+                                <dd class="col-sm-7">{{ aluno.cep_outra_forca|default:"-" }}</dd>
+                            </dl>
+                            {% elif aluno.tipo_aluno == 'CIVIL' %}
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-map-marker-alt me-2"></i>Endereço
+                            </h6>
+                            <dl class="row">
+                                <dt class="col-sm-5">Endereço:</dt>
+                                <dd class="col-sm-7">{{ aluno.endereco_civil|default:"-" }}</dd>
+                                
+                                <dt class="col-sm-5">Cidade:</dt>
+                                <dd class="col-sm-7">{{ aluno.cidade_civil|default:"-" }}</dd>
+                                
+                                <dt class="col-sm-5">UF:</dt>
+                                <dd class="col-sm-7">{{ aluno.get_uf_civil_display|default:"-" }}</dd>
+                                
+                                <dt class="col-sm-5">CEP:</dt>
+                                <dd class="col-sm-7">{{ aluno.cep_civil|default:"-" }}</dd>
+                            </dl>
+                            {% endif %}
+                            
+                            <!-- Observações -->
+                            {% if aluno.observacoes %}
+                            <h6 class="text-primary mb-3 mt-4">
+                                <i class="fas fa-sticky-note me-2"></i>Observações
+                            </h6>
+                            <p>{{ aluno.observacoes|linebreaks }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Seção de Cursos e Turmas -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-graduation-cap me-2"></i>
+                        Cursos e Turmas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if dados_por_turma_lista %}
+                        <div class="accordion" id="accordionCursos">
+                            {% for dados in dados_por_turma_lista %}
+                            <div class="accordion-item mb-3">
+                                <h2 class="accordion-header" id="headingTurma{{ dados.turma.pk }}">
+                                    <button class="accordion-button {% if not forloop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTurma{{ dados.turma.pk }}" aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}" aria-controls="collapseTurma{{ dados.turma.pk }}">
+                                        <div class="d-flex justify-content-between align-items-center w-100 me-3">
+                                            <div>
+                                                <strong>
+                                                    <i class="fas fa-users me-2"></i>
+                                                    {{ dados.turma.identificacao }}
+                                                </strong>
+                                                <span class="badge bg-primary ms-2">{{ dados.turma.curso.nome }}</span>
+                                            </div>
+                                            <div class="text-end">
+                                                <small class="text-muted d-block">
+                                                    <i class="fas fa-calendar me-1"></i>
+                                                    {% if dados.turma.data_inicio %}
+                                                        {{ dados.turma.data_inicio|date:"d/m/Y" }}
+                                                    {% endif %}
+                                                    {% if dados.turma.data_fim %}
+                                                        - {{ dados.turma.data_fim|date:"d/m/Y" }}
+                                                    {% endif %}
+                                                </small>
+                                                {% if dados.turma.ativa %}
+                                                    <span class="badge bg-success">Turma Ativa</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Turma Inativa</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </button>
+                                </h2>
+                                <div id="collapseTurma{{ dados.turma.pk }}" class="accordion-collapse collapse {% if forloop.first %}show{% endif %}" aria-labelledby="headingTurma{{ dados.turma.pk }}" data-bs-parent="#accordionCursos">
+                                    <div class="accordion-body">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <h6 class="text-primary mb-3">
+                                                    <i class="fas fa-info-circle me-2"></i>Informações da Turma
+                                                </h6>
+                                                <dl class="row">
+                                                    <dt class="col-sm-5">Curso:</dt>
+                                                    <dd class="col-sm-7"><strong>{{ dados.turma.curso.nome }}</strong></dd>
+                                                    
+                                                    <dt class="col-sm-5">Identificação:</dt>
+                                                    <dd class="col-sm-7">{{ dados.turma.identificacao }}</dd>
+                                                    
+                                                    <dt class="col-sm-5">Período:</dt>
+                                                    <dd class="col-sm-7">
+                                                        {% if dados.turma.data_inicio %}
+                                                            {{ dados.turma.data_inicio|date:"d/m/Y" }}
+                                                        {% else %}
+                                                            <span class="text-muted">Não informado</span>
+                                                        {% endif %}
+                                                        {% if dados.turma.data_fim %}
+                                                            até {{ dados.turma.data_fim|date:"d/m/Y" }}
+                                                        {% endif %}
+                                                    </dd>
+                                                    
+                                                    <dt class="col-sm-5">Status da Turma:</dt>
+                                                    <dd class="col-sm-7">
+                                                        {% if dados.turma.ativa %}
+                                                            <span class="badge bg-success">Ativa</span>
+                                                        {% else %}
+                                                            <span class="badge bg-secondary">Inativa</span>
+                                                        {% endif %}
+                                                    </dd>
+                                                    
+                                                    {% if aluno.matricula %}
+                                                    <dt class="col-sm-5">Matrícula na Turma:</dt>
+                                                    <dd class="col-sm-7"><strong>{{ aluno.matricula }}</strong></dd>
+                                                    {% endif %}
+                                                </dl>
+                                            </div>
+                                            
+                                            <div class="col-md-6">
+                                                <h6 class="text-primary mb-3">
+                                                    <i class="fas fa-chart-line me-2"></i>Estatísticas na Turma
+                                                </h6>
+                                                <dl class="row">
+                                                    <dt class="col-sm-6">Frequências Registradas:</dt>
+                                                    <dd class="col-sm-6">
+                                                        <span class="badge bg-info">{{ dados.frequencias.count }}</span>
+                                                    </dd>
+                                                    
+                                                    <dt class="col-sm-6">Notas Lançadas:</dt>
+                                                    <dd class="col-sm-6">
+                                                        <span class="badge bg-warning">{{ dados.notas.count }}</span>
+                                                    </dd>
+                                                    
+                                                    <dt class="col-sm-6">Ocorrências:</dt>
+                                                    <dd class="col-sm-6">
+                                                        <span class="badge bg-danger">{{ dados.ocorrencias.count }}</span>
+                                                    </dd>
+                                                    
+                                                    <dt class="col-sm-6">Disciplinas no Histórico:</dt>
+                                                    <dd class="col-sm-6">
+                                                        <span class="badge bg-primary">{{ dados.historicos.count }}</span>
+                                                    </dd>
+                                                    
+                                                    <dt class="col-sm-6">Aproveitamentos:</dt>
+                                                    <dd class="col-sm-6">
+                                                        <span class="badge bg-success">{{ dados.aproveitamentos.count }}</span>
+                                                    </dd>
+                                                </dl>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Notas por Disciplina -->
+                                        {% if dados.notas_por_disciplina %}
+                                        <hr>
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <h6 class="text-primary mb-0">
+                                                <i class="fas fa-chart-line me-2"></i>Notas por Disciplina
+                                            </h6>
+                                            {% if dados.media_geral_disciplinas is not None %}
+                                            <div>
+                                                <span class="badge bg-primary fs-6 px-3 py-2">
+                                                    <i class="fas fa-calculator me-2"></i>
+                                                    Média Geral: <strong>{{ dados.media_geral_disciplinas|floatformat:3 }}</strong>
+                                                </span>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="accordion" id="disciplinasAccordion{{ dados.turma.pk }}">
+                                            {% for disciplina_id, dados_disciplina in dados.notas_por_disciplina.items %}
+                                            <div class="accordion-item mb-2">
+                                                <h2 class="accordion-header" id="headingDisciplina{{ dados.turma.pk }}_{{ disciplina_id }}">
+                                                    <button class="accordion-button collapsed" style="background-color: #ff9800; color: white;" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDisciplina{{ dados.turma.pk }}_{{ disciplina_id }}" aria-expanded="false" aria-controls="collapseDisciplina{{ dados.turma.pk }}_{{ disciplina_id }}">
+                                                        <i class="fas fa-book me-2"></i>
+                                                        <strong>{{ dados_disciplina.disciplina.nome }}</strong>
+                                                        {% if dados_disciplina.disciplina.codigo %}
+                                                            <small class="ms-2">({{ dados_disciplina.disciplina.codigo }})</small>
+                                                        {% endif %}
+                                                        <span class="badge bg-light text-dark ms-2">
+                                                            Média Mínima: {{ dados_disciplina.disciplina.media_minima_aprovacao }}
+                                                        </span>
+                                                    </button>
+                                                </h2>
+                                                <div id="collapseDisciplina{{ dados.turma.pk }}_{{ disciplina_id }}" class="accordion-collapse collapse" aria-labelledby="headingDisciplina{{ dados.turma.pk }}_{{ disciplina_id }}" data-bs-parent="#disciplinasAccordion{{ dados.turma.pk }}">
+                                                    <div class="accordion-body">
+                                                        <div class="table-responsive">
+                                                            <table class="table table-striped table-bordered">
+                                                                <thead class="table-dark">
+                                                                    <tr>
+                                                                        <th class="text-center">1ª</th>
+                                                                        <th class="text-center">2ª</th>
+                                                                        <th class="text-center">3ª</th>
+                                                                        <th class="text-center">4ª</th>
+                                                                        <th class="text-center"><strong>Média Final</strong></th>
+                                                                        <th class="text-center"><strong>Status</strong></th>
+                                                                        <th class="text-center"><strong>Nota Recuperação</strong></th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    <tr>
+                                                                        <td class="text-center">
+                                                                            {% if dados_disciplina.dados_aluno.notas.0 is not None %}
+                                                                                {{ dados_disciplina.dados_aluno.notas.0|floatformat:2 }}
+                                                                            {% else %}
+                                                                                <span class="text-muted">-</span>
+                                                                            {% endif %}
+                                                                        </td>
+                                                                        <td class="text-center">
+                                                                            {% if dados_disciplina.dados_aluno.notas.1 is not None %}
+                                                                                {{ dados_disciplina.dados_aluno.notas.1|floatformat:2 }}
+                                                                            {% else %}
+                                                                                <span class="text-muted">-</span>
+                                                                            {% endif %}
+                                                                        </td>
+                                                                        <td class="text-center">
+                                                                            {% if dados_disciplina.dados_aluno.notas.2 is not None %}
+                                                                                {{ dados_disciplina.dados_aluno.notas.2|floatformat:2 }}
+                                                                            {% else %}
+                                                                                <span class="text-muted">-</span>
+                                                                            {% endif %}
+                                                                        </td>
+                                                                        <td class="text-center">
+                                                                            {% if dados_disciplina.dados_aluno.notas.3 is not None %}
+                                                                                {{ dados_disciplina.dados_aluno.notas.3|floatformat:2 }}
+                                                                            {% else %}
+                                                                                <span class="text-muted">-</span>
+                                                                            {% endif %}
+                                                                        </td>
+                                                                        <td class="text-center">
+                                                                            {% if dados_disciplina.dados_aluno.media_final is not None %}
+                                                                                <strong class="{% if dados_disciplina.dados_aluno.status == 'APROVADO' %}text-success{% elif dados_disciplina.dados_aluno.status == 'RECUPERACAO' %}text-warning{% else %}text-danger{% endif %}">
+                                                                                    {{ dados_disciplina.dados_aluno.media_final|floatformat:2 }}
+                                                                                </strong>
+                                                                            {% else %}
+                                                                                <span class="text-muted">-</span>
+                                                                            {% endif %}
+                                                                        </td>
+                                                                        <td class="text-center">
+                                                                            {% if dados_disciplina.dados_aluno.status %}
+                                                                                {% if dados_disciplina.dados_aluno.status == 'APROVADO' %}
+                                                                                    <span class="badge bg-success">Aprovado</span>
+                                                                                {% elif dados_disciplina.dados_aluno.status == 'RECUPERACAO' %}
+                                                                                    <span class="badge bg-warning text-dark">Recuperação</span>
+                                                                                {% elif dados_disciplina.dados_aluno.status == 'REPROVADO' %}
+                                                                                    <span class="badge bg-danger">Reprovado</span>
+                                                                                {% endif %}
+                                                                            {% else %}
+                                                                                <span class="text-muted">-</span>
+                                                                            {% endif %}
+                                                                        </td>
+                                                                        <td class="text-center">
+                                                                            {% if dados_disciplina.dados_aluno.status == 'RECUPERACAO' and dados_disciplina.dados_aluno.nota_recuperacao is not None %}
+                                                                                <strong class="text-warning">
+                                                                                    {{ dados_disciplina.dados_aluno.nota_recuperacao|floatformat:2 }}
+                                                                                </strong>
+                                                                            {% else %}
+                                                                                <span class="text-muted">-</span>
+                                                                            {% endif %}
+                                                                        </td>
+                                                                    </tr>
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+
+                                        <!-- Histórico Escolar da Turma -->
+                                        {% if dados.historicos %}
+                                        <hr>
+                                        <h6 class="text-primary mb-3">
+                                            <i class="fas fa-graduation-cap me-2"></i>Histórico Escolar
+                                        </h6>
+                                        <div class="table-responsive">
+                                            <table class="table table-bordered table-hover table-sm">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>Disciplina</th>
+                                                        <th>Frequência (%)</th>
+                                                        <th>Nota Final</th>
+                                                        <th>Carga Horária</th>
+                                                        <th>Status</th>
+                                                        <th>Data Conclusão</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for hist in dados.historicos %}
+                                                    <tr>
+                                                        <td><strong>{{ hist.disciplina.nome }}</strong></td>
+                                                        <td>{{ hist.frequencia_percentual }}%</td>
+                                                        <td>
+                                                            {% if hist.nota_final %}
+                                                                <span class="badge bg-info">{{ hist.nota_final }}</span>
+                                                            {% else %}
+                                                                <span class="text-muted">-</span>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td>{{ hist.carga_horaria_cursada }}h</td>
+                                                        <td>
+                                                            {% if hist.aprovado %}
+                                                                <span class="badge bg-success">Aprovado</span>
+                                                            {% else %}
+                                                                <span class="badge bg-danger">Reprovado</span>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td>
+                                                            {% if hist.data_conclusao %}
+                                                                {{ hist.data_conclusao|date:"d/m/Y" }}
+                                                            {% else %}
+                                                                <span class="text-muted">-</span>
+                                                            {% endif %}
+                                                        </td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        {% endif %}
+
+                                        {% if revisoes %}
+                                        <hr>
+                                        <h6 class="text-primary mb-3">
+                                            <i class="fas fa-flag me-2"></i>Revisões de Provas
+                                        </h6>
+                                        <div class="table-responsive">
+                                            <table class="table table-bordered table-hover table-sm">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>Avaliação</th>
+                                                        <th>Nota</th>
+                                                        <th>Status</th>
+                                                        <th>Etapa</th>
+                                                        <th>Data</th>
+                                                        <th>Detalhes</th>
+                                                        <th>Ações</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for rev in revisoes %}
+                                                    <tr>
+                                                        <td>{{ rev.nota_avaliacao.avaliacao.nome }}</td>
+                                                        <td>{{ rev.nota_avaliacao.nota }}</td>
+                                                        <td><span class="badge bg-info">{{ rev.get_status_display }}</span></td>
+                                                        <td>{{ rev.get_etapa_display }}</td>
+                                                        <td>{{ rev.data_solicitacao|date:"d/m/Y H:i" }}</td>
+                                                        <td style="max-width: 380px;">
+                                                            {% if rev.fundamentacao %}
+                                                                <div><strong>Fundamentação:</strong> {{ rev.fundamentacao }}</div>
+                                                            {% endif %}
+                                                            {% if rev.despacho_envio_instrutor_texto %}
+                                                                <div><strong>Despacho ao instrutor:</strong> {{ rev.despacho_envio_instrutor_texto }}</div>
+                                                                {% if rev.despacho_envio_instrutor_por or rev.despacho_envio_instrutor_data %}
+                                                                    <div class="text-muted">{{ rev.despacho_envio_instrutor_por.username|default:"" }}{% if rev.despacho_envio_instrutor_data %} - {{ rev.despacho_envio_instrutor_data|date:"d/m/Y H:i" }}{% endif %}</div>
+                                                                {% endif %}
+                                                            {% endif %}
+                                                            {% if rev.parecer_instrutor_texto %}
+                                                                <div><strong>Parecer do instrutor:</strong> {{ rev.parecer_instrutor_texto }}</div>
+                                                            {% endif %}
+                                                            {% if rev.parecer_final_texto %}
+                                                                <div><strong>Parecer final:</strong> {{ rev.parecer_final_texto }}</div>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td style="white-space: nowrap;">
+                                                            {% if rev.etapa == 'PARECER_INSTRUTOR' and rev.status == 'INDEFERIDA' %}
+                                                                <a href="{% url 'militares:ensino_aluno_recorrer_diretoria' pedido_id=rev.id %}?next={{ request.get_full_path }}" class="btn btn-sm btn-outline-warning">Recorrer à Diretoria</a>
+                                                            {% endif %}
+                                                            {% if rev.etapa == 'PARECER_FINAL' and rev.status == 'INDEFERIDA' %}
+                                                                <a href="{% url 'militares:ensino_aluno_reenviar_recurso' pedido_id=rev.id %}?next={{ request.get_full_path }}" class="btn btn-sm btn-outline-danger">Solicitar novamente</a>
+                                                            {% endif %}
+                                                            <a href="{% url 'militares:ensino_pedido_revisao_detalhes' pedido_id=rev.id %}" class="btn btn-sm btn-outline-secondary">Detalhes</a>
+                                                        </td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        {% endif %}
+
+                                        <!-- Accordions de Informações Detalhadas -->
+                                        <hr class="my-4">
+                                        <div class="accordion mb-3" id="accordionDetalhesTurma{{ dados.turma.pk }}">
+                                            <!-- Frequências por Disciplina -->
+                                            {% if dados.frequencias_por_disciplina %}
+                                            <div class="accordion-item mb-3">
+                                                <h2 class="accordion-header" id="headingFrequencias{{ dados.turma.pk }}">
+                                                    <button class="accordion-button collapsed" style="background-color: #ff9800; color: white;" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFrequencias{{ dados.turma.pk }}" aria-expanded="false" aria-controls="collapseFrequencias{{ dados.turma.pk }}">
+                                                        <i class="fas fa-calendar-check me-2"></i>
+                                                        Frequências por Disciplina
+                                                    </button>
+                                                </h2>
+                                                <div id="collapseFrequencias{{ dados.turma.pk }}" class="accordion-collapse collapse" aria-labelledby="headingFrequencias{{ dados.turma.pk }}" data-bs-parent="#accordionDetalhesTurma{{ dados.turma.pk }}">
+                                                    <div class="accordion-body">
+                                                        <div class="accordion" id="frequenciasDisciplinasAccordion{{ dados.turma.pk }}">
+                                                            {% for disciplina_id, dados_disciplina_freq in dados.frequencias_por_disciplina.items %}
+                                                            <div class="accordion-item mb-2">
+                                                                <h2 class="accordion-header" id="headingFreqDisciplina{{ dados.turma.pk }}_{{ disciplina_id }}">
+                                                                    <button class="accordion-button collapsed" style="background-color: #17a2b8; color: white;" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFreqDisciplina{{ dados.turma.pk }}_{{ disciplina_id }}" aria-expanded="false" aria-controls="collapseFreqDisciplina{{ dados.turma.pk }}_{{ disciplina_id }}">
+                                                                        <i class="fas fa-book me-2"></i>
+                                                                        <strong>{{ dados_disciplina_freq.disciplina.nome }}</strong>
+                                                                        {% if dados_disciplina_freq.disciplina.codigo %}
+                                                                            <small class="ms-2">({{ dados_disciplina_freq.disciplina.codigo }})</small>
+                                                                        {% endif %}
+                                                                        <span class="badge bg-light text-dark ms-2">
+                                                                            Total: {{ dados_disciplina_freq.total }}
+                                                                        </span>
+                                                                        <span class="badge bg-success ms-1">
+                                                                            Presentes: {{ dados_disciplina_freq.presentes }}
+                                                                        </span>
+                                                                        {% if dados_disciplina_freq.faltas > 0 %}
+                                                                        <span class="badge bg-danger ms-1">
+                                                                            Faltas: {{ dados_disciplina_freq.faltas }}
+                                                                        </span>
+                                                                        {% endif %}
+                                                                    </button>
+                                                                </h2>
+                                                                <div id="collapseFreqDisciplina{{ dados.turma.pk }}_{{ disciplina_id }}" class="accordion-collapse collapse" aria-labelledby="headingFreqDisciplina{{ dados.turma.pk }}_{{ disciplina_id }}" data-bs-parent="#frequenciasDisciplinasAccordion{{ dados.turma.pk }}">
+                                                                    <div class="accordion-body">
+                                                                        {% if dados_disciplina_freq.frequencias %}
+                                                                            <div class="table-responsive">
+                                                                                <table class="table table-striped table-bordered">
+                                                                                    <thead class="table-dark">
+                                                                                        <tr>
+                                                                                            <th>Data</th>
+                                                                                            <th>Presença</th>
+                                                                                        </tr>
+                                                                                    </thead>
+                                                                                    <tbody>
+                                                                                        {% for frequencia in dados_disciplina_freq.frequencias %}
+                                                                                        <tr>
+                                                                                            <td>{{ frequencia.aula.data_aula|date:"d/m/Y" }}</td>
+                                                                                            <td>
+                                                                                                {% if frequencia.presenca == 'PRESENTE' %}
+                                                                                                    <span class="badge bg-success">{{ frequencia.get_presenca_display }}</span>
+                                                                                                {% elif frequencia.presenca == 'FALTA' %}
+                                                                                                    <span class="badge bg-danger">{{ frequencia.get_presenca_display }}</span>
+                                                                                                {% elif frequencia.presenca == 'FALTA_JUSTIFICADA' %}
+                                                                                                    <span class="badge bg-warning text-dark">{{ frequencia.get_presenca_display }}</span>
+                                                                                                {% elif frequencia.presenca == 'ATRASO' %}
+                                                                                                    <span class="badge bg-info">{{ frequencia.get_presenca_display }}</span>
+                                                                                                {% elif frequencia.presenca == 'SAIDA_ANTECIPADA' %}
+                                                                                                    <span class="badge bg-secondary">{{ frequencia.get_presenca_display }}</span>
+                                                                                                {% else %}
+                                                                                                    <span class="badge bg-warning">{{ frequencia.get_presenca_display }}</span>
+                                                                                                {% endif %}
+                                                                                            </td>
+                                                                                        </tr>
+                                                                                        {% endfor %}
+                                                                                    </tbody>
+                                                                                </table>
+                                                                            </div>
+                                                                        {% else %}
+                                                                            <p class="text-muted">Nenhuma frequência registrada para esta disciplina.</p>
+                                                                        {% endif %}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            {% endfor %}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% endif %}
+                                            
+                                            <!-- Aproveitamentos -->
+                                            <div class="accordion-item mb-3">
+                                                <h2 class="accordion-header" id="headingAproveitamentos{{ dados.turma.pk }}">
+                                                    <button class="accordion-button collapsed" style="background-color: #ff9800; color: white;" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAproveitamentos{{ dados.turma.pk }}" aria-expanded="false" aria-controls="collapseAproveitamentos{{ dados.turma.pk }}">
+                                                        <i class="fas fa-check-circle me-2"></i>
+                                                        Aproveitamentos
+                                                        {% if dados.aproveitamentos %}<span class="badge bg-light text-dark ms-2">{{ dados.aproveitamentos.count }}</span>{% endif %}
+                                                    </button>
+                                                </h2>
+                                                <div id="collapseAproveitamentos{{ dados.turma.pk }}" class="accordion-collapse collapse" aria-labelledby="headingAproveitamentos{{ dados.turma.pk }}" data-bs-parent="#accordionDetalhesTurma{{ dados.turma.pk }}">
+                                                    <div class="accordion-body">
+                                                        {% if dados.aproveitamentos %}
+                                                            <div class="table-responsive">
+                                                                <table class="table table-hover">
+                                                                    <thead>
+                                                                        <tr>
+                                                                            <th>Disciplina</th>
+                                                                            <th>Status</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {% for aproveitamento in dados.aproveitamentos %}
+                                                                        <tr>
+                                                                            <td>{{ aproveitamento.disciplina.nome }}</td>
+                                                                            <td>
+                                                                                {% if aproveitamento.aprovado %}
+                                                                                    <span class="badge bg-success">Aprovado</span>
+                                                                                {% else %}
+                                                                                    <span class="badge bg-danger">Reprovado</span>
+                                                                                {% endif %}
+                                                                            </td>
+                                                                        </tr>
+                                                                        {% endfor %}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        {% else %}
+                                                            <p class="text-muted">Nenhum aproveitamento registrado para esta turma.</p>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Documentos -->
+                                            <div class="accordion-item mb-3">
+                                                <h2 class="accordion-header" id="headingDocumentos{{ dados.turma.pk }}">
+                                                    <button class="accordion-button collapsed" style="background-color: #ff9800; color: white;" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDocumentos{{ dados.turma.pk }}" aria-expanded="false" aria-controls="collapseDocumentos{{ dados.turma.pk }}">
+                                                        <i class="fas fa-file me-2"></i>
+                                                        Documentos
+                                                        {% if documentos %}<span class="badge bg-light text-dark ms-2">{{ documentos.count }}</span>{% endif %}
+                                                    </button>
+                                                </h2>
+                                                <div id="collapseDocumentos{{ dados.turma.pk }}" class="accordion-collapse collapse" aria-labelledby="headingDocumentos{{ dados.turma.pk }}" data-bs-parent="#accordionDetalhesTurma{{ dados.turma.pk }}">
+                                                    <div class="accordion-body">
+                                                        {% if documentos %}
+                                                            <div class="table-responsive">
+                                                                <table class="table table-hover">
+                                                                    <thead>
+                                                                        <tr>
+                                                                            <th>Tipo</th>
+                                                                            <th>Nome</th>
+                                                                            <th>Descrição</th>
+                                                                            <th>Data Upload</th>
+                                                                            <th>Data Emissão</th>
+                                                                            <th>Ações</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {% for documento in documentos %}
+                                                                        <tr>
+                                                                            <td>
+                                                                                <span class="badge bg-info">{{ documento.get_tipo_display }}</span>
+                                                                            </td>
+                                                                            <td><strong>{{ documento.nome }}</strong></td>
+                                                                            <td>
+                                                                                {% if documento.descricao %}
+                                                                                    {{ documento.descricao|truncatewords:15 }}
+                                                                                {% else %}
+                                                                                    <span class="text-muted">-</span>
+                                                                                {% endif %}
+                                                                            </td>
+                                                                            <td>{{ documento.data_upload|date:"d/m/Y H:i" }}</td>
+                                                                            <td>
+                                                                                {% if documento.data_emissao %}
+                                                                                    {{ documento.data_emissao|date:"d/m/Y" }}
+                                                                                {% else %}
+                                                                                    <span class="text-muted">-</span>
+                                                                                {% endif %}
+                                                                            </td>
+                                                                            <td>
+                                                                                {% if documento.arquivo %}
+                                                                                    <a href="{{ documento.arquivo.url }}" target="_blank" class="btn btn-sm btn-primary">
+                                                                                        <i class="fas fa-download me-1"></i>Baixar
+                                                                                    </a>
+                                                                                {% else %}
+                                                                                    <span class="text-muted">Sem arquivo</span>
+                                                                                {% endif %}
+                                                                            </td>
+                                                                        </tr>
+                                                                        {% endfor %}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        {% else %}
+                                                            <p class="text-muted">Nenhum documento registrado.</p>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Ocorrências -->
+                                            <div class="accordion-item mb-3">
+                                                <h2 class="accordion-header" id="headingOcorrencias{{ dados.turma.pk }}">
+                                                    <button class="accordion-button collapsed" style="background-color: #ff9800; color: white;" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOcorrencias{{ dados.turma.pk }}" aria-expanded="false" aria-controls="collapseOcorrencias{{ dados.turma.pk }}">
+                                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                                        Ocorrências
+                                                        {% if dados.ocorrencias %}<span class="badge bg-light text-dark ms-2">{{ dados.ocorrencias.count }}</span>{% endif %}
+                                                    </button>
+                                                </h2>
+                                                <div id="collapseOcorrencias{{ dados.turma.pk }}" class="accordion-collapse collapse" aria-labelledby="headingOcorrencias{{ dados.turma.pk }}" data-bs-parent="#accordionDetalhesTurma{{ dados.turma.pk }}">
+                                                    <div class="accordion-body">
+                                                        {% if dados.ocorrencias %}
+                                                            <div class="list-group">
+                                                                {% for ocorrencia in dados.ocorrencias %}
+                                                                <div class="list-group-item">
+                                                                    <h6 class="mb-1">
+                                                                        <span class="badge bg-danger">{{ ocorrencia.get_tipo_ocorrencia_display }}</span>
+                                                                        - {{ ocorrencia.data_ocorrencia|date:"d/m/Y" }}
+                                                                    </h6>
+                                                                    <p class="mb-1">{{ ocorrencia.descricao }}</p>
+                                                                </div>
+                                                                {% endfor %}
+                                                            </div>
+                                                        {% else %}
+                                                            <p class="text-muted">Nenhuma ocorrência registrada para esta turma.</p>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Histórico Completo -->
+                                            <div class="accordion-item mb-3">
+                                                <h2 class="accordion-header" id="headingHistorico{{ dados.turma.pk }}">
+                                                    <button class="accordion-button collapsed" style="background-color: #ff9800; color: white;" type="button" data-bs-toggle="collapse" data-bs-target="#collapseHistorico{{ dados.turma.pk }}" aria-expanded="false" aria-controls="collapseHistorico{{ dados.turma.pk }}">
+                                                        <i class="fas fa-history me-2"></i>
+                                                        Histórico Completo
+                                                    </button>
+                                                </h2>
+                                                <div id="collapseHistorico{{ dados.turma.pk }}" class="accordion-collapse collapse" aria-labelledby="headingHistorico{{ dados.turma.pk }}" data-bs-parent="#accordionDetalhesTurma{{ dados.turma.pk }}">
+                                                    <div class="accordion-body">
+                                                        {% if dados.historicos %}
+                                                            <div class="table-responsive">
+                                                                <table class="table table-bordered table-hover">
+                                                                    <thead class="table-light">
+                                                                        <tr>
+                                                                            <th>Disciplina</th>
+                                                                            <th>Frequência (%)</th>
+                                                                            <th>Nota Final</th>
+                                                                            <th>Carga Horária</th>
+                                                                            <th>Status</th>
+                                                                            <th>Data Conclusão</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {% for hist in dados.historicos %}
+                                                                        <tr>
+                                                                            <td><strong>{{ hist.disciplina.nome }}</strong></td>
+                                                                            <td>{{ hist.frequencia_percentual }}%</td>
+                                                                            <td>
+                                                                                {% if hist.nota_final %}
+                                                                                    <span class="badge bg-info">{{ hist.nota_final }}</span>
+                                                                                {% else %}
+                                                                                    <span class="text-muted">-</span>
+                                                                                {% endif %}
+                                                                            </td>
+                                                                            <td>{{ hist.carga_horaria_cursada }}h</td>
+                                                                            <td>
+                                                                                {% if hist.aprovado %}
+                                                                                    <span class="badge bg-success">Aprovado</span>
+                                                                                {% else %}
+                                                                                    <span class="badge bg-danger">Reprovado</span>
+                                                                                {% endif %}
+                                                                            </td>
+                                                                            <td>
+                                                                                {% if hist.data_conclusao %}
+                                                                                    {{ hist.data_conclusao|date:"d/m/Y" }}
+                                                                                {% else %}
+                                                                                    <span class="text-muted">-</span>
+                                                                                {% endif %}
+                                                                            </td>
+                                                                        </tr>
+                                                                        {% endfor %}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        {% else %}
+                                                            <p class="text-muted">Nenhum histórico registrado para esta turma.</p>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Informações de Desligamento (se aplicável) -->
+                                        {% if aluno.situacao == 'DESLIGADO' and aluno.data_desligamento %}
+                                        <hr class="my-4">
+                                        <div class="card border-danger mb-3">
+                                            <div class="card-header bg-danger text-white">
+                                                <h6 class="mb-0">
+                                                    <i class="fas fa-user-times me-2"></i>
+                                                    Informações de Desligamento
+                                                </h6>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="row">
+                                                    <div class="col-md-6">
+                                                        <dl class="row mb-0">
+                                                            <dt class="col-sm-5">Data de Desligamento:</dt>
+                                                            <dd class="col-sm-7">
+                                                                <strong>{{ aluno.data_desligamento|date:"d/m/Y"|default:"Não informado" }}</strong>
+                                                            </dd>
+                                                            
+                                                            <dt class="col-sm-5">Situação:</dt>
+                                                            <dd class="col-sm-7">
+                                                                <span class="badge bg-danger">{{ aluno.get_situacao_display }}</span>
+                                                            </dd>
+                                                        </dl>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <dl class="row mb-0">
+                                                            <dt class="col-sm-5">Motivo/Justificativa:</dt>
+                                                            <dd class="col-sm-7">
+                                                                {% if aluno.motivo_desligamento %}
+                                                                    <div class="alert alert-warning mb-0 py-2">
+                                                                        {{ aluno.motivo_desligamento|linebreaks }}
+                                                                    </div>
+                                                                {% else %}
+                                                                    <span class="text-muted">Não informado</span>
+                                                                {% endif %}
+                                                            </dd>
+                                                        </dl>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Documentos de Desligamento -->
+                                                {% if documentos %}
+                                                    {% with documentos_desligamento=documentos|slice:":10" %}
+                                                    {% if documentos_desligamento %}
+                                                    <hr class="my-3">
+                                                    <h6 class="mb-3">
+                                                        <i class="fas fa-file-pdf me-2"></i>
+                                                        Documentos Anexados ao Desligamento ({{ documentos.count }})
+                                                    </h6>
+                                                    <div class="row">
+                                                        {% for documento in documentos %}
+                                                        <div class="col-md-6 mb-2">
+                                                            <div class="card border-info">
+                                                                <div class="card-body p-2">
+                                                                    <h6 class="card-title mb-1">
+                                                                        <i class="fas fa-file me-2"></i>
+                                                                        {{ documento.get_tipo_display }}
+                                                                    </h6>
+                                                                    <p class="card-text mb-1">
+                                                                        <strong>Nome:</strong> {{ documento.nome }}<br>
+                                                                        {% if documento.descricao %}
+                                                                            <small class="text-muted">{{ documento.descricao|truncatewords:10 }}</small><br>
+                                                                        {% endif %}
+                                                                        <small class="text-muted">
+                                                                            <i class="fas fa-calendar me-1"></i>
+                                                                            Upload: {{ documento.data_upload|date:"d/m/Y H:i" }}
+                                                                        </small>
+                                                                    </p>
+                                                                    {% if documento.arquivo %}
+                                                                        <a href="{{ documento.arquivo.url }}" target="_blank" class="btn btn-sm btn-primary">
+                                                                            <i class="fas fa-download me-1"></i>Baixar
+                                                                        </a>
+                                                                    {% endif %}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        {% endfor %}
+                                                    </div>
+                                                    {% endif %}
+                                                    {% endwith %}
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        <!-- Link para ver detalhes completos -->
+                                        <div class="text-end mt-3">
+                                            <a href="{% url 'militares:ensino_turma_detalhes' pk=dados.turma.pk %}" class="btn btn-primary btn-sm" target="_blank">
+                                                <i class="fas fa-external-link-alt me-2"></i>
+                                                Ver Detalhes Completos da Turma
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info mb-0">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Aluno ainda não foi inserido em nenhuma turma de curso.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+<style>
+/* Estilos para os accordions */
+.accordion-item {
+    margin-bottom: 1rem;
+}
+
+.accordion-button {
+    font-weight: 500;
+}
+
+.accordion-button:not(.collapsed) {
+    background-color: #ff9800;
+    color: white;
+}
+
+.accordion-button:focus {
+    box-shadow: 0 0 0 0.25rem rgba(255, 152, 0, 0.25);
+}
+</style>
+{% endblock %}

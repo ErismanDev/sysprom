@@ -1,0 +1,649 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Adicionar Aula - Quadro de Trabalho Semanal Nº {{ quadro.numero_quadro }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="mb-0">
+                    <i class="fas fa-plus me-2"></i>
+                    Adicionar Aula ao Quadro Nº {{ quadro.numero_quadro }}
+                </h1>
+                <a href="{% url 'militares:ensino_quadro_trabalho_semanal_visualizar' pk=quadro.pk %}?next={{ request.GET.next }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Voltar
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="post" id="formAulaQuadro">
+                        {% csrf_token %}
+                        {{ form.quadro }}
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <label for="{{ form.tipo_atividade.id_for_label }}" class="form-label">
+                                    {{ form.tipo_atividade.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.tipo_atividade }}
+                                {% if form.tipo_atividade.errors %}
+                                <div class="text-danger small">{{ form.tipo_atividade.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div id="campos-aula" class="campos-tipo-atividade">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="{{ form.disciplina.id_for_label }}" class="form-label">
+                                        {{ form.disciplina.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.disciplina }}
+                                    {% if form.disciplina.errors %}
+                                    <div class="text-danger small">{{ form.disciplina.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            <div class="col-md-6">
+                            <div class="col-md-6" id="campo-instrutor-wrapper">
+                                <label for="id_instrutor_unificado" class="form-label">
+                                    Instrutor
+                                </label>
+                                <div id="campo-instrutor-militar-wrapper">
+                                {{ form.instrutor_militar }}
+                                {% if form.instrutor_militar.errors %}
+                                <div class="text-danger small">{{ form.instrutor_militar.errors }}</div>
+                                {% endif %}
+                            </div>
+                                <div id="campo-instrutor-externo-wrapper" style="display: none;">
+                                {{ form.instrutor_externo }}
+                                {% if form.instrutor_externo.errors %}
+                                <div class="text-danger small">{{ form.instrutor_externo.errors }}</div>
+                                {% endif %}
+                                </div>
+                            </div>
+                            </div>
+                        </div>
+                        
+                        <div id="campos-outros" class="campos-tipo-atividade" style="display: none;">
+                            <div class="row mb-3">
+                                <div class="col-md-12">
+                                    <label for="{{ form.descricao.id_for_label }}" class="form-label">
+                                        {{ form.descricao.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.descricao }}
+                                    <small class="form-text text-muted">Ex: Intervalo para Almoço, Horário Livre, Reunião de Coordenação</small>
+                                    {% if form.descricao.errors %}
+                                    <div class="text-danger small">{{ form.descricao.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label for="{{ form.dia_semana.id_for_label }}" class="form-label">
+                                    {{ form.dia_semana.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.dia_semana }}
+                                {% if form.dia_semana.errors %}
+                                <div class="text-danger small">{{ form.dia_semana.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label for="{{ form.data.id_for_label }}" class="form-label">
+                                    {{ form.data.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.data }}
+                                {% if form.data.errors %}
+                                <div class="text-danger small">{{ form.data.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label for="{{ form.ordem.id_for_label }}" class="form-label">
+                                    {{ form.ordem.label }}
+                                </label>
+                                {{ form.ordem }}
+                                <small class="form-text text-muted">Ordem no mesmo horário</small>
+                                {% if form.ordem.errors %}
+                                <div class="text-danger small">{{ form.ordem.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label for="{{ form.hora_inicio.id_for_label }}" class="form-label">
+                                    {{ form.hora_inicio.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.hora_inicio }}
+                                {% if form.hora_inicio.errors %}
+                                <div class="text-danger small">{{ form.hora_inicio.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label for="{{ form.horas_aula.id_for_label }}" class="form-label">
+                                    {{ form.horas_aula.label }}
+                                </label>
+                                {{ form.horas_aula }}
+                                <small class="form-text text-muted" id="horas-aula-help">Informe a quantidade de horas/aula (o sistema calculará a hora de término automaticamente)</small>
+                                <div id="horas-aula-info" class="mt-1" style="display: none;">
+                                    <small class="text-info"><strong id="horas-aula-texto"></strong></small>
+                                </div>
+                                {% if form.horas_aula.errors %}
+                                <div class="text-danger small">{{ form.horas_aula.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label for="{{ form.hora_fim.id_for_label }}" class="form-label">
+                                    {{ form.hora_fim.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.hora_fim }}
+                                {% if form.hora_fim.errors %}
+                                <div class="text-danger small">{{ form.hora_fim.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.carga_horaria_total.id_for_label }}" class="form-label">
+                                    {{ form.carga_horaria_total.label }}
+                                </label>
+                                {{ form.carga_horaria_total }}
+                                <small class="form-text text-muted">Calculado automaticamente (ex: 2 de 20, 4 de 20)</small>
+                                {% if form.carga_horaria_total.errors %}
+                                <div class="text-danger small">{{ form.carga_horaria_total.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="{{ form.observacoes.id_for_label }}" class="form-label">
+                                    {{ form.observacoes.label }}
+                                </label>
+                                {{ form.observacoes }}
+                                <small class="form-text text-muted">Ex: PROVA, À DISPOSIÇÃO DA DEIP</small>
+                                {% if form.observacoes.errors %}
+                                <div class="text-danger small">{{ form.observacoes.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-end">
+                            <a href="{% url 'militares:ensino_quadro_trabalho_semanal_visualizar' pk=quadro.pk %}?next={{ request.GET.next }}" class="btn btn-secondary me-2">
+                                Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>
+                                Salvar Aula
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tipoAtividadeSelect = document.getElementById('id_tipo_atividade');
+    const camposAula = document.getElementById('campos-aula');
+    const camposOutros = document.getElementById('campos-outros');
+    const horaInicio = document.getElementById('id_hora_inicio');
+    const horaFim = document.getElementById('id_hora_fim');
+    const horasAula = document.getElementById('id_horas_aula');
+    const diaSemanaSelect = document.getElementById('id_dia_semana');
+    const dataInput = document.getElementById('id_data');
+    
+    // Função para mostrar/ocultar campos baseado no tipo de atividade
+    function atualizarCamposPorTipo() {
+        if (tipoAtividadeSelect && camposAula && camposOutros) {
+            const tipo = tipoAtividadeSelect.value;
+            if (tipo === 'AULA') {
+                camposAula.style.display = 'block';
+                camposOutros.style.display = 'none';
+                // Tornar disciplina obrigatória
+                const disciplinaField = document.getElementById('id_disciplina');
+                if (disciplinaField) {
+                    disciplinaField.required = true;
+                }
+                const descricaoField = document.getElementById('id_descricao');
+                if (descricaoField) {
+                    descricaoField.required = false;
+                }
+            } else {
+                camposAula.style.display = 'none';
+                camposOutros.style.display = 'block';
+                // Tornar descricao obrigatória
+                const disciplinaField = document.getElementById('id_disciplina');
+                if (disciplinaField) {
+                    disciplinaField.required = false;
+                }
+                const descricaoField = document.getElementById('id_descricao');
+                if (descricaoField) {
+                    descricaoField.required = true;
+                }
+            }
+        }
+    }
+    
+    // Inicializar campos
+    atualizarCamposPorTipo();
+    
+    // Adicionar listener para mudança no tipo de atividade
+    if (tipoAtividadeSelect) {
+        tipoAtividadeSelect.addEventListener('change', atualizarCamposPorTipo);
+    }
+    
+    // Datas do quadro (formato YYYY-MM-DD)
+    const dataInicioSemana = '{{ quadro.data_inicio_semana|date:"Y-m-d" }}';
+    const dataFimSemana = '{{ quadro.data_fim_semana|date:"Y-m-d" }}';
+    
+    // Mapeamento de dias da semana para números (0 = Domingo, 1 = Segunda, etc.)
+    const normalizar = (s) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+    const diasSemanaMap = {
+        'DOMINGO': 0,
+        'SEGUNDA': 1,
+        'TERCA': 2,
+        'QUARTA': 3,
+        'QUINTA': 4,
+        'SEXTA': 5,
+        'SABADO': 6
+    };
+    
+    // Função para calcular a data baseada no dia da semana
+    function calcularDataDoDia() {
+        if (diaSemanaSelect && diaSemanaSelect.value && dataInput) {
+            const diaNumero = diasSemanaMap[normalizar(diaSemanaSelect.value)];
+            
+            if (diaNumero !== undefined && dataInicioSemana) {
+                // Criar data de início da semana
+                const dataInicio = new Date(dataInicioSemana + 'T00:00:00');
+                const diaSemanaInicio = dataInicio.getDay(); // 0 = Domingo, 1 = Segunda, etc.
+                
+                // Calcular quantos dias adicionar
+                let diasAdicionar = diaNumero - diaSemanaInicio;
+                
+                // Se o dia selecionado for anterior ao dia de início, adicionar 7 dias
+                if (diasAdicionar < 0) {
+                    diasAdicionar += 7;
+                }
+                
+                // Adicionar os dias
+                const dataCalculada = new Date(dataInicio);
+                dataCalculada.setDate(dataInicio.getDate() + diasAdicionar);
+                
+                // Verificar se a data calculada está dentro do intervalo da semana
+                const dataFim = new Date(dataFimSemana + 'T00:00:00');
+                if (dataCalculada <= dataFim) {
+                    // Formatar data como YYYY-MM-DD
+                    const ano = dataCalculada.getFullYear();
+                    const mes = String(dataCalculada.getMonth() + 1).padStart(2, '0');
+                    const dia = String(dataCalculada.getDate()).padStart(2, '0');
+                    const dataFormatada = `${ano}-${mes}-${dia}`;
+                    
+                    // Preencher o campo de data
+                    dataInput.value = dataFormatada;
+                }
+            }
+        }
+    }
+    
+    // Adicionar listener para mudança no dia da semana
+    if (diaSemanaSelect) {
+        diaSemanaSelect.addEventListener('change', calcularDataDoDia);
+    }
+    
+    function calcularHoras() {
+        if (horaInicio && horaFim && horaInicio.value && horaFim.value) {
+            const inicio = new Date('2000-01-01T' + horaInicio.value);
+            const fim = new Date('2000-01-01T' + horaFim.value);
+            
+            if (fim < inicio) {
+                fim.setDate(fim.getDate() + 1);
+            }
+            
+            // Calcular diferença em minutos
+            const diffMs = fim - inicio;
+            const minutosTotais = diffMs / (1000 * 60);
+            
+            // Verificar tipo de atividade
+            const tipoAtividadeSelect = document.getElementById('id_tipo_atividade');
+            const tipoAtividade = tipoAtividadeSelect ? tipoAtividadeSelect.value : 'AULA';
+            
+            let horasCalculadas;
+            if (tipoAtividade === 'INTERVALO') {
+                // Para intervalos, usar minutos diretamente
+                horasCalculadas = minutosTotais;
+            } else {
+                // Para aulas, usar horas/aula (45 minutos)
+                horasCalculadas = minutosTotais / 45;
+            }
+            
+            if (horasAula) {
+                if (tipoAtividade === 'INTERVALO') {
+                    horasAula.value = Math.round(horasCalculadas);
+                } else {
+                    horasAula.value = horasCalculadas.toFixed(2);
+                }
+            }
+        }
+    }
+    
+    function calcularHoraFim() {
+        if (horaInicio && horasAula && horaInicio.value && horasAula.value) {
+            const horasAulaValue = parseFloat(horasAula.value);
+            if (!isNaN(horasAulaValue) && horasAulaValue > 0) {
+                const inicio = new Date('2000-01-01T' + horaInicio.value);
+                
+                // Verificar tipo de atividade
+                const tipoAtividadeSelect = document.getElementById('id_tipo_atividade');
+                const tipoAtividade = tipoAtividadeSelect ? tipoAtividadeSelect.value : 'AULA';
+                
+                let minutosTotais;
+                if (tipoAtividade === 'INTERVALO') {
+                    // Para intervalos, o valor já está em minutos
+                    minutosTotais = horasAulaValue;
+                } else {
+                    // Para aulas, usar horas/aula (45 minutos)
+                    minutosTotais = horasAulaValue * 45;
+                }
+                
+                const fim = new Date(inicio.getTime() + minutosTotais * 60 * 1000);
+                
+                // Formatar hora no formato HH:MM
+                const horas = String(fim.getHours()).padStart(2, '0');
+                const minutos = String(fim.getMinutes()).padStart(2, '0');
+                const horaFimFormatada = `${horas}:${minutos}`;
+                
+                if (horaFim) {
+                    horaFim.value = horaFimFormatada;
+                }
+            }
+        }
+    }
+    
+    // Adicionar listener para tipo de atividade para recalcular quando mudar
+    const tipoAtividadeSelect = document.getElementById('id_tipo_atividade');
+    if (tipoAtividadeSelect) {
+        tipoAtividadeSelect.addEventListener('change', function() {
+            // Recalcular horas quando o tipo de atividade mudar
+            if (horaInicio && horaFim && horaInicio.value && horaFim.value) {
+                calcularHoras();
+            }
+        });
+    }
+    
+    if (horaInicio) horaInicio.addEventListener('change', calcularHoras);
+    if (horaFim) horaFim.addEventListener('change', calcularHoras);
+    if (horasAula) {
+        horasAula.addEventListener('change', function() {
+            calcularHoraFim();
+            atualizarInfoHorasAula();
+            // Atualizar também o campo de carga horária total
+            if (cargaHorariaTotalDisciplina) {
+                const horasAulaAtual = parseFloat(horasAula.value) || 0;
+                const totalCadastrado = cargaHorariaCadastradaInicial + horasAulaAtual;
+                if (cargaHorariaTotalInput) {
+                    cargaHorariaTotalInput.value = `${Math.round(totalCadastrado)} de ${cargaHorariaTotalDisciplina}`;
+                }
+            }
+        });
+        horasAula.addEventListener('input', function() {
+            calcularHoraFim();
+            atualizarInfoHorasAula();
+            // Atualizar também o campo de carga horária total
+            if (cargaHorariaTotalDisciplina) {
+                const horasAulaAtual = parseFloat(horasAula.value) || 0;
+                const totalCadastrado = cargaHorariaCadastradaInicial + horasAulaAtual;
+                if (cargaHorariaTotalInput) {
+                    cargaHorariaTotalInput.value = `${Math.round(totalCadastrado)} de ${cargaHorariaTotalDisciplina}`;
+                }
+            }
+        });
+    }
+    
+    // Inicializar select2 para instrutor militar
+    let instrutorMilitarSelect2 = null;
+    if ($('#id_instrutor_militar').length) {
+        instrutorMilitarSelect2 = $('#id_instrutor_militar').select2({
+            theme: 'bootstrap-5',
+            placeholder: 'Selecione o instrutor militar...',
+            allowClear: true,
+            ajax: {
+                url: '/militares/militares/buscar/',
+                dataType: 'json',
+                delay: 250,
+                data: function(params) {
+                    return {
+                        q: params.term,
+                        page: params.page || 1
+                    };
+                },
+                processResults: function(data) {
+                    return {
+                        results: data.results || []
+                    };
+                },
+                cache: true
+            }
+        });
+    }
+    
+    // Quando a disciplina for selecionada, buscar o instrutor automaticamente e calcular carga horária
+    const disciplinaSelect = document.getElementById('id_disciplina');
+    const cargaHorariaTotalInput = document.getElementById('id_carga_horaria_total');
+    const quadroId = document.getElementById('id_quadro') ? document.getElementById('id_quadro').value : ('{{ quadro_id }}' || null);
+    
+    if (disciplinaSelect) {
+        disciplinaSelect.addEventListener('change', function() {
+            const disciplinaId = this.value;
+            if (disciplinaId) {
+                // Buscar dados da disciplina (incluindo quadro_id para calcular carga horária já cadastrada)
+                let url = `/militares/ensino/disciplinas/${disciplinaId}/dados/`;
+                if (quadroId) {
+                    url += `?quadro_id=${quadroId}`;
+                }
+                
+                fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Atualizar carga horária total
+                    atualizarCargaHorariaTotal(data);
+                    
+                    // Mostrar/esconder campos de instrutor e preencher automaticamente
+                    const campoMilitarWrapper = document.getElementById('campo-instrutor-militar-wrapper');
+                    const campoExternoWrapper = document.getElementById('campo-instrutor-externo-wrapper');
+                    const labelInstrutor = document.querySelector('#campo-instrutor-wrapper label');
+                    
+                    if (data.instrutor && data.instrutor.id && data.instrutor.campo) {
+                        const campoInstrutor = data.instrutor.campo; // 'instrutor_militar' ou 'instrutor_externo'
+                        
+                        // Mostrar o campo correto e esconder o outro
+                        if (campoInstrutor === 'instrutor_militar') {
+                            if (campoMilitarWrapper) campoMilitarWrapper.style.display = 'block';
+                            if (campoExternoWrapper) campoExternoWrapper.style.display = 'none';
+                            if (labelInstrutor) labelInstrutor.textContent = 'Instrutor (Militar)';
+                        } else {
+                            if (campoMilitarWrapper) campoMilitarWrapper.style.display = 'none';
+                            if (campoExternoWrapper) campoExternoWrapper.style.display = 'block';
+                            if (labelInstrutor) labelInstrutor.textContent = 'Instrutor (Externo)';
+                        }
+                        
+                        const selectElement = document.getElementById(`id_${campoInstrutor}`);
+                        
+                        if (selectElement) {
+                            // Verificar se a opção já existe
+                            let optionExists = false;
+                            for (let i = 0; i < selectElement.options.length; i++) {
+                                if (selectElement.options[i].value == data.instrutor.id) {
+                                    optionExists = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (!optionExists) {
+                                const newOption = new Option(data.instrutor.nome, data.instrutor.id, true, true);
+                                selectElement.appendChild(newOption);
+                            }
+                            
+                            // Selecionar o valor
+                            selectElement.value = data.instrutor.id;
+                            
+                            // Se for instrutor militar, atualizar Select2
+                            if (campoInstrutor === 'instrutor_militar' && instrutorMilitarSelect2) {
+                                instrutorMilitarSelect2.val(data.instrutor.id).trigger('change');
+                            }
+                            
+                            // Limpar o outro campo de instrutor
+                            const outroCampo = campoInstrutor === 'instrutor_militar' ? 'instrutor_externo' : 'instrutor_militar';
+                            const outroSelect = document.getElementById(`id_${outroCampo}`);
+                            if (outroSelect) {
+                                outroSelect.value = '';
+                                if (outroCampo === 'instrutor_militar' && instrutorMilitarSelect2) {
+                                    instrutorMilitarSelect2.val(null).trigger('change');
+                                }
+                            }
+                        }
+                    } else {
+                        // Se não houver instrutor, mostrar campo militar por padrão
+                        if (campoMilitarWrapper) campoMilitarWrapper.style.display = 'block';
+                        if (campoExternoWrapper) campoExternoWrapper.style.display = 'none';
+                        if (labelInstrutor) labelInstrutor.textContent = 'Instrutor';
+                        
+                        // Limpar campos de instrutor
+                        const instrutorMilitarSelect = document.getElementById('id_instrutor_militar');
+                        const instrutorExternoSelect = document.getElementById('id_instrutor_externo');
+                        if (instrutorMilitarSelect) {
+                            instrutorMilitarSelect.value = '';
+                            if (instrutorMilitarSelect2) {
+                                instrutorMilitarSelect2.val(null).trigger('change');
+                            }
+                        }
+                        if (instrutorExternoSelect) {
+                            instrutorExternoSelect.value = '';
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao buscar dados da disciplina:', error);
+                });
+            } else {
+                // Mostrar campo militar por padrão quando não há disciplina
+                const campoMilitarWrapper = document.getElementById('campo-instrutor-militar-wrapper');
+                const campoExternoWrapper = document.getElementById('campo-instrutor-externo-wrapper');
+                const labelInstrutor = document.querySelector('#campo-instrutor-wrapper label');
+                
+                if (campoMilitarWrapper) campoMilitarWrapper.style.display = 'block';
+                if (campoExternoWrapper) campoExternoWrapper.style.display = 'none';
+                if (labelInstrutor) labelInstrutor.textContent = 'Instrutor';
+                
+                // Limpar campos se disciplina for removida
+                if (instrutorMilitarSelect2) {
+                    instrutorMilitarSelect2.val(null).trigger('change');
+                }
+                const instrutorExternoSelect = document.getElementById('id_instrutor_externo');
+                if (instrutorExternoSelect) {
+                    instrutorExternoSelect.value = '';
+                }
+                if (cargaHorariaTotalInput) {
+                    cargaHorariaTotalInput.value = '';
+                }
+            }
+        });
+    }
+    
+    // Variáveis globais para armazenar dados da disciplina
+    let cargaHorariaTotalDisciplina = null;
+    let cargaHorariaCadastradaInicial = 0;
+    
+    // Função para atualizar carga horária total
+    function atualizarCargaHorariaTotal(data) {
+        if (!cargaHorariaTotalInput || !data.carga_horaria_total) {
+            return;
+        }
+        
+        cargaHorariaTotalDisciplina = data.carga_horaria_total;
+        cargaHorariaCadastradaInicial = data.carga_horaria_cadastrada || 0;
+        
+        const cargaTotal = data.carga_horaria_total;
+        let cargaCadastrada = cargaHorariaCadastradaInicial;
+        
+        // Se houver horas/aula já preenchidas, adicionar ao total
+        if (horasAula && horasAula.value) {
+            const horasAulaAtual = parseFloat(horasAula.value) || 0;
+            cargaCadastrada += horasAulaAtual;
+        }
+        
+        // Formato: "X de Y" (ex: "2 de 20", "4 de 20")
+        cargaHorariaTotalInput.value = `${Math.round(cargaCadastrada)} de ${cargaTotal}`;
+        
+        // Atualizar informação de horas/aula
+        atualizarInfoHorasAula();
+    }
+    
+    // Função para atualizar o texto informativo de horas/aula
+    function atualizarInfoHorasAula() {
+        const horasAulaInfo = document.getElementById('horas-aula-info');
+        const horasAulaTexto = document.getElementById('horas-aula-texto');
+        
+        if (!horasAulaInfo || !horasAulaTexto) {
+            return;
+        }
+        
+        if (cargaHorariaTotalDisciplina && horasAula && horasAula.value) {
+            const horasAulaAtual = parseFloat(horasAula.value) || 0;
+            const totalCadastrado = cargaHorariaCadastradaInicial + horasAulaAtual;
+            
+            horasAulaTexto.textContent = `${totalCadastrado.toFixed(2)}h/a de ${cargaHorariaTotalDisciplina}h/a`;
+            horasAulaInfo.style.display = 'block';
+        } else if (cargaHorariaTotalDisciplina && cargaHorariaCadastradaInicial > 0) {
+            // Mostrar apenas o que já está cadastrado
+            horasAulaTexto.textContent = `${cargaHorariaCadastradaInicial.toFixed(2)}h/a de ${cargaHorariaTotalDisciplina}h/a`;
+            horasAulaInfo.style.display = 'block';
+        } else {
+            horasAulaInfo.style.display = 'none';
+        }
+    }
+    
+    // Atualizar carga horária quando horas/aula mudar
+    if (horasAula && disciplinaSelect) {
+        horasAula.addEventListener('change', function() {
+            const disciplinaId = disciplinaSelect.value;
+            if (disciplinaId && cargaHorariaTotalInput) {
+                // Buscar dados atualizados da disciplina
+                let url = `/militares/ensino/disciplinas/${disciplinaId}/dados/`;
+                if (quadroId) {
+                    url += `?quadro_id=${quadroId}`;
+                }
+                
+                fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    atualizarCargaHorariaTotal(data);
+                })
+                .catch(error => {
+                    console.error('Erro ao atualizar carga horária:', error);
+                });
+            }
+        });
+});
+</script>
+{% endblock %}

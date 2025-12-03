@@ -153,6 +153,20 @@
             
             <!-- Formulário -->
             <div class="password-form">
+                {% if ensino_tipo %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Você está autenticado pelo módulo de ensino. Esta página altera a senha do seu usuário do sistema.
+                    Para alterar a senha do ensino:
+                    {% if ensino_tipo == 'aluno' %}
+                        <a href="{% url 'militares:ensino_usuario_definir_senha' tipo='aluno' pk=ensino_id %}">clique aqui</a>.
+                    {% elif ensino_tipo == 'instrutor' %}
+                        <a href="{% url 'militares:ensino_usuario_definir_senha' tipo='instrutor' pk=ensino_id %}">clique aqui</a>.
+                    {% elif ensino_tipo == 'monitor' %}
+                        <a href="{% url 'militares:ensino_usuario_definir_senha' tipo='monitor' pk=ensino_id %}">clique aqui</a>.
+                    {% endif %}
+                </div>
+                {% endif %}
                 <form method="post" id="password-form">
                     {% csrf_token %}
                     
@@ -168,8 +182,15 @@
                     <div class="form-group">
                         <label for="{{ form.senha_atual.id_for_label }}" class="form-label">
                             <i class="fas fa-key me-2"></i>{{ form.senha_atual.label }}
+                            {% if not requer_senha_atual %}<span class="badge bg-info ms-2">Opcional</span>{% endif %}
                         </label>
-                        {{ form.senha_atual }}
+                        <div class="input-group">
+                            {{ form.senha_atual }}
+                            <button type="button" class="btn btn-outline-secondary" 
+                                    data-toggle-password="{{ form.senha_atual.id_for_label }}" title="Mostrar/ocultar">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
                         {% if form.senha_atual.errors %}
                             <div class="text-danger mt-1">
                                 {% for error in form.senha_atual.errors %}
@@ -184,7 +205,13 @@
                         <label for="{{ form.nova_senha1.id_for_label }}" class="form-label">
                             <i class="fas fa-lock me-2"></i>{{ form.nova_senha1.label }}
                         </label>
-                        {{ form.nova_senha1 }}
+                        <div class="input-group">
+                            {{ form.nova_senha1 }}
+                            <button type="button" class="btn btn-outline-secondary" 
+                                    data-toggle-password="{{ form.nova_senha1.id_for_label }}" title="Mostrar/ocultar">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
                         {% if form.nova_senha1.errors %}
                             <div class="text-danger mt-1">
                                 {% for error in form.nova_senha1.errors %}
@@ -199,7 +226,13 @@
                         <label for="{{ form.nova_senha2.id_for_label }}" class="form-label">
                             <i class="fas fa-check-circle me-2"></i>{{ form.nova_senha2.label }}
                         </label>
-                        {{ form.nova_senha2 }}
+                        <div class="input-group">
+                            {{ form.nova_senha2 }}
+                            <button type="button" class="btn btn-outline-secondary" 
+                                    data-toggle-password="{{ form.nova_senha2.id_for_label }}" title="Mostrar/ocultar">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
                         {% if form.nova_senha2.errors %}
                             <div class="text-danger mt-1">
                                 {% for error in form.nova_senha2.errors %}
@@ -258,49 +291,55 @@
     document.addEventListener('DOMContentLoaded', function() {
         const form = document.getElementById('password-form');
         const submitBtn = form.querySelector('button[type="submit"]');
+        const fieldSenhaAtual = form.querySelector('input[name="senha_atual"]');
+        const fieldNovaSenha1 = form.querySelector('input[name="nova_senha1"]');
+        const fieldNovaSenha2 = form.querySelector('input[name="nova_senha2"]');
         
-        // Validação em tempo real
-        const passwordFields = form.querySelectorAll('input[type="password"]');
-        passwordFields.forEach(field => {
-            field.addEventListener('input', function() {
-                validatePasswordStrength();
-            });
-        });
-        
-        function validatePasswordStrength() {
-            const novaSenha = document.getElementById('{{ form.nova_senha1.id_for_label }}').value;
-            const confirmSenha = document.getElementById('{{ form.nova_senha2.id_for_label }}').value;
-            
-            // Verificar se as senhas coincidem
+        const validateLive = () => {
+            const novaSenha = fieldNovaSenha1 ? fieldNovaSenha1.value : '';
+            const confirmSenha = fieldNovaSenha2 ? fieldNovaSenha2.value : '';
             if (novaSenha && confirmSenha && novaSenha !== confirmSenha) {
-                submitBtn.disabled = true;
                 submitBtn.classList.add('btn-secondary');
                 submitBtn.classList.remove('btn-primary-custom');
             } else {
-                submitBtn.disabled = false;
                 submitBtn.classList.remove('btn-secondary');
                 submitBtn.classList.add('btn-primary-custom');
             }
-        }
+        };
         
-        // Confirmação antes de enviar
+        [fieldSenhaAtual, fieldNovaSenha1, fieldNovaSenha2].forEach(f => {
+            if (f) {
+                f.addEventListener('input', validateLive);
+            }
+        });
+
+        // Toggle mostrar/ocultar senha
+        document.querySelectorAll('[data-toggle-password]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const targetId = this.getAttribute('data-toggle-password');
+                const input = document.getElementById(targetId);
+                if (input) {
+                    const isPassword = input.getAttribute('type') === 'password';
+                    input.setAttribute('type', isPassword ? 'text' : 'password');
+                    this.querySelector('i').className = isPassword ? 'fas fa-eye-slash' : 'fas fa-eye';
+                }
+            });
+        });
+        
         form.addEventListener('submit', function(e) {
-            const senhaAtual = document.getElementById('{{ form.senha_atual.id_for_label }}').value;
-            const novaSenha = document.getElementById('{{ form.nova_senha1.id_for_label }}').value;
-            const confirmSenha = document.getElementById('{{ form.nova_senha2.id_for_label }}').value;
-            
+            const senhaAtual = fieldSenhaAtual ? fieldSenhaAtual.value : '';
+            const novaSenha = fieldNovaSenha1 ? fieldNovaSenha1.value : '';
+            const confirmSenha = fieldNovaSenha2 ? fieldNovaSenha2.value : '';
             if (!senhaAtual || !novaSenha || !confirmSenha) {
                 e.preventDefault();
                 alert('Por favor, preencha todos os campos.');
                 return false;
             }
-            
             if (novaSenha !== confirmSenha) {
                 e.preventDefault();
                 alert('As senhas não coincidem.');
                 return false;
             }
-            
             const confirmed = confirm('Tem certeza que deseja alterar sua senha?');
             if (!confirmed) {
                 e.preventDefault();

@@ -122,7 +122,7 @@ class MilitarForm(forms.ModelForm):
             'cnh_validade', 'banco_codigo', 'banco_nome', 'agencia', 'conta', 'pis_pasep', 'gratificacao', 'altura', 'peso',
             'combat_shirt', 'camisa', 'calca', 'comprimento_calca', 'gorro', 'coturno',
             'quadro', 'posto_graduacao', 'data_ingresso', 'data_promocao_atual', 'situacao', 'classificacao', 'comportamento', 'email', 'telefone',
-            'celular', 'foto', 'observacoes',
+            'celular', 'endereco', 'cidade', 'uf', 'cep', 'foto', 'observacoes',
             'curso_formacao_oficial', 'curso_aperfeicoamento_oficial', 'curso_cho', 'nota_cho', 'curso_superior', 'pos_graduacao', 'curso_csbm', 'curso_adaptacao_oficial',
             'curso_cfsd', 'curso_formacao_pracas', 'curso_chc', 'nota_chc', 'curso_chsgt', 'nota_chsgt', 'curso_cas',
             'apto_inspecao_saude', 'data_inspecao_saude', 'data_validade_inspecao_saude',
@@ -305,6 +305,22 @@ class MilitarForm(forms.ModelForm):
             'celular': forms.TextInput(attrs={
                 'class': 'form-control phone-mask',
                 'placeholder': '(00) 00000-0000'
+            }),
+            'endereco': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Logradouro, número, complemento, bairro'
+            }),
+            'cidade': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Nome da cidade'
+            }),
+            'uf': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+            'cep': forms.TextInput(attrs={
+                'class': 'form-control cep-mask',
+                'placeholder': '00000-000'
             }),
             'data_inspecao_saude': forms.DateInput(attrs={
                 'type': 'date',
@@ -4353,12 +4369,16 @@ class RodagemViaturaForm(forms.ModelForm):
         from .models import RodagemViatura
         model = RodagemViatura
         fields = [
-            'viatura', 'data_saida', 'hora_saida', 'data_retorno', 'hora_retorno',
+            'viatura', 'condutor', 'data_saida', 'hora_saida', 'data_retorno', 'hora_retorno',
             'km_inicial', 'km_final', 'objetivo', 'destino', 
             'observacoes', 'status', 'ativo'
         ]
         widgets = {
             'viatura': forms.Select(attrs={
+                'class': 'form-select',
+                'required': True
+            }),
+            'condutor': forms.Select(attrs={
                 'class': 'form-select',
                 'required': True
             }),
@@ -4431,6 +4451,14 @@ class RodagemViaturaForm(forms.ModelForm):
         
         # Filtrar apenas viaturas ativas
         self.fields['viatura'].queryset = Viatura.objects.filter(ativo=True).order_by('placa')
+
+        # Condutor obrigatório e apenas militares ativos
+        if 'condutor' in self.fields:
+            self.fields['condutor'].required = True
+            try:
+                self.fields['condutor'].queryset = Militar.objects.filter(classificacao='ATIVO').order_by('nome_completo')
+            except Exception:
+                pass
         
         # Se for edição (tem instância com PK), garantir formatação correta dos widgets
         if self.instance and self.instance.pk:
@@ -4529,6 +4557,10 @@ class RodagemViaturaForm(forms.ModelForm):
                 brasilia_tz = pytz.timezone('America/Sao_Paulo')
                 agora_brasilia = timezone.now().astimezone(brasilia_tz) if timezone.is_aware(timezone.now()) else brasilia_tz.localize(timezone.now())
                 self.fields['hora_saida'].initial = agora_brasilia.time()
+        
+        # Condutor padrão: militar do usuário (se disponível)
+        if 'condutor' in self.fields and self.request and hasattr(self.request.user, 'militar') and self.request.user.militar:
+            self.fields['condutor'].initial = self.request.user.militar
     
     def clean(self):
         """Validações customizadas"""
@@ -8137,4 +8169,3 @@ class TrocaOleoEquipamentoForm(forms.ModelForm):
         
         # Filtrar apenas militares ativos
         self.fields['responsavel'].queryset = Militar.objects.filter(ativo=True).order_by('posto_graduacao', 'nome_completo')
-

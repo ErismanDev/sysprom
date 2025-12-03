@@ -655,8 +655,19 @@
                                             {{ grupo.list|length }} escala{{ grupo.list|length|pluralize }} de serviço
                                         </small>
                                     </div>
-                                    <div class="ms-3">
+                                    <div class="ms-3 d-flex gap-2 align-items-center">
                                         <span class="badge bg-primary">{{ grupo.list|length }}</span>
+                                        <span class="badge bg-success" id="total-militares-{{ grupo.grouper|slugify }}">
+                                            <i class="fas fa-users me-1"></i>
+                                            <span class="total-militares-count" data-escalas='{% for escala_info in grupo.list %}{{ escala_info.total_militares }}{% if not forloop.last %},{% endif %}{% endfor %}'>
+                                                {% if grupo.list|length == 1 %}
+                                                    {{ grupo.list.0.total_militares }}
+                                                {% else %}
+                                                    Calculando...
+                                                {% endif %}
+                                            </span>
+                                            militares
+                                        </span>
                                     </div>
                                 </div>
                             </button>
@@ -690,8 +701,19 @@
                                                             {{ subgrupo.list|length }} escala{{ subgrupo.list|length|pluralize }}
                                                         </small>
                                                     </div>
-                                                    <div class="ms-3">
+                                                    <div class="ms-3 d-flex gap-2 align-items-center">
                                                         <span class="badge bg-secondary">{{ subgrupo.list|length }}</span>
+                                                        <span class="badge bg-success">
+                                                            <i class="fas fa-users me-1"></i>
+                                                            <span class="total-militares-sub" data-escalas='{% for escala_info in subgrupo.list %}{{ escala_info.total_militares }}{% if not forloop.last %},{% endif %}{% endfor %}'>
+                                                                {% if subgrupo.list|length == 1 %}
+                                                                    {{ subgrupo.list.0.total_militares }}
+                                                                {% else %}
+                                                                    Calculando...
+                                                                {% endif %}
+                                                            </span>
+                                                            militares
+                                                        </span>
                                                     </div>
                                                 </div>
                                             </button>
@@ -912,14 +934,14 @@
                     </div>
                     
                     <div class="escala-actions">
-                            <a href="{% url 'militares:escala_detail' escala_info.escala.pk %}" class="btn btn-sm btn-outline-primary">
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="abrirModalEscala({{ escala_info.escala.pk }})">
                                 <i class="fas fa-eye me-1"></i>
                                 Visualizar
-                            </a>
-                            <a href="{% url 'militares:escala_detail' escala_info.escala.pk %}" class="btn btn-sm btn-outline-info">
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-info" onclick="abrirModalGerenciarMilitaresDireto({{ escala_info.escala.pk }})">
                                 <i class="fas fa-users me-1"></i>
                                 Adicionar Bombeiros
-                            </a>
+                            </button>
                             <a href="{% url 'militares:escala_pdf' escala_info.escala.pk %}" class="btn btn-sm btn-outline-danger" target="_blank" title="Visualizar PDF da escala">
                                 <i class="fas fa-file-pdf me-1"></i>
                                 Escala
@@ -1201,6 +1223,13 @@
 
 {% block extra_js %}
 <script>
+    (function(){
+      try{
+        if(window.matchMedia && window.matchMedia('(max-width: 768px)').matches){
+          document.documentElement.classList.add('mobile-escalas');
+        }
+      }catch(e){}
+    })();
     $(document).ready(function() {
         // Inicializar tooltips
         var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
@@ -2144,6 +2173,232 @@ async function confirmarAssinaturaAprovacaoEscala() {
     }
 }
 
+// Função para abrir modal de detalhes da escala
+async function abrirModalEscala(escalaId) {
+    const modal = new bootstrap.Modal(document.getElementById('modalEscalaDetail'));
+    const modalBody = document.getElementById('modalEscalaDetailBody');
+    
+    // Mostrar loading
+    modalBody.innerHTML = `
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Carregando...</span>
+            </div>
+            <p class="mt-3 text-muted">Carregando detalhes da escala...</p>
+        </div>
+    `;
+    
+    // Abrir modal
+    modal.show();
+    
+        try {
+            // Carregar conteúdo via AJAX
+            const response = await fetch(`/militares/escalas/${escalaId}/?modal=1`);
+            const html = await response.text();
+            
+            // Inserir conteúdo no modal
+            modalBody.innerHTML = html;
+            
+            // Mover modal de gerenciar militares para o body principal
+            setTimeout(() => {
+                const modalGerenciar = modalBody.querySelector('#modalGerenciarMilitares');
+                if (modalGerenciar) {
+                    // Verificar se já existe no body
+                    const existingModal = document.getElementById('modalGerenciarMilitares');
+                    if (existingModal && document.body.contains(existingModal)) {
+                        existingModal.remove();
+                    }
+                    // Mover para o body
+                    document.body.appendChild(modalGerenciar);
+                }
+            }, 100);
+        } catch (error) {
+        console.error('Erro ao carregar detalhes da escala:', error);
+        modalBody.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Erro ao carregar detalhes da escala. Tente novamente.
+            </div>
+        `;
+    }
+}
+
+// Função para abrir modal de gerenciar militares diretamente
+async function abrirModalGerenciarMilitaresDireto(escalaId) {
+    // Primeiro, carregar o conteúdo do modal de detalhes para obter o modal de gerenciar militares
+    try {
+        const response = await fetch(`/militares/escalas/${escalaId}/?modal=1`);
+        const html = await response.text();
+        
+        // Criar um elemento temporário para parsear o HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        
+        // Buscar o modal de gerenciar militares no HTML carregado
+        const modalGerenciar = tempDiv.querySelector('#modalGerenciarMilitares');
+        
+        if (!modalGerenciar) {
+            alert('Erro: Modal de gerenciar militares não encontrado.');
+            return;
+        }
+        
+        // Verificar se já existe no body
+        const existingModal = document.getElementById('modalGerenciarMilitares');
+        if (existingModal && document.body.contains(existingModal)) {
+            existingModal.remove();
+        }
+        
+        // Adicionar ao body
+        document.body.appendChild(modalGerenciar);
+        
+        // Carregar scripts necessários do conteúdo carregado
+        const scripts = tempDiv.querySelectorAll('script');
+        scripts.forEach(script => {
+            const newScript = document.createElement('script');
+            if (script.src) {
+                newScript.src = script.src;
+            } else {
+                // Substituir escalaId no script se necessário
+                let scriptContent = script.textContent;
+                // Verificar se precisa definir escalaId
+                if (scriptContent.includes('const escalaId') && !scriptContent.includes(`const escalaId = ${escalaId}`)) {
+                    // Adicionar definição de escalaId se não existir
+                    scriptContent = `const escalaId = ${escalaId};\n${scriptContent}`;
+                }
+                newScript.textContent = scriptContent;
+            }
+            document.body.appendChild(newScript);
+        });
+        
+        // Garantir que escalaId esteja disponível globalmente
+        window.escalaId = escalaId;
+        
+        // Aguardar um pouco para os scripts carregarem
+        setTimeout(() => {
+            // Configurar event listener se ainda não tiver
+            if (!modalGerenciar.hasAttribute('data-listener-attached')) {
+                modalGerenciar.setAttribute('data-listener-attached', 'true');
+                modalGerenciar.addEventListener('show.bs.modal', function() {
+                    // As funções precisam estar disponíveis globalmente
+                    if (typeof carregarMilitaresOrganizacao === 'function') {
+                        carregarMilitaresOrganizacao();
+                    }
+                    if (typeof controlarCamposOperacionais === 'function') {
+                        controlarCamposOperacionais();
+                    }
+                    if (typeof carregarEquipesDisponiveis === 'function') {
+                        carregarEquipesDisponiveis();
+                    }
+                    if (typeof carregarFuncoesDisponiveis === 'function') {
+                        carregarFuncoesDisponiveis();
+                    }
+                    if (typeof carregarViaturasDisponiveis === 'function') {
+                        carregarViaturasDisponiveis();
+                    }
+                });
+            }
+            
+            // Mostrar loading no container antes de abrir o modal
+            const container = modalGerenciar.querySelector('#militaresOrganizacaoContainer');
+            if (container) {
+                container.innerHTML = `
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                        <p class="mt-3 text-muted">Carregando militares da organização...</p>
+                    </div>
+                `;
+            }
+            
+            // Abrir modal
+            const bsModal = new bootstrap.Modal(modalGerenciar);
+            bsModal.show();
+            
+            // Carregar militares imediatamente após abrir o modal (garantir que carregue)
+            setTimeout(() => {
+                if (typeof carregarMilitaresOrganizacao === 'function') {
+                    carregarMilitaresOrganizacao();
+                } else {
+                    console.error('Função carregarMilitaresOrganizacao não encontrada');
+                    // Tentar novamente após mais tempo
+                    setTimeout(() => {
+                        if (typeof carregarMilitaresOrganizacao === 'function') {
+                            carregarMilitaresOrganizacao();
+                        }
+                    }, 500);
+                }
+            }, 100);
+            
+            setTimeout(() => {
+                if (typeof controlarCamposOperacionais === 'function') {
+                    controlarCamposOperacionais();
+                }
+                if (typeof carregarEquipesDisponiveis === 'function') {
+                    carregarEquipesDisponiveis();
+                }
+                if (typeof carregarFuncoesDisponiveis === 'function') {
+                    carregarFuncoesDisponiveis();
+                }
+                if (typeof carregarViaturasDisponiveis === 'function') {
+                    carregarViaturasDisponiveis();
+                }
+            }, 200);
+        }, 200);
+        
+    } catch (error) {
+        console.error('Erro ao carregar modal de gerenciar militares:', error);
+        alert('Erro ao carregar modal de gerenciar militares. Tente novamente.');
+    }
+}
+
+// Calcular totais de militares nos acordeões
+document.addEventListener('DOMContentLoaded', function() {
+    // Calcular totais para acordeões principais
+    document.querySelectorAll('.total-militares-count').forEach(function(element) {
+        const escalasData = element.getAttribute('data-escalas');
+        if (escalasData && escalasData !== '') {
+            const valores = escalasData.split(',').map(v => parseInt(v) || 0);
+            const total = valores.reduce((a, b) => a + b, 0);
+            element.textContent = total;
+        }
+    });
+    
+    // Calcular totais para sub-acordeões
+    document.querySelectorAll('.total-militares-sub').forEach(function(element) {
+        const escalasData = element.getAttribute('data-escalas');
+        if (escalasData && escalasData !== '') {
+            const valores = escalasData.split(',').map(v => parseInt(v) || 0);
+            const total = valores.reduce((a, b) => a + b, 0);
+            element.textContent = total;
+        }
+    });
+});
+
 </script>
+
+<!-- Modal para Detalhes da Escala -->
+<div class="modal fade" id="modalEscalaDetail" tabindex="-1" aria-labelledby="modalEscalaDetailLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalEscalaDetailLabel">
+                    <i class="fas fa-calendar-alt me-2"></i>
+                    Detalhes da Escala
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="modalEscalaDetailBody">
+                <!-- Conteúdo será carregado via AJAX -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>
+                    Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 {% endblock %}

@@ -22,17 +22,17 @@ class ChatWidgetIOS {
 
     init() {
         // Event listeners
-        this.toggleBtn?.addEventListener('click', () => this.togglePanel());
-        document.getElementById('btn-close-chat')?.addEventListener('click', () => this.closePanel());
-        document.getElementById('btn-minimize-chat')?.addEventListener('click', () => this.minimizePanel());
-        document.getElementById('btn-restore-chat')?.addEventListener('click', () => this.restorePanel());
-        document.getElementById('chat-minimized-indicator')?.addEventListener('click', () => this.restorePanel());
-        document.getElementById('btn-nova-conversa')?.addEventListener('click', () => this.showNovaConversa());
-        document.getElementById('btn-back-conversas')?.addEventListener('click', () => this.showConversas());
-        document.getElementById('btn-back-conversas-nova')?.addEventListener('click', () => this.showConversas());
-        document.getElementById('chat-form-enviar')?.addEventListener('submit', (e) => this.enviarMensagem(e));
-        document.getElementById('chat-search-usuarios')?.addEventListener('input', (e) => this.buscarUsuarios(e.target.value));
-        document.getElementById('chat-overlay')?.addEventListener('click', () => this.closePanel());
+        if (this.toggleBtn) { this.toggleBtn.addEventListener('click', () => this.togglePanel()); }
+        var elClose = document.getElementById('btn-close-chat'); if (elClose) { elClose.addEventListener('click', () => this.closePanel()); }
+        var elMin = document.getElementById('btn-minimize-chat'); if (elMin) { elMin.addEventListener('click', () => this.minimizePanel()); }
+        var elRestore = document.getElementById('btn-restore-chat'); if (elRestore) { elRestore.addEventListener('click', () => this.restorePanel()); }
+        var elIndicator = document.getElementById('chat-minimized-indicator'); if (elIndicator) { elIndicator.addEventListener('click', () => this.restorePanel()); }
+        var elNova = document.getElementById('btn-nova-conversa'); if (elNova) { elNova.addEventListener('click', () => this.showNovaConversa()); }
+        var elBack = document.getElementById('btn-back-conversas'); if (elBack) { elBack.addEventListener('click', () => this.showConversas()); }
+        var elBackNova = document.getElementById('btn-back-conversas-nova'); if (elBackNova) { elBackNova.addEventListener('click', () => this.showConversas()); }
+        var elFormEnviar = document.getElementById('chat-form-enviar'); if (elFormEnviar) { elFormEnviar.addEventListener('submit', (e) => this.enviarMensagem(e)); }
+        var elBuscaUsuarios = document.getElementById('chat-search-usuarios'); if (elBuscaUsuarios) { elBuscaUsuarios.addEventListener('input', (e) => this.buscarUsuarios(e.target.value)); }
+        var elOverlay = document.getElementById('chat-overlay'); if (elOverlay) { elOverlay.addEventListener('click', () => this.closePanel()); }
         
         // Fechar emoji picker ao clicar fora
         document.addEventListener('click', (e) => {
@@ -40,17 +40,17 @@ class ChatWidgetIOS {
             const btnEmoji = document.getElementById('btn-emoji-chat');
             if (picker && this.emojiPickerVisible && 
                 !picker.contains(e.target) && 
-                !btnEmoji?.contains(e.target)) {
+                (!btnEmoji || !btnEmoji.contains(e.target))) {
                 this.fecharEmojiPicker();
             }
         });
         
         // Busca de conversas
-        document.getElementById('chat-search-input')?.addEventListener('input', (e) => this.buscarConversas(e.target.value));
+        var elBusca = document.getElementById('chat-search-input'); if (elBusca) { elBusca.addEventListener('input', (e) => this.buscarConversas(e.target.value)); }
         
         // Emoji picker
-        document.getElementById('btn-emoji-chat')?.addEventListener('click', () => this.toggleEmojiPicker());
-        document.getElementById('btn-close-emoji')?.addEventListener('click', () => this.fecharEmojiPicker());
+        var elEmoji = document.getElementById('btn-emoji-chat'); if (elEmoji) { elEmoji.addEventListener('click', () => this.toggleEmojiPicker()); }
+        var elCloseEmoji = document.getElementById('btn-close-emoji'); if (elCloseEmoji) { elCloseEmoji.addEventListener('click', () => this.fecharEmojiPicker()); }
         
         // Carregar conversas
         this.carregarConversas();
@@ -312,9 +312,9 @@ class ChatWidgetIOS {
     }
 
     openPanel() {
-        this.panel?.classList.add('open');
+        if (this.panel) { this.panel.classList.add('open'); }
         const overlay = document.getElementById('chat-overlay');
-        overlay?.classList.add('active');
+        if (overlay) { overlay.classList.add('active'); }
         this.isOpen = true;
         this.registrarAtividade();
         this.carregarConversas();
@@ -333,9 +333,9 @@ class ChatWidgetIOS {
     }
 
     closePanel() {
-        this.panel?.classList.remove('open');
+        if (this.panel) { this.panel.classList.remove('open'); }
         const overlay = document.getElementById('chat-overlay');
-        overlay?.classList.remove('active');
+        if (overlay) { overlay.classList.remove('active'); }
         this.isOpen = false;
         this.pararPolling();
         
@@ -353,7 +353,7 @@ class ChatWidgetIOS {
     }
 
     minimizePanel() {
-        this.panel?.classList.add('minimized');
+        if (this.panel) { this.panel.classList.add('minimized'); }
         const indicator = document.getElementById('chat-minimized-indicator');
         if (indicator) {
             indicator.style.display = 'block';
@@ -371,7 +371,7 @@ class ChatWidgetIOS {
     }
     
     restorePanel() {
-        this.panel?.classList.remove('minimized');
+        if (this.panel) { this.panel.classList.remove('minimized'); }
         const indicator = document.getElementById('chat-minimized-indicator');
         if (indicator) {
             indicator.style.display = 'none';
@@ -391,9 +391,9 @@ class ChatWidgetIOS {
     }
 
     showConversas() {
-        document.getElementById('chat-conversas-view')?.classList.add('active');
-        document.getElementById('chat-mensagens-view')?.classList.remove('active');
-        document.getElementById('chat-nova-conversa-view')?.classList.remove('active');
+        var vConversas = document.getElementById('chat-conversas-view'); if (vConversas) { vConversas.classList.add('active'); }
+        var vMensagens = document.getElementById('chat-mensagens-view'); if (vMensagens) { vMensagens.classList.remove('active'); }
+        var vNova = document.getElementById('chat-nova-conversa-view'); if (vNova) { vNova.classList.remove('active'); }
         this.currentChatId = null;
         this.pararPolling();
         
@@ -405,9 +405,9 @@ class ChatWidgetIOS {
     }
     
     showNovaConversa() {
-        document.getElementById('chat-conversas-view')?.classList.remove('active');
-        document.getElementById('chat-mensagens-view')?.classList.remove('active');
-        document.getElementById('chat-nova-conversa-view')?.classList.add('active');
+        var vConversas = document.getElementById('chat-conversas-view'); if (vConversas) { vConversas.classList.remove('active'); }
+        var vMensagens = document.getElementById('chat-mensagens-view'); if (vMensagens) { vMensagens.classList.remove('active'); }
+        var vNova = document.getElementById('chat-nova-conversa-view'); if (vNova) { vNova.classList.add('active'); }
         this.carregarUsuarios();
     }
     
@@ -577,7 +577,7 @@ class ChatWidgetIOS {
                     // Mostrar notificação para cada chat com novas mensagens
                     for (const chat of chatsComNovasMensagens) {
                         // Verificar se a mensagem é nova (comparar com cache anterior)
-                        const chatAnterior = this.chatsCache?.chats?.find(c => c.id === chat.id);
+                        const chatAnterior = (this.chatsCache && this.chatsCache.chats) ? this.chatsCache.chats.find(c => c.id === chat.id) : null;
                         const mensagemNova = !chatAnterior || 
                                            chat.ultima_mensagem_id !== chatAnterior.ultima_mensagem_id;
                         
@@ -585,7 +585,7 @@ class ChatWidgetIOS {
                         // 1. A mensagem é nova (ID diferente)
                         // 2. Há mensagens não lidas (nao_lidas > 0)
                         // 3. O chat anterior tinha menos mensagens não lidas (ou não existia)
-                        const tinhaMensagensAnterior = chatAnterior?.nao_lidas || 0;
+                        const tinhaMensagensAnterior = chatAnterior && chatAnterior.nao_lidas ? chatAnterior.nao_lidas : 0;
                         const temMensagensAgora = chat.nao_lidas || 0;
                         const aumentouMensagens = temMensagensAgora > tinhaMensagensAnterior;
                         
@@ -683,8 +683,8 @@ class ChatWidgetIOS {
         this.currentChatId = chatId;
         
         // Mostrar view de mensagens
-        document.getElementById('chat-conversas-view')?.classList.remove('active');
-        document.getElementById('chat-mensagens-view')?.classList.add('active');
+        var vConversas = document.getElementById('chat-conversas-view'); if (vConversas) { vConversas.classList.remove('active'); }
+        var vMensagens = document.getElementById('chat-mensagens-view'); if (vMensagens) { vMensagens.classList.add('active'); }
         
         // Adicionar atributo para facilitar acesso ao outro participante
         const header = document.querySelector('.chat-header-conversa');
@@ -1515,9 +1515,11 @@ class ChatWidgetIOS {
 
     obterInicialUsuario() {
         // Tentar obter do nome do usuário no navbar ou usar inicial padrão
-        const usuarioNome = document.querySelector('.navbar-brand .text-white')?.textContent?.trim() || 
-                           document.querySelector('[data-usuario-nome]')?.getAttribute('data-usuario-nome') ||
-                           'U';
+        var elNomeNavbar = document.querySelector('.navbar-brand .text-white');
+        var nomeNavbar = elNomeNavbar && elNomeNavbar.textContent ? elNomeNavbar.textContent.trim() : '';
+        var elUsuarioNome = document.querySelector('[data-usuario-nome]');
+        var attrUsuarioNome = elUsuarioNome ? elUsuarioNome.getAttribute('data-usuario-nome') : '';
+        const usuarioNome = nomeNavbar || attrUsuarioNome || 'U';
         const inicial = usuarioNome.charAt(0).toUpperCase();
         return inicial || 'U';
     }

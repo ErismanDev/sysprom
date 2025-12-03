@@ -4811,10 +4811,13 @@ def planejada_gerar_pdf(request, planejada_id):
             data_formatada, hora_formatada = formatar_data_assinatura(data_assinatura)
         except:
             data_formatada = data_assinatura.strftime('%d/%m/%Y')
-            hora_formatada = data_assinatura.strftime('%H:%M')
+            hora_formatada = data_assinatura.strftime('%H:%M:%S')
         
         # Texto da assinatura eletrônica
-        texto_assinatura = f"Documento assinado eletronicamente por {nome_assinante}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
+        texto_assinatura = (
+            f"Documento assinado eletronicamente por {nome_assinante}, em {data_formatada} {hora_formatada}, "
+            f"conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
+        )
         
         # Estilo para texto justificado
         style_assinatura_texto = ParagraphStyle('assinatura_texto', parent=styles['Normal'], fontSize=10, fontName='Helvetica', alignment=4, spaceAfter=1, spaceBefore=1, leading=14)
@@ -5579,13 +5582,13 @@ def _gerar_pdf_relatorio_mensal(planejadas_mes, mes, ano, limite_mensal, request
     data_formatada, hora_formatada = formatar_data_assinatura(data_hora)
     
     # Incluir posto e função na assinatura se fornecida
-    if funcao:
-        assinante_com_posto_funcao = f"{assinante_com_posto} - {funcao}"
-    else:
-        assinante_com_posto_funcao = assinante_com_posto
+    assinante_com_posto_funcao = assinante_com_posto
     
     # Texto da assinatura eletrônica seguindo o padrão dos outros PDFs
-    texto_assinatura = f"Documento assinado eletronicamente por {assinante_com_posto_funcao}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
+    texto_assinatura = (
+        f"Documento assinado eletronicamente por {assinante_com_posto_funcao}, em {data_formatada} {hora_formatada}, "
+        f"conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
+    )
     
     # Estilo para texto alinhado à esquerda
     style_assinatura_texto = ParagraphStyle('assinatura_texto', parent=styles['Normal'], fontSize=9, fontName='Helvetica', alignment=0, spaceAfter=1, spaceBefore=1, leading=12)
@@ -6267,10 +6270,13 @@ def _gerar_pdf_relatorio_individual_mensal(militar, mes, ano, mes_nome, planejad
         data_formatada, hora_formatada = formatar_data_assinatura(data_hora)
         
         # Incluir posto e função na assinatura
-        assinante_com_posto_funcao = f"{assinante_com_posto} - {funcao}"
+        assinante_com_posto_funcao = f"{assinante_com_posto}"
         
         # Texto da assinatura eletrônica seguindo o padrão dos outros PDFs
-        texto_assinatura = f"Documento assinado eletronicamente por {assinante_com_posto_funcao}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
+        texto_assinatura = (
+            f"Documento assinado eletronicamente por {assinante_com_posto_funcao}, em {data_formatada} {hora_formatada}, "
+            f"conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
+        )
         
         # Estilo para texto alinhado à esquerda
         style_assinatura_texto = ParagraphStyle('assinatura_texto', parent=styles['Normal'], fontSize=9, fontName='Helvetica', alignment=0, spaceAfter=1, spaceBefore=1, leading=12)
@@ -6662,11 +6668,11 @@ def _gerar_pdf_relatorio_individual_anual(militar, ano, resumo_mensal, total_ger
         data_hora = timezone.now()
         data_formatada, hora_formatada = formatar_data_assinatura(data_hora)
         
-        # Preparar texto da assinatura com função se disponível
-        if funcao:
-            texto_assinatura = f"Documento assinado eletronicamente por {nome_assinante} - {funcao}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
-        else:
-            texto_assinatura = f"Documento assinado eletronicamente por {nome_assinante}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
+        # Preparar texto da assinatura padronizado sem função
+        texto_assinatura = (
+            f"Documento assinado eletronicamente por {nome_assinante}, em {data_formatada} {hora_formatada}, "
+            f"conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
+        )
         
         # Estilo para texto justificado
         style_assinatura_texto = ParagraphStyle('assinatura_texto', parent=styles['Normal'], fontSize=10, fontName='Helvetica', alignment=4, spaceAfter=1, spaceBefore=1, leading=14)
@@ -6753,4 +6759,3 @@ def _gerar_pdf_relatorio_individual_anual(militar, ano, resumo_mensal, total_ger
     response.write(buffer.read())
     
     return response
-

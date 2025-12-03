@@ -8,8 +8,9 @@ echo "🚀 ATUALIZANDO CORREÇÃO DE PERMISSÕES - MENU CONFIGURAÇÕES"
 echo "==============================================================="
 echo ""
 
-SERVER="64.23.185.235"
-USER="root"
+SERVER="164.92.118.212"
+SSH_USER="${SSH_USER:-root}"
+SSH_KEY="${SSH_KEY:-$HOME/.ssh/id_rsa}"
 REMOTE_PATH="/home/seprom/sepromcbmepi"
 
 # Passo 1: Fazer push das alterações (se necessário)
@@ -26,7 +27,13 @@ fi
 
 echo ""
 echo "🔍 Verificando conexão com servidor..."
-if ! ssh -o ConnectTimeout=5 ${USER}@${SERVER} "echo 'Conexão OK'" 2>/dev/null; then
+if [ ! -f "$SSH_KEY" ]; then
+    echo "⚠️  Chave SSH não encontrada em: $SSH_KEY"
+    echo "   Configure SSH keys ou informe o caminho da chave ao executar:"
+    echo "   SSH_KEY=\\caminho\\para\\sua_chave SSH_USER=root ./atualizar_configuracoes_do.sh"
+fi
+
+if ! ssh -i "$SSH_KEY" -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 ${SSH_USER}@${SERVER} "echo 'Conexão OK'" 2>/dev/null; then
     echo "❌ Erro: Não foi possível conectar ao servidor ${SERVER}"
     echo "   Verifique se:"
     echo "   1. O servidor está online"
@@ -39,10 +46,16 @@ echo "✅ Conexão estabelecida!"
 echo ""
 
 # Executar comandos no servidor via SSH
-ssh ${USER}@${SERVER} << 'ENDSSH'
+ssh -i "$SSH_KEY" -o BatchMode=yes -o StrictHostKeyChecking=accept-new ${SSH_USER}@${SERVER} << 'ENDSSH'
     echo "📦 Atualizando código do repositório..."
     cd /home/seprom/sepromcbmepi
     
+    # Configurar exceção de propriedade para o Git (evita 'dubious ownership')
+    echo "🔐 Configurando Git safe.directory..."
+    git config --global --add safe.directory /home/seprom/sepromcbmepi || true
+    sudo -u seprom -H bash -lc "git config --global --add safe.directory /home/seprom/sepromcbmepi" || true
+    echo "✅ safe.directory configurado (root e seprom)"
+
     # Fazer backup antes de atualizar
     echo "💾 Criando backup rápido..."
     BACKUP_DIR="/home/seprom/backups/$(date +%Y%m%d_%H%M%S)_configuracoes"
@@ -51,10 +64,10 @@ ssh ${USER}@${SERVER} << 'ENDSSH'
     cp militares/models.py "$BACKUP_DIR/" 2>/dev/null
     echo "✅ Backup salvo em: $BACKUP_DIR"
     
-    # Atualizar código do git
+    # Atualizar código do git como usuário seprom
     if [ -d ".git" ]; then
-        echo "📥 Fazendo pull do repositório..."
-        git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || {
+        echo "📥 Fazendo pull do repositório (usuário seprom)..."
+        sudo -u seprom -H bash -lc "cd /home/seprom/sepromcbmepi && (git pull origin main 2>/dev/null || git pull origin master 2>/dev/null)" || {
             echo "⚠️  Não foi possível fazer pull do git"
             exit 1
         }
@@ -65,19 +78,11 @@ ssh ${USER}@${SERVER} << 'ENDSSH'
     fi
     
     echo ""
-    echo "🐍 Ativando ambiente virtual..."
-    source venv/bin/activate || {
-        echo "❌ Erro ao ativar venv"
+    echo "🐍 Ativando ambiente virtual e aplicando migrações/estáticos (usuário seprom)..."
+    sudo -u seprom -H bash -lc "cd /home/seprom/sepromcbmepi && source venv/bin/activate && python manage.py migrate --noinput && python manage.py collectstatic --noinput --clear" || {
+        echo "❌ Erro ao executar migrações/coleta de estáticos"
         exit 1
     }
-    
-    echo ""
-    echo "🗄️  Executando migrations (se houver)..."
-    python manage.py migrate --noinput
-    
-    echo ""
-    echo "📁 Coletando arquivos estáticos..."
-    python manage.py collectstatic --noinput --clear
     
     echo ""
     echo "🔄 Reiniciando serviço Gunicorn..."
@@ -95,7 +100,7 @@ ssh ${USER}@${SERVER} << 'ENDSSH'
     
     echo ""
     echo "✅ ATUALIZAÇÃO CONCLUÍDA!"
-    echo "🌐 Acesse: http://64.23.185.235/login/"
+    echo "🌐 Acesse: http://164.92.118.212/login/"
     echo ""
     echo "📝 Alterações aplicadas:"
     echo "   - Mapeamento de SUBMENU_USUARIOS → show_usuarios"
@@ -110,4 +115,3 @@ echo ""
 echo "==============================================================="
 echo "✅ Script executado com sucesso!"
 echo "==============================================================="
-

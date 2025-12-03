@@ -39,10 +39,18 @@ class FuncaoSelecaoMiddleware:
             '/militares/painel-guarda-login/',  # URL pública para login do painel de guarda
             '/militares/painel-guarda/',  # URL pública do painel de guarda (tem login integrado)
             '/militares/painel-guarda-ajax/',  # Endpoint AJAX do painel de guarda
+            '/militares/ensino/login/',  # Login do módulo de ensino
         ]
         
         # Verificar se a URL atual está excluída
         if any(request.path.startswith(url) for url in urls_excluidas):
+            return self.get_response(request)
+        
+        # Verificar se é usuário do módulo de ensino (através da sessão)
+        ensino_tipo = request.session.get('ensino_tipo')
+        ensino_id = request.session.get('ensino_id')
+        if ensino_tipo and ensino_id:
+            # Usuários do módulo de ensino não precisam de UsuarioSessao
             return self.get_response(request)
         
         # Superusuários podem acessar sem função e sem sessão

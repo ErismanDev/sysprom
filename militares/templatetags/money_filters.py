@@ -70,3 +70,22 @@ def input_value(value):
         return valor_str
     except (ValueError, TypeError):
         return ""
+
+@register.filter
+def number_input(value):
+    """Formata número para campos input type='number' - usa ponto decimal"""
+    if value is None:
+        return ""
+    
+    try:
+        # Se for Decimal, converter para float
+        from decimal import Decimal
+        if isinstance(value, Decimal):
+            return str(float(value))
+        # Se for string, converter para float e retornar como string
+        if isinstance(value, str):
+            return str(float(value.replace(',', '.')))
+        # Se for número, converter para float e retornar como string
+        return str(float(value))
+    except (ValueError, TypeError):
+        return ""

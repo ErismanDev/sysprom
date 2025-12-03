@@ -162,4 +162,23 @@ def get_notas_boletim(numero_boletim):
     return Publicacao.objects.filter(
         tipo='NOTA',
         numero_boletim=numero_boletim
-    ).order_by('numero') 
+    ).order_by('numero')
+
+@register.filter
+def zeropad(value, width=2):
+    """Formata número com zero à esquerda"""
+    try:
+        # Converter para inteiro (remove decimais)
+        num = int(float(value))
+        # Formatar com zero à esquerda
+        return f"{num:0{width}d}"
+    except (ValueError, TypeError):
+        return str(value)
+
+@register.filter
+def add(value, arg):
+    """Concatena dois valores como strings"""
+    try:
+        return str(value) + str(arg)
+    except (ValueError, TypeError):
+        return str(value) + str(arg) if value else str(arg) 

@@ -111,8 +111,6 @@ def tem_permissao(user, modulo, acao):
         'submenu_boletins_ostensivos': 'SUBMENU_BOLETINS_OSTENSIVOS',
         'submenu_boletins_reservados': 'SUBMENU_BOLETINS_RESERVADOS',
         'submenu_boletins_especiais': 'SUBMENU_BOLETINS_ESPECIAIS',
-        'submenu_avisos': 'SUBMENU_AVISOS',
-        'submenu_ordens_servico': 'SUBMENU_ORDENS_SERVICO',
         
         # Módulos de Ação - Militares Ativos
         'militares': 'MILITARES',
@@ -148,6 +146,10 @@ def tem_permissao(user, modulo, acao):
         # Módulos de Ação - Afastamentos
         'afastamentos': 'AFASTAMENTOS',
         'menu_afastamentos': 'MENU_AFASTAMENTOS',
+        
+        # Módulos de Ação - Ensino
+        'ensino': 'ENSINO',
+        'ENSINO': 'ENSINO',
     }
     
     # Mapear ações para os códigos do modelo PermissaoFuncao
@@ -172,6 +174,11 @@ def tem_permissao(user, modulo, acao):
     
     # Obter códigos mapeados
     modulo_codigo = modulo_mapping.get(modulo)
+    if not modulo_codigo:
+        if modulo.startswith('menu_'):
+            modulo_codigo = 'MENU_' + modulo[len('menu_'):].upper()
+        elif modulo.startswith('submenu_'):
+            modulo_codigo = 'SUBMENU_' + modulo[len('submenu_'):].upper()
     acao_codigo = acao_mapping.get(acao)
     
     if not modulo_codigo or not acao_codigo:
@@ -325,34 +332,126 @@ def pode_gerenciar_medalhas(user):
     return tem_permissao(user, 'medalhas', 'gerenciar')
 
 
+def _verificar_permissoes_modulo(user, modulo_menu, submenus=None, botoes=None):
+    """
+    Função auxiliar para verificar permissões de módulo considerando menus, submenus e botões
+    
+    Args:
+        user: Usuário Django
+        modulo_menu: Nome do módulo de menu (ex: 'MENU_EFETIVO', 'MENU_PUBLICACOES')
+        submenus: Lista de submenus relacionados (ex: ['SUBMENU_ATIVOS', 'SUBMENU_INATIVOS'])
+        botoes: Lista de botões relacionados (ex: ['BOTAO_LOTACAO_NOVA', 'BOTAO_LOTACAO_EDITAR'])
+    
+    Returns:
+        bool: True se tem qualquer permissão relacionada ao módulo
+    """
+    if user.is_superuser:
+        return True
+    
+    funcao_usuario = obter_funcao_militar_ativa(user)
+    if not funcao_usuario:
+        return False
+    
+    funcao_militar = funcao_usuario.funcao_militar
+    from .models import PermissaoFuncao
+    
+    # Verificar permissões de botões primeiro
+    if botoes:
+        permissoes_botoes = PermissaoFuncao.objects.filter(
+            funcao_militar=funcao_militar,
+            modulo__in=botoes,
+            ativo=True
+        )
+        if permissoes_botoes.exists():
+            return True
+    
+    # Verificar permissão de menu
+    if modulo_menu:
+        permissoes_menu = PermissaoFuncao.objects.filter(
+            funcao_militar=funcao_militar,
+            modulo=modulo_menu,
+            acesso='VISUALIZAR',
+            ativo=True
+        )
+        if permissoes_menu.exists():
+            return True
+    
+    # Verificar permissões de submenus
+    if submenus:
+        permissoes_submenu = PermissaoFuncao.objects.filter(
+            funcao_militar=funcao_militar,
+            modulo__in=submenus,
+            acesso='VISUALIZAR',
+            ativo=True
+        )
+        if permissoes_submenu.exists():
+            return True
+    
+    # Fallback: usar tem_permissao
+    if modulo_menu:
+        return tem_permissao(user, modulo_menu.lower(), 'visualizar')
+    
+    return False
+
+
 def pode_acessar_dashboard(user):
     """Verifica se pode acessar o dashboard"""
-    return tem_permissao(user, 'menu_dashboard', 'visualizar')
+    return _verificar_permissoes_modulo(user, 'MENU_DASHBOARD')
 
 
 def pode_acessar_efetivo(user):
     """Verifica se pode acessar o módulo efetivo"""
-    return tem_permissao(user, 'menu_efetivo', 'visualizar')
+    return _verificar_permissoes_modulo(
+        user, 
+        'MENU_EFETIVO',
+        submenus=['SUBMENU_ATIVOS', 'SUBMENU_INATIVOS', 'SUBMENU_LOTACOES', 'SUBMENU_AVERBACOES'],
+        botoes=['BOTAO_LOTACAO_NOVA', 'BOTAO_LOTACAO_EDITAR', 'BOTAO_LOTACAO_EXCLUIR', 'BOTAO_LOTACAO_ESTATISTICAS']
+    )
 
 
 def pode_acessar_secao_promocoes(user):
     """Verifica se pode acessar a seção de promoções"""
-    return tem_permissao(user, 'menu_secao_promocoes', 'visualizar')
+    return _verificar_permissoes_modulo(
+        user,
+        'MENU_SECAO_PROMOCOES',
+        submenus=['SUBMENU_FICHAS_OFICIAIS', 'SUBMENU_FICHAS_PRACAS', 'SUBMENU_QUADROS_ACESSO', 
+                  'SUBMENU_QUADROS_FIXACAO', 'SUBMENU_ALMANAQUES', 'SUBMENU_PROMOCOES', 
+                  'SUBMENU_CALENDARIOS', 'SUBMENU_COMISSOES', 'SUBMENU_MEUS_VOTOS']
+    )
 
 
 def pode_acessar_medalhas(user):
     """Verifica se pode acessar o módulo medalhas"""
-    return tem_permissao(user, 'menu_medalhas', 'visualizar')
+    return _verificar_permissoes_modulo(
+        user,
+        'MENU_MEDALHAS',
+        submenus=['SUBMENU_MEDALHAS_CONCESSOES', 'SUBMENU_MEDALHAS_PROPOSTAS', 
+                  'SUBMENU_ELEGIVEIS', 'SUBMENU_PROPOSTAS']
+    )
 
 
 def pode_acessar_configuracoes(user):
     """Verifica se pode acessar configurações"""
-    return tem_permissao(user, 'menu_configuracoes', 'visualizar')
+    return _verificar_permissoes_modulo(
+        user,
+        'MENU_CONFIGURACOES',
+        submenus=['SUBMENU_USUARIOS', 'SUBMENU_PERMISSOES', 'SUBMENU_ORGAOS', 
+                  'SUBMENU_ORGANOGRAMA', 'SUBMENU_LOGS', 'SUBMENU_TITULOS_PUBLICACAO',
+                  'SUBMENU_ADMINISTRACAO', 'SUBMENU_GRANDES_COMANDOS', 'SUBMENU_UNIDADES',
+                  'SUBMENU_SUB_UNIDADES', 'SUBMENU_INTERSTICIOS', 'SUBMENU_GERENCIAR_INTERSTICIOS',
+                  'SUBMENU_GERENCIAR_PREVISAO']
+    )
 
 
 def pode_acessar_relatorios(user):
     """Verifica se pode acessar relatórios"""
-    return tem_permissao(user, 'menu_relatorios', 'visualizar')
+    return _verificar_permissoes_modulo(
+        user,
+        'MENU_RELATORIOS',
+        submenus=['SUBMENU_RELATORIOS_MILITARES', 'SUBMENU_RELATORIOS_PROMOCOES',
+                  'SUBMENU_RELATORIOS_MEDALHAS', 'SUBMENU_RELATORIOS_PUBLICACOES',
+                  'SUBMENU_RELATORIOS_GERAIS']
+    )
 
 
 # ==================== FUNÇÕES PARA PUBLICAÇÕES ====================
@@ -906,6 +1005,45 @@ def pode_acessar_publicacoes(user):
     if user.is_superuser:
         return True
     
+    # Verificar permissões granulares de botões primeiro
+    # Usar a função ativa da sessão para verificar permissões
+    funcao_usuario = obter_funcao_militar_ativa(user)
+    if funcao_usuario:
+        funcao_militar = funcao_usuario.funcao_militar
+        from .models import PermissaoFuncao
+        
+        # Verificar permissões de botões de publicação
+        permissoes_botoes = PermissaoFuncao.objects.filter(
+            funcao_militar=funcao_militar,
+            modulo__in=['BOTAO_PUBLICACAO_NOVA', 'BOTAO_PUBLICACAO_EDITAR', 'BOTAO_PUBLICACAO_PUBLICAR', 'BOTAO_PUBLICACAO_ASSINAR'],
+            ativo=True
+        )
+        if permissoes_botoes.exists():
+            return True
+        
+        # Verificar permissão de menu/submenu de publicações
+        permissoes_menu = PermissaoFuncao.objects.filter(
+            funcao_militar=funcao_militar,
+            modulo__in=['MENU_PUBLICACOES', 'SUBMENU_NOTAS', 'SUBMENU_BOLETINS_OSTENSIVOS', 'SUBMENU_BOLETINS_RESERVADOS', 'SUBMENU_BOLETINS_ESPECIAIS'],
+            acesso='VISUALIZAR',
+            ativo=True
+        )
+        if permissoes_menu.exists():
+            return True
+    
+    # Fallback: verificar usando tem_permissao (verifica todas as funções ativas)
+    from .permissoes_sistema import tem_permissao
+    if (tem_permissao(user, 'BOTAO_PUBLICACAO_NOVA', 'TOTAL') or
+        tem_permissao(user, 'BOTAO_PUBLICACAO_EDITAR', 'TOTAL') or
+        tem_permissao(user, 'BOTAO_PUBLICACAO_PUBLICAR', 'TOTAL') or
+        tem_permissao(user, 'BOTAO_PUBLICACAO_ASSINAR', 'TOTAL')):
+        return True
+    
+    # Verificar permissão de menu/submenu de publicações
+    if tem_permissao(user, 'MENU_PUBLICACOES', 'VISUALIZAR') or tem_permissao(user, 'SUBMENU_NOTAS', 'VISUALIZAR'):
+        return True
+    
+    # Fallback para verificação antiga (campo publicacao do modelo)
     # Primeiro tentar usar a função ativa da sessão
     funcao_usuario = obter_funcao_militar_ativa(user)
     
@@ -930,6 +1068,15 @@ def pode_acessar_publicacoes(user):
 
 def pode_criar_publicacoes(user):
     """Verifica se o usuário pode criar publicações"""
+    if user.is_superuser:
+        return True
+    
+    # Verificar permissão granular de botão primeiro
+    from .permissoes_sistema import tem_permissao
+    if tem_permissao(user, 'BOTAO_PUBLICACAO_NOVA', 'TOTAL'):
+        return True
+    
+    # Fallback para verificação antiga (campo publicacao do modelo)
     return pode_acessar_publicacoes(user)
 
 
@@ -938,6 +1085,12 @@ def pode_editar_publicacoes(user):
     if user.is_superuser:
         return True
     
+    # Verificar permissão granular de botão primeiro
+    from .permissoes_sistema import tem_permissao
+    if tem_permissao(user, 'BOTAO_PUBLICACAO_EDITAR', 'TOTAL'):
+        return True
+    
+    # Fallback para verificação antiga (campo publicacao do modelo)
     funcao_usuario = obter_funcao_militar_ativa(user)
     if not funcao_usuario:
         return False
@@ -973,6 +1126,12 @@ def pode_publicar_publicacoes(user):
     if user.is_superuser:
         return True
     
+    # Verificar permissão granular de botão primeiro
+    from .permissoes_sistema import tem_permissao
+    if tem_permissao(user, 'BOTAO_PUBLICACAO_PUBLICAR', 'TOTAL'):
+        return True
+    
+    # Fallback para verificação antiga (campo publicacao do modelo)
     funcao_usuario = obter_funcao_militar_ativa(user)
     if not funcao_usuario:
         return False
@@ -982,31 +1141,31 @@ def pode_publicar_publicacoes(user):
 
 
 def pode_acessar_boletins(user):
-    """Verifica se o usuário pode acessar boletins (apenas editores)"""
+    """Verifica se o usuário pode acessar boletins"""
     if user.is_superuser:
         return True
     
-    funcao_usuario = obter_funcao_militar_ativa(user)
-    if not funcao_usuario:
-        return False
-    
-    # Apenas editores podem acessar boletins
-    funcoes_editor = ['EDITOR_GERAL', 'EDITOR_ADJUNTO', 'EDITOR']
-    return funcao_usuario.funcao_militar.publicacao in funcoes_editor
+    # Verificar permissões granulares primeiro
+    return _verificar_permissoes_modulo(
+        user,
+        'MENU_PUBLICACOES',
+        submenus=['SUBMENU_BOLETINS_OSTENSIVOS', 'SUBMENU_BOLETINS_RESERVADOS', 'SUBMENU_BOLETINS_ESPECIAIS'],
+        botoes=['BOTAO_PUBLICACAO_NOVA', 'BOTAO_PUBLICACAO_EDITAR', 'BOTAO_PUBLICACAO_PUBLICAR', 'BOTAO_PUBLICACAO_ASSINAR']
+    ) or pode_acessar_publicacoes(user)
 
 
 def pode_acessar_notas(user):
-    """Verifica se o usuário pode acessar notas (editores, revisores e aprovadores)"""
+    """Verifica se o usuário pode acessar notas"""
     if user.is_superuser:
         return True
     
-    funcao_usuario = obter_funcao_militar_ativa(user)
-    if not funcao_usuario:
-        return False
-    
-    # Editores, revisores e aprovadores podem acessar notas
-    funcoes_permitidas = ['EDITOR_GERAL', 'EDITOR_ADJUNTO', 'EDITOR', 'REVISOR', 'APROVADOR']
-    return funcao_usuario.funcao_militar.publicacao in funcoes_permitidas
+    # Verificar permissões granulares primeiro
+    return _verificar_permissoes_modulo(
+        user,
+        'MENU_PUBLICACOES',
+        submenus=['SUBMENU_NOTAS', 'SUBMENU_NOTAS_RESERVADAS'],
+        botoes=['BOTAO_PUBLICACAO_NOVA', 'BOTAO_PUBLICACAO_EDITAR', 'BOTAO_PUBLICACAO_PUBLICAR', 'BOTAO_PUBLICACAO_ASSINAR']
+    ) or pode_acessar_publicacoes(user)
 
 
 # ==================== FUNÇÕES ESPECÍFICAS PARA OPERAÇÕES PLANEJADAS ====================
@@ -1020,7 +1179,16 @@ def pode_visualizar_operacoes_planejadas(user):
     if user.is_superuser:
         return True
     
-    # Obter função militar da sessão
+    # Verificar permissões granulares primeiro
+    return _verificar_permissoes_modulo(
+        user,
+        'MENU_PLANEJADAS',
+        submenus=['SUBMENU_OPERADOR_PLANEJADAS', 'SUBMENU_FISCAL_PLANEJADAS', 'SUBMENU_LIQUIDACAO']
+    ) or _verificar_permissoes_modulo_antigo(user)
+
+
+def _verificar_permissoes_modulo_antigo(user):
+    """Verificação antiga baseada no campo publicacao do modelo (fallback)"""
     funcao_usuario = obter_funcao_militar_ativa(user)
     if not funcao_usuario or not funcao_usuario.ativo:
         return False
@@ -1266,7 +1434,6 @@ def tem_funcao_especial(user, funcoes_lista):
 
 
 # ==================== FUNÇÕES ESPECÍFICAS PARA NOTAS RESERVADAS ====================
-
 
 
 

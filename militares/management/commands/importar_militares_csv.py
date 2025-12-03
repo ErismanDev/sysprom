@@ -4,6 +4,7 @@ from datetime import datetime
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from militares.models import Militar
+import unicodedata
 from django.db import transaction
 
 
@@ -37,29 +38,69 @@ class Command(BaseCommand):
             self.style.SUCCESS(f'Iniciando importação do arquivo: {file_path}')
         )
 
-        # Mapeamento de postos/graduações
+        # Normalização para mapear variações de texto
+        def normalize(text: str) -> str:
+            if not text:
+                return ''
+            t = unicodedata.normalize('NFKD', text)
+            t = ''.join(c for c in t if not unicodedata.combining(c))
+            t = t.replace('º', 'O').replace('°', 'O').replace('.', ' ').replace('-', ' ')
+            t = ' '.join(t.split())
+            return t.upper()
+
+        # Mapeamento de postos/graduações (chaves normalizadas)
         posto_mapping = {
             'CORONEL': 'CB',
+            'CEL': 'CB',
             'TENENTE CORONEL': 'TC',
+            'TC': 'TC',
             'MAJOR': 'MJ',
-            'CAPITÃO': 'CP',
-            '1º TENENTE': '1T',
-            '2º TENENTE': '2T',
+            'MJ': 'MJ',
+            'CAPITAO': 'CP',
+            'CAPITAO BM': 'CP',
+            'CAPITAO CBM': 'CP',
+            'CAP': 'CP',
+            '1O TENENTE': '1T',
+            '1 TENENTE': '1T',
+            'PRIMEIRO TENENTE': '1T',
+            'TENENTE 1': '1T',
+            'TENENTE PRIMEIRO': '1T',
+            '1T': '1T',
+            '2O TENENTE': '2T',
+            '2 TENENTE': '2T',
+            'SEGUNDO TENENTE': '2T',
+            'TENENTE 2': '2T',
+            'TENENTE SEGUNDO': '2T',
+            '2T': '2T',
             'ASPIRANTE': 'AS',
             'ALUNO ASPIRANTE': 'AA',
+            'AA': 'AA',
             'SUBTENENTE': 'ST',
-            '1º SARGENTO': '1S',
-            '2º SARGENTO': '2S',
-            '3º SARGENTO': '3S',
+            'ST': 'ST',
+            '1 SARGENTO': '1S',
+            'PRIMEIRO SARGENTO': '1S',
+            '1S': '1S',
+            '2 SARGENTO': '2S',
+            'SEGUNDO SARGENTO': '2S',
+            '2S': '2S',
+            '3 SARGENTO': '3S',
+            'TERCEIRO SARGENTO': '3S',
+            '3S': '3S',
             'CABO': 'CAB',
+            'CB': 'CAB',
             'SOLDADO': 'SD',
+            'SD': 'SD',
         }
 
-        # Mapeamento de quadros
+        # Mapeamento de quadros (normalizado)
         quadro_mapping = {
-            'Combatente': 'COMB',
-            'Complementar': 'COMP',
-            'Engenheiro': 'ENG',
+            'COMBATENTE': 'COMB',
+            'COMPLEMENTAR': 'COMP',
+            'ENGENHEIRO': 'ENG',
+            'ENG': 'ENG',
+            'SAUDE': 'SAUDE',
+            'PRACAS': 'PRACAS',
+            'RESERVA REMUNERADA': 'RESERVA_REMUNERADA',
             'NVRR': 'NVRR',
         }
 
@@ -155,11 +196,44 @@ class Command(BaseCommand):
                     except ValueError:
                         num_ant = None
 
-                    # Mapear posto/graduação
-                    posto_codigo = posto_mapping.get(posto_graduacao, posto_graduacao)
+                    # Mapear posto/graduação com normalização
+                    posto_codigo = posto_mapping.get(normalize(posto_graduacao), None)
+                    if not posto_codigo:
+                        # Tentativa por substring
+                        pg_norm = normalize(posto_graduacao)
+                        if 'TENENTE CORONEL' in pg_norm or pg_norm.startswith('TC'):
+                            posto_codigo = 'TC'
+                        elif 'MAJOR' in pg_norm or pg_norm.startswith('MJ'):
+                            posto_codigo = 'MJ'
+                        elif 'CAPIT' in pg_norm or pg_norm.startswith('CAP'):
+                            posto_codigo = 'CP'
+                        elif 'PRIMEIRO TENENTE' in pg_norm or '1O TENENTE' in pg_norm or 'TENENTE 1O' in pg_norm or pg_norm.startswith('1T'):
+                            posto_codigo = '1T'
+                        elif 'SEGUNDO TENENTE' in pg_norm or '2O TENENTE' in pg_norm or 'TENENTE 2O' in pg_norm or pg_norm.startswith('2T'):
+                            posto_codigo = '2T'
+                        elif 'ASPIRANTE' in pg_norm:
+                            posto_codigo = 'AS'
+                        elif 'ALUNO ASPIRANTE' in pg_norm or pg_norm == 'AA':
+                            posto_codigo = 'AA'
+                        elif 'SUBTENENTE' in pg_norm or pg_norm == 'ST':
+                            posto_codigo = 'ST'
+                        elif 'PRIMEIRO SARGENTO' in pg_norm or '1 SARGENTO' in pg_norm or '1O SARGENTO' in pg_norm or pg_norm == '1S':
+                            posto_codigo = '1S'
+                        elif 'SEGUNDO SARGENTO' in pg_norm or '2 SARGENTO' in pg_norm or '2O SARGENTO' in pg_norm or pg_norm == '2S':
+                            posto_codigo = '2S'
+                        elif 'TERCEIRO SARGENTO' in pg_norm or '3 SARGENTO' in pg_norm or '3O SARGENTO' in pg_norm or pg_norm in ['3S', 'SGT']:
+                            posto_codigo = '3S'
+                        elif 'CABO' in pg_norm or pg_norm in ['CB', 'CAB']:
+                            posto_codigo = 'CAB'
+                        elif 'SOLDADO' in pg_norm or pg_norm == 'SD':
+                            posto_codigo = 'SD'
+                        else:
+                            raise ValueError(f"Posto inválido: '{posto_graduacao}' (normalizado: '{pg_norm}')")
 
-                    # Mapear quadro
-                    quadro_codigo = quadro_mapping.get(quadro, quadro)
+                    # Mapear quadro com normalização
+                    quadro_codigo = quadro_mapping.get(normalize(quadro), None)
+                    if not quadro_codigo:
+                        raise ValueError(f"Quadro inválido: '{quadro}'")
 
                     # Mapear situação
                     classificacao_codigo = 'ATIVO' if situacao.upper() in ['ATIVO', 'ATIVA'] else 'INATIVO'

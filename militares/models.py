@@ -10862,6 +10862,8 @@ class FuncaoMenuConfig(models.Model):
     
     # Menus e Submenus - Ensino
     show_ensino = models.BooleanField(default=False, verbose_name="Ensino")
+    show_ensino_submenu = models.BooleanField(default=False, verbose_name="Ensino: mostrar submenu")
+    show_ensino_usuarios = models.BooleanField(default=False, verbose_name="Ensino: usuários")
     show_ensino_dashboard = models.BooleanField(default=False, verbose_name="Dashboard de Ensino")
     show_ensino_cursos = models.BooleanField(default=False, verbose_name="Cursos")
     show_ensino_turmas = models.BooleanField(default=False, verbose_name="Turmas")

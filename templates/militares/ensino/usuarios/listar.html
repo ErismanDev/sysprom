@@ -1,0 +1,459 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Controle de Usuários - Módulo de Ensino{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="mb-0">
+                    <i class="fas fa-users-cog me-2"></i>
+                    Controle de Usuários - Módulo de Ensino
+                </h1>
+                <a href="{% url 'militares:ensino_dashboard' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Voltar
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Estatísticas -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">Alunos</h6>
+                            <h3 class="mb-0">{{ total_alunos }}</h3>
+                            <small>{{ alunos_ativos }} ativos</small>
+                        </div>
+                        <i class="fas fa-user-graduate fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">Instrutores</h6>
+                            <h3 class="mb-0">{{ total_instrutores }}</h3>
+                            <small>{{ instrutores_ativos }} ativos</small>
+                        </div>
+                        <i class="fas fa-chalkboard-teacher fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">Monitores</h6>
+                            <h3 class="mb-0">{{ total_monitores }}</h3>
+                            <small>{{ monitores_ativos }} ativos</small>
+                        </div>
+                        <i class="fas fa-user-tie fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" id="filters-form" class="row g-3">
+                <div class="col-md-3">
+                    <label for="tipo" class="form-label">Tipo de Usuário</label>
+                    <select class="form-select" id="tipo" name="tipo">
+                        <option value="">Todos</option>
+                        <option value="aluno" {% if tipo_usuario == 'aluno' %}selected{% endif %}>Alunos</option>
+                        <option value="instrutor" {% if tipo_usuario == 'instrutor' %}selected{% endif %}>Instrutores</option>
+                        <option value="monitor" {% if tipo_usuario == 'monitor' %}selected{% endif %}>Monitores</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="status" class="form-label">Status</label>
+                    <select class="form-select" id="status" name="status">
+                        <option value="">Todos</option>
+                        <option value="ativo" {% if status == 'ativo' %}selected{% endif %}>Ativos</option>
+                        <option value="inativo" {% if status == 'inativo' %}selected{% endif %}>Inativos</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="q" class="form-label">Buscar</label>
+                    <input type="text" class="form-control" id="q" name="q" value="{{ query }}" 
+                           placeholder="Nome, CPF, Matrícula...">
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-2"></i>Buscar
+                    </button>
+                </div>
+                <div class="col-md-2">
+                    <label for="per_page" class="form-label">Itens por página</label>
+                    <select class="form-select" id="per_page" name="per_page">
+                        {% for n in 10|make_list %}{% endfor %}
+                        <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
+                        <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
+                        <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Tabs para cada tipo -->
+    <div class="card">
+        <div class="card-header">
+            <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                <li class="nav-item">
+                    <a class="nav-link {% if not tipo_usuario or tipo_usuario == 'aluno' %}active{% endif %}" 
+                       data-bs-toggle="tab" href="#alunos" role="tab">
+                        <i class="fas fa-user-graduate me-2"></i>Alunos ({% if alunos_page %}{{ alunos_page.paginator.count }}{% else %}{{ alunos|length }}{% endif %})
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if tipo_usuario == 'instrutor' %}active{% endif %}" 
+                       data-bs-toggle="tab" href="#instrutores" role="tab">
+                        <i class="fas fa-chalkboard-teacher me-2"></i>Instrutores ({% if instrutores_page %}{{ instrutores_page.paginator.count }}{% else %}{{ instrutores|length }}{% endif %})
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if tipo_usuario == 'monitor' %}active{% endif %}" 
+                       data-bs-toggle="tab" href="#monitores" role="tab">
+                        <i class="fas fa-user-tie me-2"></i>Monitores ({% if monitores_page %}{{ monitores_page.paginator.count }}{% else %}{{ monitores|length }}{% endif %})
+                    </a>
+                </li>
+            </ul>
+        </div>
+        <div class="card-body">
+            <div class="tab-content">
+                <!-- Tab Alunos -->
+                <div class="tab-pane fade {% if not tipo_usuario or tipo_usuario == 'aluno' %}show active{% endif %}" 
+                     id="alunos" role="tabpanel">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th class="text-center" style="width:60px">#</th>
+                                    <th>Matrícula</th>
+                                    <th>Nome</th>
+                                    <th>CPF</th>
+                                    <th>Turma</th>
+                                    <th>Situação</th>
+                                    <th>Senha</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for aluno in alunos %}
+                                <tr>
+                                    <td class="text-center"><strong>{{ alunos_start_index|add:forloop.counter0 }}</strong></td>
+                                    <td>{{ aluno.matricula|default:"-" }}</td>
+                                    <td>{{ aluno.get_pessoa_nome }}</td>
+                                    <td>{{ aluno.get_cpf|default:"-" }}</td>
+                                    <td>
+                                        {% if aluno.turma %}
+                                            <a href="{% url 'militares:ensino_turma_detalhes' pk=aluno.turma.pk %}">
+                                                {{ aluno.turma.identificacao }}
+                                            </a>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge {% if aluno.situacao == 'ATIVO' %}bg-success{% else %}bg-secondary{% endif %}">
+                                            {{ aluno.get_situacao_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if aluno.senha_hash %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-check me-1"></i>Definida
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-warning">
+                                                <i class="fas fa-times me-1"></i>Não definida
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'militares:ensino_aluno_detalhes' pk=aluno.pk %}" 
+                                               class="btn btn-info" title="Ver detalhes">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            {% if menu_permissions.ENSINO_EDITAR or user.is_superuser %}
+                                            <a href="{% url 'militares:ensino_usuario_definir_senha' tipo='aluno' pk=aluno.pk %}" 
+                                               class="btn btn-warning" title="Definir/Alterar senha">
+                                                <i class="fas fa-key"></i>
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted">
+                                        <i class="fas fa-info-circle me-2"></i>Nenhum aluno encontrado
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if alunos_page %}
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <small class="text-muted">Exibindo {{ alunos_start_index }}–{{ alunos_end_index }} de {{ alunos_page.paginator.count }}</small>
+                    </div>
+                    {% endif %}
+                    {% if alunos_page and alunos_page.paginator.num_pages > 1 %}
+                    <nav aria-label="Paginação" class="mt-3">
+                        <ul class="pagination justify-content-center">
+                            {% if alunos_page.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?tipo=aluno&status={{ status }}&q={{ query }}&per_page={{ per_page }}&page_alunos={{ alunos_page.previous_page_number }}">Anterior</a>
+                            </li>
+                            {% endif %}
+                            {% for num in alunos_page.paginator.page_range %}
+                                {% if alunos_page.number == num %}
+                                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                                {% elif num > alunos_page.number|add:'-3' and num < alunos_page.number|add:'3' %}
+                                    <li class="page-item"><a class="page-link" href="?tipo=aluno&status={{ status }}&q={{ query }}&per_page={{ per_page }}&page_alunos={{ num }}">{{ num }}</a></li>
+                                {% endif %}
+                            {% endfor %}
+                            {% if alunos_page.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?tipo=aluno&status={{ status }}&q={{ query }}&per_page={{ per_page }}&page_alunos={{ alunos_page.next_page_number }}">Próxima</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
+                
+                <!-- Tab Instrutores -->
+                <div class="tab-pane fade {% if tipo_usuario == 'instrutor' %}show active{% endif %}" 
+                     id="instrutores" role="tabpanel">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th class="text-center" style="width:60px">#</th>
+                                    <th>Nome</th>
+                                    <th>CPF</th>
+                                    <th>Tipo</th>
+                                    <th>Status</th>
+                                    <th>Senha</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for instrutor in instrutores %}
+                                <tr>
+                                    <td class="text-center"><strong>{{ instrutores_start_index|add:forloop.counter0 }}</strong></td>
+                                    <td>{{ instrutor.get_nome_completo }}</td>
+                                    <td>{{ instrutor.get_cpf|default:"-" }}</td>
+                                    <td>
+                                        <span class="badge bg-primary">
+                                            {{ instrutor.get_tipo_instrutor_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge {% if instrutor.ativo %}bg-success{% else %}bg-secondary{% endif %}">
+                                            {% if instrutor.ativo %}Ativo{% else %}Inativo{% endif %}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if instrutor.senha_hash %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-check me-1"></i>Definida
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-warning">
+                                                <i class="fas fa-times me-1"></i>Não definida
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'militares:ensino_instrutor_detalhes' pk=instrutor.pk %}" 
+                                               class="btn btn-info" title="Ver detalhes">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            {% if menu_permissions.ENSINO_EDITAR or user.is_superuser %}
+                                            <a href="{% url 'militares:ensino_usuario_definir_senha' tipo='instrutor' pk=instrutor.pk %}" 
+                                               class="btn btn-warning" title="Definir/Alterar senha">
+                                                <i class="fas fa-key"></i>
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">
+                                        <i class="fas fa-info-circle me-2"></i>Nenhum instrutor encontrado
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if instrutores_page %}
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <small class="text-muted">Exibindo {{ instrutores_start_index }}–{{ instrutores_end_index }} de {{ instrutores_page.paginator.count }}</small>
+                    </div>
+                    {% endif %}
+                    {% if instrutores_page and instrutores_page.paginator.num_pages > 1 %}
+                    <nav aria-label="Paginação" class="mt-3">
+                        <ul class="pagination justify-content-center">
+                            {% if instrutores_page.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?tipo=instrutor&status={{ status }}&q={{ query }}&per_page={{ per_page }}&page_instrutores={{ instrutores_page.previous_page_number }}">Anterior</a>
+                            </li>
+                            {% endif %}
+                            {% for num in instrutores_page.paginator.page_range %}
+                                {% if instrutores_page.number == num %}
+                                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                                {% elif num > instrutores_page.number|add:'-3' and num < instrutores_page.number|add:'3' %}
+                                    <li class="page-item"><a class="page-link" href="?tipo=instrutor&status={{ status }}&q={{ query }}&per_page={{ per_page }}&page_instrutores={{ num }}">{{ num }}</a></li>
+                                {% endif %}
+                            {% endfor %}
+                            {% if instrutores_page.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?tipo=instrutor&status={{ status }}&q={{ query }}&per_page={{ per_page }}&page_instrutores={{ instrutores_page.next_page_number }}">Próxima</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
+                
+                <!-- Tab Monitores -->
+                <div class="tab-pane fade {% if tipo_usuario == 'monitor' %}show active{% endif %}" 
+                     id="monitores" role="tabpanel">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th class="text-center" style="width:60px">#</th>
+                                    <th>Nome</th>
+                                    <th>CPF</th>
+                                    <th>Tipo</th>
+                                    <th>Status</th>
+                                    <th>Senha</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for monitor in monitores %}
+                                <tr>
+                                    <td class="text-center"><strong>{{ monitores_start_index|add:forloop.counter0 }}</strong></td>
+                                    <td>{{ monitor.get_nome_completo }}</td>
+                                    <td>{{ monitor.get_cpf|default:"-" }}</td>
+                                    <td>
+                                        <span class="badge bg-primary">
+                                            {{ monitor.get_tipo_monitor_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge {% if monitor.ativo %}bg-success{% else %}bg-secondary{% endif %}">
+                                            {% if monitor.ativo %}Ativo{% else %}Inativo{% endif %}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if monitor.senha_hash %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-check me-1"></i>Definida
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-warning">
+                                                <i class="fas fa-times me-1"></i>Não definida
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'militares:ensino_monitor_detalhes' pk=monitor.pk %}" 
+                                               class="btn btn-info" title="Ver detalhes">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            {% if menu_permissions.ENSINO_EDITAR or user.is_superuser %}
+                                            <a href="{% url 'militares:ensino_usuario_definir_senha' tipo='monitor' pk=monitor.pk %}" 
+                                               class="btn btn-warning" title="Definir/Alterar senha">
+                                                <i class="fas fa-key"></i>
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">
+                                        <i class="fas fa-info-circle me-2"></i>Nenhum monitor encontrado
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if monitores_page %}
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <small class="text-muted">Exibindo {{ monitores_start_index }}–{{ monitores_end_index }} de {{ monitores_page.paginator.count }}</small>
+                    </div>
+                    {% endif %}
+                    {% if monitores_page and monitores_page.paginator.num_pages > 1 %}
+                    <nav aria-label="Paginação" class="mt-3">
+                        <ul class="pagination justify-content-center">
+                            {% if monitores_page.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?tipo=monitor&status={{ status }}&q={{ query }}&per_page={{ per_page }}&page_monitores={{ monitores_page.previous_page_number }}">Anterior</a>
+                            </li>
+                            {% endif %}
+                            {% for num in monitores_page.paginator.page_range %}
+                                {% if monitores_page.number == num %}
+                                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                                {% elif num > monitores_page.number|add:'-3' and num < monitores_page.number|add:'3' %}
+                                    <li class="page-item"><a class="page-link" href="?tipo=monitor&status={{ status }}&q={{ query }}&per_page={{ per_page }}&page_monitores={{ num }}">{{ num }}</a></li>
+                                {% endif %}
+                            {% endfor %}
+                            {% if monitores_page.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?tipo=monitor&status={{ status }}&q={{ query }}&per_page={{ per_page }}&page_monitores={{ monitores_page.next_page_number }}">Próxima</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var perPageSelect = document.getElementById('per_page');
+    var filtersForm = document.getElementById('filters-form');
+    if (perPageSelect && filtersForm) {
+        perPageSelect.addEventListener('change', function() {
+            // Ao mudar itens por página, envia o formulário automaticamente
+            // e reinicia a paginação (sem parâmetros de página)
+            // Mantém os filtros atuais (tipo, status, q)
+            filtersForm.submit();
+        });
+    }
+});
+</script>
+{% endblock %}
+

@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.db.models import Q
 from datetime import date
 from .models import QuadroAcesso
+from .permissoes_sistema import requer_perm_quadros_criar
 
 @login_required
 def quadro_acesso_unificado_list(request):
@@ -58,8 +59,20 @@ def quadro_acesso_unificado_list(request):
 
 
 @login_required
+@requer_perm_quadros_criar
 def gerar_quadro_acesso_unificado(request):
     """Gera quadro de acesso unificado (oficiais ou praças)"""
+    try:
+        from .models import InstrutorEnsino, MonitorEnsino
+        militar = getattr(request.user, 'militar', None)
+        if militar and (
+            InstrutorEnsino.objects.filter(militar=militar, ativo=True).exists() or
+            MonitorEnsino.objects.filter(militar=militar, ativo=True).exists()
+        ):
+            messages.error(request, 'Instrutores e monitores só podem visualizar Quadros de Acesso.')
+            return redirect('militares:quadro_acesso_unificado_list')
+    except Exception:
+        pass
     if request.method == 'POST':
         tipo_quadro = request.POST.get('tipo_quadro')
         data_promocao = request.POST.get('data_promocao')

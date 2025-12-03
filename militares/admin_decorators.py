@@ -17,6 +17,11 @@ def is_admin_user(user):
     if user.is_superuser:
         return True
     
+    # Usuários master têm acesso total
+    from .models import UsuarioMaster
+    if UsuarioMaster.objects.filter(username=user.username, ativo=True).exists():
+        return True
+    
     # Verificar se tem função de administrador ou operador do sistema
     from .models import UsuarioFuncaoMilitar
     return UsuarioFuncaoMilitar.objects.filter(
@@ -66,4 +71,16 @@ def admin_or_permission_required(permission):
         
         return _wrapped_view
     return decorator
+
+def admin_or_gerenciar_usuarios_required(view_func):
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        if is_admin_user(request.user):
+            return view_func(request, *args, **kwargs)
+        from .permissoes_simples import pode_gerenciar_usuarios
+        if pode_gerenciar_usuarios(request.user):
+            return view_func(request, *args, **kwargs)
+        messages.error(request, 'Acesso negado. Você precisa gerenciar usuários ou ser administrador.')
+        return redirect('militares:home')
+    return _wrapped_view
 

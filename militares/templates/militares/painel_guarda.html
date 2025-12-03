@@ -348,7 +348,7 @@
             overflow-y: auto;
             padding-right: 12px;
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 200px));
+            grid-template-columns: repeat(auto-fill, minmax(240px, 240px));
             gap: 16px;
             align-content: start;
             justify-content: start;
@@ -381,13 +381,13 @@
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             border-left: 5px solid;
             position: relative;
-            overflow: hidden;
-            aspect-ratio: 1;
+            overflow: visible;
+            aspect-ratio: unset;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            min-height: 200px;
-            height: 200px;
+            min-height: 240px;
+            height: auto;
         }
         
         .viatura-card::before {
@@ -611,6 +611,14 @@
             width: 100%;
             justify-content: center;
         }
+
+        .card-actions {
+            margin-top: 8px;
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            flex-shrink: 0;
+        }
         
         .tempo-fora i {
             font-size: 0.8rem;
@@ -716,7 +724,7 @@
         /* Responsive */
         @media (max-width: 1400px) {
             .viaturas-list {
-                grid-template-columns: repeat(auto-fill, minmax(200px, 200px));
+                grid-template-columns: repeat(auto-fill, minmax(240px, 240px));
             }
         }
         
@@ -1163,6 +1171,11 @@
                                         <span>Em Missão</span>
                                     </div>
                                 </div>
+                                <div class="card-actions">
+                                    <button class="btn btn-sm btn-success" onclick="openRetornoModal({{ item.rodagem.id }}, {{ item.rodagem.km_inicial|default:'0' }}, {{ item.viatura.id }})">
+                                        <i class="fas fa-flag-checkered"></i> Registrar Retorno
+                                    </button>
+                                </div>
                             </div>
                         {% endfor %}
                     {% else %}
@@ -1225,6 +1238,11 @@
                                         <i class="fas fa-check-circle"></i>
                                         <span>Disponível</span>
                                     </div>
+                                </div>
+                                <div class="card-actions">
+                                    <button class="btn btn-sm btn-primary" onclick="openSaidaModal({{ viatura.id }})">
+                                        <i class="fas fa-route"></i> Registrar Saída
+                                    </button>
                                 </div>
                             </div>
                         {% endfor %}
@@ -1526,6 +1544,11 @@
                             <span>Em Missão</span>
                         </div>
                     </div>
+                    <div class="card-actions">
+                        <button class="btn btn-sm btn-success" onclick="openRetornoModal(${viatura.rodagem_id}, ${viatura.km_inicial || 0}, ${viatura.viatura_id})">
+                            <i class="fas fa-flag-checkered"></i> Registrar Retorno
+                        </button>
+                    </div>
                 `;
             } else {
                 card.innerHTML = `
@@ -1547,6 +1570,11 @@
                             <i class="fas fa-check-circle"></i>
                             <span>Disponível</span>
                         </div>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn btn-sm btn-primary" onclick="openSaidaModal(${viatura.viatura_id})">
+                            <i class="fas fa-route"></i> Registrar Saída
+                        </button>
                     </div>
                 `;
             }
@@ -1573,6 +1601,177 @@
                 }, index * 100);
             });
         });
+        function getCsrfToken() {
+            const name = 'csrftoken=';
+            const decodedCookie = decodeURIComponent(document.cookie);
+            const ca = decodedCookie.split(';');
+            for (let i = 0; i < ca.length; i++) {
+                let c = ca[i].trim();
+                if (c.indexOf(name) === 0) return c.substring(name.length, c.length);
+            }
+            return '';
+        }
+
+        function openSaidaModal(viaturaId) {
+            const modalId = `saidaModal${viaturaId}`;
+            let modalEl = document.getElementById(modalId);
+            if (!modalEl) {
+                modalEl = document.createElement('div');
+                modalEl.className = 'modal fade';
+                modalEl.id = modalId;
+                modalEl.tabIndex = -1;
+                modalEl.innerHTML = `
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title"><i class="fas fa-route me-2"></i>Registrar Saída</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <form method="post" action="/militares/painel-guarda/registrar-saida/${viaturaId}/">
+                            <input type="hidden" name="csrfmiddlewaretoken" value="${getCsrfToken()}">
+                            <div class="modal-body">
+                                <div class="mb-2">
+                                    <label class="form-label">Data de Saída</label>
+                                    <input type="date" class="form-control" name="data_saida" required>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label">Hora de Saída</label>
+                                    <input type="time" class="form-control" name="hora_saida" required>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label">KM Inicial</label>
+                                    <input type="number" class="form-control" name="km_inicial" min="0" required data-viatura-id="${viaturaId}" onfocus="preencherKmInicial(this)">
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label">Objetivo</label>
+                                    <select class="form-select" name="objetivo" required>
+                                        <option value="OPERACAO">Operação</option>
+                                        <option value="TREINAMENTO">Treinamento</option>
+                                        <option value="MANUTENCAO">Manutenção</option>
+                                        <option value="ADMINISTRATIVO">Administrativo</option>
+                                        <option value="TRANSPORTE">Transporte</option>
+                                        <option value="OUTROS">Outros</option>
+                                    </select>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label">Destino</label>
+                                    <input type="text" class="form-control" name="destino" placeholder="Local de destino">
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label">Motorista (Condutor)</label>
+                                    <input type="text" class="form-control" placeholder="Digite nome ou matrícula" oninput="buscarMilitares(this, ${viaturaId})">
+                                    <input type="hidden" name="condutor_id" id="condutorSelecionado${viaturaId}">
+                                    <div class="list-group" id="resultadoBuscaMilitar${viaturaId}" style="max-height:140px; overflow:auto; margin-top:6px;"></div>
+                                    <small class="text-danger">Obrigatório selecionar o motorista</small>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label">Observações</label>
+                                    <textarea class="form-control" name="observacoes" rows="2" placeholder="Observações..."></textarea>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                <button type="submit" class="btn btn-primary" onclick="return validarCondutor(${viaturaId})"><i class="fas fa-route me-1"></i> Registrar Saída</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>`;
+                document.body.appendChild(modalEl);
+            }
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+
+            const kmInput = modalEl.querySelector('input[name="km_inicial"]');
+            if (kmInput && (!kmInput.value || kmInput.value.trim() === '')) {
+                preencherKmInicial(kmInput);
+            }
+        }
+
+        function openRetornoModal(rodagemId, kmInicial, viaturaId) {
+            const modalId = `retornoModal${viaturaId}`;
+            let modalEl = document.getElementById(modalId);
+            if (!modalEl) {
+                modalEl = document.createElement('div');
+                modalEl.className = 'modal fade';
+                modalEl.id = modalId;
+                modalEl.tabIndex = -1;
+                modalEl.innerHTML = `
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title"><i class="fas fa-flag-checkered me-2"></i>Registrar Retorno</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <form method="post" action="/militares/painel-guarda/registrar-retorno/${rodagemId}/">
+                            <input type="hidden" name="csrfmiddlewaretoken" value="${getCsrfToken()}">
+                            <div class="modal-body">
+                                <div class="mb-2">
+                                    <label class="form-label">Data de Retorno</label>
+                                    <input type="date" class="form-control" name="data_retorno" required>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label">Hora de Retorno</label>
+                                    <input type="time" class="form-control" name="hora_retorno" required>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label">KM Inicial</label>
+                                    <input type="number" class="form-control" name="km_inicial_view" value="${kmInicial}" readonly>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label">KM Final</label>
+                                    <input type="number" class="form-control" name="km_final" min="0" required>
+                                    <small class="text-muted">Deve ser ≥ KM inicial: ${kmInicial}</small>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                <button type="submit" class="btn btn-success"><i class="fas fa-flag-checkered me-1"></i> Registrar Retorno</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>`;
+                document.body.appendChild(modalEl);
+            }
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        }
+
+        function preencherKmInicial(input) {
+            const viaturaId = input.getAttribute('data-viatura-id');
+            fetch(`/militares/viaturas/${viaturaId}/ultimo-km/`, { headers: { 'X-Requested-With': 'XMLHttpRequest' }})
+                .then(r => r.json())
+                .then(data => { if (data.km_sugerido && (!input.value || input.value.trim() === '')) input.value = data.km_sugerido; })
+                .catch(() => {});
+        }
+
+        function buscarMilitares(input, viaturaId) {
+            const termo = input.value;
+            const lista = document.getElementById(`resultadoBuscaMilitar${viaturaId}`);
+            if (!termo || termo.length < 2) { lista.innerHTML = ''; return; }
+            fetch(`/militares/busca-militares/?q=${encodeURIComponent(termo)}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' }})
+                .then(r => r.json())
+                .then(data => {
+                    lista.innerHTML = '';
+                    (data.results || []).forEach(item => {
+                        const a = document.createElement('a');
+                        a.className = 'list-group-item list-group-item-action';
+                        a.textContent = item.text;
+                        a.href = '#';
+                        a.onclick = (e) => { e.preventDefault(); document.getElementById(`condutorSelecionado${viaturaId}`).value = item.id; input.value = item.text; lista.innerHTML = ''; };
+                        lista.appendChild(a);
+                    });
+                })
+                .catch(() => { lista.innerHTML = ''; });
+        }
+
+        function validarCondutor(viaturaId) {
+            const condutorId = document.getElementById(`condutorSelecionado${viaturaId}`).value;
+            if (!condutorId) {
+                alert('Selecione o motorista (condutor) da viatura.');
+                return false;
+            }
+            return true;
+        }
     </script>
     {% endif %}
 </body>

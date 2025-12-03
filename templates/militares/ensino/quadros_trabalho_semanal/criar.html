@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Criar Quadro de Trabalho Semanal - Módulo de Ensino{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="mb-0">
+                    <i class="fas fa-calendar-week me-2"></i>
+                    Criar Quadro de Trabalho Semanal
+                </h1>
+                <a href="{% url 'militares:ensino_quadros_trabalho_semanal_listar' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Voltar
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="post" id="formQuadroTrabalhoSemanal">
+                        {% csrf_token %}
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.turma.id_for_label }}" class="form-label">
+                                    {{ form.turma.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.turma }}
+                                {% if form.turma.errors %}
+                                <div class="text-danger small">{{ form.turma.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="{{ form.numero_quadro.id_for_label }}" class="form-label">
+                                    {{ form.numero_quadro.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.numero_quadro }}
+                                <small class="form-text text-muted">Número sequencial do quadro</small>
+                                {% if form.numero_quadro.errors %}
+                                <div class="text-danger small">{{ form.numero_quadro.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label for="{{ form.data_inicio_semana.id_for_label }}" class="form-label">
+                                    {{ form.data_inicio_semana.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.data_inicio_semana }}
+                                <small class="form-text text-muted">Data de início da semana (geralmente segunda-feira)</small>
+                                {% if form.data_inicio_semana.errors %}
+                                <div class="text-danger small">{{ form.data_inicio_semana.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label for="{{ form.data_fim_semana.id_for_label }}" class="form-label">
+                                    {{ form.data_fim_semana.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.data_fim_semana }}
+                                <small class="form-text text-muted">Data de término da semana (geralmente sexta-feira)</small>
+                                {% if form.data_fim_semana.errors %}
+                                <div class="text-danger small">{{ form.data_fim_semana.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label for="{{ form.local.id_for_label }}" class="form-label">
+                                    {{ form.local.label }}
+                                </label>
+                                {{ form.local }}
+                                <small class="form-text text-muted">Ex: Teresina/PI</small>
+                                {% if form.local.errors %}
+                                <div class="text-danger small">{{ form.local.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <label for="{{ form.observacoes.id_for_label }}" class="form-label">
+                                    {{ form.observacoes.label }}
+                                </label>
+                                {{ form.observacoes }}
+                                {% if form.observacoes.errors %}
+                                <div class="text-danger small">{{ form.observacoes.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i>
+                                    Salvar
+                                </button>
+                                <a href="{% url 'militares:ensino_quadros_trabalho_semanal_listar' %}" class="btn btn-secondary">
+                                    <i class="fas fa-times me-2"></i>
+                                    Cancelar
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const turmaSelect = document.getElementById('id_turma');
+    const dataInicioInput = document.getElementById('id_data_inicio_semana');
+    const dataFimInput = document.getElementById('id_data_fim_semana');
+    const numeroQuadroInput = document.getElementById('id_numero_quadro');
+    
+    // Calcular data_fim automaticamente (6 dias após início)
+    if (dataInicioInput && dataFimInput) {
+        dataInicioInput.addEventListener('change', function() {
+            if (this.value && !dataFimInput.value) {
+                const dataInicio = new Date(this.value);
+                dataInicio.setDate(dataInicio.getDate() + 6);
+                dataFimInput.value = dataInicio.toISOString().split('T')[0];
+            }
+        });
+    }
+    
+    // Calcular próximo número do quadro quando turma mudar
+    if (turmaSelect && numeroQuadroInput) {
+        turmaSelect.addEventListener('change', function() {
+            const turmaId = this.value;
+            if (turmaId) {
+                fetch(`/militares/ensino/turmas/${turmaId}/dados/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        // Buscar último número de quadro da turma
+                        fetch(`/militares/ensino/quadros-trabalho-semanal/?turma=${turmaId}`)
+                            .then(response => response.text())
+                            .then(html => {
+                                // Tentar extrair o último número (simplificado - melhor fazer via API)
+                                if (!numeroQuadroInput.value) {
+                                    numeroQuadroInput.value = 1;
+                                }
+                            })
+                            .catch(error => console.error('Erro:', error));
+                    })
+                    .catch(error => console.error('Erro:', error));
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
+
+

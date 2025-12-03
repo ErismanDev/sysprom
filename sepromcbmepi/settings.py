@@ -11,23 +11,32 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
+from dotenv import load_dotenv
 
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+load_dotenv()
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-s9$g9l*0=97al&%+arft!#a1x7o&sob2l^5(yny07@2836-*@="
+SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-s9$g9l*0=97al&%+arft!#a1x7o&sob2l^5(yny07@2836-*@=")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DEBUG", "True").lower() in ("true", "1", "yes")
 
-ALLOWED_HOSTS = ['*', 'testserver', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "*,testserver,localhost,127.0.0.1").split(",")
+CSRF_TRUSTED_ORIGINS = os.getenv(
+    "CSRF_TRUSTED_ORIGINS",
+    "http://localhost,http://127.0.0.1,http://164.92.118.212,https://164.92.118.212"
+).split(",")
+SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "False").lower() in ("true", "1", "yes")
+CSRF_COOKIE_SECURE = os.getenv("CSRF_COOKIE_SECURE", "False").lower() in ("true", "1", "yes")
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https") if os.getenv("USE_PROXY_SSL_HEADER", "True").lower() in ("true", "1", "yes") else None
 
 
 # Application definition
@@ -40,6 +49,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "militares",
+    "aplicativo",
     # 'django_ckeditor_5',
     'dal',
     'dal_select2',
@@ -84,10 +94,12 @@ TEMPLATES = [
                 "militares.context_processors.sessao_ativa_processor",
                 "militares.context_processors.funcoes_usuario_processor",
                 "militares.context_processors.menu_permissions_processor",
+                "militares.context_processors.ensino_aluno_processor",
                 "militares.permissoes_sistema.permissoes_context",
                 "militares.context_processors_alertas.alertas_login_processor",
                 "militares.context_processors.revisoes_proximas_processor",
                 "militares.context_processors.alertas_frota_processor",
+                "militares.context_processors.apk_processor",
             ],
         },
     },
@@ -101,17 +113,17 @@ WSGI_APPLICATION = "sepromcbmepi.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": "sepromcbmepi",
-        "USER": "postgres",
-        "PASSWORD": "11322361",
-        "HOST": "localhost",
-        "PORT": "5432",
+        "ENGINE": os.getenv("DB_ENGINE", "django.db.backends.postgresql"),
+        "NAME": os.getenv("DB_NAME", "sepromcbmepi"),
+        "USER": os.getenv("DB_USER", "postgres"),
+        "PASSWORD": os.getenv("DB_PASSWORD", "11322361"),
+        "HOST": os.getenv("DB_HOST", "localhost"),
+        "PORT": os.getenv("DB_PORT", "5432"),
         "OPTIONS": {
-            "client_encoding": "UTF8",
-            "connect_timeout": 10,
+            "client_encoding": os.getenv("DB_CLIENT_ENCODING", "UTF8"),
+            "connect_timeout": int(os.getenv("DB_CONNECT_TIMEOUT", "10")),
         },
-        "CONN_MAX_AGE": 0,
+        "CONN_MAX_AGE": int(os.getenv("DB_CONN_MAX_AGE", "0")),
     }
 }
 
@@ -210,6 +222,14 @@ STATICFILES_DIRS = [
 # Media files (Uploads)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'no-reply@localhost')
+EMAIL_HOST = os.environ.get('EMAIL_HOST', '')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587')) if not DEBUG else 587
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() == 'true'
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 
 # Configuração do CKEditor 5
 customColorPalette = [

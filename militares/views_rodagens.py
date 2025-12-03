@@ -260,14 +260,13 @@ def rodagem_encerrar(request, pk):
 
             messages.success(request, f'Rodagem encerrada com sucesso! KM rodado: {rodagem.km_rodado} km')
 
-            # Redirecionar para a página de origem (lista geral ou por viatura)
+            # Redirecionar para a página de origem
             referer = request.META.get('HTTP_REFERER', '')
+            if 'painel-guarda' in referer:
+                return redirect('militares:painel_guarda')
             if 'rodagens/' in referer and '/viaturas/' not in referer:
-                # Veio da lista geral
                 return redirect('militares:rodagem_list')
-            else:
-                # Veio da página por viatura
-                return redirect('militares:rodagem_por_viatura', viatura_id=rodagem.viatura.pk)
+            return redirect('militares:rodagem_por_viatura', viatura_id=rodagem.viatura.pk)
 
         except Exception as e:
             messages.error(request, f'Erro ao encerrar rodagem: {str(e)}')
@@ -677,9 +676,12 @@ def historico_rodagem_pdf(request, viatura_id):
             # Data e hora da assinatura
             agora = timezone.now().astimezone(brasilia_tz) if timezone.is_aware(timezone.now()) else brasilia_tz.localize(timezone.now())
             data_formatada = agora.strftime('%d/%m/%Y')
-            hora_formatada = agora.strftime('%H:%M')
+            hora_formatada = agora.strftime('%H:%M:%S')
             
-            texto_assinatura = f"Documento assinado eletronicamente por {nome_posto_quadro} - {funcao_display}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
+            texto_assinatura = (
+                f"Documento assinado eletronicamente por {nome_posto_quadro}, em {data_formatada} {hora_formatada}, "
+                f"conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
+            )
             
             # Adicionar logo da assinatura eletrônica
             from .utils import obter_caminho_assinatura_eletronica
@@ -1186,6 +1188,7 @@ def painel_guarda_ajax(request):
                     'destino': rodagem.destino or '',
                     'objetivo': rodagem.get_objetivo_display(),
                     'km_inicial': str(rodagem.km_inicial) if rodagem.km_inicial else '',
+                    'rodagem_id': rodagem.id,
                     'tempo_fora': tempo_fora,
                 })
             else:
@@ -1304,3 +1307,117 @@ def painel_guarda_unidades_ajax(request):
             'success': False,
             'error': str(e)
         }, status=500)
+
+
+@login_required
+def painel_registrar_saida(request, viatura_id):
+    """
+    Registrar saída de viatura diretamente pelo Painel de Guarda
+    """
+    if request.method != 'POST':
+        return redirect('militares:painel_guarda')
+
+    viatura = get_object_or_404(Viatura, pk=viatura_id, ativo=True)
+
+    try:
+        data_saida = request.POST.get('data_saida')
+        hora_saida = request.POST.get('hora_saida')
+        km_inicial = request.POST.get('km_inicial')
+        objetivo = request.POST.get('objetivo')
+        destino = request.POST.get('destino')
+        observacoes = request.POST.get('observacoes')
+        condutor_id = request.POST.get('condutor_id')
+
+        if not (data_saida and hora_saida and km_inicial and objetivo):
+            messages.error(request, 'Preencha data, hora, KM inicial e objetivo.')
+            return redirect('militares:painel_guarda')
+
+        # Obter último odômetro de chegada (KM final) como sugestão
+        from .models import RodagemViatura
+        ultimo_km_final = RodagemViatura.objects.filter(
+            viatura=viatura, status='FINALIZADA', ativo=True
+        ).order_by('-data_retorno', '-hora_retorno', '-data_saida', '-hora_saida').values_list('km_final', flat=True).first()
+
+        try:
+            km_inicial_val = int(km_inicial) if km_inicial not in (None, '') else None
+            if km_inicial_val is None and ultimo_km_final is not None:
+                km_inicial_val = int(ultimo_km_final)
+            if km_inicial_val is None or km_inicial_val < 0:
+                raise ValueError('KM inicial inválido')
+        except Exception:
+            messages.error(request, 'KM inicial inválido!')
+            return redirect('militares:painel_guarda')
+
+        condutor = None
+        if condutor_id:
+            try:
+                condutor = Militar.objects.get(pk=int(condutor_id))
+            except (Militar.DoesNotExist, ValueError, TypeError):
+                condutor = None
+
+        if not condutor:
+            messages.error(request, 'Selecione o motorista (condutor) da viatura.')
+            return redirect('militares:painel_guarda')
+
+        from datetime import datetime
+        rodagem = RodagemViatura(
+            viatura=viatura,
+            data_saida=datetime.strptime(data_saida, '%Y-%m-%d').date(),
+            hora_saida=datetime.strptime(hora_saida, '%H:%M').time(),
+            km_inicial=km_inicial_val,
+            objetivo=objetivo,
+            destino=destino or None,
+            observacoes=observacoes or None,
+            condutor=condutor,
+            status='EM_ANDAMENTO',
+            criado_por=request.user,
+        )
+        rodagem.save()
+
+        messages.success(request, 'Saída registrada com sucesso!')
+        return redirect('militares:painel_guarda')
+    except Exception as e:
+        messages.error(request, f'Erro ao registrar saída: {str(e)}')
+        return redirect('militares:painel_guarda')
+
+
+@login_required
+def painel_registrar_retorno(request, rodagem_id):
+    """
+    Registrar retorno de rodagem diretamente pelo Painel de Guarda
+    """
+    rodagem = get_object_or_404(RodagemViatura, pk=rodagem_id, status='EM_ANDAMENTO', ativo=True)
+
+    if request.method != 'POST':
+        return redirect('militares:painel_guarda')
+
+    try:
+        data_retorno = request.POST.get('data_retorno')
+        hora_retorno = request.POST.get('hora_retorno')
+        km_final = request.POST.get('km_final')
+
+        if not (data_retorno and hora_retorno and km_final):
+            messages.error(request, 'Preencha data, hora e KM final do retorno.')
+            return redirect('militares:painel_guarda')
+
+        try:
+            km_final_int = int(km_final)
+            if km_final_int < rodagem.km_inicial:
+                messages.error(request, f'O KM final ({km_final_int}) não pode ser menor que o KM inicial ({rodagem.km_inicial}).')
+                return redirect('militares:painel_guarda')
+        except ValueError:
+            messages.error(request, 'KM final inválido!')
+            return redirect('militares:painel_guarda')
+
+        from datetime import datetime
+        rodagem.data_retorno = datetime.strptime(data_retorno, '%Y-%m-%d').date()
+        rodagem.hora_retorno = datetime.strptime(hora_retorno, '%H:%M').time()
+        rodagem.km_final = km_final_int
+        rodagem.status = 'FINALIZADA'
+        rodagem.save()
+
+        messages.success(request, f'Retorno registrado! KM rodado: {rodagem.km_rodado} km')
+        return redirect('militares:painel_guarda')
+    except Exception as e:
+        messages.error(request, f'Erro ao registrar retorno: {str(e)}')
+        return redirect('militares:painel_guarda')

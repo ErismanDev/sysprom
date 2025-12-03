@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load money_filters %}
+
+{% block title %}Inserir Notas - {{ disciplina.nome }} - Módulo de Ensino{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="mb-0">
+                    <i class="fas fa-edit me-2"></i>
+                    Inserir Notas - {{ disciplina.nome }}
+                </h1>
+                <a href="{% url 'militares:ensino_turma_detalhes' pk=turma.pk %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Voltar
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Informações -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-info-circle me-2"></i>
+                Informações
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <strong>Turma:</strong> {{ turma.identificacao }}
+                </div>
+                <div class="col-md-4">
+                    <strong>Disciplina:</strong> {{ disciplina.nome }}
+                    {% if disciplina.codigo %}
+                        <small>({{ disciplina.codigo }})</small>
+                    {% endif %}
+                </div>
+                <div class="col-md-4">
+                    <strong>Média Mínima:</strong> {{ disciplina.media_minima_aprovacao }}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Formulário de Notas -->
+    <div class="card">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-users me-2"></i>
+                Notas dos Alunos
+                <span class="badge bg-light text-dark ms-2">
+                    {% if alunos_com_notas %}{{ alunos_com_notas|length }}{% else %}0{% endif %}
+                </span>
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if alunos_com_notas and alunos_com_notas|length > 0 %}
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    {% if avaliacoes %}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-bordered">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th rowspan="2" style="vertical-align: middle;">Matrícula</th>
+                                    <th rowspan="2" style="vertical-align: middle;">Aluno</th>
+                                    {% for avaliacao in avaliacoes %}
+                                    <th class="text-center">
+                                        {{ avaliacao.nome }}<br>
+                                        <small class="text-muted">
+                                            ({{ avaliacao.get_tipo_display }})<br>
+                                            Peso: {{ avaliacao.peso }} | Máx: {{ avaliacao.nota_maxima }}
+                                        </small>
+                                    </th>
+                                    {% endfor %}
+                                </tr>
+                                <tr>
+                                    {% for avaliacao in avaliacoes %}
+                                    <th class="text-center">
+                                        {% if forloop.counter == 1 %}1ª{% elif forloop.counter == 2 %}2ª{% elif forloop.counter == 3 %}3ª{% elif forloop.counter == 4 %}4ª{% endif %}
+                                    </th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in alunos_com_notas %}
+                                <tr>
+                                    <td><strong>{{ item.aluno.matricula|default:"-" }}</strong></td>
+                                    <td>
+                                        {% if item.aluno.militar %}
+                                            {{ item.aluno.militar.get_posto_graduacao_display }} {{ item.aluno.militar.nome_completo }}
+                                        {% elif item.aluno.pessoa_externa %}
+                                            {{ item.aluno.pessoa_externa.get_nome_completo }}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    {% for nota_data in item.notas_por_avaliacao %}
+                                    <td class="text-center">
+                                        {% if nota_data.nota_obj %}
+                                            <input 
+                                                type="number" 
+                                                name="nota_{{ nota_data.avaliacao.pk }}_{{ item.aluno.pk }}" 
+                                                class="form-control text-center" 
+                                                step="0.01" 
+                                                min="0" 
+                                                max="{{ nota_data.avaliacao.nota_maxima }}"
+                                                value="{{ nota_data.nota_obj.nota|number_input }}"
+                                                placeholder="0.00"
+                                                style="width: 100px; margin: 0 auto;"
+                                            >
+                                        {% else %}
+                                            <input 
+                                                type="number" 
+                                                name="nota_{{ nota_data.avaliacao.pk }}_{{ item.aluno.pk }}" 
+                                                class="form-control text-center" 
+                                                step="0.01" 
+                                                min="0" 
+                                                max="{{ nota_data.avaliacao.nota_maxima }}"
+                                                placeholder="0.00"
+                                                style="width: 100px; margin: 0 auto;"
+                                            >
+                                        {% endif %}
+                                    </td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="alert alert-info mt-3">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Instruções:</strong>
+                        <ul class="mb-0">
+                            <li>Preencha as notas de cada avaliação para cada aluno</li>
+                            <li>As notas devem estar entre 0 e a nota máxima de cada avaliação</li>
+                            <li>Deixe em branco para não alterar notas já existentes (ou para não lançar)</li>
+                            <li>A média final será calculada automaticamente considerando os pesos das avaliações</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'militares:ensino_turma_detalhes' pk=turma.pk %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>
+                            Voltar
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save me-2"></i>
+                            Salvar Notas
+                        </button>
+                    </div>
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Nenhuma avaliação cadastrada para esta disciplina nesta turma. 
+                            <a href="{% url 'militares:ensino_avaliacao_criar' %}?turma_id={{ turma.pk }}" class="alert-link">
+                                Clique aqui para criar uma avaliação.
+                            </a>
+                        </div>
+                    {% endif %}
+                </form>
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Nenhum aluno ativo encontrado nesta turma.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Adicionar validação de nota máxima em tempo real
+    const inputs = document.querySelectorAll('input[type="number"][name^="nota_"]');
+    inputs.forEach(input => {
+        input.addEventListener('blur', function() {
+            const maxValue = parseFloat(this.getAttribute('max'));
+            const currentValue = parseFloat(this.value);
+            
+            if (currentValue > maxValue) {
+                alert(`A nota não pode ser maior que ${maxValue}.`);
+                this.value = maxValue;
+            }
+            if (currentValue < 0) {
+                alert('A nota não pode ser negativa.');
+                this.value = '';
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
+

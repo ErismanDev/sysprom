@@ -254,10 +254,13 @@ def gerar_pdf_almanaque_direct(almanaque, request=None):
             # Data da assinatura
             from .utils import formatar_data_assinatura
             data_formatada, hora_formatada = formatar_data_assinatura(assinatura.data_assinatura)
-            data_assinatura = f"{data_formatada} às {hora_formatada}"
+            data_assinatura = f"{data_formatada} {hora_formatada}"
             
             # Texto da assinatura eletrônica no padrão solicitado
-            texto_assinatura = f"Documento assinado eletronicamente por {nome_completo} - {funcao}, em {data_assinatura}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
+            texto_assinatura = (
+                f"Documento assinado eletronicamente por {nome_completo}, em {data_assinatura}, "
+                f"conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
+            )
             
             # Tabela das assinaturas: Logo + Texto de assinatura
             from .utils import obter_caminho_assinatura_eletronica

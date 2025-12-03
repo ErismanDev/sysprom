@@ -1,0 +1,42 @@
+server {
+    listen 80;
+    server_name 164.92.118.212.sslip.io;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name 164.92.118.212.sslip.io;
+
+    ssl_certificate     /etc/letsencrypt/live/164.92.118.212.sslip.io/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/164.92.118.212.sslip.io/privkey.pem;
+
+    location /static/ {
+        alias /home/seprom/sepromcbmepi/staticfiles/;
+        try_files $uri $uri/ =404;
+        expires 7d;
+        add_header Cache-Control "public";
+    }
+
+    location /media/ {
+        alias /home/seprom/sepromcbmepi/media/;
+        try_files $uri $uri/ =404;
+    }
+
+    location / {
+        include proxy_params;
+        proxy_pass http://127.0.0.1:8000;
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+
+        add_header Cross-Origin-Opener-Policy "same-origin" always;
+        # add_header Cross-Origin-Embedder-Policy "require-corp" always;
+    }
+    
+    location /health/ {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+}

@@ -1,0 +1,915 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Monitores - Módulo de Ensino{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="mb-0">
+                    <i class="fas fa-chalkboard-teacher me-2"></i>
+                    Monitores
+                </h1>
+                {% if menu_permissions.ENSINO_CRIAR or user.is_superuser %}
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#criarMonitorModal">
+                    <i class="fas fa-plus me-2"></i>
+                    Novo Monitor
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-10">
+                    <input type="text" name="busca" class="form-control" placeholder="Buscar por nome, CPF, habilitações ou especialidades..." value="{{ request.GET.busca }}">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-2"></i>
+                        Buscar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Tabela de Monitores -->
+    <div class="card">
+        <div class="card-body">
+            {% if monitores %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th class="text-center" style="width: 60px;">Nº</th>
+                                <th style="width: 80px;">Foto</th>
+                                <th>Tipo</th>
+                                <th>Nome</th>
+                                <th>Turmas</th>
+                                <th>Disciplinas</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for monitor in monitores %}
+                            <tr>
+                                <td class="text-center">
+                                    {{ monitores.start_index|add:forloop.counter0 }}
+                                </td>
+                                <td>
+                                    <button type="button" 
+                                            class="btn btn-link p-0 text-decoration-none btn-detalhes-monitor" 
+                                            title="Ver detalhes do monitor"
+                                            data-monitor-id="{{ monitor.pk }}" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#detalhesMonitorModal"
+                                            style="border: none; background: none;">
+                                        {% if monitor.tipo_monitor == 'BOMBEIRO' and monitor.militar and monitor.militar.foto %}
+                                            {# Para bombeiros, usar a foto da ficha de cadastro do militar #}
+                                            <img src="{{ monitor.militar.foto.url }}" 
+                                                 alt="Foto do monitor" 
+                                                 class="img-thumbnail rounded-circle border border-primary" 
+                                                 style="width: 50px; height: 50px; object-fit: cover; cursor: pointer; transition: transform 0.2s;"
+                                                 onmouseover="this.style.transform='scale(1.1)'"
+                                                 onmouseout="this.style.transform='scale(1)'">
+                                        {% elif monitor.tipo_monitor == 'OUTRA_FORCA' and monitor.foto_outra_forca %}
+                                            {# Para militar de outra força, usar foto_outra_forca #}
+                                            <img src="{{ monitor.foto_outra_forca.url }}" 
+                                                 alt="Foto do monitor" 
+                                                 class="img-thumbnail rounded-circle border border-primary" 
+                                                 style="width: 50px; height: 50px; object-fit: cover; cursor: pointer; transition: transform 0.2s;"
+                                                 onmouseover="this.style.transform='scale(1.1)'"
+                                                 onmouseout="this.style.transform='scale(1)'">
+                                        {% elif monitor.foto %}
+                                            {# Para outros tipos, usar a foto do monitor se disponível #}
+                                            <img src="{{ monitor.foto.url }}" 
+                                                 alt="Foto do monitor" 
+                                                 class="img-thumbnail rounded-circle border border-primary" 
+                                                 style="width: 50px; height: 50px; object-fit: cover; cursor: pointer; transition: transform 0.2s;"
+                                                 onmouseover="this.style.transform='scale(1.1)'"
+                                                 onmouseout="this.style.transform='scale(1)'">
+                                        {% else %}
+                                            {# Se não houver foto, exibir ícone padrão #}
+                                            <div class="bg-secondary rounded-circle d-flex align-items-center justify-content-center border border-primary" 
+                                                 style="width: 50px; height: 50px; cursor: pointer; transition: transform 0.2s;"
+                                                 onmouseover="this.style.transform='scale(1.1)'"
+                                                 onmouseout="this.style.transform='scale(1)'">
+                                                <i class="fas fa-user text-white"></i>
+                                            </div>
+                                        {% endif %}
+                                    </button>
+                                </td>
+                                <td>
+                                    {% if monitor.tipo_monitor == 'BOMBEIRO' %}
+                                        <span class="badge bg-primary">Bombeiro</span>
+                                    {% elif monitor.tipo_monitor == 'OUTRA_FORCA' %}
+                                        <span class="badge bg-info">Outra Força</span>
+                                    {% elif monitor.tipo_monitor == 'CIVIL' %}
+                                        <span class="badge bg-secondary">Civil</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <strong>
+                                        {% if monitor.tipo_monitor == 'BOMBEIRO' and monitor.militar %}
+                                            {% if monitor.militar.get_posto_graduacao_display %}
+                                                {{ monitor.militar.get_posto_graduacao_display }} 
+                                            {% endif %}
+                                            {{ monitor.militar.nome_completo }}
+                                        {% elif monitor.tipo_monitor == 'OUTRA_FORCA' %}
+                                            {% if monitor.posto_outra_forca %}
+                                                {{ monitor.get_posto_outra_forca_display }} 
+                                            {% endif %}
+                                            {{ monitor.nome_outra_forca|default:"Não informado" }}
+                                        {% elif monitor.tipo_monitor == 'CIVIL' %}
+                                            {{ monitor.nome_civil|default:"Não informado" }}
+                                        {% else %}
+                                            {{ monitor }}
+                                        {% endif %}
+                                    </strong>
+                                    <br>
+                                    <small class="text-muted">
+                                        CPF: {{ monitor.get_cpf|default:"Não informado" }}
+                                    </small>
+                                </td>
+                                <td>
+                                    {% if monitor.turmas_monitor_list %}
+                                        <div class="d-flex flex-wrap gap-1">
+                                            {% for turma in monitor.turmas_monitor_list|slice:":3" %}
+                                                <span class="badge bg-primary" title="{{ turma.curso.nome }} - {{ turma.identificacao }}">
+                                                    {{ turma.identificacao|truncatechars:20 }}
+                                                </span>
+                                            {% endfor %}
+                                            {% if monitor.turmas_monitor_list|length > 3 %}
+                                                <span class="badge bg-secondary" title="Mais {{ monitor.turmas_monitor_list|length|add:"-3" }} turma(s)">
+                                                    +{{ monitor.turmas_monitor_list|length|add:"-3" }}
+                                                </span>
+                                            {% endif %}
+                                        </div>
+                                        <small class="text-muted d-block mt-1">
+                                            Total: {{ monitor.turmas_monitor_list|length }} turma(s)
+                                        </small>
+                                    {% else %}
+                                        <span class="text-muted">Nenhuma turma</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if monitor.disciplinas_monitoradas_list %}
+                                        <div class="d-flex flex-wrap gap-1">
+                                            {% for disciplina in monitor.disciplinas_monitoradas_list|slice:":3" %}
+                                                <span class="badge bg-info" title="{{ disciplina.nome }}">
+                                                    {{ disciplina.nome|truncatechars:20 }}
+                                                </span>
+                                            {% endfor %}
+                                            {% if monitor.disciplinas_monitoradas_list|length > 3 %}
+                                                <span class="badge bg-secondary" title="Mais {{ monitor.disciplinas_monitoradas_list|length|add:"-3" }} disciplina(s)">
+                                                    +{{ monitor.disciplinas_monitoradas_list|length|add:"-3" }}
+                                                </span>
+                                            {% endif %}
+                                        </div>
+                                        <small class="text-muted d-block mt-1">
+                                            Total: {{ monitor.disciplinas_monitoradas_list|length }} disciplina(s)
+                                        </small>
+                                    {% else %}
+                                        <span class="text-muted">Nenhuma disciplina</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if monitor.ativo %}
+                                        <span class="badge bg-success">Ativo</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Inativo</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        {% if menu_permissions.ENSINO_VISUALIZAR or user.is_superuser %}
+                                        <button type="button" class="btn btn-sm btn-info btn-detalhes-monitor" title="Ver detalhes" data-monitor-id="{{ monitor.pk }}" data-bs-toggle="modal" data-bs-target="#detalhesMonitorModal">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        {% endif %}
+                                        {% if menu_permissions.ENSINO_EDITAR or user.is_superuser %}
+                                        <button type="button" class="btn btn-sm btn-warning btn-editar-monitor" title="Editar" data-monitor-id="{{ monitor.pk }}" data-bs-toggle="modal" data-bs-target="#editarMonitorModal{{ monitor.pk }}">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        {% endif %}
+                                        {% if menu_permissions.ENSINO_EXCLUIR or user.is_superuser %}
+                                        <button type="button" class="btn btn-sm btn-danger btn-excluir-monitor" title="Excluir" data-bs-toggle="modal" data-bs-target="#excluirMonitorModal{{ monitor.pk }}" data-monitor-id="{{ monitor.pk }}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Paginação -->
+                {% if monitores.has_other_pages %}
+                <nav aria-label="Paginação">
+                    <ul class="pagination justify-content-center">
+                        {% if monitores.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1{% if request.GET.busca %}&busca={{ request.GET.busca }}{% endif %}">Primeira</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ monitores.previous_page_number }}{% if request.GET.busca %}&busca={{ request.GET.busca }}{% endif %}">Anterior</a>
+                            </li>
+                        {% endif %}
+                        
+                        <li class="page-item active">
+                            <span class="page-link">
+                                Página {{ monitores.number }} de {{ monitores.paginator.num_pages }}
+                            </span>
+                        </li>
+                        
+                        {% if monitores.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ monitores.next_page_number }}{% if request.GET.busca %}&busca={{ request.GET.busca }}{% endif %}">Próxima</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ monitores.paginator.num_pages }}{% if request.GET.busca %}&busca={{ request.GET.busca }}{% endif %}">Última</a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Nenhum monitor encontrado.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Criar Monitor -->
+<div class="modal fade" id="criarMonitorModal" tabindex="-1" aria-labelledby="criarMonitorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="criarMonitorModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modais de Edição -->
+{% for monitor in monitores %}
+<div class="modal fade" id="editarMonitorModal{{ monitor.pk }}" tabindex="-1" aria-labelledby="editarMonitorModalLabel{{ monitor.pk }}" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="editarMonitorModalContent{{ monitor.pk }}">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-warning" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Modais de Exclusão -->
+{% for monitor in monitores %}
+<div class="modal fade" id="excluirMonitorModal{{ monitor.pk }}" tabindex="-1" aria-labelledby="excluirMonitorModalLabel{{ monitor.pk }}" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="excluirMonitorModalLabel{{ monitor.pk }}">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Confirmar Exclusão
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'militares:ensino_monitor_excluir' pk=monitor.pk %}" id="formExcluirMonitor{{ monitor.pk }}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Atenção!</strong> Esta ação não pode ser desfeita.
+                    </div>
+                    
+                    <p>Tem certeza que deseja excluir o monitor <strong>{{ monitor }}</strong>?</p>
+                    
+                    <div id="excluirMonitorErrors{{ monitor.pk }}" class="alert alert-danger d-none">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <span id="excluirMonitorErrorMessage{{ monitor.pk }}"></span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-danger" id="btnExcluirMonitor{{ monitor.pk }}">
+                        <i class="fas fa-trash me-2"></i>Excluir Monitor
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Modal de Detalhes do Monitor -->
+<div class="modal fade" id="detalhesMonitorModal" tabindex="-1" aria-labelledby="detalhesMonitorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable" style="max-width: 85vw; width: 85%;">
+        <div class="modal-content" id="detalhesMonitorModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-info" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando detalhes...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Modal de detalhes do monitor
+    const detalhesMonitorModal = document.getElementById('detalhesMonitorModal');
+    const detalhesMonitorModalContent = document.getElementById('detalhesMonitorModalContent');
+    
+    if (detalhesMonitorModal && detalhesMonitorModalContent) {
+        detalhesMonitorModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            console.log('Modal de detalhes aberto, button:', button);
+            
+            const monitorId = button ? button.getAttribute('data-monitor-id') : null;
+            console.log('ID do monitor:', monitorId);
+            
+            if (!monitorId) {
+                console.error('ID do monitor não encontrado');
+                detalhesMonitorModalContent.innerHTML = '<div class="modal-body"><div class="alert alert-danger">Erro: ID do monitor não encontrado.</div></div>';
+                return;
+            }
+            
+            detalhesMonitorModalContent.innerHTML = '<div class="modal-body text-center py-5"><div class="spinner-border text-info" role="status"><span class="visually-hidden">Carregando...</span></div><p class="mt-3 text-muted">Carregando detalhes...</p></div>';
+            
+            const url = '/militares/ensino/monitores/' + monitorId + '/';
+            console.log('Fazendo requisição para:', url);
+            
+            fetch(url, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                console.log('Resposta recebida, status:', response.status);
+                const contentType = response.headers.get('content-type');
+                
+                // Se for erro, tentar parse como JSON primeiro
+                if (!response.ok) {
+                    if (contentType && contentType.includes('application/json')) {
+                        return response.json().then(data => {
+                            throw new Error(data.error || 'Erro ao carregar detalhes: ' + response.status);
+                        });
+                    }
+                    return response.text().then(text => {
+                        // Tentar parse como JSON mesmo que o content-type não seja JSON
+                        try {
+                            const jsonData = JSON.parse(text);
+                            throw new Error(jsonData.error || 'Erro ao carregar detalhes: ' + response.status);
+                        } catch (e) {
+                            throw new Error('Erro ao carregar detalhes: ' + response.status);
+                        }
+                    });
+                }
+                
+                // Se for sucesso, retornar como texto (HTML)
+                return response.text();
+            })
+            .then(html => {
+                console.log('HTML recebido, tamanho:', html.length);
+                detalhesMonitorModalContent.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Erro ao carregar detalhes:', error);
+                detalhesMonitorModalContent.innerHTML = '<div class="modal-header bg-danger text-white"><h5 class="modal-title"><i class="fas fa-exclamation-triangle me-2"></i>Erro</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>' + error.message + '</div><p class="text-muted">Verifique os logs do servidor para mais detalhes.</p></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button></div>';
+            });
+        });
+    } else {
+        console.error('Elementos do modal de detalhes não encontrados');
+    }
+    
+    // Modal de criação de monitor
+    const criarMonitorModal = document.getElementById('criarMonitorModal');
+    const criarMonitorModalContent = document.getElementById('criarMonitorModalContent');
+    
+    if (criarMonitorModal && criarMonitorModalContent) {
+        criarMonitorModal.addEventListener('show.bs.modal', function(event) {
+            criarMonitorModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            fetch('{% url "militares:ensino_monitor_criar" %}', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.text())
+            .then(html => {
+                criarMonitorModalContent.innerHTML = html;
+                
+                // Aguardar um pouco para garantir que o DOM foi atualizado
+                setTimeout(function() {
+                    // Re-executar scripts que podem estar no conteúdo carregado
+                    const scripts = criarMonitorModalContent.querySelectorAll('script');
+                    scripts.forEach(function(oldScript) {
+                        const newScript = document.createElement('script');
+                        Array.from(oldScript.attributes).forEach(attr => {
+                            newScript.setAttribute(attr.name, attr.value);
+                        });
+                        newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                        oldScript.parentNode.replaceChild(newScript, oldScript);
+                    });
+                    
+                    // Forçar inicialização do Select2 após scripts serem executados
+                    setTimeout(function() {
+                        if (typeof jQuery !== 'undefined' && typeof jQuery.fn !== 'undefined' && typeof jQuery.fn.select2 !== 'undefined') {
+                            const elementoMilitar = document.getElementById('id_militar');
+                            if (elementoMilitar) {
+                                // Verificar se já foi inicializado
+                                if (!jQuery(elementoMilitar).hasClass('select2-hidden-accessible')) {
+                                    console.log('Inicializando Select2 após carregamento do modal...');
+                                    try {
+                                        jQuery(elementoMilitar).select2({
+                                            placeholder: 'Busque e selecione um militar...',
+                                            allowClear: true,
+                                            width: '100%',
+                                            dropdownParent: jQuery('#criarMonitorModal'),
+                                            ajax: {
+                                                url: '{% url "militares:militar-autocomplete" %}',
+                                                dataType: 'json',
+                                                delay: 250,
+                                                data: function (params) {
+                                                    return {
+                                                        q: params.term,
+                                                        page: params.page
+                                                    };
+                                                },
+                                                processResults: function (data, params) {
+                                                    params.page = params.page || 1;
+                                                    return {
+                                                        results: data.results,
+                                                        pagination: {
+                                                            more: (params.page * 30) < data.total_count
+                                                        }
+                                                    };
+                                                },
+                                                cache: true
+                                            },
+                                            minimumInputLength: 0
+                                        });
+                                        
+                                        // Adicionar event listeners
+                                        jQuery(elementoMilitar).on('select2:select', function (e) {
+                                            const militarId = e.params.data.id;
+                                            if (militarId) {
+                                                fetch('{% url "militares:militar_info_completa_ajax" %}?militar_id=' + militarId)
+                                                    .then(response => response.json())
+                                                    .then(data => {
+                                                        if (data.success && data.militar) {
+                                                            const militar = data.militar;
+                                                            // Preencher dados de visualização
+                                                            jQuery('#militar_posto').val(militar.posto_graduacao_display || militar.posto_display || '');
+                                                            jQuery('#militar_cpf').val(militar.cpf || '');
+                                                            jQuery('#militar_email').val(militar.email || '');
+                                                            jQuery('#militar_telefone').val(militar.telefone || militar.celular || '');
+                                                            jQuery('#dados_militar_preenchidos').slideDown();
+                                                            
+                                                            // Preencher campos do formulário se o tipo for BOMBEIRO
+                                                            const tipoMonitor = jQuery('input[name="tipo_monitor"]:checked').val();
+                                                            if (tipoMonitor === 'BOMBEIRO') {
+                                                                // Preencher email se o campo estiver vazio
+                                                                const emailField = jQuery('#id_email_bombeiro');
+                                                                if (emailField.length && !emailField.val()) {
+                                                                    emailField.val(militar.email || '');
+                                                                }
+                                                                
+                                                                // Preencher telefone se o campo estiver vazio (priorizar telefone, senão celular)
+                                                                const telefoneField = jQuery('#id_telefone_bombeiro');
+                                                                if (telefoneField.length && !telefoneField.val()) {
+                                                                    telefoneField.val(militar.telefone || militar.celular || '');
+                                                                }
+                                                                
+                                                                // Preencher campos de endereço se existirem e estiverem vazios
+                                                                const enderecoField = jQuery('#id_endereco_bombeiro');
+                                                                if (enderecoField.length && !enderecoField.val() && militar.endereco) {
+                                                                    enderecoField.val(militar.endereco);
+                                                                }
+                                                                
+                                                                const cidadeField = jQuery('#id_cidade_bombeiro');
+                                                                if (cidadeField.length && !cidadeField.val() && militar.cidade) {
+                                                                    cidadeField.val(militar.cidade);
+                                                                }
+                                                                
+                                                                const ufField = jQuery('#id_uf_bombeiro');
+                                                                if (ufField.length && !ufField.val() && (militar.uf || militar.estado)) {
+                                                                    ufField.val(militar.uf || militar.estado || '').trigger('change');
+                                                                }
+                                                                
+                                                                const cepField = jQuery('#id_cep_bombeiro');
+                                                                if (cepField.length && !cepField.val() && militar.cep) {
+                                                                    cepField.val(militar.cep);
+                                                                }
+                                                            }
+                                                        }
+                                                    })
+                                                    .catch(error => {
+                                                        console.error('Erro ao buscar dados do militar:', error);
+                                                    });
+                                            }
+                                        });
+                                        
+                                        jQuery(elementoMilitar).on('select2:clear', function (e) {
+                                            jQuery('#dados_militar_preenchidos').slideUp();
+                                            jQuery('#militar_posto').val('');
+                                            jQuery('#militar_cpf').val('');
+                                            jQuery('#militar_email').val('');
+                                            jQuery('#militar_telefone').val('');
+                                        });
+                                        
+                                        console.log('Select2 inicializado com sucesso!');
+                                    } catch (error) {
+                                        console.error('Erro ao inicializar Select2:', error);
+                                    }
+                                } else {
+                                    console.log('Select2 já estava inicializado');
+                                }
+                            }
+                        }
+                    }, 300);
+                }, 100);
+            })
+            .catch(error => {
+                console.error('Erro ao carregar formulário:', error);
+                criarMonitorModalContent.innerHTML = `
+                    <div class="modal-body">
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Erro ao carregar formulário. Por favor, tente novamente.
+                        </div>
+                    </div>
+                `;
+            });
+        });
+        
+        // Também tentar inicializar quando o modal estiver totalmente aberto
+        criarMonitorModal.addEventListener('shown.bs.modal', function(event) {
+            setTimeout(function() {
+                if (typeof jQuery !== 'undefined' && typeof jQuery.fn !== 'undefined' && typeof jQuery.fn.select2 !== 'undefined') {
+                    const elementoMilitar = document.getElementById('id_militar');
+                    if (elementoMilitar && !jQuery(elementoMilitar).hasClass('select2-hidden-accessible')) {
+                        console.log('Tentando inicializar Select2 após modal totalmente aberto...');
+                        try {
+                            jQuery(elementoMilitar).select2({
+                                placeholder: 'Busque e selecione um militar...',
+                                allowClear: true,
+                                width: '100%',
+                                dropdownParent: jQuery('#criarMonitorModal'),
+                                ajax: {
+                                    url: '{% url "militares:militar-autocomplete" %}',
+                                    dataType: 'json',
+                                    delay: 250,
+                                    data: function (params) {
+                                        return {
+                                            q: params.term,
+                                            page: params.page
+                                        };
+                                    },
+                                    processResults: function (data, params) {
+                                        params.page = params.page || 1;
+                                        return {
+                                            results: data.results,
+                                            pagination: {
+                                                more: (params.page * 30) < data.total_count
+                                            }
+                                        };
+                                    },
+                                    cache: true
+                                },
+                                minimumInputLength: 0
+                            });
+                            
+                            // Adicionar event listeners
+                            jQuery(elementoMilitar).off('select2:select select2:clear').on('select2:select', function (e) {
+                                const militarId = e.params.data.id;
+                                if (militarId) {
+                                    fetch('{% url "militares:militar_info_completa_ajax" %}?militar_id=' + militarId)
+                                        .then(response => response.json())
+                                        .then(data => {
+                                            if (data.success && data.militar) {
+                                                const militar = data.militar;
+                                                // Preencher dados de visualização
+                                                jQuery('#militar_posto').val(militar.posto_graduacao_display || militar.posto_display || '');
+                                                jQuery('#militar_cpf').val(militar.cpf || '');
+                                                jQuery('#militar_email').val(militar.email || '');
+                                                jQuery('#militar_telefone').val(militar.telefone || militar.celular || '');
+                                                jQuery('#dados_militar_preenchidos').slideDown();
+                                                
+                                                // Preencher campos do formulário se o tipo for BOMBEIRO
+                                                const tipoMonitor = jQuery('input[name="tipo_monitor"]:checked').val();
+                                                if (tipoMonitor === 'BOMBEIRO') {
+                                                    // Preencher email se o campo estiver vazio
+                                                    const emailField = jQuery('#id_email_bombeiro');
+                                                    if (emailField.length && !emailField.val()) {
+                                                        emailField.val(militar.email || '');
+                                                    }
+                                                    
+                                                    // Preencher telefone se o campo estiver vazio (priorizar telefone, senão celular)
+                                                    const telefoneField = jQuery('#id_telefone_bombeiro');
+                                                    if (telefoneField.length && !telefoneField.val()) {
+                                                        telefoneField.val(militar.telefone || militar.celular || '');
+                                                    }
+                                                    
+                                                    // Preencher campos de endereco se existirem e estiverem vazios
+                                                    const enderecoField = jQuery('#id_endereco_bombeiro');
+                                                    if (enderecoField.length && !enderecoField.val() && militar.endereco) {
+                                                        enderecoField.val(militar.endereco);
+                                                    }
+                                                    
+                                                    const cidadeField = jQuery('#id_cidade_bombeiro');
+                                                    if (cidadeField.length && !cidadeField.val() && militar.cidade) {
+                                                        cidadeField.val(militar.cidade);
+                                                    }
+                                                    
+                                                    const ufField = jQuery('#id_uf_bombeiro');
+                                                    if (ufField.length && !ufField.val() && (militar.uf || militar.estado)) {
+                                                        ufField.val(militar.uf || militar.estado || '').trigger('change');
+                                                    }
+                                                    
+                                                    const cepField = jQuery('#id_cep_bombeiro');
+                                                    if (cepField.length && !cepField.val() && militar.cep) {
+                                                        cepField.val(militar.cep);
+                                                    }
+                                                }
+                                            }
+                                        })
+                                        .catch(error => {
+                                            console.error('Erro ao buscar dados do militar:', error);
+                                        });
+                                }
+                            });
+                            
+                            jQuery(elementoMilitar).on('select2:clear', function (e) {
+                                jQuery('#dados_militar_preenchidos').slideUp();
+                                jQuery('#militar_posto').val('');
+                                jQuery('#militar_cpf').val('');
+                                jQuery('#militar_email').val('');
+                                jQuery('#militar_telefone').val('');
+                            });
+                            
+                            console.log('Select2 inicializado após modal aberto!');
+                        } catch (error) {
+                            console.error('Erro ao inicializar Select2:', error);
+                        }
+                    }
+                }
+            }, 200);
+        });
+    }
+    
+    // Listener genérico para todos os botões de edição
+    document.querySelectorAll('.btn-editar-monitor').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const monitorId = btn.getAttribute('data-monitor-id');
+            const modalId = '#editarMonitorModal' + monitorId;
+            const modalContentId = '#editarMonitorModalContent' + monitorId;
+            const modalElement = document.getElementById('editarMonitorModal' + monitorId);
+            const modalContent = document.getElementById('editarMonitorModalContent' + monitorId);
+            
+            if (!modalElement || !modalContent) {
+                console.error('Modal não encontrado para monitor:', monitorId);
+                return;
+            }
+            
+            // Mostrar loading
+            modalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-warning" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            // Carregar conteúdo via AJAX
+            const editarUrl = '{% url "militares:ensino_monitor_editar" pk=999999 %}'.replace('999999', monitorId);
+            fetch(editarUrl, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.text())
+            .then(html => {
+                modalContent.innerHTML = html;
+                
+                // Re-executar scripts que podem estar no conteúdo carregado
+                setTimeout(function() {
+                    const scripts = modalContent.querySelectorAll('script');
+                    scripts.forEach(function(oldScript) {
+                        const newScript = document.createElement('script');
+                        Array.from(oldScript.attributes).forEach(attr => {
+                            newScript.setAttribute(attr.name, attr.value);
+                        });
+                        newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                        oldScript.parentNode.replaceChild(newScript, oldScript);
+                    });
+                }, 100);
+            })
+            .catch(error => {
+                console.error('Erro ao carregar formulário de edição:', error);
+                modalContent.innerHTML = `
+                    <div class="modal-body">
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Erro ao carregar formulário. Por favor, tente novamente.
+                        </div>
+                    </div>
+                `;
+            });
+        });
+    });
+    
+    // Listener genérico para todos os botões de exclusão
+    document.querySelectorAll('.btn-excluir-monitor').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const monitorId = btn.getAttribute('data-monitor-id');
+            const modalId = '#excluirMonitorModal' + monitorId;
+            const modalElement = document.getElementById('excluirMonitorModal' + monitorId);
+            
+            if (modalElement) {
+                // Tentar usar Bootstrap Modal
+                if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+                    modal.show();
+                } else {
+                    // Fallback: mostrar modal manualmente
+                    modalElement.style.display = 'block';
+                    modalElement.classList.add('show');
+                    document.body.classList.add('modal-open');
+                    const backdrop = document.createElement('div');
+                    backdrop.className = 'modal-backdrop fade show';
+                    backdrop.id = 'modalBackdrop' + monitorId;
+                    document.body.appendChild(backdrop);
+                    
+                    // Fechar modal ao clicar no backdrop
+                    backdrop.addEventListener('click', function() {
+                        modalElement.style.display = 'none';
+                        modalElement.classList.remove('show');
+                        document.body.classList.remove('modal-open');
+                        backdrop.remove();
+                    });
+                }
+            }
+        });
+    });
+    
+    // Adicionar listeners para fechar modais corretamente
+    {% for monitor in monitores %}
+    const modal{{ monitor.pk }} = document.getElementById('excluirMonitorModal{{ monitor.pk }}');
+    if (modal{{ monitor.pk }}) {
+        // Remover backdrop quando o modal for fechado
+        modal{{ monitor.pk }}.addEventListener('hidden.bs.modal', function() {
+            const backdrop = document.getElementById('modalBackdrop{{ monitor.pk }}');
+            if (backdrop) {
+                backdrop.remove();
+            }
+            document.body.classList.remove('modal-open');
+        });
+    }
+    {% endfor %}
+    
+    // Adicionar event listeners para os formulários de exclusão
+    {% for monitor in monitores %}
+    const form{{ monitor.pk }} = document.getElementById('formExcluirMonitor{{ monitor.pk }}');
+    if (form{{ monitor.pk }}) {
+        form{{ monitor.pk }}.addEventListener('submit', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const formData = new FormData(form{{ monitor.pk }});
+            const submitButton = form{{ monitor.pk }}.querySelector('button[type="submit"]');
+            const originalText = submitButton.innerHTML;
+            
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Excluindo...';
+            
+            // Limpar mensagens de erro anteriores
+            const errorDiv = document.getElementById('excluirMonitorErrors{{ monitor.pk }}');
+            const errorMessage = document.getElementById('excluirMonitorErrorMessage{{ monitor.pk }}');
+            if (errorDiv) errorDiv.classList.add('d-none');
+            
+            fetch(form{{ monitor.pk }}.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                const contentType = response.headers.get('content-type');
+                
+                // Se for erro, tentar parse como JSON primeiro
+                if (!response.ok) {
+                    if (contentType && contentType.includes('application/json')) {
+                        return response.json().then(data => {
+                            throw new Error(data.error || data.message || `Erro ${response.status}: ${response.statusText}`);
+                        });
+                    }
+                    return response.text().then(text => {
+                        // Tentar parse como JSON mesmo que o content-type não seja JSON
+                        try {
+                            const jsonData = JSON.parse(text);
+                            throw new Error(jsonData.error || jsonData.message || `Erro ${response.status}: ${response.statusText}`);
+                        } catch (e) {
+                            throw new Error(`Erro ${response.status}: ${response.statusText}`);
+                        }
+                    });
+                }
+                
+                // Se for sucesso, retornar como JSON
+                if (contentType && contentType.includes('application/json')) {
+                    return response.json();
+                } else {
+                    return response.text().then(text => {
+                        // Tentar parse como JSON mesmo que o content-type não seja JSON
+                        try {
+                            return JSON.parse(text);
+                        } catch (e) {
+                            throw new Error('Resposta inesperada do servidor');
+                        }
+                    });
+                }
+            })
+            .then(data => {
+                if (data && data.success) {
+                    // Fechar modal e redirecionar
+                    const modalElement = document.getElementById('excluirMonitorModal{{ monitor.pk }}');
+                    if (modalElement) {
+                        const modal = bootstrap.Modal.getInstance(modalElement);
+                        if (modal) {
+                            modal.hide();
+                        }
+                    }
+                    // Aguardar um pouco antes de redirecionar para garantir que o modal feche
+                    setTimeout(function() {
+                        window.location.href = data.redirect || '/militares/ensino/monitores/';
+                    }, 300);
+                } else {
+                    // Mostrar erro
+                    if (errorDiv && errorMessage) {
+                        errorMessage.textContent = (data && (data.error || data.message)) || 'Erro ao excluir monitor';
+                        errorDiv.classList.remove('d-none');
+                    }
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('Erro completo:', error);
+                if (errorDiv && errorMessage) {
+                    errorMessage.textContent = error.message || 'Erro ao processar exclusão. Tente novamente.';
+                    errorDiv.classList.remove('d-none');
+                }
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalText;
+            });
+        });
+    }
+    {% endfor %}
+});
+</script>
+{% endblock %}
+

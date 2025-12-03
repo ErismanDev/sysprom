@@ -1,0 +1,659 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Detalhes do Instrutor - Módulo de Ensino{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="mb-0">
+                    <i class="fas fa-chalkboard-teacher me-2"></i>
+                    Detalhes do Instrutor
+                </h1>
+                {% if is_apk or request.GET.apk %}
+                <div class="d-grid gap-2 ms-3" style="max-width: 260px;">
+                    {% if menu_permissions.ENSINO_EDITAR or user.is_superuser %}
+                    <a href="{% url 'militares:ensino_instrutor_editar' pk=instrutor.pk %}?apk=1" class="btn btn-warning">
+                        <i class="fas fa-edit me-2"></i>
+                        Editar
+                    </a>
+                    {% endif %}
+                    <a href="{% url 'militares:ensino_instrutores_listar' %}?apk=1" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>
+                        Voltar
+                    </a>
+                </div>
+                {% else %}
+                <div>
+                    {% if menu_permissions.ENSINO_EDITAR or user.is_superuser %}
+                    <a href="{% url 'militares:ensino_instrutor_editar' pk=instrutor.pk %}" class="btn btn-warning">
+                        <i class="fas fa-edit me-2"></i>
+                        Editar
+                    </a>
+                    {% endif %}
+                    <a href="{% url 'militares:ensino_instrutores_listar' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>
+                        Voltar
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Foto e Identificação -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user-circle me-2"></i>
+                        Foto e Identificação
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-2 text-center">
+                            {% if instrutor.tipo_instrutor == 'BOMBEIRO' and instrutor.militar and instrutor.militar.foto %}
+                                <img src="{{ instrutor.militar.foto.url }}" alt="Foto do instrutor" class="img-thumbnail rounded-circle" style="width: 150px; height: 150px; object-fit: cover;">
+                            {% elif instrutor.tipo_instrutor == 'OUTRA_FORCA' and instrutor.foto_outra_forca %}
+                                <img src="{{ instrutor.foto_outra_forca.url }}" alt="Foto do instrutor" class="img-thumbnail rounded-circle" style="width: 150px; height: 150px; object-fit: cover;">
+                            {% elif instrutor.foto %}
+                                <img src="{{ instrutor.foto.url }}" alt="Foto do instrutor" class="img-thumbnail rounded-circle" style="width: 150px; height: 150px; object-fit: cover;">
+                            {% else %}
+                                <div class="bg-secondary rounded-circle d-flex align-items-center justify-content-center mx-auto" style="width: 150px; height: 150px;">
+                                    <i class="fas fa-user text-white" style="font-size: 60px;"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-10">
+                            <h3 class="mb-2">{{ instrutor.get_nome_completo }}</h3>
+                            <p class="mb-2">
+                                {% if instrutor.tipo_instrutor == 'BOMBEIRO' %}
+                                    <span class="badge bg-primary fs-6">Bombeiro Militar</span>
+                                {% elif instrutor.tipo_instrutor == 'OUTRA_FORCA' %}
+                                    <span class="badge bg-info fs-6">Militar de Outra Força</span>
+                                {% elif instrutor.tipo_instrutor == 'CIVIL' %}
+                                    <span class="badge bg-secondary fs-6">Civil</span>
+                                {% endif %}
+                                {% if instrutor.ativo %}
+                                    <span class="badge bg-success fs-6 ms-2">Ativo</span>
+                                {% else %}
+                                    <span class="badge bg-secondary fs-6 ms-2">Inativo</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Informações Detalhadas -->
+    <div class="row">
+        <div class="col-12">
+            <!-- Informações do Bombeiro Militar -->
+            {% if instrutor.tipo_instrutor == 'BOMBEIRO' and instrutor.militar %}
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-fire me-2"></i>
+                        Informações do Bombeiro Militar
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-5">Militar:</dt>
+                                <dd class="col-sm-7">
+                                    <strong>
+                                        {% if instrutor.militar.get_posto_graduacao_display %}
+                                            {{ instrutor.militar.get_posto_graduacao_display }} 
+                                        {% endif %}
+                                        {{ instrutor.militar.nome_completo }}
+                                    </strong>
+                                </dd>
+                                
+                                <dt class="col-sm-5">Matrícula:</dt>
+                                <dd class="col-sm-7">{{ instrutor.militar.matricula|default:"Não informado" }}</dd>
+                                
+                                <dt class="col-sm-5">CPF:</dt>
+                                <dd class="col-sm-7">{{ instrutor.militar.cpf|default:"Não informado" }}</dd>
+                                
+                                <dt class="col-sm-5">Posto/Graduação:</dt>
+                                <dd class="col-sm-7">
+                                    {% if instrutor.militar.get_posto_graduacao_display %}
+                                        {{ instrutor.militar.get_posto_graduacao_display }}
+                                    {% else %}
+                                        Não informado
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-5">Quadro:</dt>
+                                <dd class="col-sm-7">
+                                    {% if instrutor.militar.get_quadro_display %}
+                                        {{ instrutor.militar.get_quadro_display }}
+                                    {% else %}
+                                        Não informado
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-5">Situação:</dt>
+                                <dd class="col-sm-7">
+                                    {% if instrutor.militar.get_situacao_display %}
+                                        {{ instrutor.militar.get_situacao_display }}
+                                    {% else %}
+                                        Não informado
+                                    {% endif %}
+                                </dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="border-bottom pb-2 mb-3">
+                                <i class="fas fa-address-card me-2"></i>
+                                Contatos e Endereço
+                            </h6>
+                            <dl class="row">
+                                <dt class="col-sm-5">E-mail:</dt>
+                                <dd class="col-sm-7">
+                                    {% if instrutor.email_bombeiro %}
+                                        {{ instrutor.email_bombeiro }}
+                                    {% else %}
+                                        {{ instrutor.militar.email|default:"Não informado" }}
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-5">Telefone:</dt>
+                                <dd class="col-sm-7">
+                                    {% if instrutor.telefone_bombeiro %}
+                                        {{ instrutor.telefone_bombeiro }}
+                                    {% else %}
+                                        {{ instrutor.militar.telefone|default:instrutor.militar.celular|default:"Não informado" }}
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-5">Endereço:</dt>
+                                <dd class="col-sm-7">
+                                    {% if instrutor.endereco_bombeiro %}
+                                        {{ instrutor.endereco_bombeiro }}
+                                    {% else %}
+                                        {{ instrutor.militar.endereco|default:"Não informado" }}
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-5">Cidade:</dt>
+                                <dd class="col-sm-7">
+                                    {% if instrutor.cidade_bombeiro %}
+                                        {{ instrutor.cidade_bombeiro }}
+                                    {% else %}
+                                        {{ instrutor.militar.cidade|default:"Não informado" }}
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-5">UF:</dt>
+                                <dd class="col-sm-7">
+                                    {% if instrutor.uf_bombeiro %}
+                                        {{ instrutor.get_uf_bombeiro_display }}
+                                    {% elif instrutor.militar.uf %}
+                                        {{ instrutor.militar.uf }}
+                                    {% else %}
+                                        Não informado
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-5">CEP:</dt>
+                                <dd class="col-sm-7">
+                                    {% if instrutor.cep_bombeiro %}
+                                        {{ instrutor.cep_bombeiro }}
+                                    {% else %}
+                                        {{ instrutor.militar.cep|default:"Não informado" }}
+                                    {% endif %}
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Informações do Militar de Outra Força -->
+            {% if instrutor.tipo_instrutor == 'OUTRA_FORCA' %}
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-shield-alt me-2"></i>
+                        Informações do Militar de Outra Força
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-5">Nome Completo:</dt>
+                                <dd class="col-sm-7"><strong>{{ instrutor.nome_outra_forca|default:"Não informado" }}</strong></dd>
+                                
+                                <dt class="col-sm-5">Posto/Graduação:</dt>
+                                <dd class="col-sm-7">
+                                    {% if instrutor.posto_outra_forca %}
+                                        {{ instrutor.get_posto_outra_forca_display }}
+                                    {% else %}
+                                        Não informado
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-5">Força Armada/Polícia:</dt>
+                                <dd class="col-sm-7">
+                                    {% if instrutor.forca_armada %}
+                                        {{ instrutor.get_forca_armada_display }}
+                                    {% else %}
+                                        Não informado
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-5">Matrícula/Identificação:</dt>
+                                <dd class="col-sm-7">{{ instrutor.matricula_outra_forca|default:"Não informado" }}</dd>
+                                
+                                <dt class="col-sm-5">CPF:</dt>
+                                <dd class="col-sm-7">{{ instrutor.cpf_outra_forca|default:"Não informado" }}</dd>
+                                
+                                <dt class="col-sm-5">Instituição/Órgão:</dt>
+                                <dd class="col-sm-7">{{ instrutor.instituicao_outra_forca|default:"Não informado" }}</dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-5">E-mail:</dt>
+                                <dd class="col-sm-7">{{ instrutor.email_outra_forca|default:"Não informado" }}</dd>
+                                
+                                <dt class="col-sm-5">Telefone:</dt>
+                                <dd class="col-sm-7">{{ instrutor.telefone_outra_forca|default:"Não informado" }}</dd>
+                                
+                                <dt class="col-sm-5">Endereço:</dt>
+                                <dd class="col-sm-7">{{ instrutor.endereco_outra_forca|default:"Não informado" }}</dd>
+                                
+                                <dt class="col-sm-5">Cidade:</dt>
+                                <dd class="col-sm-7">{{ instrutor.cidade_outra_forca|default:"Não informado" }}</dd>
+                                
+                                <dt class="col-sm-5">UF:</dt>
+                                <dd class="col-sm-7">
+                                    {% if instrutor.uf_outra_forca %}
+                                        {{ instrutor.get_uf_outra_forca_display }}
+                                    {% else %}
+                                        Não informado
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-5">CEP:</dt>
+                                <dd class="col-sm-7">{{ instrutor.cep_outra_forca|default:"Não informado" }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Informações do Civil -->
+            {% if instrutor.tipo_instrutor == 'CIVIL' %}
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user me-2"></i>
+                        Informações do Instrutor Civil
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-5">Nome Completo:</dt>
+                                <dd class="col-sm-7"><strong>{{ instrutor.nome_civil|default:"Não informado" }}</strong></dd>
+                                
+                                <dt class="col-sm-5">CPF:</dt>
+                                <dd class="col-sm-7">{{ instrutor.cpf_civil|default:"Não informado" }}</dd>
+                                
+                                <dt class="col-sm-5">RG:</dt>
+                                <dd class="col-sm-7">{{ instrutor.rg_civil|default:"Não informado" }}</dd>
+                                
+                                <dt class="col-sm-5">Data de Nascimento:</dt>
+                                <dd class="col-sm-7">
+                                    {% if instrutor.data_nascimento_civil %}
+                                        {{ instrutor.data_nascimento_civil|date:"d/m/Y" }}
+                                    {% else %}
+                                        Não informado
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-5">Formação Acadêmica:</dt>
+                                <dd class="col-sm-7">{{ instrutor.formacao_civil|default:"Não informado" }}</dd>
+                                
+                                <dt class="col-sm-5">Instituição de Ensino:</dt>
+                                <dd class="col-sm-7">{{ instrutor.instituicao_civil|default:"Não informado" }}</dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-5">E-mail:</dt>
+                                <dd class="col-sm-7">{{ instrutor.email_civil|default:"Não informado" }}</dd>
+                                
+                                <dt class="col-sm-5">Telefone:</dt>
+                                <dd class="col-sm-7">{{ instrutor.telefone_civil|default:"Não informado" }}</dd>
+                                
+                                <dt class="col-sm-5">Endereço:</dt>
+                                <dd class="col-sm-7">{{ instrutor.endereco_civil|default:"Não informado" }}</dd>
+                                
+                                <dt class="col-sm-5">Cidade:</dt>
+                                <dd class="col-sm-7">{{ instrutor.cidade_civil|default:"Não informado" }}</dd>
+                                
+                                <dt class="col-sm-5">UF:</dt>
+                                <dd class="col-sm-7">
+                                    {% if instrutor.uf_civil %}
+                                        {{ instrutor.get_uf_civil_display }}
+                                    {% else %}
+                                        Não informado
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-5">CEP:</dt>
+                                <dd class="col-sm-7">{{ instrutor.cep_civil|default:"Não informado" }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Habilitações e Qualificações -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-certificate me-2"></i>
+                        Habilitações e Qualificações
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <h6 class="border-bottom pb-2">
+                                <i class="fas fa-award me-2"></i>Habilitações
+                            </h6>
+                            <p class="text-muted">
+                                {% if instrutor.habilitacoes %}
+                                    {{ instrutor.habilitacoes|linebreaks }}
+                                {% else %}
+                                    <em>Nenhuma habilitação cadastrada.</em>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <h6 class="border-bottom pb-2">
+                                <i class="fas fa-star me-2"></i>Especialidades
+                            </h6>
+                            <p class="text-muted">
+                                {% if instrutor.especialidades %}
+                                    {{ instrutor.especialidades|linebreaks }}
+                                {% else %}
+                                    <em>Nenhuma especialidade cadastrada.</em>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <h6 class="border-bottom pb-2">
+                                <i class="fas fa-briefcase me-2"></i>Experiência Profissional
+                            </h6>
+                            <p class="text-muted">
+                                {% if instrutor.experiencia_profissional %}
+                                    {{ instrutor.experiencia_profissional|linebreaks }}
+                                {% else %}
+                                    <em>Nenhuma experiência cadastrada.</em>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <h6 class="border-bottom pb-2">
+                                <i class="fas fa-graduation-cap me-2"></i>Cursos Complementares
+                            </h6>
+                            <p class="text-muted">
+                                {% if instrutor.cursos_complementares %}
+                                    {{ instrutor.cursos_complementares|linebreaks }}
+                                {% else %}
+                                    <em>Nenhum curso complementar cadastrado.</em>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    {% if instrutor.link_lattes %}
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <h6 class="border-bottom pb-2">
+                                <i class="fas fa-external-link-alt me-2"></i>Currículo Lattes
+                            </h6>
+                            <p class="mb-0">
+                                <a href="{{ instrutor.link_lattes }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-external-link-alt me-1"></i>
+                                    Acessar Currículo Lattes
+                                </a>
+                            </p>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if instrutor.observacoes %}
+                    <div class="row">
+                        <div class="col-md-12">
+                            <h6 class="border-bottom pb-2">
+                                <i class="fas fa-sticky-note me-2"></i>Observações
+                            </h6>
+                            <p class="text-muted">{{ instrutor.observacoes|linebreaks }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Documentos -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="fas fa-file-alt me-2"></i>
+                        Documentos Anexados
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if instrutor.documentos.all %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Tipo</th>
+                                        <th>Título</th>
+                                        <th>Data Upload</th>
+                                        <th>Upload por</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for doc in instrutor.documentos.all %}
+                                    <tr>
+                                        <td>
+                                            <span class="badge bg-info">{{ doc.get_tipo_display }}</span>
+                                        </td>
+                                        <td>{{ doc.titulo }}</td>
+                                        <td>{{ doc.data_upload|date:"d/m/Y H:i" }}</td>
+                                        <td>{{ doc.upload_por.get_full_name|default:doc.upload_por.username }}</td>
+                                        <td>
+                                            <a href="{{ doc.arquivo.url }}" target="_blank" class="btn btn-sm btn-info" title="Visualizar">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="{{ doc.arquivo.url }}" download class="btn btn-sm btn-primary" title="Download">
+                                                <i class="fas fa-download"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted mb-0 text-center">
+                            <i class="fas fa-file-alt me-2"></i>
+                            Nenhum documento anexado.
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Turmas -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-users me-2"></i>
+                        Turmas
+                        <span class="badge bg-light text-dark ms-2">{{ turmas.count }}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if turmas %}
+                        <div class="accordion" id="accordionTurmas">
+                            {% for turma in turmas %}
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="headingTurma{{ turma.pk }}">
+                                    <button class="accordion-button {% if not forloop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTurma{{ turma.pk }}" aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}" aria-controls="collapseTurma{{ turma.pk }}">
+                                        <div class="d-flex justify-content-between align-items-center w-100 me-3">
+                                            <div>
+                                                <i class="fas fa-chalkboard-teacher me-2"></i>
+                                                <strong>{{ turma.identificacao }}</strong>
+                                                <span class="badge bg-primary ms-2">{{ turma.curso.nome }}</span>
+                                            </div>
+                                            <div>
+                                                {% if turma.disciplinas_instrutor %}
+                                                    <span class="badge bg-info me-2">{{ turma.disciplinas_instrutor.count }} disciplina(s)</span>
+                                                {% endif %}
+                                                {% if turma.ativa %}
+                                                    <span class="badge bg-success">Ativa</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Inativa</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </button>
+                                </h2>
+                                <div id="collapseTurma{{ turma.pk }}" class="accordion-collapse collapse {% if forloop.first %}show{% endif %}" aria-labelledby="headingTurma{{ turma.pk }}" data-bs-parent="#accordionTurmas">
+                                    <div class="accordion-body">
+                                        <dl class="row mb-3">
+                                            <dt class="col-sm-4">Curso:</dt>
+                                            <dd class="col-sm-8">
+                                                <strong>{{ turma.curso.nome }}</strong>
+                                                {% if turma.curso.codigo %}
+                                                    <br><small class="text-muted">Código: {{ turma.curso.codigo }}</small>
+                                                {% endif %}
+                                            </dd>
+                                            
+                                            <dt class="col-sm-4">Período:</dt>
+                                            <dd class="col-sm-8">
+                                                {% if turma.data_inicio %}
+                                                    <i class="fas fa-calendar-alt me-1"></i>
+                                                    {{ turma.data_inicio|date:"d/m/Y" }}
+                                                {% endif %}
+                                                {% if turma.data_fim %}
+                                                    até {{ turma.data_fim|date:"d/m/Y" }}
+                                                {% endif %}
+                                            </dd>
+                                            
+                                            <dt class="col-sm-4">Status:</dt>
+                                            <dd class="col-sm-8">
+                                                {% if turma.ativa %}
+                                                    <span class="badge bg-success">Ativa</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Inativa</span>
+                                                {% endif %}
+                                            </dd>
+                                            
+                                            <dt class="col-sm-4">Disciplinas Ministradas:</dt>
+                                            <dd class="col-sm-8">
+                                                {% if turma.disciplinas_instrutor %}
+                                                    <div class="d-flex flex-wrap gap-1">
+                                                        {% for disciplina in turma.disciplinas_instrutor %}
+                                                            <span class="badge bg-info">
+                                                                <a href="{% url 'militares:ensino_disciplina_detalhes' pk=disciplina.pk %}" class="text-white text-decoration-none">
+                                                                    {{ disciplina.nome }}
+                                                                </a>
+                                                            </span>
+                                                        {% endfor %}
+                                                    </div>
+                                                    <small class="text-muted d-block mt-1">
+                                                        Total: {{ turma.disciplinas_instrutor.count }} disciplina(s) nesta turma
+                                                    </small>
+                                                {% else %}
+                                                    <span class="text-muted">Nenhuma disciplina ministrada nesta turma</span>
+                                                {% endif %}
+                                            </dd>
+                                        </dl>
+                                        
+                                        {% if turma.observacoes %}
+                                        <div class="alert alert-light mb-0">
+                                            <small><strong>Observações:</strong> {{ turma.observacoes|truncatewords:20 }}</small>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        <div class="text-end mt-3">
+                                            <a href="{% url 'militares:ensino_turma_detalhes' pk=turma.pk %}" class="btn btn-sm btn-primary">
+                                                <i class="fas fa-external-link-alt me-2"></i>
+                                                Ver Detalhes Completos da Turma
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted mb-0 text-center">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Nenhuma turma vinculada.
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Informações do Sistema -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Informações do Sistema
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-4">Data de Criação:</dt>
+                        <dd class="col-sm-8">{{ instrutor.data_criacao|date:"d/m/Y H:i" }}</dd>
+                        
+                        <dt class="col-sm-4">Última Atualização:</dt>
+                        <dd class="col-sm-8">{{ instrutor.data_atualizacao|date:"d/m/Y H:i" }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

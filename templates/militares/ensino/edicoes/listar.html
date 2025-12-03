@@ -1,0 +1,229 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Edições de Curso - Módulo de Ensino{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="mb-0">
+                    <i class="fas fa-calendar-alt me-2"></i>
+                    Edições de Curso
+                </h1>
+                {% if menu_permissions.ENSINO_CRIAR or user.is_superuser %}
+                <a href="{% url 'militares:ensino_edicao_criar' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>
+                    Nova Edição
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <select name="curso" class="form-select">
+                        <option value="">Todos os Cursos</option>
+                        {% for curso in cursos_permanentes %}
+                            <option value="{{ curso.pk }}" {% if request.GET.curso == curso.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ curso.nome }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <input type="number" name="ano" class="form-control" placeholder="Ano" value="{{ request.GET.ano }}" min="2000" max="2100">
+                </div>
+                <div class="col-md-3">
+                    <select name="ativa" class="form-select">
+                        <option value="">Todas</option>
+                        <option value="true" {% if request.GET.ativa == 'true' %}selected{% endif %}>Ativas</option>
+                        <option value="false" {% if request.GET.ativa == 'false' %}selected{% endif %}>Inativas</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-2"></i>
+                        Buscar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-body">
+            {% if is_apk or request.GET.apk %}
+            <div class="d-grid gap-3">
+                {% for edicao in edicoes %}
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="fw-bold">{{ edicao.curso.nome }}</div>
+                        {% if edicao.curso.codigo %}
+                        <div class="text-muted">{{ edicao.curso.codigo }}</div>
+                        {% endif %}
+                        <div class="mt-1">
+                            <span class="badge bg-dark">{{ edicao.nome }}</span>
+                            <span class="badge bg-secondary">Nº {{ edicao.numero_edicao }}</span>
+                            <span class="badge bg-info">{{ edicao.get_total_turmas }} turmas</span>
+                            <span class="badge bg-secondary">{{ edicao.get_total_alunos }} alunos</span>
+                        </div>
+                        <div class="mt-2 text-muted">
+                            {{ edicao.data_inicio|date:"d/m/Y" }}{% if edicao.data_fim %} - {{ edicao.data_fim|date:"d/m/Y" }}{% endif %} • Ano {{ edicao.ano }}
+                        </div>
+                        <div class="mt-2">
+                            {% if edicao.ativa %}
+                                <span class="badge bg-success">Ativa</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inativa</span>
+                            {% endif %}
+                        </div>
+                        <div class="d-grid gap-2 mt-3">
+                            <a href="{% url 'militares:ensino_edicao_detalhes' pk=edicao.pk %}?apk=1" class="btn btn-outline-info">
+                                <i class="fas fa-eye me-1"></i>Detalhes
+                            </a>
+                            <a href="{% url 'militares:ensino_edicao_resultado_final' pk=edicao.pk %}?apk=1" class="btn btn-outline-primary">
+                                <i class="fas fa-trophy me-1"></i>Resultado Final
+                            </a>
+                            {% if menu_permissions.ENSINO_CRIAR or user.is_superuser %}
+                            <a href="{% url 'militares:ensino_edicao_editar' pk=edicao.pk %}?apk=1" class="btn btn-outline-warning">
+                                <i class="fas fa-edit me-1"></i>Editar
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center text-muted">Nenhuma edição cadastrada.</div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Curso</th>
+                            <th>Edição</th>
+                            <th>Ano</th>
+                            <th>Período</th>
+                            <th>Turmas</th>
+                            <th>Alunos</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for edicao in edicoes %}
+                        <tr>
+                            <td>
+                                <strong>{{ edicao.curso.nome }}</strong>
+                                {% if edicao.curso.codigo %}
+                                    <br><small class="text-muted">{{ edicao.curso.codigo }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <strong>{{ edicao.nome }}</strong>
+                                <br><small class="text-muted">Nº {{ edicao.numero_edicao }}</small>
+                            </td>
+                            <td>{{ edicao.ano }}</td>
+                            <td>
+                                {{ edicao.data_inicio|date:"d/m/Y" }}
+                                {% if edicao.data_fim %}
+                                    - {{ edicao.data_fim|date:"d/m/Y" }}
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-info">{{ edicao.get_total_turmas }}</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-secondary">{{ edicao.get_total_alunos }}</span>
+                            </td>
+                            <td>
+                                {% if edicao.ativa %}
+                                    <span class="badge bg-success">Ativa</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inativa</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'militares:ensino_edicao_detalhes' pk=edicao.pk %}" class="btn btn-sm btn-info" title="Detalhes">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{% url 'militares:ensino_edicao_resultado_final' pk=edicao.pk %}" class="btn btn-sm btn-primary" title="Resultado Final">
+                                        <i class="fas fa-trophy"></i>
+                                    </a>
+                                    {% if menu_permissions.ENSINO_CRIAR or user.is_superuser %}
+                                    <a href="{% url 'militares:ensino_edicao_editar' pk=edicao.pk %}" class="btn btn-sm btn-warning" title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Nenhuma edição cadastrada.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+            
+            <!-- Paginação -->
+            {% if edicoes.has_other_pages %}
+            <nav aria-label="Paginação">
+                <ul class="pagination justify-content-center mt-4">
+                    {% if edicoes.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ edicoes.previous_page_number }}{% if request.GET.curso %}&curso={{ request.GET.curso }}{% endif %}{% if request.GET.ano %}&ano={{ request.GET.ano }}{% endif %}{% if request.GET.ativa %}&ativa={{ request.GET.ativa }}{% endif %}">Anterior</a>
+                        </li>
+                    {% endif %}
+                    
+                    {% for num in edicoes.paginator.page_range %}
+                        {% if edicoes.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                        {% elif num > edicoes.number|add:'-3' and num < edicoes.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}{% if request.GET.curso %}&curso={{ request.GET.curso }}{% endif %}{% if request.GET.ano %}&ano={{ request.GET.ano }}{% endif %}{% if request.GET.ativa %}&ativa={{ request.GET.ativa }}{% endif %}">{{ num }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if edicoes.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ edicoes.next_page_number }}{% if request.GET.curso %}&curso={{ request.GET.curso }}{% endif %}{% if request.GET.ano %}&ano={{ request.GET.ano }}{% endif %}{% if request.GET.ativa %}&ativa={{ request.GET.ativa }}{% endif %}">Próxima</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+<script>
+(function(){
+  try{
+    if(window.matchMedia && window.matchMedia('(max-width: 768px)').matches){
+      var url = new URL(window.location.href);
+      if(!url.searchParams.has('apk')){
+        url.searchParams.set('apk','1');
+        window.location.replace(url.toString());
+      }
+    }
+  }catch(e){}
+})();
+</script>

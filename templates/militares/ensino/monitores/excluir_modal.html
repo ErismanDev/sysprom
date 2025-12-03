@@ -1,0 +1,144 @@
+{% load static %}
+
+<div class="modal-header bg-danger text-white">
+    <h5 class="modal-title" id="excluirInstrutorModalLabel{{ instrutor.pk }}">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        Confirmar Exclusão
+    </h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+
+<form method="post" id="formExcluirInstrutor{{ instrutor.pk }}">
+    {% csrf_token %}
+    <div class="modal-body">
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Atenção!</strong> Esta ação não pode ser desfeita.
+        </div>
+        
+        <p>Tem certeza que deseja excluir o instrutor <strong>{{ instrutor }}</strong>?</p>
+        
+        <div id="vinculosInstrutor{{ instrutor.pk }}">
+            <!-- Será preenchido via JavaScript se houver vínculos -->
+        </div>
+        
+        <div id="excluirInstrutorErrors{{ instrutor.pk }}" class="alert alert-danger d-none">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <span id="excluirInstrutorErrorMessage{{ instrutor.pk }}"></span>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <i class="fas fa-times me-2"></i>Cancelar
+        </button>
+        <button type="submit" class="btn btn-danger" id="btnExcluirInstrutor{{ instrutor.pk }}">
+            <i class="fas fa-trash me-2"></i>Excluir Instrutor
+        </button>
+    </div>
+</form>
+
+<script>
+// Verificar vínculos ao carregar o modal
+fetch(`/militares/ensino/instrutores/{{ instrutor.pk }}/`)
+    .then(response => response.text())
+    .then(html => {
+        // Extrair contagens de vínculos (se necessário)
+        // Por enquanto, a validação será feita no servidor
+    })
+    .catch(error => console.error('Erro ao verificar vínculos:', error));
+
+// Aguardar o DOM estar pronto
+setTimeout(function() {
+    const form = document.getElementById('formExcluirInstrutor{{ instrutor.pk }}');
+    if (form) {
+        // Remover event listeners anteriores se existirem
+        const newForm = form.cloneNode(true);
+        form.parentNode.replaceChild(newForm, form);
+        
+        // Adicionar novo event listener
+        const formElement = document.getElementById('formExcluirInstrutor{{ instrutor.pk }}');
+        if (formElement) {
+            formElement.addEventListener('submit', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const formData = new FormData(formElement);
+                const submitButton = formElement.querySelector('button[type="submit"]');
+                const originalText = submitButton.innerHTML;
+                
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Excluindo...';
+                
+                // Limpar mensagens de erro anteriores
+                const errorDiv = document.getElementById('excluirInstrutorErrors{{ instrutor.pk }}');
+                const errorMessage = document.getElementById('excluirInstrutorErrorMessage{{ instrutor.pk }}');
+                if (errorDiv) errorDiv.classList.add('d-none');
+                
+                const instrutorId = {{ instrutor.pk }};
+                const excluirUrl = `/militares/ensino/instrutores/${instrutorId}/excluir/`;
+                
+                fetch(excluirUrl, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => {
+                    const contentType = response.headers.get('content-type');
+                    
+                    if (contentType && contentType.includes('application/json')) {
+                        if (!response.ok) {
+                            return response.json().then(data => {
+                                throw new Error(data.message || `Erro ${response.status}: ${response.statusText}`);
+                            }).catch(err => {
+                                if (err.message) throw err;
+                                throw new Error(`Erro ${response.status}: ${response.statusText}`);
+                            });
+                        }
+                        return response.json();
+                    } else {
+                        return response.text().then(text => {
+                            throw new Error('Resposta inesperada do servidor');
+                        });
+                    }
+                })
+                .then(data => {
+                    if (data && data.success) {
+                        // Fechar modal e redirecionar
+                        const modalElement = document.getElementById('excluirInstrutorModal{{ instrutor.pk }}');
+                        if (modalElement) {
+                            const modal = bootstrap.Modal.getInstance(modalElement);
+                            if (modal) {
+                                modal.hide();
+                            }
+                        }
+                        // Aguardar um pouco antes de redirecionar para garantir que o modal feche
+                        setTimeout(function() {
+                            window.location.href = data.redirect || '/militares/ensino/instrutores/';
+                        }, 300);
+                    } else {
+                        // Mostrar erro
+                        if (errorDiv && errorMessage) {
+                            errorMessage.textContent = (data && data.message) || 'Erro ao excluir instrutor';
+                            errorDiv.classList.remove('d-none');
+                        }
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = originalText;
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro completo:', error);
+                    if (errorDiv && errorMessage) {
+                        errorMessage.textContent = error.message || 'Erro ao processar exclusão. Tente novamente.';
+                        errorDiv.classList.remove('d-none');
+                    }
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalText;
+                });
+            });
+        }
+    }
+}, 100);
+</script>
+

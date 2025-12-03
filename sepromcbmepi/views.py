@@ -116,16 +116,25 @@ def logout_view(request):
     for key in session_keys_to_remove:
         request.session.pop(key, None)
     
+    # Garantir que a sessão seja completamente encerrada e o cookie invalidado
+    try:
+        request.session.flush()
+    except Exception:
+        pass
+    
     # Deletar a sessão atual explicitamente para atualizar status online imediatamente
     if hasattr(request, 'session') and request.session.session_key:
         from django.contrib.sessions.models import Session
         try:
             Session.objects.filter(session_key=request.session.session_key).delete()
-        except:
+        except Exception:
             pass
     
     logout(request)
     messages.success(request, 'Você foi desconectado com sucesso.')
+    ensino_tipo = request.session.get('ensino_tipo')
+    if ensino_tipo in ['aluno', 'instrutor', 'monitor']:
+        return redirect('militares:ensino_login')
     return redirect('login')
 
 
@@ -173,7 +182,7 @@ def api_funcoes_usuario(request):
             'success': True,
             'funcoes': funcoes_data
         })
-        
+
     except json.JSONDecodeError:
         return JsonResponse({
             'success': False,
@@ -186,10 +195,51 @@ def api_funcoes_usuario(request):
         })
 
 
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_user_email(request):
+    try:
+        data = json.loads(request.body)
+        username = data.get('username', '').strip()
+        if not username:
+            return JsonResponse({'success': False, 'message': 'Username é obrigatório'})
+        from django.contrib.auth.models import User
+        try:
+            user = User.objects.get(username=username)
+            return JsonResponse({'success': True, 'email': user.email or ''})
+        except User.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'Usuário não encontrado'})
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'message': 'Dados inválidos'})
+
+
 @login_required
 def home_view(request):
-    """View da página inicial"""
-    return redirect('/militares/')
+    """View da página inicial - redireciona baseado no tipo de usuário"""
+    # Verificar se é login do módulo de ensino através da sessão
+    ensino_tipo = request.session.get('ensino_tipo')
+    
+    if ensino_tipo == 'aluno':
+        return redirect('militares:ensino_dashboard_aluno')
+    elif ensino_tipo in ['instrutor', 'monitor']:
+        return redirect('militares:ensino_dashboard_instrutor')
+    
+    # Se não for usuário do ensino, verificar através do militar
+    from militares.views_dashboard_ensino import identificar_tipo_usuario_ensino
+    
+    tipo_usuario = identificar_tipo_usuario_ensino(request.user)
+    
+    if tipo_usuario == 'aluno':
+        return redirect('militares:ensino_dashboard_aluno')
+    elif tipo_usuario == 'instrutor':
+        return redirect('militares:ensino_dashboard_instrutor')
+    elif tipo_usuario == 'supervisor':
+        return redirect('militares:ensino_dashboard_supervisor')
+    elif tipo_usuario == 'coordenador':
+        return redirect('militares:ensino_dashboard_coordenador')
+    else:
+        # Redirecionar para home padrão se não for nenhum tipo específico
+        return redirect('/militares/')
 
 
 def teste_modal_view(request):
@@ -199,4 +249,8 @@ def teste_modal_view(request):
             content = f.read()
         return HttpResponse(content, content_type='text/html')
     except FileNotFoundError:
-        return HttpResponse("Arquivo de teste não encontrado", status=404) 
+        return HttpResponse("Arquivo de teste não encontrado", status=404)
+
+
+def health_view(request):
+    return HttpResponse("ok", content_type='text/plain')

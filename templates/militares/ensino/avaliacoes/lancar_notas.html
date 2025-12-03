@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load money_filters %}
+
+{% block title %}Lançar Notas - Módulo de Ensino{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="mb-0">
+                    <i class="fas fa-check-double me-2"></i>
+                    Lançar Notas - {{ avaliacao.nome }}
+                </h1>
+                <a href="{% url 'militares:ensino_avaliacao_detalhes' pk=avaliacao.pk %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Voltar
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Informações da Avaliação -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-info-circle me-2"></i>
+                Informações da Avaliação
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <strong>Turma:</strong> {{ avaliacao.turma.identificacao }}
+                </div>
+                <div class="col-md-3">
+                    <strong>Disciplina:</strong> {{ avaliacao.disciplina.nome }}
+                </div>
+                <div class="col-md-2">
+                    <strong>Tipo:</strong> {{ avaliacao.get_tipo_display }}
+                </div>
+                <div class="col-md-2">
+                    <strong>Data:</strong> {{ avaliacao.data_avaliacao|date:"d/m/Y" }}
+                </div>
+                <div class="col-md-2">
+                    <strong>Nota Máxima:</strong> {{ avaliacao.nota_maxima }}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Formulário de Notas -->
+    <div class="card">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-users me-2"></i>
+                Notas dos Alunos
+                <span class="badge bg-light text-dark ms-2">{{ alunos_com_notas|length }}</span>
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                
+                {% if alunos_com_notas %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Nº</th>
+                                    <th>Matrícula</th>
+                                    <th>Aluno</th>
+                                    <th>Nota</th>
+                                    <th>Observações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in alunos_com_notas %}
+                                <tr>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ forloop.counter }}</span>
+                                    </td>
+                                    <td>
+                                        {% if item.aluno.matricula %}
+                                            <strong>{{ item.aluno.matricula }}</strong>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if item.aluno.militar %}
+                                            {{ item.aluno.militar.get_posto_graduacao_display }} {{ item.aluno.militar.nome_completo }}
+                                        {% elif item.aluno.pessoa_externa %}
+                                            {{ item.aluno.pessoa_externa.get_nome_completo }}
+                                        {% else %}
+                                            {{ item.aluno.get_nome_completo }}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if item.nota_obj %}
+                                            <input 
+                                                type="number" 
+                                                name="nota_{{ item.aluno.pk }}" 
+                                                class="form-control" 
+                                                step="0.01" 
+                                                min="0" 
+                                                max="{{ avaliacao.nota_maxima }}"
+                                                value="{{ item.nota_obj.nota|number_input }}"
+                                                placeholder="0.00"
+                                            >
+                                        {% else %}
+                                            <input 
+                                                type="number" 
+                                                name="nota_{{ item.aluno.pk }}" 
+                                                class="form-control" 
+                                                step="0.01" 
+                                                min="0" 
+                                                max="{{ avaliacao.nota_maxima }}"
+                                                placeholder="0.00"
+                                            >
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if item.nota_obj and item.nota_obj.observacoes %}
+                                            <input 
+                                                type="text" 
+                                                name="observacoes_{{ item.aluno.pk }}" 
+                                                class="form-control" 
+                                                value="{{ item.nota_obj.observacoes }}"
+                                                placeholder="Observações (opcional)"
+                                            >
+                                        {% else %}
+                                            <input 
+                                                type="text" 
+                                                name="observacoes_{{ item.aluno.pk }}" 
+                                                class="form-control" 
+                                                placeholder="Observações (opcional)"
+                                            >
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'militares:ensino_avaliacao_detalhes' pk=avaliacao.pk %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>
+                            Voltar
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save me-2"></i>
+                            Salvar Notas
+                        </button>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Nenhum aluno encontrado nesta turma.
+                    </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+

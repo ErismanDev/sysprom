@@ -1555,9 +1555,12 @@ def ferias_certidao_pdf(request, militar_id):
             # Data e hora da assinatura
             agora = timezone.now().astimezone(brasilia_tz) if timezone.is_aware(timezone.now()) else brasilia_tz.localize(timezone.now())
             data_formatada = agora.strftime('%d/%m/%Y')
-            hora_formatada = agora.strftime('%H:%M')
+            hora_formatada = agora.strftime('%H:%M:%S')
             
-            texto_assinatura = f"Documento assinado eletronicamente por {nome_posto_quadro} - {funcao_display}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
+            texto_assinatura = (
+                f"Documento assinado eletronicamente por {nome_posto_quadro}, em {data_formatada} {hora_formatada}, "
+                f"conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
+            )
             
             # Adicionar logo da assinatura eletrônica
             from .utils import obter_caminho_assinatura_eletronica
@@ -2062,9 +2065,12 @@ def ferias_list_pdf(request):
             # Data e hora da assinatura
             agora = timezone.now().astimezone(brasilia_tz) if timezone.is_aware(timezone.now()) else brasilia_tz.localize(timezone.now())
             data_formatada = agora.strftime('%d/%m/%Y')
-            hora_formatada = agora.strftime('%H:%M')
+            hora_formatada = agora.strftime('%H:%M:%S')
             
-            texto_assinatura = f"Documento assinado eletronicamente por {nome_posto_quadro} - {funcao_display}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
+            texto_assinatura = (
+                f"Documento assinado eletronicamente por {nome_posto_quadro}, em {data_formatada} {hora_formatada}, "
+                f"conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
+            )
             
             # Logo da assinatura eletrônica
             from .utils import obter_caminho_assinatura_eletronica
@@ -2208,4 +2214,3 @@ def ferias_list_pdf(request):
         </html>
         """
         return HttpResponse(error_html, status=500, content_type='text/html')
-

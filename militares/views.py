@@ -800,20 +800,6 @@ def buscar_usuarios_ajax(request):
 @login_required
 def home(request):
     """Página inicial do sistema - acessível por todos os usuários"""
-    try:
-        if not request.user.is_superuser:
-            from .views_dashboard_ensino import identificar_tipo_usuario_ensino
-            tipo = identificar_tipo_usuario_ensino(request.user)
-            if tipo == 'aluno':
-                return redirect('militares:ensino_dashboard_aluno')
-            if tipo == 'instrutor':
-                return redirect('militares:ensino_dashboard_instrutor')
-            if tipo == 'coordenador':
-                return redirect('militares:ensino_dashboard_coordenador')
-            if tipo == 'supervisor':
-                return redirect('militares:ensino_dashboard_supervisor')
-    except Exception:
-        pass
     from .models import UsuarioSessao, Publicacao, EscalaServico, EscalaMilitar
     from django.utils import timezone
     from datetime import datetime, date
@@ -1671,7 +1657,7 @@ def ficha_conceito_list(request):
         return render(request, 'militares/ficha_conceito_list.html', context)
 
 @login_required
-@diretor_gestao_chefe_promocoes_required
+@requer_perm_fichas_criar
 def ficha_conceito_create(request):
     """Cria nova ficha de conceito"""
     if request.method == 'POST':
@@ -2142,6 +2128,12 @@ def quadro_acesso_list(request):
     nao_elaborados = quadros.filter(status='NAO_ELABORADO').count()
     em_elaboracao = quadros.filter(status='EM_ELABORACAO').count()
     
+    try:
+        is_instrutor_monitor_ensino = _eh_instrutor_ou_monitor_ensino(request.user) or (
+            request.session.get('ensino_tipo') in ['instrutor', 'monitor'] if hasattr(request, 'session') else False
+        )
+    except Exception:
+        is_instrutor_monitor_ensino = False
     context = {
         'quadros': quadros,
         'tipos': QuadroAcesso.TIPO_CHOICES,
@@ -2157,7 +2149,8 @@ def quadro_acesso_list(request):
             'homologados': homologados,
             'nao_elaborados': nao_elaborados,
             'em_elaboracao': em_elaboracao,
-        }
+        },
+        'is_instrutor_monitor_ensino': is_instrutor_monitor_ensino,
     }
     
     return render(request, 'militares/quadro_acesso_list.html', context)
@@ -2833,11 +2826,18 @@ def quadro_acesso_detail(request, pk):
                 'militares': militares_desta_transicao,
             })
     
+    try:
+        is_instrutor_monitor_ensino = _eh_instrutor_ou_monitor_ensino(request.user) or (
+            request.session.get('ensino_tipo') in ['instrutor', 'monitor'] if hasattr(request, 'session') else False
+        )
+    except Exception:
+        is_instrutor_monitor_ensino = False
     context = {
         'quadro': quadro,
         'militares_inaptos': militares_inaptos,
         'total_inaptos': len(militares_inaptos),
         'estrutura_quadros': estrutura_quadros,
+        'is_instrutor_monitor_ensino': is_instrutor_monitor_ensino,
     }
     
     # OCULTO TEMPORARIAMENTE - Garantir exibição da transição MJ→TC em todos os quadros de acesso
@@ -2864,8 +2864,15 @@ def quadro_acesso_detail(request, pk):
     return render(request, 'militares/quadro_acesso_detail.html', context)
 
 @login_required
+@requer_perm_quadros_criar
 def gerar_quadro_acesso(request):
     """Gera um quadro de acesso único por tipo e data, incluindo todos os postos"""
+    try:
+        if _eh_instrutor_ou_monitor_ensino(request.user) or request.session.get('ensino_tipo') in ['instrutor', 'monitor']:
+            messages.error(request, 'Instrutores e monitores só podem visualizar Quadros de Acesso.')
+            return redirect('militares:quadro_acesso_list')
+    except Exception:
+        pass
     if request.method == 'POST':
         tipo = request.POST.get('tipo')
         data_promocao = request.POST.get('data_promocao')
@@ -3012,8 +3019,15 @@ def gerar_quadro_acesso(request):
     return render(request, 'militares/gerar_quadro_acesso.html', context)
 
 @login_required
+@requer_perm_quadros_editar
 def regerar_quadro_acesso(request, pk):
     """Regera um quadro de acesso existente"""
+    try:
+        if _eh_instrutor_ou_monitor_ensino(request.user) or request.session.get('ensino_tipo') in ['instrutor', 'monitor']:
+            messages.error(request, 'Instrutores e monitores só podem visualizar Quadros de Acesso.')
+            return redirect('militares:quadro_acesso_detail', pk=pk)
+    except Exception:
+        pass
     try:
         quadro = QuadroAcesso.objects.get(pk=pk)
     except QuadroAcesso.DoesNotExist:
@@ -3031,8 +3045,15 @@ def regerar_quadro_acesso(request, pk):
     return redirect('militares:quadro_acesso_detail', pk=quadro.pk)
 
 @login_required
+@requer_perm_quadros_excluir
 def delete_quadro_acesso(request, pk):
     """Exclui um quadro de acesso"""
+    try:
+        if _eh_instrutor_ou_monitor_ensino(request.user) or request.session.get('ensino_tipo') in ['instrutor', 'monitor']:
+            messages.error(request, 'Instrutores e monitores só podem visualizar Quadros de Acesso.')
+            return redirect('militares:quadro_acesso_detail', pk=pk)
+    except Exception:
+        pass
     try:
         quadro = QuadroAcesso.objects.get(pk=pk)
     except QuadroAcesso.DoesNotExist:
@@ -3063,8 +3084,15 @@ def delete_quadro_acesso(request, pk):
     return render(request, 'militares/quadro_acesso_confirm_delete.html', context)
 
 @login_required
+@requer_perm_quadros_editar
 def adicionar_oficial_quadro_oficiais(request, pk):
     """Adiciona um oficial ao quadro de acesso"""
+    try:
+        if _eh_instrutor_ou_monitor_ensino(request.user) or request.session.get('ensino_tipo') in ['instrutor', 'monitor']:
+            messages.error(request, 'Instrutores e monitores só podem visualizar Quadros de Acesso.')
+            return redirect('militares:quadro_acesso_detail', pk=pk)
+    except Exception:
+        pass
     try:
         quadro = QuadroAcesso.objects.get(pk=pk)
     except QuadroAcesso.DoesNotExist:
@@ -3102,8 +3130,15 @@ def adicionar_oficial_quadro_oficiais(request, pk):
     return redirect('militares:quadro_acesso_detail', pk=quadro.pk)
 
 @login_required
+@requer_perm_quadros_editar
 def remover_militar_quadro_oficiais(request, pk, militar_id):
     """Remove um militar do quadro de acesso de oficiais"""
+    try:
+        if _eh_instrutor_ou_monitor_ensino(request.user) or request.session.get('ensino_tipo') in ['instrutor', 'monitor']:
+            messages.error(request, 'Instrutores e monitores só podem visualizar Quadros de Acesso.')
+            return redirect('militares:quadro_acesso_detail', pk=pk)
+    except Exception:
+        pass
     try:
         quadro = QuadroAcesso.objects.get(pk=pk)
     except QuadroAcesso.DoesNotExist:
@@ -3245,8 +3280,15 @@ def deshomologar_quadro_acesso(request, pk):
     return redirect('militares:quadro_acesso_detail', pk=quadro.pk)
 
 @login_required
+@requer_perm_quadros_editar
 def elaborar_quadro_acesso(request, pk):
     """Elabora um quadro de acesso não elaborado"""
+    try:
+        if _eh_instrutor_ou_monitor_ensino(request.user) or request.session.get('ensino_tipo') in ['instrutor', 'monitor']:
+            messages.error(request, 'Instrutores e monitores só podem visualizar Quadros de Acesso.')
+            return redirect('militares:quadro_acesso_detail', pk=pk)
+    except Exception:
+        pass
     try:
         quadro = QuadroAcesso.objects.get(pk=pk)
     except QuadroAcesso.DoesNotExist:
@@ -3268,8 +3310,15 @@ def elaborar_quadro_acesso(request, pk):
     return redirect('militares:quadro_acesso_detail', pk=quadro.pk)
 
 @login_required
+@requer_perm_quadros_editar
 def quadro_acesso_edit(request, pk):
     """Edita um quadro de acesso"""
+    try:
+        if _eh_instrutor_ou_monitor_ensino(request.user) or request.session.get('ensino_tipo') in ['instrutor', 'monitor']:
+            messages.error(request, 'Instrutores e monitores só podem visualizar Quadros de Acesso.')
+            return redirect('militares:quadro_acesso_detail', pk=pk)
+    except Exception:
+        pass
     try:
         quadro = QuadroAcesso.objects.get(pk=pk)
     except QuadroAcesso.DoesNotExist:
@@ -6448,6 +6497,20 @@ def militar_dashboard(request):
     
     funcao_usuario = sessao_ativa.funcao_militar_usuario
     funcao_militar = funcao_usuario.funcao_militar
+
+    # Redirecionar para dashboards específicos do Ensino conforme a função militar ativa
+    try:
+        nome_funcao = (funcao_militar.nome or '').lower()
+        if 'coordenador' in nome_funcao and ('turma' in nome_funcao or 'curso' in nome_funcao):
+            return redirect('militares:ensino_dashboard_coordenador')
+        if 'supervisor' in nome_funcao and ('turma' in nome_funcao or 'curso' in nome_funcao):
+            return redirect('militares:ensino_dashboard_supervisor')
+        if 'instrutor' in nome_funcao:
+            return redirect('militares:ensino_dashboard_instrutor')
+        if 'aluno' in nome_funcao:
+            return redirect('militares:ensino_dashboard_aluno')
+    except Exception:
+        pass
     
     # Usar todos os dados sem filtros hierárquicos
     militares_filtrados = Militar.objects
@@ -20731,7 +20794,8 @@ def funcoes_militares_create(request):
             # Criar configuração de menu padrão baseada no grupo
             menu_config = FuncaoMenuConfig.objects.create(
                 funcao_militar=funcao,
-                ativo=True
+                ativo=True,
+                show_ensino_submenu=False
             )
             
             # Processar permissões do formulário
@@ -21241,6 +21305,10 @@ def gerenciar_permissoes_unificado(request, funcao_id):
     import json
     
     funcao = get_object_or_404(FuncaoMilitar, pk=funcao_id)
+    menu_config, _mc_created = FuncaoMenuConfig.objects.get_or_create(
+        funcao_militar=funcao,
+        defaults={'ativo': True, 'show_ensino_submenu': False}
+    )
     
     if request.method == 'POST':
         print(f"🔍 DEBUG: Requisição POST recebida para função {funcao.nome}")
@@ -25204,7 +25272,8 @@ def funcoes_militares_create(request):
             # Criar configuração de menu padrão baseada no grupo
             menu_config = FuncaoMenuConfig.objects.create(
                 funcao_militar=funcao,
-                ativo=True
+                ativo=True,
+                show_ensino_submenu=False
             )
             
             # Processar permissões do formulário
@@ -32566,3 +32635,18 @@ def api_verificar_conflitos_planejadas(request):
         return JsonResponse({'success': False, 'message': f'Erro de formato de data/hora: {str(e)}'})
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'Erro interno: {str(e)}'})
+def _eh_instrutor_ou_monitor_ensino(user):
+    try:
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        militar = getattr(user, 'militar', None)
+        if not militar:
+            return False
+        from .models import InstrutorEnsino, MonitorEnsino
+        if InstrutorEnsino.objects.filter(militar=militar, ativo=True).exists():
+            return True
+        if MonitorEnsino.objects.filter(militar=militar, ativo=True).exists():
+            return True
+        return False
+    except Exception:
+        return False

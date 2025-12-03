@@ -1,0 +1,654 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Editar Aluno - Módulo de Ensino{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="mb-0">
+                <i class="fas fa-user-graduate me-2"></i>
+                    Editar Aluno: {{ aluno.get_nome_completo|default:aluno }}
+            </h1>
+                <div>
+                    <a href="{% url 'militares:ensino_aluno_detalhes' pk=aluno.pk %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>
+                        Voltar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-edit me-2"></i>
+                        Informações do Aluno
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data" id="formEditarAluno">
+                        {% csrf_token %}
+                        
+                        <!-- Tipo de Aluno -->
+                        <h5 class="mb-3 border-bottom pb-2">
+                            <i class="fas fa-user-tag me-2"></i>1. Tipo de Aluno
+                        </h5>
+                        <div class="mb-4">
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="tipo_aluno" id="tipo_bombeiro" value="BOMBEIRO" {% if aluno.tipo_aluno == 'BOMBEIRO' or aluno.militar %}checked{% endif %}>
+                                <label class="form-check-label" for="tipo_bombeiro">
+                                    <i class="fas fa-fire me-1"></i> Bombeiro Militar
+                                </label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="tipo_aluno" id="tipo_outra_forca" value="OUTRA_FORCA" {% if aluno.tipo_aluno == 'OUTRA_FORCA' %}checked{% endif %}>
+                                <label class="form-check-label" for="tipo_outra_forca">
+                                    <i class="fas fa-shield-alt me-1"></i> Militar de Outra Força
+                                </label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="tipo_aluno" id="tipo_civil" value="CIVIL" {% if aluno.tipo_aluno == 'CIVIL' or aluno.pessoa_externa %}checked{% endif %}>
+                                <label class="form-check-label" for="tipo_civil">
+                                    <i class="fas fa-user me-1"></i> Civil
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- Seção Bombeiro Militar -->
+                        <div id="secao_bombeiro" class="tipo-secao" {% if aluno.tipo_aluno != 'BOMBEIRO' and not aluno.militar %}style="display: none;"{% endif %}>
+                            <h5 class="mb-3 border-bottom pb-2 mt-4">
+                                <i class="fas fa-fire me-2"></i>2. Dados do Bombeiro Militar
+                            </h5>
+                            <div class="row">
+                                <div class="col-md-12 mb-3">
+                            <label for="{{ form.militar.id_for_label }}" class="form-label">
+                                Militar <span class="text-danger">*</span>
+                            </label>
+                            {{ form.militar }}
+                            {% if form.militar.errors %}
+                                <div class="text-danger">{{ form.militar.errors }}</div>
+                            {% endif %}
+                                    <small class="form-text text-muted">Selecione o militar bombeiro que será aluno. Os dados serão preenchidos automaticamente da ficha do militar.</small>
+                                </div>
+                            </div>
+                            <div class="row" id="dados_militar_preenchidos" {% if not aluno.militar %}style="display: none;"{% endif %}>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Posto/Graduação</label>
+                                    <input type="text" class="form-control bg-light" id="militar_posto" value="{% if aluno.militar %}{{ aluno.militar.get_posto_graduacao_display }}{% endif %}" readonly>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">CPF</label>
+                                    <input type="text" class="form-control bg-light" id="militar_cpf" value="{% if aluno.militar %}{{ aluno.militar.cpf }}{% endif %}" readonly>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">E-mail</label>
+                                    <input type="text" class="form-control bg-light" id="militar_email" value="{% if aluno.militar %}{{ aluno.militar.email }}{% endif %}" readonly>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Telefone</label>
+                                    <input type="text" class="form-control bg-light" id="militar_telefone" value="{% if aluno.militar %}{{ aluno.militar.telefone|default:aluno.militar.celular }}{% endif %}" readonly>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Seção Militar de Outra Força -->
+                        <div id="secao_outra_forca" class="tipo-secao" {% if aluno.tipo_aluno != 'OUTRA_FORCA' %}style="display: none;"{% endif %}>
+                            <h5 class="mb-3 border-bottom pb-2 mt-4">
+                                <i class="fas fa-shield-alt me-2"></i>2. Dados do Militar de Outra Força
+                            </h5>
+                            <div class="row">
+                                <div class="col-md-8 mb-3">
+                                    <label for="{{ form.nome_outra_forca.id_for_label }}" class="form-label">
+                                        Nome Completo <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.nome_outra_forca }}
+                                    {% if form.nome_outra_forca.errors %}
+                                        <div class="text-danger">{{ form.nome_outra_forca.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.posto_outra_forca.id_for_label }}" class="form-label">
+                                        Posto/Graduação
+                                    </label>
+                                    {{ form.posto_outra_forca }}
+                                    {% if form.posto_outra_forca.errors %}
+                                        <div class="text-danger">{{ form.posto_outra_forca.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.forca_armada.id_for_label }}" class="form-label">
+                                        Força Armada/Polícia
+                                    </label>
+                                    {{ form.forca_armada }}
+                                    {% if form.forca_armada.errors %}
+                                        <div class="text-danger">{{ form.forca_armada.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.matricula_outra_forca.id_for_label }}" class="form-label">
+                                        Matrícula/Identificação
+                                    </label>
+                                    {{ form.matricula_outra_forca }}
+                                    {% if form.matricula_outra_forca.errors %}
+                                        <div class="text-danger">{{ form.matricula_outra_forca.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.cpf_outra_forca.id_for_label }}" class="form-label">
+                                        CPF <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.cpf_outra_forca }}
+                                    {% if form.cpf_outra_forca.errors %}
+                                        <div class="text-danger">{{ form.cpf_outra_forca.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.rg_outra_forca.id_for_label }}" class="form-label">
+                                        RG
+                                    </label>
+                                    {{ form.rg_outra_forca }}
+                                    {% if form.rg_outra_forca.errors %}
+                                        <div class="text-danger">{{ form.rg_outra_forca.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.data_nascimento_outra_forca.id_for_label }}" class="form-label">
+                                        Data de Nascimento
+                                    </label>
+                                    {{ form.data_nascimento_outra_forca }}
+                                    {% if form.data_nascimento_outra_forca.errors %}
+                                        <div class="text-danger">{{ form.data_nascimento_outra_forca.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.email_outra_forca.id_for_label }}" class="form-label">
+                                        E-mail
+                                    </label>
+                                    {{ form.email_outra_forca }}
+                                    {% if form.email_outra_forca.errors %}
+                                        <div class="text-danger">{{ form.email_outra_forca.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.telefone_outra_forca.id_for_label }}" class="form-label">
+                                        Telefone
+                                    </label>
+                                    {{ form.telefone_outra_forca }}
+                                    {% if form.telefone_outra_forca.errors %}
+                                        <div class="text-danger">{{ form.telefone_outra_forca.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-12 mb-3">
+                                    <label for="{{ form.instituicao_outra_forca.id_for_label }}" class="form-label">
+                                        Instituição/Órgão
+                                    </label>
+                                    {{ form.instituicao_outra_forca }}
+                                    {% if form.instituicao_outra_forca.errors %}
+                                        <div class="text-danger">{{ form.instituicao_outra_forca.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- Endereço -->
+                            <div class="mt-4">
+                                <h6 class="mb-3 border-bottom pb-2">
+                                    <i class="fas fa-map-marker-alt me-2"></i>Endereço
+                                </h6>
+                                <div class="row">
+                                    <div class="col-md-12 mb-3">
+                                        <label for="{{ form.endereco_outra_forca.id_for_label }}" class="form-label">
+                                            Endereço Completo
+                                        </label>
+                                        {{ form.endereco_outra_forca }}
+                                        {% if form.endereco_outra_forca.errors %}
+                                            <div class="text-danger">{{ form.endereco_outra_forca.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.cidade_outra_forca.id_for_label }}" class="form-label">
+                                            Cidade
+                                        </label>
+                                        {{ form.cidade_outra_forca }}
+                                        {% if form.cidade_outra_forca.errors %}
+                                            <div class="text-danger">{{ form.cidade_outra_forca.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-3 mb-3">
+                                        <label for="{{ form.uf_outra_forca.id_for_label }}" class="form-label">
+                                            UF
+                                        </label>
+                                        {{ form.uf_outra_forca }}
+                                        {% if form.uf_outra_forca.errors %}
+                                            <div class="text-danger">{{ form.uf_outra_forca.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-3 mb-3">
+                                        <label for="{{ form.cep_outra_forca.id_for_label }}" class="form-label">
+                                            CEP
+                            </label>
+                                        {{ form.cep_outra_forca }}
+                                        {% if form.cep_outra_forca.errors %}
+                                            <div class="text-danger">{{ form.cep_outra_forca.errors }}</div>
+                            {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Seção Civil -->
+                        <div id="secao_civil" class="tipo-secao" {% if aluno.tipo_aluno != 'CIVIL' and not aluno.pessoa_externa %}style="display: none;"{% endif %}>
+                            <h5 class="mb-3 border-bottom pb-2 mt-4">
+                                <i class="fas fa-user me-2"></i>2. Dados do Aluno Civil
+                            </h5>
+                            <div class="row">
+                                <div class="col-md-8 mb-3">
+                                    <label for="{{ form.nome_civil.id_for_label }}" class="form-label">
+                                        Nome Completo <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.nome_civil }}
+                                    {% if form.nome_civil.errors %}
+                                        <div class="text-danger">{{ form.nome_civil.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.data_nascimento_civil.id_for_label }}" class="form-label">
+                                        Data de Nascimento
+                                    </label>
+                                    {{ form.data_nascimento_civil }}
+                                    {% if form.data_nascimento_civil.errors %}
+                                        <div class="text-danger">{{ form.data_nascimento_civil.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.cpf_civil.id_for_label }}" class="form-label">
+                                        CPF <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.cpf_civil }}
+                                    {% if form.cpf_civil.errors %}
+                                        <div class="text-danger">{{ form.cpf_civil.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.rg_civil.id_for_label }}" class="form-label">
+                                        RG
+                                    </label>
+                                    {{ form.rg_civil }}
+                                    {% if form.rg_civil.errors %}
+                                        <div class="text-danger">{{ form.rg_civil.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- Contatos -->
+                            <div class="mt-4">
+                                <h6 class="mb-3 border-bottom pb-2">
+                                    <i class="fas fa-address-card me-2"></i>Contatos
+                                </h6>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.email_civil.id_for_label }}" class="form-label">
+                                            E-mail
+                                        </label>
+                                        {{ form.email_civil }}
+                                        {% if form.email_civil.errors %}
+                                            <div class="text-danger">{{ form.email_civil.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.telefone_civil.id_for_label }}" class="form-label">
+                                            Telefone
+                            </label>
+                                        {{ form.telefone_civil }}
+                                        {% if form.telefone_civil.errors %}
+                                            <div class="text-danger">{{ form.telefone_civil.errors }}</div>
+                            {% endif %}
+                                    </div>
+                                </div>
+                        </div>
+                        
+                            <!-- Endereço -->
+                            <div class="mt-4">
+                                <h6 class="mb-3 border-bottom pb-2">
+                                    <i class="fas fa-map-marker-alt me-2"></i>Endereço
+                                </h6>
+                                <div class="row">
+                                    <div class="col-md-12 mb-3">
+                                        <label for="{{ form.endereco_civil.id_for_label }}" class="form-label">
+                                            Endereço Completo
+                                        </label>
+                                        {{ form.endereco_civil }}
+                                        {% if form.endereco_civil.errors %}
+                                            <div class="text-danger">{{ form.endereco_civil.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.cidade_civil.id_for_label }}" class="form-label">
+                                            Cidade
+                                        </label>
+                                        {{ form.cidade_civil }}
+                                        {% if form.cidade_civil.errors %}
+                                            <div class="text-danger">{{ form.cidade_civil.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-3 mb-3">
+                                        <label for="{{ form.uf_civil.id_for_label }}" class="form-label">
+                                            UF
+                                        </label>
+                                        {{ form.uf_civil }}
+                                        {% if form.uf_civil.errors %}
+                                            <div class="text-danger">{{ form.uf_civil.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-3 mb-3">
+                                        <label for="{{ form.cep_civil.id_for_label }}" class="form-label">
+                                            CEP
+                                        </label>
+                                        {{ form.cep_civil }}
+                                        {% if form.cep_civil.errors %}
+                                            <div class="text-danger">{{ form.cep_civil.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.formacao_civil.id_for_label }}" class="form-label">
+                                        Formação Acadêmica
+                                    </label>
+                                    {{ form.formacao_civil }}
+                                    {% if form.formacao_civil.errors %}
+                                        <div class="text-danger">{{ form.formacao_civil.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.instituicao_civil.id_for_label }}" class="form-label">
+                                        Instituição de Ensino
+                            </label>
+                                    {{ form.instituicao_civil }}
+                                    {% if form.instituicao_civil.errors %}
+                                        <div class="text-danger">{{ form.instituicao_civil.errors }}</div>
+                            {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Campos Comuns -->
+                        <h5 class="mb-3 border-bottom pb-2 mt-4">
+                            <i class="fas fa-info-circle me-2"></i>3. Informações do Aluno
+                        </h5>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.foto.id_for_label }}" class="form-label">
+                                    Foto
+                                </label>
+                                {{ form.foto }}
+                                {% if form.foto.errors %}
+                                    <div class="text-danger">{{ form.foto.errors }}</div>
+                                {% endif %}
+                                <div id="preview_foto" class="mt-2">
+                                    {% if aluno.foto %}
+                                        <img src="{{ aluno.foto.url }}" alt="Foto atual" class="img-thumbnail" style="max-width: 150px; max-height: 150px; object-fit: cover;" id="foto_atual">
+                                    {% elif aluno.militar and aluno.militar.foto %}
+                                        <img src="{{ aluno.militar.foto.url }}" alt="Foto do militar" class="img-thumbnail" style="max-width: 150px; max-height: 150px; object-fit: cover;" id="foto_militar">
+                                        <small class="d-block text-muted mt-1">Foto da ficha do militar</small>
+                                    {% endif %}
+                                </div>
+                                <small class="form-text text-muted">Foto do aluno (opcional). Se for bombeiro militar, a foto será preenchida automaticamente da ficha do militar.</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                            <label for="{{ form.situacao.id_for_label }}" class="form-label">
+                                Situação <span class="text-danger">*</span>
+                            </label>
+                            {{ form.situacao }}
+                            {% if form.situacao.errors %}
+                                <div class="text-danger">{{ form.situacao.errors }}</div>
+                            {% endif %}
+                        </div>
+                        </div>
+                        
+                        <!-- Observações -->
+                        <h5 class="mb-3 border-bottom pb-2 mt-4">
+                            <i class="fas fa-sticky-note me-2"></i>4. Observações
+                        </h5>
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                            <label for="{{ form.observacoes.id_for_label }}" class="form-label">
+                                Observações
+                            </label>
+                            {{ form.observacoes }}
+                            {% if form.observacoes.errors %}
+                                <div class="text-danger">{{ form.observacoes.errors }}</div>
+                            {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Botões de Ação -->
+                        <div class="d-flex justify-content-between mt-4 pt-3 border-top">
+                            <a href="{% url 'militares:ensino_aluno_detalhes' pk=aluno.pk %}" class="btn btn-secondary">
+                                <i class="fas fa-times me-2"></i>
+                                Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>
+                                Salvar Alterações
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Aguardar jQuery e Select2 estarem disponíveis
+    function inicializarSelect2() {
+        if (typeof jQuery === 'undefined' || typeof jQuery.fn === 'undefined' || typeof jQuery.fn.select2 === 'undefined') {
+            console.warn('jQuery ou Select2 não estão disponíveis. Tentando novamente...');
+            setTimeout(inicializarSelect2, 100);
+            return;
+        }
+        
+        // Garantir que jQuery esteja disponível como $
+        if (typeof $ === 'undefined') {
+            window.$ = window.jQuery = jQuery;
+        }
+        
+        // Inicializar Select2 para o campo militar
+        if (jQuery('#id_militar').length) {
+            jQuery('#id_militar').select2({
+                placeholder: 'Busque e selecione um militar...',
+                allowClear: true,
+                width: '100%',
+                ajax: {
+                    url: '{% url "militares:militar-autocomplete" %}',
+                    dataType: 'json',
+                    delay: 250,
+                    data: function (params) {
+                        return {
+                            q: params.term,
+                            page: params.page
+                        };
+                    },
+                    processResults: function (data, params) {
+                        params.page = params.page || 1;
+                        return {
+                            results: data.results,
+                            pagination: {
+                                more: (params.page * 30) < data.total_count
+                            }
+                        };
+                    },
+                    cache: true
+                },
+                minimumInputLength: 0,
+                templateResult: function(militar) {
+                    if (militar.loading) {
+                        return militar.text;
+                    }
+                    return jQuery('<div>' + militar.text + '</div>');
+                },
+                templateSelection: function(militar) {
+                    return militar.text || militar.id;
+                }
+            });
+            
+            // Quando um militar é selecionado, buscar e preencher dados
+            jQuery('#id_militar').on('select2:select', function (e) {
+                const militarId = e.params.data.id;
+                if (militarId) {
+                    // Buscar dados do militar via AJAX
+                    fetch(`{% url 'militares:militar_info_completa_ajax' %}?militar_id=${militarId}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success && data.militar) {
+                                const militar = data.militar;
+                                if (typeof jQuery !== 'undefined') {
+                                    // Preencher dados de visualização
+                                    jQuery('#militar_posto').val(militar.posto_graduacao_display || militar.posto_display || '');
+                                    jQuery('#militar_cpf').val(militar.cpf || '');
+                                    jQuery('#militar_email').val(militar.email || '');
+                                    jQuery('#militar_telefone').val(militar.telefone || militar.celular || '');
+                                    jQuery('#dados_militar_preenchidos').slideDown();
+                                    
+                                    // Preencher foto do militar se existir
+                                    if (militar.foto_url) {
+                                        const previewFoto = jQuery('#preview_foto');
+                                        previewFoto.html(`
+                                            <img src="${militar.foto_url}" alt="Foto do militar" class="img-thumbnail" style="max-width: 150px; max-height: 150px; object-fit: cover;" id="foto_militar">
+                                            <small class="d-block text-muted mt-1">Foto da ficha do militar</small>
+                                        `);
+                                    } else {
+                                        const previewFoto = jQuery('#preview_foto');
+                                        previewFoto.html('<small class="text-muted">Militar sem foto cadastrada</small>');
+                                    }
+                                }
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Erro ao buscar dados do militar:', error);
+                        });
+                }
+            });
+            
+            // Quando o militar é desmarcado, ocultar dados
+            jQuery('#id_militar').on('select2:clear', function (e) {
+                if (typeof jQuery !== 'undefined') {
+                    jQuery('#dados_militar_preenchidos').slideUp();
+                    jQuery('#militar_posto').val('');
+                    jQuery('#militar_cpf').val('');
+                    jQuery('#militar_email').val('');
+                    jQuery('#militar_telefone').val('');
+                    // Limpar preview da foto
+                    const previewFoto = jQuery('#preview_foto');
+                    {% if aluno.foto %}
+                        previewFoto.html('<img src="{{ aluno.foto.url }}" alt="Foto atual" class="img-thumbnail" style="max-width: 150px; max-height: 150px; object-fit: cover;" id="foto_atual">');
+                    {% else %}
+                        previewFoto.html('');
+                    {% endif %}
+                }
+            });
+        }
+    }
+    
+    // Controlar exibição das seções baseado no tipo selecionado
+    function atualizarSecoes() {
+        if (typeof jQuery === 'undefined') return;
+        
+        const tipo = jQuery('input[name="tipo_aluno"]:checked').val();
+        
+        // Ocultar todas as seções
+        jQuery('.tipo-secao').hide();
+        
+        // Mostrar seção correspondente
+        if (tipo === 'BOMBEIRO') {
+            jQuery('#secao_bombeiro').show();
+        } else if (tipo === 'OUTRA_FORCA') {
+            jQuery('#secao_outra_forca').show();
+        } else if (tipo === 'CIVIL') {
+            jQuery('#secao_civil').show();
+        }
+    }
+    
+    // Event listener para mudança de tipo
+    if (typeof jQuery !== 'undefined') {
+        jQuery('input[name="tipo_aluno"]').on('change', function() {
+            atualizarSecoes();
+        });
+    }
+    
+    // Inicializar seções
+    atualizarSecoes();
+    
+    // Iniciar após um pequeno delay para garantir que tudo esteja carregado
+    setTimeout(inicializarSelect2, 500);
+    
+    // Carregar foto do militar se já estiver selecionado ao carregar a página
+    {% if aluno.militar %}
+        setTimeout(function() {
+            if (typeof jQuery !== 'undefined' && jQuery('#id_militar').length) {
+                const militarId = jQuery('#id_militar').val();
+                if (militarId) {
+                    fetch(`{% url 'militares:militar_info_completa_ajax' %}?militar_id=${militarId}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success && data.militar && data.militar.foto_url) {
+                                const previewFoto = jQuery('#preview_foto');
+                                // Só atualizar se não houver foto do aluno já cadastrada
+                                if (!previewFoto.find('#foto_atual').length) {
+                                    previewFoto.html(`
+                                        <img src="${data.militar.foto_url}" alt="Foto do militar" class="img-thumbnail" style="max-width: 150px; max-height: 150px; object-fit: cover;" id="foto_militar">
+                                        <small class="d-block text-muted mt-1">Foto da ficha do militar</small>
+                                    `);
+                                }
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Erro ao buscar foto do militar:', error);
+                        });
+                }
+            }
+        }, 1000);
+    {% endif %}
+    
+    // Adicionar classes Bootstrap aos campos do formulário
+    const form = document.getElementById('formEditarAluno');
+    if (form) {
+        const inputs = form.querySelectorAll('input, select, textarea');
+        inputs.forEach(function(input) {
+            if (input.type !== 'checkbox' && input.type !== 'radio' && input.type !== 'file') {
+                if (!input.classList.contains('form-control')) {
+                    input.classList.add('form-control');
+                }
+            }
+            if (input.type === 'file') {
+                if (!input.classList.contains('form-control')) {
+                    input.classList.add('form-control');
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

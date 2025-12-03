@@ -24,8 +24,6 @@ def redirect_to_correct_list(tipo_publicacao):
         'BOLETIM_OSTENSIVO': 'militares:boletins_ostensivos_list',
         'BOLETIM_RESERVADO': 'militares:boletins_reservados_list',
         'BOLETIM_ESPECIAL': 'militares:boletins_especiais_list',
-        'AVISO': 'militares:avisos_list',
-        'ORDEM_SERVICO': 'militares:ordens_servico_list',
     }
     
     # Se não encontrar o tipo, redireciona para notas como padrão
@@ -47,7 +45,7 @@ def publicacao_create(request, tipo=None):
         return redirect('militares:dashboard')
     
     # Definir tipos válidos
-    tipos_validos = ['nota', 'boletim-ostensivo', 'boletim-reservado', 'boletim-especial', 'aviso', 'ordem-servico']
+    tipos_validos = ['nota', 'boletim-ostensivo', 'boletim-reservado', 'boletim-especial']
     
     if tipo and tipo not in tipos_validos:
         messages.error(request, 'Tipo de publicação inválido.')
@@ -59,8 +57,6 @@ def publicacao_create(request, tipo=None):
         'boletim-ostensivo': 'BOLETIM_OSTENSIVO',
         'boletim-reservado': 'BOLETIM_RESERVADO',
         'boletim-especial': 'BOLETIM_ESPECIAL',
-        'aviso': 'AVISO',
-        'ordem-servico': 'ORDEM_SERVICO',
     }
     
     if request.method == 'POST':
@@ -192,8 +188,6 @@ def publicacao_create(request, tipo=None):
         'boletim-ostensivo': 'Novo Boletim Ostensivo',
         'boletim-reservado': 'Novo Boletim Reservado',
         'boletim-especial': 'Novo Boletim Especial',
-        'aviso': 'Novo Aviso',
-        'ordem-servico': 'Nova Ordem de Serviço',
     }
     
     tipo_display = tipo_display_mapping.get(tipo, 'Nova Publicação')

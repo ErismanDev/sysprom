@@ -607,7 +607,7 @@ def boletim_gerar_pdf(request, pk):
                     # Assinaturas eletrônicas depois
                     for assinatura in assinaturas_eletronicas:
                         data_formatada = assinatura.data_assinatura.strftime("%d/%m/%Y") if assinatura.data_assinatura else "Data não informada"
-                        hora_formatada = assinatura.data_assinatura.strftime("%H:%M") if assinatura.data_assinatura else "Hora não informada"
+                        hora_formatada = assinatura.data_assinatura.strftime("%H:%M:%S") if assinatura.data_assinatura else "Hora não informada"
                         
                         # Nome e posto
                         if hasattr(assinatura.assinado_por, 'militar') and assinatura.assinado_por.militar:
@@ -623,7 +623,10 @@ def boletim_gerar_pdf(request, pk):
                         funcao = assinatura.funcao_assinatura or "Função não registrada"
                         
                         # Texto da assinatura eletrônica
-                        texto_assinatura = f"Documento assinado eletronicamente por {nome_completo} - {funcao}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, com fundamento na Portaria XXX/2025 Gab. Cmdo. Geral/CBMEPI de XX de XXXXX de 2025."
+                        texto_assinatura = (
+                            f"Documento assinado eletronicamente por {nome_completo}, em {data_formatada} {hora_formatada}, "
+                            f"conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
+                        )
                         
                         # Adicionar logo da assinatura eletrônica
                         from .utils import obter_caminho_assinatura_eletronica
@@ -794,7 +797,10 @@ def boletim_gerar_pdf(request, pk):
             # Função
             funcao = assinatura.funcao_assinatura or "Função não registrada"
             
-            texto_assinatura = f"Documento assinado eletronicamente por {nome_assinante} - {funcao}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
+            texto_assinatura = (
+                f"Documento assinado eletronicamente por {nome_assinante}, em {data_formatada} {hora_formatada}, "
+                f"conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
+            )
             
             # Adicionar logo da assinatura eletrônica
             from .utils import obter_caminho_assinatura_eletronica
@@ -1182,7 +1188,10 @@ def boletim_especial_gerar_pdf(request, pk):
                         funcao = assinatura.funcao_assinatura or "Função não registrada"
                         
                         # Texto da assinatura eletrônica
-                        texto_assinatura = f"Documento assinado eletronicamente por {nome_completo} - {funcao}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, com fundamento na Portaria XXX/2025 Gab. Cmdo. Geral/CBMEPI de XX de XXXXX de 2025."
+                        texto_assinatura = (
+                            f"Documento assinado eletronicamente por {nome_completo}, em {data_formatada} {hora_formatada}, "
+                            f"conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
+                        )
                         
                         # Adicionar logo da assinatura eletrônica
                         from .utils import obter_caminho_assinatura_eletronica
@@ -1353,7 +1362,10 @@ def boletim_especial_gerar_pdf(request, pk):
             # Função
             funcao = assinatura.funcao_assinatura or "Função não registrada"
             
-            texto_assinatura = f"Documento assinado eletronicamente por {nome_assinante} - {funcao}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
+            texto_assinatura = (
+                f"Documento assinado eletronicamente por {nome_assinante}, em {data_formatada} {hora_formatada}, "
+                f"conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
+            )
             
             # Adicionar logo da assinatura eletrônica
             from .utils import obter_caminho_assinatura_eletronica
@@ -1785,7 +1797,10 @@ def boletim_reservado_gerar_pdf(request, pk):
                         funcao = assinatura.funcao_assinatura or "Função não registrada"
                         
                         # Texto da assinatura eletrônica
-                        texto_assinatura = f"Documento assinado eletronicamente por {nome_completo} - {funcao}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, com fundamento na Portaria XXX/2025 Gab. Cmdo. Geral/CBMEPI de XX de XXXXX de 2025."
+                        texto_assinatura = (
+                            f"Documento assinado eletronicamente por {nome_completo}, em {data_formatada} {hora_formatada}, "
+                            f"conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
+                        )
                         
                         # Adicionar logo da assinatura eletrônica
                         from .utils import obter_caminho_assinatura_eletronica
@@ -1956,7 +1971,10 @@ def boletim_reservado_gerar_pdf(request, pk):
             # Função
             funcao = assinatura.funcao_assinatura or "Função não registrada"
             
-            texto_assinatura = f"Documento assinado eletronicamente por {nome_assinante} - {funcao}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
+            texto_assinatura = (
+                f"Documento assinado eletronicamente por {nome_assinante}, em {data_formatada} {hora_formatada}, "
+                f"conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
+            )
             
             # Adicionar logo da assinatura eletrônica
             from .utils import obter_caminho_assinatura_eletronica

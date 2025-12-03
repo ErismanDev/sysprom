@@ -1,0 +1,74 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.sysgabom.aplicativo'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.sysgabom.aplicativo'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    signingConfigs {
+        release {
+            if (System.getenv('KEYSTORE_PATH')) {
+                storeFile file(System.getenv('KEYSTORE_PATH'))
+                storePassword System.getenv('KEYSTORE_PASSWORD') ?: ''
+                keyAlias System.getenv('KEY_ALIAS') ?: ''
+                keyPassword System.getenv('KEY_PASSWORD') ?: ''
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            buildConfigField 'String', 'BASE_URL', '"https://comfortable-tall-acre-decor.trycloudflare.com/militares/ensino/login/?apk=1"'
+            buildConfigField 'boolean', 'ALLOW_INSECURE_SSL', 'true'
+        }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            buildConfigField 'String', 'BASE_URL', '"https://comfortable-tall-acre-decor.trycloudflare.com/militares/ensino/login/?apk=1"'
+            buildConfigField 'boolean', 'ALLOW_INSECURE_SSL', 'false'
+            if (System.getenv('KEYSTORE_PATH')) {
+                signingConfig signingConfigs.release
+            } else {
+                signingConfig signingConfigs.debug
+            }
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+}
+
+dependencies {
+}
+
+// Copiar ícone Sysgabom do diretório static para recursos Android
+tasks.register('copySysgabomIcon') {
+    doLast {
+        def src = file('../../static/sysgabomlogo.png')
+        def dstDir = file('src/main/res/drawable')
+        def dst = new File(dstDir, 'sysgabom.png')
+        if (src.exists()) {
+            dstDir.mkdirs()
+            src.withInputStream { input ->
+                dst.withOutputStream { out ->
+                    out << input
+                }
+            }
+            println "Ícone copiado para: ${dst}"
+        } else {
+            println "Arquivo de ícone não encontrado: ${src}"
+        }
+    }
+}
+
+preBuild.dependsOn(copySysgabomIcon)

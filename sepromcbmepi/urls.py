@@ -17,20 +17,27 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path, include
+from django.contrib.auth import views as auth_views
 from django.conf import settings
 from django.conf.urls.static import static
 from . import views
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("militares/", include("militares.urls")),
+    path("militares/", include(("militares.urls", "militares"), namespace="militares")),
     path("login/", views.login_view, name="login"),
     path("logout/", views.logout_view, name="logout"),
     path("", views.home_view, name="home"),
     path('ckeditor/', include('django_ckeditor_5.urls')),
     path('teste-modal/', views.teste_modal_view, name='teste_modal'),
     path('api/funcoes-usuario/', views.api_funcoes_usuario, name='api_funcoes_usuario'),
+    path('api/user-email/', views.api_user_email, name='api_user_email'),
+    path('health/', views.health_view, name='health'),
     # path('captcha/', include('captcha.urls')),  # Temporariamente comentado
+    path('password-reset/', auth_views.PasswordResetView.as_view(template_name='registration/password_reset_form.html'), name='password_reset'),
+    path('password-reset/done/', auth_views.PasswordResetDoneView.as_view(template_name='registration/password_reset_done.html'), name='password_reset_done'),
+    path('reset/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(template_name='registration/password_reset_confirm.html'), name='password_reset_confirm'),
+    path('reset/complete/', auth_views.PasswordResetCompleteView.as_view(template_name='registration/password_reset_complete.html'), name='password_reset_complete'),
 ]
 
 # Configuração para servir arquivos de media e static em desenvolvimento

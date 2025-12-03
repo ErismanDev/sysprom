@@ -150,7 +150,7 @@ def gerar_texto_assinatura_eletronica(usuario, tipo_assinatura, data_assinatura=
     
     # Formatar data e hora
     data_formatada = data_assinatura.strftime('%d/%m/%Y')
-    hora_formatada = data_assinatura.strftime('%H:%M')
+    hora_formatada = data_assinatura.strftime('%H:%M:%S')
     
     # Obter nome do usuário
     nome_usuario = usuario.get_full_name() or usuario.username
@@ -166,13 +166,9 @@ def gerar_texto_assinatura_eletronica(usuario, tipo_assinatura, data_assinatura=
     
     # Fundamentos legais padrão
     if fundamento_legal is None:
-        fundamento_legal = "Portaria XXX/2025 Gab. Cmdo. Geral/CBMEPI de XX de XXXXX de 2025"
+        fundamento_legal = "Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
     
-    # Obter a função atual do usuário
-    funcao_atual = 'Usuário do Sistema'  # Função será obtida da sessão
-    
-    # Gerar texto da assinatura no formato solicitado
-    texto = f"Documento assinado eletronicamente por {nome_completo} - {funcao_atual}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, com fundamento na {fundamento_legal}"
+    texto = f"Documento assinado eletronicamente por {nome_completo}, em {data_formatada} {hora_formatada}, conforme {fundamento_legal}"
     
     return texto
 
@@ -203,7 +199,7 @@ def gerar_texto_assinatura_comissao(membro_comissao, tipo_assinatura, data_assin
     
     # Formatar data e hora
     data_formatada = data_assinatura.strftime('%d/%m/%Y')
-    hora_formatada = data_assinatura.strftime('%H:%M')
+    hora_formatada = data_assinatura.strftime('%H:%M:%S')
     
     # Informações do militar
     militar = membro_comissao.militar
@@ -211,13 +207,9 @@ def gerar_texto_assinatura_comissao(membro_comissao, tipo_assinatura, data_assin
     
     # Fundamentos legais padrão
     if fundamento_legal is None:
-        fundamento_legal = "Portaria XXX/2025 Gab. Cmdo. Geral/CBMEPI de XX de XXXXX de 2025"
+        fundamento_legal = "Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
     
-    # Obter a função atual do usuário
-    funcao_atual = 'Usuário do Sistema'  # Função será obtida da sessão
-    
-    # Gerar texto da assinatura no formato padronizado
-    texto = f"Documento assinado eletronicamente por {nome_completo} - {funcao_atual}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, com fundamento na {fundamento_legal}"
+    texto = f"Documento assinado eletronicamente por {nome_completo}, em {data_formatada} {hora_formatada}, conforme {fundamento_legal}"
     
     return texto 
 
@@ -352,7 +344,7 @@ def formatar_data_assinatura(data_assinatura):
     
     # Formatar data e hora no formato brasileiro
     data_formatada = data_assinatura.strftime('%d/%m/%Y')
-    hora_formatada = data_assinatura.strftime('%H:%M')
+    hora_formatada = data_assinatura.strftime('%H:%M:%S')
     
     return data_formatada, hora_formatada 
 

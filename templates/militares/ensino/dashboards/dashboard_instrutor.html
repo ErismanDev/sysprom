@@ -1,0 +1,547 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load militares_extras %}
+
+{% block title %}Dashboard - Instrutor{% endblock %}
+
+{% block content %}
+<style>
+    #mainSidebar { display: none !important; }
+    .sidebar-toggle-btn, .sidebar-overlay { display: none !important; }
+    main { width: 100% !important; max-width: 100% !important; margin-left: 0 !important; padding-left: 0 !important; padding-right: 0 !important; }
+    .container-fluid { padding-left: 12px; padding-right: 12px; }
+</style>
+{% if is_apk %}
+<div class="container p-3">
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="d-flex align-items-center">
+                <div class="me-3">
+                    {% if instrutor.militar and instrutor.militar.foto %}
+                        <img src="{{ instrutor.militar.foto.url }}" class="rounded-circle" style="width:64px;height:64px;object-fit:cover;">
+                    {% else %}
+                        <div class="rounded-circle bg-light d-flex align-items-center justify-content-center" style="width:64px;height:64px;"><i class="fas fa-user-tie text-muted"></i></div>
+                    {% endif %}
+                </div>
+                <div class="flex-grow-1">
+                    <div class="fw-bold">{{ instrutor.militar.get_posto_graduacao_display }} {{ instrutor.militar.nome_completo }}</div>
+                    <div class="text-muted">Instrutor</div>
+                </div>
+            </div>
+            <div class="row g-2 mt-3">
+                <div class="col-6">
+                    <div class="small text-muted">Turmas</div>
+                    <div class="fw-semibold">{{ turmas|length }}</div>
+                </div>
+                <div class="col-6">
+                    <div class="small text-muted">Aulas no mês</div>
+                    <div class="fw-semibold">{{ aulas_este_mes }}</div>
+                </div>
+                <div class="col-6">
+                    <div class="small text-muted">Total de aulas</div>
+                    <div class="fw-semibold">{{ total_aulas }}</div>
+                </div>
+                <div class="col-6">
+                    <div class="small text-muted">Próximas aulas</div>
+                    <div class="fw-semibold">{{ aulas_proximas|length }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="small text-muted">Aulas</div>
+                    <div class="h4 mb-0">{{ total_aulas }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="small text-muted">Este mês</div>
+                    <div class="h4 mb-0">{{ aulas_este_mes }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="small text-muted">Turmas</div>
+                    <div class="h4 mb-0">{{ turmas|length }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <h5 class="mb-2"><i class="fas fa-users me-2"></i>Minhas Turmas</h5>
+        {% if turmas %}
+        <div class="list-group">
+            {% for turma in turmas|slice:":6" %}
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="fw-bold">{{ turma.curso.nome }}</div>
+                        <div class="small text-muted">{{ turma.identificacao }}</div>
+                        <div class="mt-2">
+                            {% for disciplina in turma.disciplinas.all %}
+                                {% if disciplina.instrutor_responsavel_militar == instrutor.militar %}
+                                    <div class="mb-1">
+                                        <div class="d-flex align-items-center flex-wrap">
+                                            <span class="me-2">{{ disciplina.nome }}</span>
+                                            {% with key=turma.pk|stringformat:"s"|add:"-"|add:disciplina.pk|stringformat:"s" %}
+                                            {% with stats=stats_disc_turma|lookup:key %}
+                                                {% if stats %}
+                                                    <span class="badge bg-light text-dark me-2">Aulas: {{ stats.aulas_total }} ({{ stats.aulas_proximas }} prox)</span>
+                                                    <span class="badge bg-light text-dark me-2">Avaliações: {{ stats.avaliacoes_total }}</span>
+                                                    <span class="badge bg-light text-dark me-2">QTS: {{ stats.qts_total }} ({{ stats.qts_proximos }} prox)</span>
+                                                {% endif %}
+                                            {% endwith %}
+                                            {% endwith %}
+                                        </div>
+                                        <div class="mt-1 d-flex flex-wrap gap-1">
+                                            <a href="{% url 'militares:ensino_caderneta_frequencia_disciplina' turma_id=turma.pk disciplina_id=disciplina.pk %}" class="btn btn-outline-primary btn-sm">Caderneta</a>
+                                            <a href="{% url 'militares:ensino_avaliacoes_listar' %}?turma={{ turma.pk }}&disciplina={{ disciplina.pk }}" class="btn btn-outline-secondary btn-sm">Avaliações</a>
+                                            <a href="{% url 'militares:ensino_disciplina_detalhes' pk=disciplina.pk %}" class="btn btn-outline-info btn-sm">Ver Disciplina</a>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div>
+                        
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-muted small">Sem turmas vinculadas.</div>
+        {% endif %}
+    </div>
+
+    <div class="mb-3">
+        <h5 class="mb-2"><i class="fas fa-calendar-day me-2"></i>Próximas Aulas</h5>
+        {% if aulas_proximas %}
+        <div class="list-group">
+            {% for aula in aulas_proximas|slice:":5" %}
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="fw-bold">{{ aula.disciplina.nome }}</div>
+                        <div class="small text-muted">{{ aula.turma.identificacao }} • {{ aula.data_aula|date:"d/m/Y" }} • {{ aula.hora_inicio|time:"H:i" }}</div>
+                    </div>
+                    <span class="badge bg-primary">{{ aula.get_tipo_aula_display }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-muted small">Sem próximas aulas.</div>
+        {% endif %}
+    </div>
+
+    <div class="mb-3">
+        <h5 class="mb-2"><i class="fas fa-table me-2"></i>Quadros de Trabalho Semanal</h5>
+        {% if quadros_trabalho_instrutor %}
+        <div class="list-group">
+            {% for qts in quadros_trabalho_instrutor|slice:":5" %}
+            <div class="list-group-item d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="fw-bold">
+                        Quadro Nº {{ qts.get_numero_completo }}
+                        {% if qts.numero_aditamento %}
+                            <span class="badge bg-light text-dark ms-2">Aditamento {{ qts.numero_aditamento }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="small text-muted">{{ qts.turma.identificacao }} • Início {{ qts.data_inicio_semana|date:"d/m/Y" }}</div>
+                </div>
+                <a href="{% url 'militares:ensino_quadro_trabalho_semanal_visualizar' pk=qts.pk %}" class="btn btn-sm btn-outline-secondary">Abrir</a>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-muted small">Sem quadros de trabalho para suas turmas.</div>
+        {% endif %}
+    </div>
+
+    <div>
+        <h5 class="mb-2"><i class="fas fa-flag me-2"></i>Pedidos de Revisão</h5>
+        {% if alertas_pedidos_vencendo_24h %}
+        <div class="alert alert-warning py-2 mb-2">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            Prazos próximos de expirar para parecer: 
+            <span class="badge bg-danger ms-1">{{ alertas_pedidos_vencendo_24h }}</span>
+        </div>
+        {% endif %}
+        {% if pedidos_revisao_instrutor %}
+        <div class="list-group">
+            {% for p in pedidos_revisao_instrutor|slice:":5" %}
+            <div class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="fw-bold">{{ p.nota_avaliacao.avaliacao.nome }}</div>
+                    <div class="small text-muted">{{ p.nota_avaliacao.avaliacao.disciplina.nome }} • {{ p.get_status_display }}</div>
+                </div>
+                <a href="{% url 'militares:ensino_pedido_revisao_detalhes' pedido_id=p.id %}" class="btn btn-sm btn-outline-secondary">Abrir</a>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-muted small">Nenhum pedido de revisão pendente.</div>
+        {% endif %}
+    </div>
+</div>
+{% else %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="mb-0">
+                <i class="fas fa-chalkboard-teacher me-2"></i>
+                Dashboard do Instrutor
+            </h1>
+            <p class="text-muted">Bem-vindo, {{ instrutor.militar.get_posto_graduacao_display }} {{ instrutor.militar.nome_completo }}</p>
+        </div>
+    </div>
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-center shadow-sm">
+                <div class="card-body">
+                    <i class="fas fa-book fa-2x text-primary mb-3"></i>
+                    <h3>{{ total_aulas }}</h3>
+                    <p class="text-muted mb-0">Total de Aulas</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center shadow-sm">
+                <div class="card-body">
+                    <i class="fas fa-calendar-check fa-2x text-success mb-3"></i>
+                    <h3>{{ aulas_este_mes }}</h3>
+                    <p class="text-muted mb-0">Aulas Este Mês</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center shadow-sm">
+                <div class="card-body">
+                    <i class="fas fa-users fa-2x text-info mb-3"></i>
+                    <h3>{{ turmas|length }}</h3>
+                    <p class="text-muted mb-0">Turmas</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quadros de Trabalho Semanal -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-table me-2"></i>Quadros de Trabalho Semanal</h5>
+                </div>
+                <div class="card-body">
+                    {% if quadros_trabalho_instrutor %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Nº</th>
+                                    <th>Turma</th>
+                                    <th>Início</th>
+                                    <th>Fim</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for qts in quadros_trabalho_instrutor %}
+                                <tr>
+                                    <td>
+                                        {{ qts.get_numero_completo }}
+                                        {% if qts.numero_aditamento %}
+                                            <span class="badge bg-light text-dark ms-2">Aditamento {{ qts.numero_aditamento }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ qts.turma.identificacao }}</td>
+                                    <td>{{ qts.data_inicio_semana|date:"d/m/Y" }}</td>
+                                    <td>{{ qts.data_fim_semana|date:"d/m/Y" }}</td>
+                                    <td>
+                                        <a href="{% url 'militares:ensino_quadro_trabalho_semanal_visualizar' pk=qts.pk %}" class="btn btn-sm btn-outline-secondary">Visualizar</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0">Sem quadros de trabalho semanal cadastrados para suas turmas.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Pedidos de Revisão para Análise -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="fas fa-flag me-2"></i>Pedidos de Revisão</h5>
+                </div>
+                <div class="card-body">
+                    {% if pedidos_revisao_instrutor %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Aluno</th>
+                                    <th>Disciplina</th>
+                                    <th>Avaliação</th>
+                                    <th>Status</th>
+                                    <th>Etapa</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for p in pedidos_revisao_instrutor %}
+                                <tr>
+                                    <td>
+                                        {% if p.aluno.militar %}
+                                            {{ p.aluno.militar.get_posto_graduacao_display }} {{ p.aluno.militar.nome_completo }}
+                                        {% elif p.aluno.pessoa_externa %}
+                                            {{ p.aluno.pessoa_externa.get_nome_completo }}
+                                        {% else %}Aluno{% endif %}
+                                    </td>
+                                    <td>{{ p.nota_avaliacao.avaliacao.disciplina.nome }}</td>
+                                    <td>{{ p.nota_avaliacao.avaliacao.nome }}</td>
+                                    <td title="Fundamentação: {{ p.fundamentacao|default:'-' }}&#10;Solicitado: {{ p.data_solicitacao|date:'d/m/Y H:i' }}&#10;Atualizado: {{ p.data_atualizacao|date:'d/m/Y H:i' }}">{{ p.get_status_display }}</td>
+                                    <td>{{ p.get_etapa_display }}</td>
+                                    <td>
+                                        <a href="{% url 'militares:ensino_pedido_revisao_detalhes' pedido_id=p.id %}" class="btn btn-sm btn-outline-secondary me-2">Visualizar</a>
+                                        {% if p.etapa == 'DESPACHADA_INSTRUTOR' or p.etapa == 'ALUNO_SOLICITOU' %}
+                                            <button type="button" class="btn btn-sm btn-success me-1" data-bs-toggle="modal" data-bs-target="#parecerModal" data-action="{% url 'militares:ensino_instrutor_parecer_revisao' pedido_id=p.id %}" data-decisao="FAVORAVEL">Favorável</button>
+                                            <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#parecerModal" data-action="{% url 'militares:ensino_instrutor_parecer_revisao' pedido_id=p.id %}" data-decisao="DESFAVORAVEL">Desfavorável</button>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0">Nenhum pedido de revisão pendente.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Turmas -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-users me-2"></i>Minhas Turmas</h5>
+                </div>
+                <div class="card-body">
+                    {% if turmas %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Curso</th>
+                                    <th>Turma</th>
+                                    <th>Disciplinas</th>
+                                    <th>Data Início</th>
+                                    <th>Data Fim</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for turma in turmas %}
+                                <tr>
+                                    <td>{{ turma.curso.nome }}</td>
+                                    <td>{{ turma.identificacao }}</td>
+                                    <td>
+                                        {% for disciplina in turma.disciplinas.all %}
+                                            {% if disciplina.instrutor_responsavel_militar == instrutor.militar %}
+                                                <div class="mb-1">
+                                                    <div class="d-flex align-items-center flex-wrap">
+                                                        <span class="me-2">{{ disciplina.nome }}</span>
+                                                        {% with key=turma.pk|stringformat:"s"|add:"-"|add:disciplina.pk|stringformat:"s" %}
+                                                        {% with stats=stats_disc_turma|lookup:key %}
+                                                            {% if stats %}
+                                                                <span class="badge bg-light text-dark me-2">Aulas: {{ stats.aulas_total }} ({{ stats.aulas_proximas }} prox)</span>
+                                                                <span class="badge bg-light text-dark me-2">Avaliações: {{ stats.avaliacoes_total }}</span>
+                                                                <span class="badge bg-light text-dark me-2">QTS: {{ stats.qts_total }} ({{ stats.qts_proximos }} prox)</span>
+                                                            {% endif %}
+                                                        {% endwith %}
+                                                        {% endwith %}
+                                                    </div>
+                                                    <div class="mt-1 d-flex flex-wrap gap-1">
+                                                        <a href="{% url 'militares:ensino_caderneta_frequencia_disciplina' turma_id=turma.pk disciplina_id=disciplina.pk %}" class="btn btn-outline-primary btn-sm">Caderneta</a>
+                                                        <a href="{% url 'militares:ensino_avaliacoes_listar' %}?turma={{ turma.pk }}&disciplina={{ disciplina.pk }}" class="btn btn-outline-secondary btn-sm">Avaliações</a>
+                                                        <a href="{% url 'militares:ensino_disciplina_detalhes' pk=disciplina.pk %}" class="btn btn-outline-info btn-sm">Ver Disciplina</a>
+                                                    </div>
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+                                    <td>{{ turma.data_inicio|date:"d/m/Y" }}</td>
+                                    <td>{{ turma.data_fim|date:"d/m/Y" }}</td>
+                                    <td>
+                                        {% if turma.ativa %}
+                                        <span class="badge bg-success">Ativa</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Inativa</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">Você não está vinculado a nenhuma turma.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Próximas Aulas -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-calendar-day me-2"></i>Próximas Aulas</h5>
+                </div>
+                <div class="card-body">
+                    {% if aulas_proximas %}
+                    <div class="list-group">
+                        {% for aula in aulas_proximas %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">{{ aula.disciplina.nome }}</h6>
+                                    <p class="mb-1"><small>{{ aula.turma.identificacao }} - {{ aula.data_aula|date:"d/m/Y" }} - {{ aula.hora_inicio|time:"H:i" }}</small></p>
+                                </div>
+                                <span class="badge bg-primary">{{ aula.get_tipo_aula_display }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted">Nenhuma aula agendada para os próximos dias.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Aulas Realizadas -->
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-check-circle me-2"></i>Aulas Realizadas (Últimos 30 dias)</h5>
+                </div>
+                <div class="card-body">
+                    {% if aulas_realizadas %}
+                    <div class="list-group">
+                        {% for aula in aulas_realizadas %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">{{ aula.disciplina.nome }}</h6>
+                                    <p class="mb-1"><small>{{ aula.turma.identificacao }} - {{ aula.data_aula|date:"d/m/Y" }} - {{ aula.hora_inicio|time:"H:i" }}</small></p>
+                                </div>
+                                <span class="badge bg-success">Realizada</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted">Nenhuma aula realizada nos últimos 30 dias.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Disciplinas -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-book-open me-2"></i>Disciplinas que Leciono</h5>
+                </div>
+                <div class="card-body">
+                    {% if disciplinas %}
+                    <div class="row">
+                        {% for disciplina in disciplinas %}
+                        <div class="col-md-4 mb-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6>{{ disciplina.nome }}</h6>
+                                    <p class="text-muted small mb-0">Carga Horária: {{ disciplina.carga_horaria }}h</p>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted">Nenhuma disciplina cadastrada.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="parecerModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Parecer do Instrutor</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <form method="post" id="parecerForm">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Justificativa do Parecer</label>
+            <textarea name="texto" class="form-control" rows="3" required></textarea>
+          </div>
+          <input type="hidden" name="decisao" id="parecerDecisao">
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Confirmar</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('parecerModal').addEventListener('show.bs.modal', function (event) {
+  var button = event.relatedTarget;
+  var action = button.getAttribute('data-action');
+  var decisao = button.getAttribute('data-decisao');
+  var form = document.getElementById('parecerForm');
+  var decisaoInput = document.getElementById('parecerDecisao');
+  form.action = action + '?next={{ request.get_full_path }}';
+  decisaoInput.value = decisao;
+});
+</script>
+{% endif %}
+{% endblock %}
+

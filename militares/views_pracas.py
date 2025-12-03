@@ -427,6 +427,18 @@ def quadro_acesso_pracas_detail(request, pk):
     ).exclude(
         id__in=militares_no_quadro
     ).order_by('posto_graduacao', 'nome_completo')
+    # Verificar se é instrutor ou monitor de ensino para restringir ações
+    try:
+        militar_usuario = getattr(request.user, 'militar', None)
+        from .models import InstrutorEnsino, MonitorEnsino
+        is_instrutor_monitor_ensino = False
+        if militar_usuario and (InstrutorEnsino.objects.filter(militar=militar_usuario, ativo=True).exists() or
+                                 MonitorEnsino.objects.filter(militar=militar_usuario, ativo=True).exists()):
+            is_instrutor_monitor_ensino = True
+        if request.session.get('ensino_tipo') in ['instrutor', 'monitor']:
+            is_instrutor_monitor_ensino = True
+    except Exception:
+        is_instrutor_monitor_ensino = False
     
     context = {
         'quadro': quadro,
@@ -436,11 +448,15 @@ def quadro_acesso_pracas_detail(request, pk):
         'is_pracas': True,
         'total_pracas_aptas': total_pracas_aptas,
         'militares_disponiveis': pracas_disponiveis,
+        'is_instrutor_monitor_ensino': is_instrutor_monitor_ensino,
     }
     return render(request, 'militares/quadro_acesso_pracas_detail.html', context)
 
 
+from .permissoes_sistema import requer_perm_quadros_editar, requer_perm_quadros_excluir
+
 @login_required
+@requer_perm_quadros_editar
 def quadro_acesso_pracas_edit(request, pk):
     """Editar quadro de acesso de praças"""
     quadro = get_object_or_404(QuadroAcesso, pk=pk)
@@ -461,6 +477,16 @@ def quadro_acesso_pracas_edit(request, pk):
             return redirect('militares:quadro_acesso_pracas_detail', pk=quadro.pk)
     else:
         form = QuadroAcessoForm(instance=quadro)
+    # Bloquear edição para instrutores/monitores
+    try:
+        militar_usuario = getattr(request.user, 'militar', None)
+        from .models import InstrutorEnsino, MonitorEnsino
+        if (militar_usuario and (InstrutorEnsino.objects.filter(militar=militar_usuario, ativo=True).exists() or
+                                 MonitorEnsino.objects.filter(militar=militar_usuario, ativo=True).exists())) or request.session.get('ensino_tipo') in ['instrutor', 'monitor']:
+            messages.error(request, 'Instrutores e monitores só podem visualizar Quadros de Acesso.')
+            return redirect('militares:quadro_acesso_pracas_detail', pk=quadro.pk)
+    except Exception:
+        pass
     
     context = {
         'form': form,
@@ -847,7 +873,10 @@ def quadro_acesso_pracas_pdf(request, pk):
         # Função
         funcao = assinatura.funcao_assinatura or "Função não registrada"
         
-        texto_assinatura = f"Documento assinado eletronicamente por {nome_assinante} - {funcao}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
+        texto_assinatura = (
+            f"Documento assinado eletronicamente por {nome_assinante}, em {data_formatada} {hora_formatada}, "
+            f"conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
+        )
         
         print(f"DEBUG: Assinatura eletrônica {i+1} - Nome: {nome_assinante}, Função: {funcao}")
         
@@ -992,7 +1021,10 @@ def gerar_quadro_acesso_pracas(request):
     return render(request, 'militares/quadro_acesso_pracas_form.html', context)
 
 
+from .permissoes_sistema import requer_perm_quadros_editar
+
 @login_required
+@requer_perm_quadros_editar
 def regerar_quadro_acesso_pracas(request, pk):
     """Regera quadro de acesso de praças"""
     quadro = get_object_or_404(QuadroAcesso, pk=pk)
@@ -1005,6 +1037,16 @@ def regerar_quadro_acesso_pracas(request, pk):
         messages.error(request, 'Este quadro não contém praças!')
         return redirect('militares:quadro_acesso_list')
     
+    # Bloquear ação para instrutores/monitores
+    try:
+        militar_usuario = getattr(request.user, 'militar', None)
+        from .models import InstrutorEnsino, MonitorEnsino
+        if (militar_usuario and (InstrutorEnsino.objects.filter(militar=militar_usuario, ativo=True).exists() or
+                                 MonitorEnsino.objects.filter(militar=militar_usuario, ativo=True).exists())) or request.session.get('ensino_tipo') in ['instrutor', 'monitor']:
+            messages.error(request, 'Instrutores e monitores só podem visualizar Quadros de Acesso.')
+            return redirect('militares:quadro_acesso_pracas_detail', pk=quadro.pk)
+    except Exception:
+        pass
     try:
         # Limpar itens existentes
         quadro.itemquadroacesso_set.all().delete()
@@ -1019,12 +1061,25 @@ def regerar_quadro_acesso_pracas(request, pk):
     return redirect('militares:quadro_acesso_pracas_detail', pk=quadro.pk)
 
 
+from .permissoes_sistema import requer_perm_quadros_excluir
+
 @login_required
+@requer_perm_quadros_excluir
 def delete_quadro_acesso_pracas(request, pk):
     """Exclui quadro de acesso de praças"""
     quadro = get_object_or_404(QuadroAcesso, pk=pk)
     
     if request.method == 'POST':
+        # Bloquear exclusão para instrutores/monitores
+        try:
+            militar_usuario = getattr(request.user, 'militar', None)
+            from .models import InstrutorEnsino, MonitorEnsino
+            if (militar_usuario and (InstrutorEnsino.objects.filter(militar=militar_usuario, ativo=True).exists() or
+                                     MonitorEnsino.objects.filter(militar=militar_usuario, ativo=True).exists())) or request.session.get('ensino_tipo') in ['instrutor', 'monitor']:
+                messages.error(request, 'Instrutores e monitores só podem visualizar Quadros de Acesso.')
+                return redirect('militares:quadro_acesso_pracas_detail', pk=quadro.pk)
+        except Exception:
+            pass
         # Verificar se o quadro está homologado (apenas para usuários não administradores)
         if quadro.status == 'HOMOLOGADO' and not request.user.is_superuser:
             messages.error(request, 'Não é possível excluir um quadro homologado. Apenas administradores podem excluir quadros homologados.')
@@ -1134,12 +1189,25 @@ def deshomologar_quadro_acesso_pracas(request, pk):
     return redirect('militares:quadro_acesso_list')
 
 
+from .permissoes_sistema import requer_perm_quadros_editar
+
 @login_required
+@requer_perm_quadros_editar
 def elaborar_quadro_acesso_pracas(request, pk):
     """Elabora quadro de acesso de praças com geração automática e possibilidade de inserções manuais"""
     quadro = get_object_or_404(QuadroAcesso, pk=pk)
     
     if request.method == 'POST':
+        # Bloquear elaboração para instrutores/monitores
+        try:
+            militar_usuario = getattr(request.user, 'militar', None)
+            from .models import InstrutorEnsino, MonitorEnsino
+            if (militar_usuario and (InstrutorEnsino.objects.filter(militar=militar_usuario, ativo=True).exists() or
+                                     MonitorEnsino.objects.filter(militar=militar_usuario, ativo=True).exists())) or request.session.get('ensino_tipo') in ['instrutor', 'monitor']:
+                messages.error(request, 'Instrutores e monitores só podem visualizar Quadros de Acesso.')
+                return redirect('militares:quadro_acesso_pracas_detail', pk=quadro.pk)
+        except Exception:
+            pass
         try:
             # Gerar quadro automaticamente primeiro
             quadro.gerar_quadro_completo()

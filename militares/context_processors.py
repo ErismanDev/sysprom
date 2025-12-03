@@ -419,8 +419,6 @@ def menu_permissions_processor(request):
                 'show_boletins_ostensivos': False,
                 'show_boletins_reservados': False,
                 'show_boletins_especiais': False,
-                'show_avisos': False,
-                'show_ordens_servico': False,
                 'show_viaturas': False,
                 'show_viaturas_submenu': False,
                 'show_equipamentos_operacionais': False,
@@ -440,6 +438,17 @@ def menu_permissions_processor(request):
                 'show_almoxarifado': False,
                 'show_almoxarifado_requisicoes': False,
                 'show_processos': False,
+                'show_ensino': False,
+                'show_ensino_submenu': False,
+                'show_ensino_alunos': False,
+                'show_ensino_instrutores': False,
+                'show_ensino_monitores': False,
+                'show_ensino_cursos': False,
+                'show_ensino_turmas': False,
+                'show_ensino_disciplinas': False,
+                'show_ensino_aulas': False,
+                'show_ensino_avaliacoes': False,
+                'show_ensino_certificados': False,
                 'show_armas_instituicao': False,
                 'show_armas_particulares': False,
                 'show_cautelas_armas': False,
@@ -493,8 +502,6 @@ def menu_permissions_processor(request):
                 'show_boletins_ostensivos': True,
                 'show_boletins_reservados': True,
                 'show_boletins_especiais': True,
-                'show_avisos': True,
-                'show_ordens_servico': True,
                 'show_viaturas': True,
                 'show_viaturas_submenu': True,
                 'show_controle_combustivel': True,
@@ -508,6 +515,17 @@ def menu_permissions_processor(request):
                 'show_almoxarifado': True,
                 'show_almoxarifado_requisicoes': True,
                 'show_processos': True,
+                'show_ensino': True,
+                'show_ensino_submenu': True,
+                'show_ensino_alunos': True,
+                'show_ensino_instrutores': True,
+                'show_ensino_monitores': True,
+                'show_ensino_cursos': True,
+                'show_ensino_turmas': True,
+                'show_ensino_disciplinas': True,
+                'show_ensino_aulas': True,
+                'show_ensino_avaliacoes': True,
+                'show_ensino_certificados': True,
                 'show_armas_instituicao': True,
                 'show_armas_particulares': True,
                 'show_cautelas_armas': True,
@@ -533,6 +551,10 @@ def menu_permissions_processor(request):
                 'MILITARES_EXPORTAR': True,
                 'MILITARES_DASHBOARD': True,
                 'MILITARES_REORDENAR': True,
+                'ENSINO_VISUALIZAR': True,
+                'ENSINO_CRIAR': True,
+                'ENSINO_EDITAR': True,
+                'ENSINO_EXCLUIR': True,
                 'INATIVOS_VISUALIZAR': True,
                 'INATIVOS_EDITAR': True,
                 'INATIVOS_EXCLUIR': True,
@@ -635,12 +657,14 @@ def menu_permissions_processor(request):
             'show_equipamentos_operacionais', 'show_equipamentos_operacionais_combustivel',
             'show_equipamentos_operacionais_manutencoes', 'show_equipamentos_operacionais_trocas_oleo',
             'show_equipamentos_operacionais_tempos_uso', 'show_material_belico', 'show_bens_moveis',
-            'show_almoxarifado', 'show_almoxarifado_requisicoes', 'show_processos', 'show_armas_instituicao',
-            'show_armas_particulares', 'show_cautelas_armas', 'show_controle_movimentacoes', 'show_controle_municao',
+            'show_almoxarifado', 'show_almoxarifado_requisicoes', 'show_processos', 'show_ensino', 'show_ensino_submenu',
+            'show_ensino_alunos', 'show_ensino_instrutores', 'show_ensino_monitores', 'show_ensino_cursos', 'show_ensino_turmas',
+            'show_ensino_disciplinas', 'show_ensino_aulas', 'show_ensino_avaliacoes', 'show_ensino_certificados',
+            'show_armas_instituicao', 'show_armas_particulares', 'show_cautelas_armas', 'show_controle_movimentacoes', 'show_controle_municao',
             'show_cautelas_municoes', 'show_elogios', 'show_elogios_oficiais', 'show_elogios_pracas',
             'show_punicoes', 'show_punicoes_oficiais', 'show_punicoes_pracas', 'show_publicacoes', 'show_notas',
-            'show_boletins_ostensivos', 'show_boletins_reservados', 'show_boletins_especiais', 'show_avisos',
-            'show_ordens_servico', 'show_escalas', 'show_escalas_lista', 'show_escalas_configuracao',
+            'show_boletins_ostensivos', 'show_boletins_reservados', 'show_boletins_especiais',
+            'show_escalas', 'show_escalas_lista', 'show_escalas_configuracao',
             'show_escalas_banco_horas', 'show_escalas_operacoes', 'show_planejadas', 'show_operador_planejadas',
             'show_fiscal_planejadas', 'show_liquidacao', 'show_medalhas', 'show_secao_promocoes',
             'show_fichas_oficiais', 'show_fichas_pracas', 'show_quadros_acesso', 'show_quadros_fixacao',
@@ -655,6 +679,20 @@ def menu_permissions_processor(request):
             if chave not in menu_permissions:
                 menu_permissions[chave] = False
         
+        # Inicializar permissões de ação (todas False por padrão)
+        # IMPORTANTE: Sempre inicializar como False, mesmo que já existam no dicionário
+        # Isso garante que apenas as permissões explicitamente concedidas sejam True
+        permissoes_acao = [
+            'MILITARES_VISUALIZAR', 'MILITARES_CRIAR', 'MILITARES_EDITAR', 'MILITARES_EXCLUIR',
+            'INATIVOS_VISUALIZAR', 'INATIVOS_EDITAR', 'INATIVOS_EXCLUIR', 'INATIVOS_REATIVAR',
+            'ARMAS_VISUALIZAR', 'ARMAS_CRIAR', 'ARMAS_EDITAR', 'ARMAS_EXCLUIR',
+            'MUNICOES_VISUALIZAR', 'MUNICOES_CRIAR', 'MUNICOES_EDITAR', 'MUNICOES_EXCLUIR',
+            'ENSINO_VISUALIZAR', 'ENSINO_CRIAR', 'ENSINO_EDITAR', 'ENSINO_EXCLUIR',
+        ]
+        for permissao_acao in permissoes_acao:
+            # Sempre definir como False primeiro (sobrescrever qualquer valor existente)
+            menu_permissions[permissao_acao] = False
+        
         # Aplicar permissões granulares adicionais que podem não estar no get_menu_permissions()
         # (para garantir compatibilidade com permissões antigas)
         from .models import PermissaoFuncao
@@ -666,235 +704,232 @@ def menu_permissions_processor(request):
         # Mapear permissões granulares para permissões de menu (complementar ao get_menu_permissions)
         # IMPORTANTE: Este mapeamento complementa o get_menu_permissions() para garantir que todas as permissões sejam aplicadas
         for permissao in permissoes_granulares:
-            # Verificar se a permissão tem acesso VISUALIZAR (para menus)
-            if permissao.acesso == 'VISUALIZAR':
-                if permissao.modulo == 'MENU_DASHBOARD':
-                    menu_permissions['show_dashboard'] = True
-                elif permissao.modulo == 'MENU_EFETIVO':
-                    menu_permissions['show_efetivo'] = True
-                elif permissao.modulo == 'MENU_AFASTAMENTOS':
-                    menu_permissions['show_afastamentos'] = True
-                elif permissao.modulo == 'MENU_FERIAS':
-                    menu_permissions['show_ferias'] = True
-                elif permissao.modulo == 'MENU_VIATURAS':
-                    menu_permissions['show_viaturas'] = True
-                elif permissao.modulo == 'MENU_PUBLICACOES':
-                    menu_permissions['show_publicacoes'] = True
-                elif permissao.modulo == 'MENU_ESCALAS':
-                    menu_permissions['show_escalas'] = True
-                elif permissao.modulo == 'MENU_PLANEJADAS':
-                    menu_permissions['show_planejadas'] = True
-                elif permissao.modulo == 'MENU_MEDALHAS':
-                    menu_permissions['show_medalhas'] = True
-                elif permissao.modulo == 'MENU_SECAO_PROMOCOES':
-                    menu_permissions['show_secao_promocoes'] = True
-                elif permissao.modulo == 'MENU_CONFIGURACOES':
-                    menu_permissions['show_administracao'] = True
-                    menu_permissions['show_configuracoes'] = True
-                elif permissao.modulo == 'SUBMENU_ATIVOS':
-                    menu_permissions['show_ativos'] = True
-                elif permissao.modulo == 'SUBMENU_INATIVOS':
-                    menu_permissions['show_inativos'] = True
-                elif permissao.modulo == 'SUBMENU_LOTACOES':
-                    menu_permissions['show_lotacoes'] = True
-                elif permissao.modulo == 'SUBMENU_AVERBACOES':
-                    menu_permissions['show_averbacoes'] = True
-                elif permissao.modulo == 'MENU_FROTA':
-                    menu_permissions['show_viaturas'] = True
-                elif permissao.modulo == 'MENU_EQUIPAMENTOS_OPERACIONAIS':
-                    menu_permissions['show_equipamentos_operacionais'] = True
-                elif permissao.modulo == 'SUBMENU_VIATURAS':
-                    menu_permissions['show_viaturas_submenu'] = True
-                elif permissao.modulo == 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS':
-                    menu_permissions['show_equipamentos_operacionais'] = True
-                elif permissao.modulo == 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_COMBUSTIVEL':
-                    menu_permissions['show_equipamentos_operacionais_combustivel'] = True
-                elif permissao.modulo == 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_MANUTENCOES':
-                    menu_permissions['show_equipamentos_operacionais_manutencoes'] = True
-                elif permissao.modulo == 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_TROCAS_OLEO':
-                    menu_permissions['show_equipamentos_operacionais_trocas_oleo'] = True
-                elif permissao.modulo == 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_TEMPOS_USO':
-                    menu_permissions['show_equipamentos_operacionais_tempos_uso'] = True
-                elif permissao.modulo == 'SUBMENU_CONTROLE_COMBUSTIVEL':
-                    menu_permissions['show_controle_combustivel'] = True
-                elif permissao.modulo == 'SUBMENU_MANUTENCOES':
-                    menu_permissions['show_manutencoes'] = True
-                elif permissao.modulo == 'SUBMENU_TROCAS_OLEO':
-                    menu_permissions['show_trocas_oleo'] = True
-                elif permissao.modulo == 'SUBMENU_LICENCIAMENTOS':
-                    menu_permissions['show_licenciamentos'] = True
-                elif permissao.modulo == 'SUBMENU_RODAGENS':
-                    menu_permissions['show_rodagens'] = True
-                elif permissao.modulo == 'SUBMENU_PAINEL_GUARDA':
-                    menu_permissions['show_painel_guarda'] = True
-                elif permissao.modulo == 'MENU_MATERIAL_BELICO':
-                    menu_permissions['show_material_belico'] = True
-                elif permissao.modulo == 'MENU_BENS_MOVEIS':
-                    menu_permissions['show_bens_moveis'] = True
-                elif permissao.modulo == 'MENU_ALMOXARIFADO':
-                    menu_permissions['show_almoxarifado'] = True
-                elif permissao.modulo == 'ALMOXARIFADO':
-                    menu_permissions['show_almoxarifado'] = True
-                elif permissao.modulo == 'SUBMENU_ALMOXARIFADO_ITENS':
-                    menu_permissions['show_almoxarifado'] = True
-                elif permissao.modulo == 'SUBMENU_ALMOXARIFADO_ENTRADAS':
-                    menu_permissions['show_almoxarifado'] = True
-                elif permissao.modulo == 'SUBMENU_ALMOXARIFADO_SAIDAS':
-                    menu_permissions['show_almoxarifado'] = True
-                elif permissao.modulo == 'SUBMENU_ALMOXARIFADO_REQUISICOES':
-                    menu_permissions['show_almoxarifado'] = True
-                    menu_permissions['show_almoxarifado_requisicoes'] = True
-                elif permissao.modulo == 'MENU_PROCESSOS':
-                    menu_permissions['show_processos'] = True
-                elif permissao.modulo == 'SUBMENU_ARMAS_INSTITUICAO':
-                    menu_permissions['show_armas_instituicao'] = True
-                elif permissao.modulo == 'SUBMENU_ARMAS_PARTICULARES':
-                    menu_permissions['show_armas_particulares'] = True
-                elif permissao.modulo == 'SUBMENU_CAUTELAS_ARMAS':
-                    menu_permissions['show_cautelas_armas'] = True
-                elif permissao.modulo == 'SUBMENU_CONTROLE_MOVIMENTACOES':
-                    menu_permissions['show_controle_movimentacoes'] = True
-                elif permissao.modulo == 'SUBMENU_CONTROLE_MUNICAO':
-                    menu_permissions['show_controle_municao'] = True
-                elif permissao.modulo == 'SUBMENU_CAUTELAS_MUNICOES':
-                    menu_permissions['show_cautelas_municoes'] = True
-                # Submenus Efetivo adicionais
-                elif permissao.modulo == 'MENU_EFETIVO_ELOGIOS':
-                    menu_permissions['show_efetivo_elogios'] = True
-                elif permissao.modulo == 'MENU_EFETIVO_PUNICOES':
-                    menu_permissions['show_efetivo_punicoes'] = True
-                # Menu Elogios/Punições separados
-                elif permissao.modulo == 'MENU_ELOGIOS':
-                    menu_permissions['show_elogios'] = True
-                elif permissao.modulo == 'SUBMENU_ELOGIOS_OFICIAIS':
-                    menu_permissions['show_elogios_oficiais'] = True
-                elif permissao.modulo == 'SUBMENU_ELOGIOS_PRACAS':
-                    menu_permissions['show_elogios_pracas'] = True
-                elif permissao.modulo == 'MENU_PUNICOES':
-                    menu_permissions['show_punicoes'] = True
-                elif permissao.modulo == 'SUBMENU_PUNICOES_OFICIAIS':
-                    menu_permissions['show_punicoes_oficiais'] = True
-                elif permissao.modulo == 'SUBMENU_PUNICOES_PRACAS':
-                    menu_permissions['show_punicoes_pracas'] = True
-                elif permissao.modulo == 'SUBMENU_NOTAS':
-                    menu_permissions['show_notas'] = True
-                elif permissao.modulo == 'SUBMENU_NOTAS_RESERVADAS':
-                    menu_permissions['show_notas_reservadas'] = True
-                elif permissao.modulo == 'SUBMENU_BOLETINS_OSTENSIVOS':
-                    menu_permissions['show_boletins_ostensivos'] = True
-                elif permissao.modulo == 'SUBMENU_BOLETINS_RESERVADOS':
-                    menu_permissions['show_boletins_reservados'] = True
-                elif permissao.modulo == 'SUBMENU_BOLETINS_ESPECIAIS':
-                    menu_permissions['show_boletins_especiais'] = True
-                elif permissao.modulo == 'SUBMENU_AVISOS':
-                    menu_permissions['show_avisos'] = True
-                elif permissao.modulo == 'SUBMENU_ORDENS_SERVICO':
-                    menu_permissions['show_ordens_servico'] = True
-                elif permissao.modulo == 'SUBMENU_ESCALAS_LISTA':
-                    menu_permissions['show_escalas_lista'] = True
-                elif permissao.modulo == 'SUBMENU_ESCALAS_CONFIGURACAO':
-                    menu_permissions['show_escalas_configuracao'] = True
-                elif permissao.modulo == 'SUBMENU_ESCALAS_BANCO_HORAS':
-                    menu_permissions['show_escalas_banco_horas'] = True
-                elif permissao.modulo == 'SUBMENU_ESCALAS_OPERACOES':
-                    menu_permissions['show_escalas_operacoes'] = True
-                elif permissao.modulo == 'SUBMENU_PLANEJADAS':
-                    menu_permissions['show_planejadas'] = True
-                elif permissao.modulo == 'SUBMENU_OPERADOR_PLANEJADAS':
-                    menu_permissions['show_operador_planejadas'] = True
-                    # Operadores de planejadas também podem ver notas para copiar links
-                    menu_permissions['show_notas'] = True
-                elif permissao.modulo == 'SUBMENU_FISCAL_PLANEJADAS':
-                    menu_permissions['show_fiscal_planejadas'] = True
-                elif permissao.modulo == 'SUBMENU_LIQUIDACAO':
-                    menu_permissions['show_liquidacao'] = True
-                # Submenus de Seção de Promoções
-                elif permissao.modulo == 'SUBMENU_FICHAS_OFICIAIS':
-                    menu_permissions['show_fichas_oficiais'] = True
-                elif permissao.modulo == 'SUBMENU_FICHAS_PRACAS':
-                    menu_permissions['show_fichas_pracas'] = True
-                elif permissao.modulo == 'SUBMENU_QUADROS_ACESSO':
-                    menu_permissions['show_quadros_acesso'] = True
-                elif permissao.modulo == 'SUBMENU_QUADROS_FIXACAO':
-                    menu_permissions['show_quadros_fixacao'] = True
-                elif permissao.modulo == 'SUBMENU_ALMANAQUES':
-                    menu_permissions['show_almanaques'] = True
-                elif permissao.modulo == 'SUBMENU_PROMOCOES':
-                    menu_permissions['show_promocoes'] = True
-                elif permissao.modulo == 'SUBMENU_CALENDARIOS':
-                    menu_permissions['show_calendarios'] = True
-                elif permissao.modulo == 'SUBMENU_COMISSOES':
-                    menu_permissions['show_comissoes'] = True
-                elif permissao.modulo == 'SUBMENU_MEUS_VOTOS':
-                    menu_permissions['show_meus_votos'] = True
-                elif permissao.modulo == 'SUBMENU_INTERSTICIOS':
-                    menu_permissions['show_intersticios'] = True
-                elif permissao.modulo == 'SUBMENU_GERENCIAR_INTERSTICIOS':
-                    menu_permissions['show_gerenciar_intersticios'] = True
-                elif permissao.modulo == 'SUBMENU_GERENCIAR_PREVISAO':
-                    menu_permissions['show_gerenciar_previsao'] = True
-                elif permissao.modulo == 'SUBMENU_MEDALHAS_CONCESSOES':
-                    menu_permissions['show_medalhas_concessoes'] = True
-                elif permissao.modulo == 'SUBMENU_MEDALHAS_PROPOSTAS':
-                    menu_permissions['show_medalhas_propostas'] = True
-                elif permissao.modulo == 'SUBMENU_ELEGIVEIS':
-                    menu_permissions['show_elegiveis'] = True
-                elif permissao.modulo == 'SUBMENU_PROPOSTAS':
-                    menu_permissions['show_propostas'] = True
-                # Submenus de Configurações
-                elif permissao.modulo == 'SUBMENU_USUARIOS':
-                    menu_permissions['show_usuarios'] = True
-                elif permissao.modulo == 'SUBMENU_PERMISSOES':
-                    menu_permissions['show_permissoes'] = True
-                elif permissao.modulo == 'SUBMENU_LOGS':
-                    menu_permissions['show_logs'] = True
-                elif permissao.modulo == 'SUBMENU_ADMINISTRACAO':
-                    menu_permissions['show_administracao'] = True
-                elif permissao.modulo == 'SUBMENU_TITULOS_PUBLICACAO':
-                    menu_permissions['show_titulos_publicacao'] = True
-                elif permissao.modulo == 'SUBMENU_ORGAOS':
-                    menu_permissions['show_usuarios'] = True  # Órgãos aparecem com show_usuarios
-                    menu_permissions['show_administracao'] = True
-                elif permissao.modulo == 'SUBMENU_ORGANOGRAMA':
-                    menu_permissions['show_usuarios'] = True  # Organograma aparece com show_usuarios
-                    menu_permissions['show_administracao'] = True
-                elif permissao.modulo == 'SUBMENU_GRANDES_COMANDOS':
-                    menu_permissions['show_grandes_comandos'] = True
-                elif permissao.modulo == 'SUBMENU_UNIDADES':
-                    menu_permissions['show_unidades'] = True
-                elif permissao.modulo == 'SUBMENU_SUB_UNIDADES':
-                    menu_permissions['show_sub_unidades'] = True
+            if permissao.modulo == 'MENU_DASHBOARD':
+                menu_permissions['show_dashboard'] = True
+            elif permissao.modulo == 'MENU_EFETIVO':
+                menu_permissions['show_efetivo'] = True
+            elif permissao.modulo == 'MENU_AFASTAMENTOS':
+                menu_permissions['show_afastamentos'] = True
+            elif permissao.modulo == 'MENU_FERIAS':
+                menu_permissions['show_ferias'] = True
+            elif permissao.modulo == 'MENU_VIATURAS':
+                menu_permissions['show_viaturas'] = True
+            elif permissao.modulo == 'MENU_PUBLICACOES':
+                menu_permissions['show_publicacoes'] = True
+            elif permissao.modulo == 'MENU_ESCALAS':
+                menu_permissions['show_escalas'] = True
+            elif permissao.modulo == 'MENU_PLANEJADAS':
+                menu_permissions['show_planejadas'] = True
+            elif permissao.modulo == 'MENU_MEDALHAS':
+                menu_permissions['show_medalhas'] = True
+            elif permissao.modulo == 'MENU_SECAO_PROMOCOES':
+                menu_permissions['show_secao_promocoes'] = True
+            elif permissao.modulo == 'MENU_CONFIGURACOES':
+                menu_permissions['show_administracao'] = True
+                menu_permissions['show_configuracoes'] = True
+            elif permissao.modulo == 'SUBMENU_ATIVOS':
+                menu_permissions['show_ativos'] = True
+            elif permissao.modulo == 'SUBMENU_INATIVOS':
+                menu_permissions['show_inativos'] = True
+            elif permissao.modulo == 'SUBMENU_LOTACOES':
+                menu_permissions['show_lotacoes'] = True
+            elif permissao.modulo == 'SUBMENU_AVERBACOES':
+                menu_permissions['show_averbacoes'] = True
+            elif permissao.modulo == 'MENU_FROTA':
+                menu_permissions['show_viaturas'] = True
+            elif permissao.modulo == 'MENU_EQUIPAMENTOS_OPERACIONAIS':
+                menu_permissions['show_equipamentos_operacionais'] = True
+            elif permissao.modulo == 'SUBMENU_VIATURAS':
+                menu_permissions['show_viaturas_submenu'] = True
+            elif permissao.modulo == 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS':
+                menu_permissions['show_equipamentos_operacionais'] = True
+            elif permissao.modulo == 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_COMBUSTIVEL':
+                menu_permissions['show_equipamentos_operacionais_combustivel'] = True
+            elif permissao.modulo == 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_MANUTENCOES':
+                menu_permissions['show_equipamentos_operacionais_manutencoes'] = True
+            elif permissao.modulo == 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_TROCAS_OLEO':
+                menu_permissions['show_equipamentos_operacionais_trocas_oleo'] = True
+            elif permissao.modulo == 'SUBMENU_EQUIPAMENTOS_OPERACIONAIS_TEMPOS_USO':
+                menu_permissions['show_equipamentos_operacionais_tempos_uso'] = True
+            elif permissao.modulo == 'SUBMENU_CONTROLE_COMBUSTIVEL':
+                menu_permissions['show_controle_combustivel'] = True
+            elif permissao.modulo == 'SUBMENU_MANUTENCOES':
+                menu_permissions['show_manutencoes'] = True
+            elif permissao.modulo == 'SUBMENU_TROCAS_OLEO':
+                menu_permissions['show_trocas_oleo'] = True
+            elif permissao.modulo == 'SUBMENU_LICENCIAMENTOS':
+                menu_permissions['show_licenciamentos'] = True
+            elif permissao.modulo == 'SUBMENU_RODAGENS':
+                menu_permissions['show_rodagens'] = True
+            elif permissao.modulo == 'SUBMENU_PAINEL_GUARDA':
+                menu_permissions['show_painel_guarda'] = True
+            elif permissao.modulo == 'MENU_MATERIAL_BELICO':
+                menu_permissions['show_material_belico'] = True
+            elif permissao.modulo == 'MENU_BENS_MOVEIS':
+                menu_permissions['show_bens_moveis'] = True
+            elif permissao.modulo == 'MENU_ALMOXARIFADO':
+                menu_permissions['show_almoxarifado'] = True
+            elif permissao.modulo == 'ALMOXARIFADO':
+                menu_permissions['show_almoxarifado'] = True
+            elif permissao.modulo == 'SUBMENU_ALMOXARIFADO_ITENS':
+                menu_permissions['show_almoxarifado'] = True
+            elif permissao.modulo == 'SUBMENU_ALMOXARIFADO_ENTRADAS':
+                menu_permissions['show_almoxarifado'] = True
+            elif permissao.modulo == 'SUBMENU_ALMOXARIFADO_SAIDAS':
+                menu_permissions['show_almoxarifado'] = True
+            elif permissao.modulo == 'SUBMENU_ALMOXARIFADO_REQUISICOES':
+                menu_permissions['show_almoxarifado'] = True
+                menu_permissions['show_almoxarifado_requisicoes'] = True
+            elif permissao.modulo == 'MENU_PROCESSOS':
+                menu_permissions['show_processos'] = True
+            elif permissao.modulo == 'MENU_ENSINO':
+                menu_permissions['show_ensino'] = True
+                menu_permissions['show_ensino_submenu'] = True
+            elif permissao.modulo == 'SUBMENU_ENSINO_ALUNOS':
+                menu_permissions['show_ensino_alunos'] = True
+            elif permissao.modulo == 'SUBMENU_ENSINO_INSTRUTORES':
+                menu_permissions['show_ensino_instrutores'] = True
+            elif permissao.modulo == 'SUBMENU_ENSINO_MONITORES':
+                menu_permissions['show_ensino_monitores'] = True
+            elif permissao.modulo == 'SUBMENU_ENSINO_CURSOS':
+                menu_permissions['show_ensino_cursos'] = True
+            elif permissao.modulo == 'SUBMENU_ENSINO_TURMAS':
+                menu_permissions['show_ensino_turmas'] = True
+            elif permissao.modulo == 'SUBMENU_ENSINO_DISCIPLINAS':
+                menu_permissions['show_ensino_disciplinas'] = True
+            elif permissao.modulo == 'SUBMENU_ENSINO_AULAS':
+                menu_permissions['show_ensino_aulas'] = True
+            elif permissao.modulo == 'SUBMENU_ENSINO_QUADROS_TRABALHO_SEMANAL':
+                menu_permissions['show_ensino_quadros_trabalho_semanal'] = True
+            elif permissao.modulo == 'SUBMENU_ENSINO_AVALIACOES':
+                menu_permissions['show_ensino_avaliacoes'] = True
+            elif permissao.modulo == 'SUBMENU_ENSINO_CERTIFICADOS':
+                menu_permissions['show_ensino_certificados'] = True
+            elif permissao.modulo == 'SUBMENU_ARMAS_INSTITUICAO':
+                menu_permissions['show_armas_instituicao'] = True
+            elif permissao.modulo == 'SUBMENU_ARMAS_PARTICULARES':
+                menu_permissions['show_armas_particulares'] = True
+            elif permissao.modulo == 'SUBMENU_CAUTELAS_ARMAS':
+                menu_permissions['show_cautelas_armas'] = True
+            elif permissao.modulo == 'SUBMENU_CONTROLE_MOVIMENTACOES':
+                menu_permissions['show_controle_movimentacoes'] = True
+            elif permissao.modulo == 'SUBMENU_CONTROLE_MUNICAO':
+                menu_permissions['show_controle_municao'] = True
+            elif permissao.modulo == 'SUBMENU_CAUTELAS_MUNICOES':
+                menu_permissions['show_cautelas_municoes'] = True
+            elif permissao.modulo == 'MENU_EFETIVO_ELOGIOS':
+                menu_permissions['show_efetivo_elogios'] = True
+            elif permissao.modulo == 'MENU_EFETIVO_PUNICOES':
+                menu_permissions['show_efetivo_punicoes'] = True
+            elif permissao.modulo == 'MENU_ELOGIOS':
+                menu_permissions['show_elogios'] = True
+            elif permissao.modulo == 'SUBMENU_ELOGIOS_OFICIAIS':
+                menu_permissions['show_elogios_oficiais'] = True
+            elif permissao.modulo == 'SUBMENU_ELOGIOS_PRACAS':
+                menu_permissions['show_elogios_pracas'] = True
+            elif permissao.modulo == 'MENU_PUNICOES':
+                menu_permissions['show_punicoes'] = True
+            elif permissao.modulo == 'SUBMENU_PUNICOES_OFICIAIS':
+                menu_permissions['show_punicoes_oficiais'] = True
+            elif permissao.modulo == 'SUBMENU_PUNICOES_PRACAS':
+                menu_permissions['show_punicoes_pracas'] = True
+            elif permissao.modulo == 'SUBMENU_NOTAS':
+                menu_permissions['show_notas'] = True
+            elif permissao.modulo == 'SUBMENU_NOTAS_RESERVADAS':
+                menu_permissions['show_notas_reservadas'] = True
+            elif permissao.modulo == 'SUBMENU_BOLETINS_OSTENSIVOS':
+                menu_permissions['show_boletins_ostensivos'] = True
+            elif permissao.modulo == 'SUBMENU_BOLETINS_RESERVADOS':
+                menu_permissions['show_boletins_reservados'] = True
+            elif permissao.modulo == 'SUBMENU_BOLETINS_ESPECIAIS':
+                menu_permissions['show_boletins_especiais'] = True
+            elif permissao.modulo == 'SUBMENU_ESCALAS_LISTA':
+                menu_permissions['show_escalas_lista'] = True
+            elif permissao.modulo == 'SUBMENU_ESCALAS_CONFIGURACAO':
+                menu_permissions['show_escalas_configuracao'] = True
+            elif permissao.modulo == 'SUBMENU_ESCALAS_BANCO_HORAS':
+                menu_permissions['show_escalas_banco_horas'] = True
+            elif permissao.modulo == 'SUBMENU_ESCALAS_OPERACOES':
+                menu_permissions['show_escalas_operacoes'] = True
+            elif permissao.modulo == 'SUBMENU_PLANEJADAS':
+                menu_permissions['show_planejadas'] = True
+            elif permissao.modulo == 'SUBMENU_OPERADOR_PLANEJADAS':
+                menu_permissions['show_operador_planejadas'] = True
+                menu_permissions['show_notas'] = True
+            elif permissao.modulo == 'SUBMENU_FISCAL_PLANEJADAS':
+                menu_permissions['show_fiscal_planejadas'] = True
+            elif permissao.modulo == 'SUBMENU_LIQUIDACAO':
+                menu_permissions['show_liquidacao'] = True
+            elif permissao.modulo == 'SUBMENU_FICHAS_OFICIAIS':
+                menu_permissions['show_fichas_oficiais'] = True
+            elif permissao.modulo == 'SUBMENU_FICHAS_PRACAS':
+                menu_permissions['show_fichas_pracas'] = True
+            elif permissao.modulo == 'SUBMENU_QUADROS_ACESSO':
+                menu_permissions['show_quadros_acesso'] = True
+            elif permissao.modulo == 'SUBMENU_QUADROS_FIXACAO':
+                menu_permissions['show_quadros_fixacao'] = True
+            elif permissao.modulo == 'SUBMENU_ALMANAQUES':
+                menu_permissions['show_almanaques'] = True
+            elif permissao.modulo == 'SUBMENU_PROMOCOES':
+                menu_permissions['show_promocoes'] = True
+            elif permissao.modulo == 'SUBMENU_CALENDARIOS':
+                menu_permissions['show_calendarios'] = True
+            elif permissao.modulo == 'SUBMENU_COMISSOES':
+                menu_permissions['show_comissoes'] = True
+            elif permissao.modulo == 'SUBMENU_MEUS_VOTOS':
+                menu_permissions['show_meus_votos'] = True
+            elif permissao.modulo == 'SUBMENU_INTERSTICIOS':
+                menu_permissions['show_intersticios'] = True
+            elif permissao.modulo == 'SUBMENU_GERENCIAR_INTERSTICIOS':
+                menu_permissions['show_gerenciar_intersticios'] = True
+            elif permissao.modulo == 'SUBMENU_GERENCIAR_PREVISAO':
+                menu_permissions['show_gerenciar_previsao'] = True
+            elif permissao.modulo == 'SUBMENU_MEDALHAS_CONCESSOES':
+                menu_permissions['show_medalhas_concessoes'] = True
+            elif permissao.modulo == 'SUBMENU_MEDALHAS_PROPOSTAS':
+                menu_permissions['show_medalhas_propostas'] = True
+            elif permissao.modulo == 'SUBMENU_ELEGIVEIS':
+                menu_permissions['show_elegiveis'] = True
+            elif permissao.modulo == 'SUBMENU_PROPOSTAS':
+                menu_permissions['show_propostas'] = True
+            elif permissao.modulo == 'SUBMENU_USUARIOS':
+                menu_permissions['show_usuarios'] = True
+            elif permissao.modulo == 'SUBMENU_PERMISSOES':
+                menu_permissions['show_permissoes'] = True
+            elif permissao.modulo == 'SUBMENU_LOGS':
+                menu_permissions['show_logs'] = True
+            elif permissao.modulo == 'SUBMENU_ADMINISTRACAO':
+                menu_permissions['show_administracao'] = True
+            elif permissao.modulo == 'SUBMENU_TITULOS_PUBLICACAO':
+                menu_permissions['show_titulos_publicacao'] = True
+            elif permissao.modulo == 'SUBMENU_ORGAOS':
+                menu_permissions['show_usuarios'] = True
+                menu_permissions['show_administracao'] = True
+            elif permissao.modulo == 'SUBMENU_ORGANOGRAMA':
+                menu_permissions['show_usuarios'] = True
+                menu_permissions['show_administracao'] = True
+            elif permissao.modulo == 'SUBMENU_GRANDES_COMANDOS':
+                menu_permissions['show_grandes_comandos'] = True
+            elif permissao.modulo == 'SUBMENU_UNIDADES':
+                menu_permissions['show_unidades'] = True
+            elif permissao.modulo == 'SUBMENU_SUB_UNIDADES':
+                menu_permissions['show_sub_unidades'] = True
         
-        # Mapear permissões granulares para ações específicas (não apenas VISUALIZAR)
-        # Processar todas as permissões novamente para capturar ações específicas
+        # NOTA: O processamento das permissões granulares de ações específicas foi movido
+        # para DEPOIS dos blocos de nível de acesso, para garantir que as permissões
+        # granulares tenham prioridade sobre as permissões baseadas em nível hierárquico
+        
+        # Mapear permissões de botões (BOTAO_*)
+        # Processar todas as permissões novamente para capturar permissões de botões
         for permissao in permissoes_granulares:
-            # Permissões de INATIVOS
-            if permissao.modulo == 'INATIVOS' and permissao.acesso == 'REATIVAR':
-                menu_permissions['INATIVOS_REATIVAR'] = True
-            elif permissao.modulo == 'INATIVOS' and permissao.acesso == 'VISUALIZAR':
-                menu_permissions['INATIVOS_VISUALIZAR'] = True
-            elif permissao.modulo == 'INATIVOS' and permissao.acesso == 'EDITAR':
-                menu_permissions['INATIVOS_EDITAR'] = True
-            elif permissao.modulo == 'INATIVOS' and permissao.acesso == 'EXCLUIR':
-                menu_permissions['INATIVOS_EXCLUIR'] = True
-            # Permissões de ARMAS
-            elif permissao.modulo == 'ARMAS' and permissao.acesso == 'VISUALIZAR':
-                menu_permissions['ARMAS_VISUALIZAR'] = True
-            elif permissao.modulo == 'ARMAS' and permissao.acesso == 'CRIAR':
-                menu_permissions['ARMAS_CRIAR'] = True
-            elif permissao.modulo == 'ARMAS' and permissao.acesso == 'EDITAR':
-                menu_permissions['ARMAS_EDITAR'] = True
-            elif permissao.modulo == 'ARMAS' and permissao.acesso == 'EXCLUIR':
-                menu_permissions['ARMAS_EXCLUIR'] = True
-            # Permissões de MUNICOES
-            elif permissao.modulo == 'MUNICOES' and permissao.acesso == 'VISUALIZAR':
-                menu_permissions['MUNICOES_VISUALIZAR'] = True
-            elif permissao.modulo == 'MUNICOES' and permissao.acesso == 'CRIAR':
-                menu_permissions['MUNICOES_CRIAR'] = True
-            elif permissao.modulo == 'MUNICOES' and permissao.acesso == 'EDITAR':
-                menu_permissions['MUNICOES_EDITAR'] = True
-            elif permissao.modulo == 'MUNICOES' and permissao.acesso == 'EXCLUIR':
-                menu_permissions['MUNICOES_EXCLUIR'] = True
+            # Verificar se é uma permissão de botão (módulo começa com BOTAO_)
+            if permissao.modulo.startswith('BOTAO_'):
+                # Adicionar a permissão de botão diretamente ao menu_permissions
+                # O acesso pode ser TOTAL ou qualquer outro valor
+                menu_permissions[permissao.modulo] = True
+                # Também adicionar no formato BOTAO_XXX_TOTAL se o acesso for TOTAL
+                if permissao.acesso == 'TOTAL':
+                    menu_permissions[f"{permissao.modulo}_TOTAL"] = True
         
         # GARANTIR QUE O MENU PESSOAL SEMPRE APAREÇA
         # Quando uma função não tem permissões granulares selecionadas, 
@@ -914,10 +949,17 @@ def menu_permissions_processor(request):
         # O acesso TOTAL controla apenas o acesso aos dados (hierarquia)
         # As permissões granulares devem ser configuradas explicitamente
         
-        elif funcao_usuario.nivel_acesso == 'ORGAO':
-            # Nível ÓRGÃO: acesso ao órgão + toda sua descendência
-            # Aplicar permissões básicas de visualização e gestão limitada
-            menu_permissions.update({
+        # Verificar se há permissões granulares configuradas
+        # Se houver, não aplicar permissões baseadas em nível hierárquico para ações específicas
+        tem_permissoes_granulares = permissoes_granulares.exists()
+        
+        # Aplicar permissões baseadas em nível hierárquico APENAS se NÃO houver permissões granulares
+        # Isso garante que as permissões granulares sempre tenham prioridade
+        if not tem_permissoes_granulares:
+            if funcao_usuario.nivel_acesso == 'ORGAO':
+                # Nível ÓRGÃO: acesso ao órgão + toda sua descendência
+                # Aplicar permissões básicas de visualização e gestão limitada
+                menu_permissions.update({
                 'show_dashboard': True,
                 'show_efetivo': True,
                 'show_ativos': True,
@@ -941,6 +983,8 @@ def menu_permissions_processor(request):
                 'MILITARES_EDITAR': True,
                 'MILITARES_EXPORTAR': True,
                 'MILITARES_DASHBOARD': True,
+                'ENSINO_VISUALIZAR': True,
+                'ENSINO_EDITAR': True,
                 'INATIVOS_VISUALIZAR': True,
                 'LOTACOES_VISUALIZAR': True,
                 'LOTACOES_EDITAR': True,
@@ -956,12 +1000,12 @@ def menu_permissions_processor(request):
                 'AVISOS_EDITAR': True,
                 'MEDALHAS_VISUALIZAR': True,
                 'MEDALHAS_EDITAR': True,
-            })
+                })
             
-        elif funcao_usuario.nivel_acesso == 'GRANDE_COMANDO':
-            # Nível GRANDE_COMANDO: acesso ao grande comando + toda sua descendência
-            # Aplicar permissões de gestão de grande comando
-            menu_permissions.update({
+            elif funcao_usuario.nivel_acesso == 'GRANDE_COMANDO':
+                # Nível GRANDE_COMANDO: acesso ao grande comando + toda sua descendência
+                # Aplicar permissões de gestão de grande comando
+                menu_permissions.update({
                 'show_dashboard': True,
                 'show_efetivo': True,
                 'show_ativos': True,
@@ -986,6 +1030,9 @@ def menu_permissions_processor(request):
                 'MILITARES_EDITAR': True,
                 'MILITARES_EXPORTAR': True,
                 'MILITARES_DASHBOARD': True,
+                'ENSINO_VISUALIZAR': True,
+                'ENSINO_CRIAR': True,
+                'ENSINO_EDITAR': True,
                 'INATIVOS_VISUALIZAR': True,
                 'INATIVOS_EDITAR': True,
                 'LOTACOES_VISUALIZAR': True,
@@ -1009,12 +1056,12 @@ def menu_permissions_processor(request):
                 'MEDALHAS_VISUALIZAR': True,
                 'MEDALHAS_CRIAR': True,
                 'MEDALHAS_EDITAR': True,
-            })
+                })
             
-        elif funcao_usuario.nivel_acesso == 'UNIDADE':
-            # Nível UNIDADE: acesso à unidade + toda sua descendência
-            # Aplicar permissões de gestão de unidade
-            menu_permissions.update({
+            elif funcao_usuario.nivel_acesso == 'UNIDADE':
+                # Nível UNIDADE: acesso à unidade + toda sua descendência
+                # Aplicar permissões de gestão de unidade
+                menu_permissions.update({
                 'show_dashboard': True,
                 'show_efetivo': True,
                 'show_ativos': True,
@@ -1033,6 +1080,8 @@ def menu_permissions_processor(request):
                 'MILITARES_EDITAR': True,
                 'MILITARES_EXPORTAR': True,
                 'MILITARES_DASHBOARD': True,
+                'ENSINO_VISUALIZAR': True,
+                'ENSINO_EDITAR': True,
                 'LOTACOES_VISUALIZAR': True,
                 'LOTACOES_EDITAR': True,
                 'PUBLICACOES_VISUALIZAR': True,
@@ -1045,12 +1094,12 @@ def menu_permissions_processor(request):
                 'AVISOS_EDITAR': True,
                 'MEDALHAS_VISUALIZAR': True,
                 'MEDALHAS_EDITAR': True,
-            })
+                })
             
-        elif funcao_usuario.nivel_acesso == 'SUBUNIDADE':
-            # Nível SUBUNIDADE: acesso à subunidade
-            # Aplicar permissões básicas de visualização
-            menu_permissions.update({
+            elif funcao_usuario.nivel_acesso == 'SUBUNIDADE':
+                # Nível SUBUNIDADE: acesso à subunidade
+                # Aplicar permissões básicas de visualização
+                menu_permissions.update({
                 'show_dashboard': True,
                 'show_efetivo': True,
                 'show_ativos': True,
@@ -1065,13 +1114,14 @@ def menu_permissions_processor(request):
                 'MILITARES_VISUALIZAR': True,
                 'MILITARES_EXPORTAR': True,
                 'MILITARES_DASHBOARD': True,
+                'ENSINO_VISUALIZAR': True,
                 'PUBLICACOES_VISUALIZAR': True,
                 'NOTAS_VISUALIZAR': True,
                 'AVISOS_VISUALIZAR': True,
                 'MEDALHAS_VISUALIZAR': True,
-            })
-            
-        elif funcao_usuario.nivel_acesso == 'NENHUM':
+                })
+        
+        if funcao_usuario.nivel_acesso == 'NENHUM':
             # Nível NENHUM: apenas página home e dados pessoais (sem edição)
             menu_permissions.update({
                 # Acesso apenas à página home e dados pessoais
@@ -1107,8 +1157,6 @@ def menu_permissions_processor(request):
                 'show_boletins_ostensivos': False,  # Não tem acesso aos boletins ostensivos
                 'show_boletins_reservados': False,  # Não tem acesso aos boletins reservados
                 'show_boletins_especiais': False,   # Não tem acesso aos boletins especiais
-                'show_avisos': False,         # Não tem acesso aos avisos
-                'show_ordens_servico': False, # Não tem acesso às ordens de serviço
                 'show_escalas': False,        # Não tem acesso às escalas
                 'show_configuracoes': False,  # Não tem acesso às configurações
                 'show_relatorios': False,     # Não tem acesso aos relatórios
@@ -1127,6 +1175,98 @@ def menu_permissions_processor(request):
             'funcao_ativa_id': funcao_ativa.id,
         })
         
+        # GARANTIA FINAL: Processar permissões granulares DEPOIS dos blocos de nível de acesso
+        # Isso garante que as permissões granulares tenham prioridade sobre as permissões baseadas em nível hierárquico
+        # Re-buscar permissões granulares para garantir que temos a lista atualizada
+        permissoes_granulares_final = PermissaoFuncao.objects.filter(
+            funcao_militar=funcao_ativa,
+            ativo=True
+        )
+        
+        # Primeiro, inicializar todas as permissões de ação como False
+        # Isso garante que apenas as permissões explicitamente marcadas sejam True
+        permissoes_acao_final = [
+            'MILITARES_VISUALIZAR', 'MILITARES_CRIAR', 'MILITARES_EDITAR', 'MILITARES_EXCLUIR',
+            'MILITARES_TRANSFERIR', 'MILITARES_PROMOVER', 'MILITARES_INATIVAR',
+            'MILITARES_FICHA_CONCEITO', 'MILITARES_EXPORTAR', 'MILITARES_DASHBOARD', 'MILITARES_REORDENAR',
+            'INATIVOS_VISUALIZAR', 'INATIVOS_EDITAR', 'INATIVOS_EXCLUIR', 'INATIVOS_REATIVAR',
+            'ARMAS_VISUALIZAR', 'ARMAS_CRIAR', 'ARMAS_EDITAR', 'ARMAS_EXCLUIR',
+            'MUNICOES_VISUALIZAR', 'MUNICOES_CRIAR', 'MUNICOES_EDITAR', 'MUNICOES_EXCLUIR',
+            'ENSINO_VISUALIZAR', 'ENSINO_CRIAR', 'ENSINO_EDITAR', 'ENSINO_EXCLUIR',
+        ]
+        for permissao_acao in permissoes_acao_final:
+            menu_permissions[permissao_acao] = False
+        
+        # Processar permissões granulares de ações específicas (sobrescrevendo para True apenas as marcadas)
+        for permissao in permissoes_granulares_final:
+            # Permissões de MILITARES
+            if permissao.modulo == 'MILITARES' and permissao.acesso == 'VISUALIZAR':
+                menu_permissions['MILITARES_VISUALIZAR'] = True
+            elif permissao.modulo == 'MILITARES' and permissao.acesso == 'CRIAR':
+                menu_permissions['MILITARES_CRIAR'] = True
+            elif permissao.modulo == 'MILITARES' and permissao.acesso == 'EDITAR':
+                menu_permissions['MILITARES_EDITAR'] = True
+            elif permissao.modulo == 'MILITARES' and permissao.acesso == 'EXCLUIR':
+                menu_permissions['MILITARES_EXCLUIR'] = True
+            elif permissao.modulo == 'MILITARES' and permissao.acesso == 'TRANSFERIR':
+                menu_permissions['MILITARES_TRANSFERIR'] = True
+            elif permissao.modulo == 'MILITARES' and permissao.acesso == 'PROMOVER':
+                menu_permissions['MILITARES_PROMOVER'] = True
+            elif permissao.modulo == 'MILITARES' and permissao.acesso == 'INATIVAR':
+                menu_permissions['MILITARES_INATIVAR'] = True
+            elif permissao.modulo == 'MILITARES' and permissao.acesso == 'FICHA_CONCEITO':
+                menu_permissions['MILITARES_FICHA_CONCEITO'] = True
+            elif permissao.modulo == 'MILITARES' and permissao.acesso == 'EXPORTAR':
+                menu_permissions['MILITARES_EXPORTAR'] = True
+            elif permissao.modulo == 'MILITARES' and permissao.acesso == 'DASHBOARD':
+                menu_permissions['MILITARES_DASHBOARD'] = True
+            elif permissao.modulo == 'MILITARES' and permissao.acesso == 'REORDENAR':
+                menu_permissions['MILITARES_REORDENAR'] = True
+            # Permissões de INATIVOS
+            elif permissao.modulo == 'INATIVOS' and permissao.acesso == 'REATIVAR':
+                menu_permissions['INATIVOS_REATIVAR'] = True
+            elif permissao.modulo == 'INATIVOS' and permissao.acesso == 'VISUALIZAR':
+                menu_permissions['INATIVOS_VISUALIZAR'] = True
+            elif permissao.modulo == 'INATIVOS' and permissao.acesso == 'EDITAR':
+                menu_permissions['INATIVOS_EDITAR'] = True
+            elif permissao.modulo == 'INATIVOS' and permissao.acesso == 'EXCLUIR':
+                menu_permissions['INATIVOS_EXCLUIR'] = True
+            # Permissões de ARMAS
+            elif permissao.modulo == 'ARMAS' and permissao.acesso == 'VISUALIZAR':
+                menu_permissions['ARMAS_VISUALIZAR'] = True
+            elif permissao.modulo == 'ARMAS' and permissao.acesso == 'CRIAR':
+                menu_permissions['ARMAS_CRIAR'] = True
+            elif permissao.modulo == 'ARMAS' and permissao.acesso == 'EDITAR':
+                menu_permissions['ARMAS_EDITAR'] = True
+            elif permissao.modulo == 'ARMAS' and permissao.acesso == 'EXCLUIR':
+                menu_permissions['ARMAS_EXCLUIR'] = True
+            # Permissões de MUNICOES
+            elif permissao.modulo == 'MUNICOES' and permissao.acesso == 'VISUALIZAR':
+                menu_permissions['MUNICOES_VISUALIZAR'] = True
+            elif permissao.modulo == 'MUNICOES' and permissao.acesso == 'CRIAR':
+                menu_permissions['MUNICOES_CRIAR'] = True
+            elif permissao.modulo == 'MUNICOES' and permissao.acesso == 'EDITAR':
+                menu_permissions['MUNICOES_EDITAR'] = True
+            elif permissao.modulo == 'MUNICOES' and permissao.acesso == 'EXCLUIR':
+                menu_permissions['MUNICOES_EXCLUIR'] = True
+            # Permissões de ENSINO
+            elif permissao.modulo == 'ENSINO' and permissao.acesso == 'VISUALIZAR':
+                menu_permissions['ENSINO_VISUALIZAR'] = True
+            elif permissao.modulo == 'ENSINO' and permissao.acesso == 'CRIAR':
+                menu_permissions['ENSINO_CRIAR'] = True
+            elif permissao.modulo == 'ENSINO' and permissao.acesso == 'EDITAR':
+                menu_permissions['ENSINO_EDITAR'] = True
+            elif permissao.modulo == 'ENSINO' and permissao.acesso == 'EXCLUIR':
+                menu_permissions['ENSINO_EXCLUIR'] = True
+        
+        try:
+            if request.session.get('ensino_tipo') == 'instrutor':
+                menu_permissions['ENSINO_VISUALIZAR'] = True
+                menu_permissions['ENSINO_CRIAR'] = True
+                menu_permissions['ENSINO_EDITAR'] = True
+        except Exception:
+            pass
+
         # Debug: Log das permissões da função ativa (apenas em desenvolvimento)
         if hasattr(settings, 'DEBUG') and settings.DEBUG:
             print(f"Menu permissions para {request.user.username} - Funcao: {funcao_ativa.nome}")
@@ -1134,6 +1274,14 @@ def menu_permissions_processor(request):
             print(f"   - Efetivo: {menu_permissions.get('show_efetivo', False)}")
             print(f"   - Seção Promoções: {menu_permissions.get('show_secao_promocoes', False)}")
             print(f"   - Administração: {menu_permissions.get('show_administracao', False)}")
+            print(f"   - MILITARES_VISUALIZAR: {menu_permissions.get('MILITARES_VISUALIZAR', False)}")
+            print(f"   - MILITARES_CRIAR: {menu_permissions.get('MILITARES_CRIAR', False)}")
+            print(f"   - MILITARES_EDITAR: {menu_permissions.get('MILITARES_EDITAR', False)}")
+            print(f"   - MILITARES_EXCLUIR: {menu_permissions.get('MILITARES_EXCLUIR', False)}")
+            print(f"   - ENSINO_VISUALIZAR: {menu_permissions.get('ENSINO_VISUALIZAR', False)}")
+            print(f"   - ENSINO_CRIAR: {menu_permissions.get('ENSINO_CRIAR', False)}")
+            print(f"   - ENSINO_EDITAR: {menu_permissions.get('ENSINO_EDITAR', False)}")
+            print(f"   - ENSINO_EXCLUIR: {menu_permissions.get('ENSINO_EXCLUIR', False)}")
         
         return {
             'menu_permissions': MenuPermissions(menu_permissions)
@@ -1158,6 +1306,18 @@ def menu_permissions_processor(request):
         'show_almoxarifado': False,
         'show_almoxarifado_requisicoes': False,
         'show_processos': False,
+        'show_ensino': False,
+        'show_ensino_submenu': False,
+        'show_ensino_alunos': False,
+        'show_ensino_instrutores': False,
+        'show_ensino_monitores': False,
+        'show_ensino_cursos': False,
+        'show_ensino_turmas': False,
+        'show_ensino_disciplinas': False,
+        'show_ensino_aulas': False,
+        'show_ensino_quadros_trabalho_semanal': False,
+        'show_ensino_avaliacoes': False,
+        'show_ensino_certificados': False,
         
         # Submenus - Efetivo
         'show_ativos': False,
@@ -1191,8 +1351,6 @@ def menu_permissions_processor(request):
         'show_boletins_ostensivos': False,
         'show_boletins_reservados': False,
         'show_boletins_especiais': False,
-        'show_avisos': False,
-        'show_ordens_servico': False,
         
         # Submenus - Seção de Promoções
         'show_fichas_oficiais': False,
@@ -1281,6 +1439,11 @@ def menu_permissions_processor(request):
         'PUBLICACOES_EDITAR': False,
         'PUBLICACOES_EXCLUIR': False,
         'PUBLICACOES_PUBLICAR': False,
+        # Permissões de Ensino
+        'ENSINO_VISUALIZAR': (request.user.is_authenticated and request.session.get('ensino_tipo') == 'instrutor'),
+        'ENSINO_CRIAR': (request.user.is_authenticated and request.session.get('ensino_tipo') == 'instrutor'),
+        'ENSINO_EDITAR': (request.user.is_authenticated and request.session.get('ensino_tipo') == 'instrutor'),
+        'ENSINO_EXCLUIR': False,
     }
     
     # GARANTIR QUE O MENU PESSOAL SEMPRE APAREÇA
@@ -1445,4 +1608,43 @@ def alertas_frota_processor(request):
         'alertas_licenciamento': alertas_licenciamento,
         'total_alertas_licenciamento': len(alertas_licenciamento),
         'total_alertas_frota': total_alertas_frota
-    } 
+    }
+
+def ensino_aluno_processor(request):
+    """
+    Context processor para disponibilizar informações do aluno do módulo de ensino
+    """
+    if request.user.is_authenticated:
+        ensino_tipo = request.session.get('ensino_tipo')
+        ensino_id = request.session.get('ensino_id')
+        
+        if ensino_tipo == 'aluno' and ensino_id:
+            try:
+                from .models import AlunoEnsino
+                aluno = AlunoEnsino.objects.filter(
+                    pk=ensino_id,
+                    situacao='ATIVO'
+                ).select_related('turma', 'turma__curso').first()
+                
+                if aluno and aluno.turma:
+                    return {
+                        'aluno_ensino': aluno,
+                        'turma_ensino': aluno.turma,
+                        'curso_ensino': aluno.turma.curso if aluno.turma.curso else None,
+                    }
+            except Exception:
+                pass
+    
+    return {
+        'aluno_ensino': None,
+        'turma_ensino': None,
+        'curso_ensino': None,
+    }
+
+def apk_processor(request):
+    ua = request.META.get('HTTP_USER_AGENT', '') or ''
+    qs_apk = request.GET.get('apk') in ('1', 'true', 'True')
+    is_apk = qs_apk or ('Android' in ua and 'Mobile' in ua) or ('wv' in ua) or ('okhttp' in ua) or ('Dalvik' in ua)
+    return {
+        'is_apk': is_apk,
+    }

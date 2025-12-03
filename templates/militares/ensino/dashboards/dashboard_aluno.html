@@ -1,0 +1,826 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard - Aluno{% endblock %}
+
+{% block extra_css %}
+<style>
+    #mainSidebar { display: none !important; }
+    .sidebar-toggle-btn, .sidebar-overlay { display: none !important; }
+    main { width: 100% !important; max-width: 100% !important; margin-left: 0 !important; padding-left: 0 !important; padding-right: 0 !important; }
+    .container-fluid { padding-left: 12px; padding-right: 12px; }
+    .stat-card {
+        border-radius: 15px;
+        transition: all 0.3s ease;
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+    }
+    
+    .stat-card .card-body {
+        padding: 1.5rem;
+    }
+    
+    .stat-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 0.5rem 0;
+    }
+    
+    .stat-label {
+        color: #6b7280;
+        font-size: 0.9rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .discipline-card {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+    }
+    
+    .discipline-card:hover {
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+        transform: translateY(-2px);
+    }
+    
+    .discipline-header {
+        padding: 1.25rem;
+        color: white;
+        font-weight: 600;
+    }
+    
+    .progress-ring {
+        width: 80px;
+        height: 80px;
+    }
+    
+    .progress-ring circle {
+        transition: stroke-dashoffset 0.35s;
+        transform: rotate(-90deg);
+        transform-origin: 50% 50%;
+    }
+    
+    .badge-status {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    
+    .gradient-primary {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+    }
+    
+    .gradient-success {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+    }
+    
+    .gradient-danger {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+    }
+    
+    .gradient-info {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+    }
+    
+    .gradient-warning {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+    }
+    
+    .info-box {
+        background: white;
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+        border-left: 4px solid;
+    }
+    
+    .info-box-primary {
+        border-left-color: #4f46e5;
+    }
+    
+    .info-box-success {
+        border-left-color: #059669;
+    }
+    
+    .info-box-danger {
+        border-left-color: #dc2626;
+    }
+    
+    .info-box-warning {
+        border-left-color: #d97706;
+    }
+    .modal .ck-editor { width: 100%; }
+    .modal .ck-editor__editable { min-height: 280px; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if is_apk %}
+<div class="container p-3">
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="d-flex align-items-center">
+                <div class="me-3">
+                    {% if aluno.tipo_aluno == 'BOMBEIRO' and aluno.militar and aluno.militar.foto %}
+                        <img src="{{ aluno.militar.foto.url }}" class="rounded-circle" style="width:64px;height:64px;object-fit:cover;">
+                    {% elif aluno.foto %}
+                        <img src="{{ aluno.foto.url }}" class="rounded-circle" style="width:64px;height:64px;object-fit:cover;">
+                    {% elif aluno.pessoa_externa and aluno.pessoa_externa.foto %}
+                        <img src="{{ aluno.pessoa_externa.foto.url }}" class="rounded-circle" style="width:64px;height:64px;object-fit:cover;">
+                    {% else %}
+                        <div class="rounded-circle bg-light d-flex align-items-center justify-content-center" style="width:64px;height:64px;"><i class="fas fa-user text-muted"></i></div>
+                    {% endif %}
+                </div>
+                <div class="flex-grow-1">
+                    <div class="fw-bold">{% if aluno.militar %}{{ aluno.militar.get_posto_graduacao_display }} {% endif %}{{ aluno.get_nome_completo|default:aluno }}</div>
+                    <div class="text-muted">{{ aluno.get_situacao_display }}</div>
+                </div>
+            </div>
+            <div class="row g-2 mt-3">
+                <div class="col-6">
+                    <div class="small text-muted">Matrícula</div>
+                    <div class="fw-semibold">{{ aluno.matricula|default:"-" }}</div>
+                </div>
+                <div class="col-6">
+                    <div class="small text-muted">Turma</div>
+                    <div class="fw-semibold">{% if turma %}{{ turma.identificacao }}{% else %}-{% endif %}</div>
+                </div>
+                <div class="col-6">
+                    <div class="small text-muted">Curso</div>
+                    <div class="fw-semibold">{% if turma %}{{ turma.curso.nome }}{% else %}-{% endif %}</div>
+                </div>
+                <div class="col-6">
+                    <div class="small text-muted">Período</div>
+                    <div class="fw-semibold">{% if turma and turma.data_inicio and turma.data_fim %}{{ turma.data_inicio|date:"d/m/Y" }} - {{ turma.data_fim|date:"d/m/Y" }}{% else %}-{% endif %}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="small text-muted">Frequência</div>
+                    <div class="h4 mb-0">{{ percentual_frequencia }}%</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="small text-muted">Média</div>
+                    <div class="h4 mb-0">{{ media_geral|floatformat:1 }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="small text-muted">Próx. aulas</div>
+                    <div class="h4 mb-0">{{ proximas_aulas|length }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <div class="mb-3">
+        <h5 class="mb-2"><i class="fas fa-calendar-day me-2"></i>Próximas Aulas</h5>
+        {% if proximas_aulas %}
+        <div class="list-group">
+            {% for aula in proximas_aulas|slice:":5" %}
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="fw-bold">{{ aula.disciplina.nome }}</div>
+                        <div class="small text-muted">{{ aula.data_aula|date:"d/m/Y" }} • {{ aula.hora_inicio|time:"H:i" }}</div>
+                    </div>
+                    <span class="badge bg-secondary">{{ aula.get_tipo_aula_display }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-muted small">Sem aulas agendadas.</div>
+        {% endif %}
+    </div>
+
+    <div>
+        <h5 class="mb-2"><i class="fas fa-book-open me-2"></i>Disciplinas</h5>
+        <div class="row">
+            {% for disc_info in disciplinas_info|slice:":6" %}
+            <div class="col-12 mb-2">
+                <div class="card">
+                    <div class="card-body d-flex justify-content-between align-items-center">
+                        <div class="fw-bold">{{ disc_info.disciplina.nome }}</div>
+                        <div class="text-end">
+                            <div class="small text-muted">Média</div>
+                            <div class="h5 mb-0">{% if disc_info.media %}{{ disc_info.media|floatformat:1 }}{% else %}-{% endif %}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card stat-card" style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border: none;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center">
+                            <!-- Foto do Aluno -->
+                            <div class="me-4">
+                                {% if aluno.tipo_aluno == 'BOMBEIRO' and aluno.militar and aluno.militar.foto %}
+                                    <img src="{{ aluno.militar.foto.url }}" 
+                                         alt="Foto do aluno" 
+                                         class="rounded-circle shadow-lg" 
+                                         style="width: 120px; height: 120px; object-fit: cover; border: 4px solid white;">
+                                {% elif aluno.foto %}
+                                    <img src="{{ aluno.foto.url }}" 
+                                         alt="Foto do aluno" 
+                                         class="rounded-circle shadow-lg" 
+                                         style="width: 120px; height: 120px; object-fit: cover; border: 4px solid white;">
+                                {% elif aluno.pessoa_externa and aluno.pessoa_externa.foto %}
+                                    <img src="{{ aluno.pessoa_externa.foto.url }}" 
+                                         alt="Foto do aluno" 
+                                         class="rounded-circle shadow-lg" 
+                                         style="width: 120px; height: 120px; object-fit: cover; border: 4px solid white;">
+                                {% else %}
+                                    <div class="rounded-circle shadow-lg bg-white d-flex align-items-center justify-content-center" 
+                                         style="width: 120px; height: 120px; border: 4px solid white;">
+                                        <i class="fas fa-user text-primary" style="font-size: 60px;"></i>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <!-- Informações do Aluno -->
+                            <div>
+                                <h1 class="mb-1" style="font-weight: 700; color: #1f2937;">
+                                    <i class="fas fa-graduation-cap me-2" style="color: #6b7280;"></i>
+                                    Dashboard do Aluno
+                                </h1>
+                                <p class="mb-0" style="font-size: 1.1rem; color: #495057;">
+                                    {% if aluno.tipo_aluno == 'BOMBEIRO' and aluno.militar %}
+                                        <strong>{{ aluno.militar.get_posto_graduacao_display }} {{ aluno.militar.nome_completo }}</strong>
+                                    {% elif aluno.tipo_aluno == 'OUTRA_FORCA' and aluno.nome_outra_forca %}
+                                        <strong>{{ aluno.nome_outra_forca }}</strong>
+                                    {% elif aluno.tipo_aluno == 'CIVIL' and aluno.nome_civil %}
+                                        <strong>{{ aluno.nome_civil }}</strong>
+                                    {% else %}
+                                        <strong>{{ aluno.get_nome_completo|default:"Aluno" }}</strong>
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                        <div>
+                            <span class="badge badge-status bg-secondary" style="font-size: 1rem; padding: 0.75rem 1.5rem;">
+                                <i class="fas fa-check-circle me-2"></i>{{ aluno.get_situacao_display }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-center shadow-sm">
+                <div class="card-body">
+                    <i class="fas fa-book fa-2x text-primary mb-3"></i>
+                    <h3>{{ total_aulas }}</h3>
+                    <p class="text-muted mb-0">Total de Aulas</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center shadow-sm">
+                <div class="card-body">
+                    <i class="fas fa-chart-line fa-2x text-info mb-3"></i>
+                    <h3>{{ percentual_frequencia }}%</h3>
+                    <p class="text-muted mb-0">Frequência</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center shadow-sm">
+                <div class="card-body">
+                    <i class="fas fa-star fa-2x text-warning mb-3"></i>
+                    <h3>{{ media_geral|floatformat:3 }}</h3>
+                    <p class="text-muted mb-0">Média Geral</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if turma %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h4 class="mb-3"><i class="fas fa-users me-2"></i>Minha Turma</h4>
+                            <div class="row">
+                                <div class="col-md-6 mb-2">
+                                    <strong><i class="fas fa-book me-2"></i>Curso:</strong> {{ turma.curso.nome }}
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <strong><i class="fas fa-users me-2"></i>Turma:</strong> {{ turma.identificacao }}
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <strong><i class="fas fa-id-card me-2"></i>Matrícula:</strong> {{ aluno.matricula|default:"-" }}
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <strong><i class="fas fa-calendar me-2"></i>Período:</strong> 
+                                    {% if turma.data_inicio and turma.data_fim %}
+                                        {{ turma.data_inicio|date:"d/m/Y" }} - {{ turma.data_fim|date:"d/m/Y" }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <div class="stat-icon bg-primary text-white" style="margin: 0 auto;">
+                                <i class="fas fa-graduation-cap"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-info d-flex align-items-center" role="alert">
+                <i class="fas fa-info-circle me-2"></i>
+                Você ainda não está matriculado em uma turma. Suas informações pessoais permanecem visíveis aqui.
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    
+
+    <!-- Informações por Disciplina -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h3 class="mb-4" style="font-weight: 700; color: #1f2937;">
+                <i class="fas fa-book-open me-2" style="color: #6b7280;"></i>
+                Desempenho por Disciplina
+            </h3>
+        </div>
+    </div>
+
+    <div class="row">
+        {% for disc_info in disciplinas_info %}
+        <div class="col-lg-6 col-xl-4 mb-4">
+            <div class="card discipline-card">
+                <div class="discipline-header bg-light text-dark" style="border-bottom: 2px solid #e5e7eb;">
+                    <h5 class="mb-0">
+                        <i class="fas fa-book me-2"></i>{{ disc_info.disciplina.nome }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Média -->
+                    <div class="info-box {% if disc_info.media and disc_info.media >= 7 %}info-box-success{% elif disc_info.media and disc_info.media >= 5 %}info-box-warning{% else %}info-box-danger{% endif %}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>Média:</strong>
+                                <span class="ms-2" style="font-size: 1.5rem; font-weight: 700;">
+                                    {% if disc_info.media %}
+                                        {{ disc_info.media|floatformat:1 }}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </span>
+                            </div>
+                            {% if disc_info.status %}
+                            <span class="badge badge-status 
+                                {% if disc_info.status == 'APROVADO' %}bg-success
+                                {% elif disc_info.status == 'RECUPERACAO' %}bg-warning text-dark
+                                {% else %}bg-danger{% endif %}">
+                                {{ disc_info.status }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Frequência -->
+                    <div class="info-box info-box-primary">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <strong><i class="fas fa-check-circle me-2"></i>Frequência:</strong>
+                            <span class="fw-bold">{{ disc_info.percentual_frequencia }}%</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-secondary" 
+                                 role="progressbar" 
+                                 style="width: {{ disc_info.percentual_frequencia }}%"
+                                 aria-valuenow="{{ disc_info.percentual_frequencia }}" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="100">
+                            </div>
+                        </div>
+                        <small class="text-muted">
+                            {{ disc_info.frequencias_presentes }} presentes / {{ disc_info.total_frequencias }} total
+                        </small>
+                    </div>
+
+                    <!-- Aulas -->
+                    <div class="info-box info-box-info">
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <div>
+                                    <strong style="font-size: 1.2rem;">{{ disc_info.aulas_realizadas }}</strong>
+                                    <div class="text-muted small">Realizadas</div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div>
+                                    <strong style="font-size: 1.2rem;">{{ disc_info.total_aulas }}</strong>
+                                    <div class="text-muted small">Total</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Notas -->
+                    {% if disc_info.notas_items %}
+                    <div class="info-box info-box-primary">
+                        <strong><i class="fas fa-star me-2"></i>Notas:</strong>
+                        <div class="mt-2">
+                            {% for item in disc_info.notas_items %}
+                            <span class="badge bg-secondary me-1" style="font-size: 0.9rem; padding: 0.4rem 0.6rem;">
+                                {{ item.valor|floatformat:1 }}
+                            </span>
+                            {% if item.nota_id %}
+                                {% if item.pedido_revisao_status %}
+                                    <span class="badge bg-secondary me-1" title="Status: {{ item.pedido_revisao_status }}&#10;Etapa: {{ item.pedido_revisao_etapa }}">{{ item.pedido_revisao_status }}</span>
+                                {% else %}
+                                    <a href="{% url 'militares:ensino_revisao_solicitar_form' nota_id=item.nota_id %}?next={% url 'militares:ensino_dashboard' %}" class="btn btn-sm btn-outline-primary me-1 js-open-revisao-modal">
+                                        Revisão
+                                    </a>
+                                {% endif %}
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Avaliações -->
+                    {% if disc_info.avaliacoes %}
+                    <div class="info-box info-box-warning">
+                        <strong><i class="fas fa-clipboard-check me-2"></i>Avaliações:</strong>
+                        <div class="mt-2">
+                            {% for avaliacao in disc_info.avaliacoes|slice:":3" %}
+                            <div class="small mb-1">
+                                <i class="fas fa-circle me-1" style="font-size: 0.5rem;"></i>
+                                {{ avaliacao.get_tipo_avaliacao_display }} - {{ avaliacao.data_avaliacao|date:"d/m/Y" }}
+                            </div>
+                            {% endfor %}
+                            {% if disc_info.total_avaliacoes > 3 %}
+                            <div class="small text-muted">+ {{ disc_info.total_avaliacoes|add:"-3" }} mais</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                Nenhuma disciplina encontrada para esta turma.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Próximas Aulas e Avaliações -->
+    <div class="row mb-4">
+        <div class="col-md-6 mb-3">
+            <div class="card stat-card">
+                <div class="card-header bg-light text-dark">
+                    <h5 class="mb-0"><i class="fas fa-calendar-day me-2"></i>Próximas Aulas</h5>
+                </div>
+                <div class="card-body">
+                    {% if proximas_aulas %}
+                    <div class="list-group list-group-flush">
+                        {% for aula in proximas_aulas %}
+                        <div class="list-group-item border-0 px-0">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1 fw-bold">{{ aula.disciplina.nome }}</h6>
+                                    <p class="mb-1 text-muted">
+                                        <i class="fas fa-calendar me-1"></i>{{ aula.data_aula|date:"d/m/Y" }}
+                                        <i class="fas fa-clock ms-2 me-1"></i>{{ aula.hora_inicio|time:"H:i" }}
+                                    </p>
+                                </div>
+                                <span class="badge bg-secondary">{{ aula.get_tipo_aula_display }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0"><i class="fas fa-info-circle me-2"></i>Nenhuma aula agendada para os próximos dias.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-3">
+            <div class="card stat-card">
+                <div class="card-header bg-light text-dark">
+                    <h5 class="mb-0"><i class="fas fa-clipboard-check me-2"></i>Avaliações Pendentes</h5>
+                </div>
+                <div class="card-body">
+                    {% if avaliacoes_pendentes %}
+                    <div class="list-group list-group-flush">
+                        {% for avaliacao in avaliacoes_pendentes %}
+                        <div class="list-group-item border-0 px-0">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1 fw-bold">{{ avaliacao.disciplina.nome }}</h6>
+                                    <p class="mb-1 text-muted">
+                                        <i class="fas fa-clipboard me-1"></i>{{ avaliacao.get_tipo_avaliacao_display }}
+                                        <i class="fas fa-calendar ms-2 me-1"></i>{{ avaliacao.data_avaliacao|date:"d/m/Y" }}
+                                    </p>
+                                </div>
+                                <span class="badge bg-secondary">Pendente</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0"><i class="fas fa-check-circle me-2"></i>Nenhuma avaliação pendente.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Revisões de Provas -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card stat-card">
+                <div class="card-header bg-light text-dark">
+                    <h5 class="mb-0"><i class="fas fa-flag me-2"></i>Revisões de Provas</h5>
+                </div>
+                <div class="card-body">
+                    {% if revisoes_aluno %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Disciplina</th>
+                                    <th>Avaliação</th>
+                                    <th>Nota</th>
+                                    <th>Status</th>
+                                    <th>Etapa</th>
+                                    <th>Solicitado</th>
+                                    <th>Detalhes</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for rev in revisoes_aluno %}
+                                <tr>
+                                    <td>{{ rev.nota_avaliacao.avaliacao.disciplina.nome }}</td>
+                                    <td>{{ rev.nota_avaliacao.avaliacao.nome }}</td>
+                                    <td>{{ rev.nota_avaliacao.nota }}</td>
+                                    <td><span class="badge bg-info">{{ rev.get_status_display }}</span></td>
+                                    <td>{{ rev.get_etapa_display }}</td>
+                                    <td>{{ rev.data_solicitacao|date:"d/m/Y H:i" }}</td>
+                                    <td style="max-width: 380px;">
+                                        {% if rev.fundamentacao %}
+                                            <div><strong>Fundamentação:</strong> {{ rev.fundamentacao }}</div>
+                                        {% endif %}
+                                        {% if rev.despacho_envio_instrutor_texto %}
+                                            <div><strong>Despacho ao instrutor:</strong> {{ rev.despacho_envio_instrutor_texto }}</div>
+                                            {% if rev.despacho_envio_instrutor_por or rev.despacho_envio_instrutor_data %}
+                                                <div class="text-muted">{{ rev.despacho_envio_instrutor_por.username|default:"" }}{% if rev.despacho_envio_instrutor_data %} - {{ rev.despacho_envio_instrutor_data|date:"d/m/Y H:i" }}{% endif %}</div>
+                                            {% endif %}
+                                        {% endif %}
+                                        {% if rev.parecer_instrutor_texto %}
+                                            <div><strong>Parecer do instrutor:</strong> {{ rev.parecer_instrutor_texto }}</div>
+                                        {% endif %}
+                                        {% if rev.parecer_final_texto %}
+                                            <div><strong>Parecer final:</strong> {{ rev.parecer_final_texto }}</div>
+                                        {% endif %}
+                                    </td>
+                                    <td style="white-space: nowrap;">
+                                        {% if rev.etapa == 'PARECER_INSTRUTOR' and rev.status == 'INDEFERIDA' %}
+                                            <a href="{% url 'militares:ensino_aluno_recorrer_diretoria' pedido_id=rev.id %}?next={{ request.get_full_path }}" class="btn btn-sm btn-outline-warning">Recorrer à Diretoria</a>
+                                        {% endif %}
+                                        {% if rev.etapa == 'PARECER_FINAL' and rev.status == 'INDEFERIDA' %}
+                                            <a href="{% url 'militares:ensino_aluno_reenviar_recurso' pedido_id=rev.id %}?next={{ request.get_full_path }}" class="btn btn-sm btn-outline-danger">Solicitar novamente</a>
+                                        {% endif %}
+                                        <a href="{% url 'militares:ensino_pedido_revisao_detalhes' pedido_id=rev.id %}" class="btn btn-sm btn-outline-secondary">Detalhes</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0"><i class="fas fa-info-circle me-2"></i>Sem revisões registradas.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quadros de Trabalho Semanal -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card stat-card">
+                <div class="card-header bg-light text-dark">
+                    <h5 class="mb-0"><i class="fas fa-calendar-week me-2"></i>Quadros de Trabalho Semanal</h5>
+                </div>
+                <div class="card-body">
+                    {% if quadros_trabalho %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Nº Quadro</th>
+                                    <th>Data Início</th>
+                                    <th>Data Fim</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for quadro in quadros_trabalho %}
+                                <tr>
+                                    <td><strong>{{ quadro.numero_quadro }}</strong></td>
+                                    <td>{{ quadro.data_inicio_semana|date:"d/m/Y" }}</td>
+                                    <td>{{ quadro.data_fim_semana|date:"d/m/Y" }}</td>
+                                    <td>
+                                        <a href="{% url 'militares:ensino_quadro_trabalho_semanal_visualizar' pk=quadro.pk %}?next={{ request.get_full_path }}" 
+                                           class="btn btn-sm btn-outline-secondary">
+                                            <i class="fas fa-eye"></i> Visualizar
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0"><i class="fas fa-info-circle me-2"></i>Nenhum quadro de trabalho semanal disponível.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.ckeditor.com/ckeditor5/39.0.1/classic/ckeditor.js"></script>
+<script>
+(function(){
+  function initEditors(root){
+    try {
+      if (typeof ClassicEditor === 'undefined') return;
+      window._revisaoEditors = window._revisaoEditors || [];
+      var areas = root.querySelectorAll('textarea');
+      areas.forEach(function(el){
+        if (el.dataset.ckInitialized === '1') return;
+        ClassicEditor.create(el).then(function(editor){
+          el.dataset.ckInitialized = '1';
+          window._revisaoEditors.push({el: el, editor: editor});
+        }).catch(function(err){ console.error('CKEditor init error:', err); });
+      });
+      // Garantir atualização dos valores no submit
+      var forms = root.querySelectorAll('form');
+      forms.forEach(function(f){
+        if (f.dataset.ckHooked === '1') return;
+        f.addEventListener('submit', function(){
+          (window._revisaoEditors || []).forEach(function(pair){
+            try { pair.el.value = pair.editor.getData(); } catch(e){}
+          });
+        });
+        f.dataset.ckHooked = '1';
+      });
+    } catch(e){ console.error(e); }
+  }
+  function openRevisaoModal(url){
+    var modalEl = document.getElementById('revisaoSolicitarModal');
+    var contentEl = document.getElementById('modalRevisaoContent');
+    if (!modalEl || !contentEl) return window.location.href = url;
+    contentEl.innerHTML = '<div class="py-5 text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Carregando...</span></div><p class="mt-3 text-muted">Carregando formulário...</p></div>';
+    try {
+      if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+        var instance = bootstrap.Modal.getOrCreateInstance(modalEl);
+        instance.show();
+      }
+    } catch(e) {}
+    fetch(url, {credentials: 'same-origin', headers: {'X-Requested-With':'XMLHttpRequest'}})
+      .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
+      .then(function(html){ contentEl.innerHTML = html; initEditors(contentEl); })
+      .catch(function(err){ contentEl.innerHTML = '<div class="alert alert-danger m-3">Erro ao carregar formulário: '+err.message+'</div>'; });
+  }
+  function attachAjaxSubmit(){
+    var contentEl = document.getElementById('modalRevisaoContent');
+    var form = contentEl ? contentEl.querySelector('form') : null;
+    if (!form) return;
+    if (form.dataset.ajaxBound === '1') return;
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+      (window._revisaoEditors || []).forEach(function(pair){ try { pair.el.value = pair.editor.getData(); } catch(e){} });
+      var fd = new FormData(form);
+      var action = form.getAttribute('action') || window.location.href;
+      fetch(action, {method:'POST', body: fd, credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'}})
+        .then(function(r){
+          var ct = r.headers.get('content-type')||'';
+          if (ct.indexOf('application/json')>=0) return r.json();
+          return r.text().then(function(t){ return {html:t}; });
+        })
+        .then(function(data){
+          if (data && data.success){
+            var modalEl = document.getElementById('revisaoSolicitarModal');
+            if (typeof bootstrap !== 'undefined' && bootstrap.Modal){
+              var instance = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
+              instance.hide();
+            }
+            window.location.href = data.redirect || window.location.href;
+          } else if (data && data.html){
+            var contentEl = document.getElementById('modalRevisaoContent');
+            contentEl.innerHTML = data.html;
+            initEditors(contentEl);
+            attachAjaxSubmit();
+          }
+        })
+        .catch(function(err){
+          var contentEl = document.getElementById('modalRevisaoContent');
+          contentEl.innerHTML = '<div class="alert alert-danger m-3">Erro ao enviar: '+err.message+'</div>';
+        });
+    });
+    form.dataset.ajaxBound = '1';
+  }
+  document.addEventListener('click', function(e){
+    var a = e.target.closest('a.js-open-revisao-modal');
+    if (a){
+      e.preventDefault();
+      var url = a.getAttribute('href');
+      openRevisaoModal(url);
+      setTimeout(attachAjaxSubmit, 50);
+    }
+  });
+})();
+</script>
+
+<!-- Modal para Solicitar Revisão -->
+<div class="modal fade" id="revisaoSolicitarModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-flag me-2"></i>Solicitar Revisão de Prova</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="modalRevisaoContent">
+        <!-- Conteúdo carregado dinamicamente -->
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

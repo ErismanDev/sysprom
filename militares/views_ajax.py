@@ -76,41 +76,81 @@ def militar_info_completa_ajax(request):
         militar = Militar.objects.get(pk=militar_id)
         
         # Buscar lotação atual
-        lotacao_atual = militar.lotacao_atual
         lotacao_data = None
-        if lotacao_atual:
-            lotacao_data = {
-                'orgao_id': lotacao_atual.orgao.id if lotacao_atual.orgao else None,
-                'orgao_nome': str(lotacao_atual.orgao) if lotacao_atual.orgao else None,
-                'grande_comando_id': lotacao_atual.grande_comando.id if lotacao_atual.grande_comando else None,
-                'grande_comando_nome': str(lotacao_atual.grande_comando) if lotacao_atual.grande_comando else None,
-                'unidade_id': lotacao_atual.unidade.id if lotacao_atual.unidade else None,
-                'unidade_nome': str(lotacao_atual.unidade) if lotacao_atual.unidade else None,
-                'sub_unidade_id': lotacao_atual.sub_unidade.id if lotacao_atual.sub_unidade else None,
-                'sub_unidade_nome': str(lotacao_atual.sub_unidade) if lotacao_atual.sub_unidade else None,
-            }
+        try:
+            lotacao_atual = militar.lotacao_atual
+            if lotacao_atual and hasattr(lotacao_atual, 'orgao'):
+                lotacao_data = {
+                    'orgao_id': lotacao_atual.orgao.id if lotacao_atual.orgao else None,
+                    'orgao_nome': str(lotacao_atual.orgao) if lotacao_atual.orgao else None,
+                    'grande_comando_id': lotacao_atual.grande_comando.id if lotacao_atual.grande_comando else None,
+                    'grande_comando_nome': str(lotacao_atual.grande_comando) if lotacao_atual.grande_comando else None,
+                    'unidade_id': lotacao_atual.unidade.id if lotacao_atual.unidade else None,
+                    'unidade_nome': str(lotacao_atual.unidade) if lotacao_atual.unidade else None,
+                    'sub_unidade_id': lotacao_atual.sub_unidade.id if lotacao_atual.sub_unidade else None,
+                    'sub_unidade_nome': str(lotacao_atual.sub_unidade) if lotacao_atual.sub_unidade else None,
+                }
+        except Exception:
+            # Se houver erro ao buscar lotação, definir como None
+            lotacao_data = None
+        
+        # Preparar dados do militar
+        militar_data = {
+            'id': militar.id,
+            'nome_completo': militar.nome_completo,
+            'nome_guerra': militar.nome_guerra or '',
+            'matricula': militar.matricula,
+            'cpf': militar.cpf or '',
+            'posto_graduacao': militar.posto_graduacao,
+            'posto': militar.posto_graduacao,
+            'posto_graduacao_display': militar.get_posto_graduacao_display(),
+            'posto_display': militar.get_posto_graduacao_display(),
+            'email': militar.email or '',
+            'telefone': militar.telefone or '',
+            'celular': militar.celular or '',
+            'quadro': militar.quadro,
+            'quadro_display': militar.get_quadro_display(),
+            'situacao': militar.situacao,
+            'situacao_display': militar.get_situacao_display(),
+            'lotacao_atual': lotacao_data,
+            'foto_url': militar.foto.url if militar.foto else None
+        }
+        
+        # Adicionar campos de endereço se existirem no modelo
+        # Verificar se o modelo tem atributos de endereço
+        campos_endereco = ['endereco', 'logradouro', 'rua', 'bairro', 'numero', 'complemento', 
+                          'cidade', 'uf', 'estado', 'cep']
+        for campo in campos_endereco:
+            if hasattr(militar, campo):
+                try:
+                    valor = getattr(militar, campo, None)
+                    # Sempre incluir o campo, mesmo se vazio
+                    if valor is not None and valor != '':
+                        # Converter para string, tratando casos especiais
+                        if isinstance(valor, str):
+                            militar_data[campo] = valor
+                        else:
+                            militar_data[campo] = str(valor)
+                    else:
+                        militar_data[campo] = ''
+                except Exception as e:
+                    # Se houver erro ao acessar o campo, definir como vazio
+                    militar_data[campo] = ''
         
         return JsonResponse({
             'success': True,
-            'militar': {
-                'id': militar.id,
-                'nome_completo': militar.nome_completo,
-                'nome_guerra': militar.nome_guerra or '',
-                'matricula': militar.matricula,
-                'cpf': militar.cpf or '',
-                'posto_graduacao': militar.posto_graduacao,
-                'posto_display': militar.get_posto_graduacao_display(),
-                'quadro': militar.quadro,
-                'quadro_display': militar.get_quadro_display(),
-                'situacao': militar.situacao,
-                'situacao_display': militar.get_situacao_display(),
-                'lotacao_atual': lotacao_data
-            }
+            'militar': militar_data
         })
     except Militar.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Militar não encontrado'}, status=404)
     except Exception as e:
-        return JsonResponse({'success': False, 'error': f'Erro ao buscar militar: {str(e)}'}, status=500)
+        import traceback
+        error_trace = traceback.format_exc()
+        return JsonResponse({
+            'success': False, 
+            'error': f'Erro ao buscar militar: {str(e)}',
+            'traceback': error_trace
+        }, status=500)
 
 
 @require_GET

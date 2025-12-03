@@ -538,7 +538,7 @@ def cautela_arma_pdf(request, pk):
                 # Data e hora da assinatura
                 data_assinatura = assinatura.data_assinatura.astimezone(brasilia_tz) if timezone.is_aware(assinatura.data_assinatura) else brasilia_tz.localize(assinatura.data_assinatura)
                 data_formatada = data_assinatura.strftime('%d/%m/%Y')
-                hora_formatada = data_assinatura.strftime('%H:%M')
+                hora_formatada = data_assinatura.strftime('%H:%M:%S')
                 
                 nome_assinante = ""
                 if assinatura.militar:
@@ -546,12 +546,9 @@ def cautela_arma_pdf(request, pk):
                 else:
                     nome_assinante = assinatura.assinado_por.get_full_name() or assinatura.assinado_por.username
                 
-                funcao_display = assinatura.funcao_assinatura or "Bombeiro Militar"
-                
                 texto_assinatura = (
-                    f"Documento assinado eletronicamente por <b>{nome_assinante}</b> - {funcao_display}, "
-                    f"em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, "
-                    f"conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
+                    f"Documento assinado eletronicamente por <b>{nome_assinante}</b>, em {data_formatada} {hora_formatada}, "
+                    f"conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
                 )
                 
                 # Adicionar logo da assinatura eletrônica
@@ -961,7 +958,7 @@ def cautela_arma_coletiva_pdf(request, pk):
                 # Data e hora da assinatura
                 data_assinatura = assinatura.data_assinatura.astimezone(brasilia_tz) if timezone.is_aware(assinatura.data_assinatura) else brasilia_tz.localize(assinatura.data_assinatura)
                 data_formatada = data_assinatura.strftime('%d/%m/%Y')
-                hora_formatada = data_assinatura.strftime('%H:%M')
+                hora_formatada = data_assinatura.strftime('%H:%M:%S')
                 
                 nome_assinante = ""
                 if assinatura.militar:
@@ -972,9 +969,8 @@ def cautela_arma_coletiva_pdf(request, pk):
                 funcao_display = assinatura.funcao_assinatura or "Bombeiro Militar"
                 
                 texto_assinatura = (
-                    f"Documento assinado eletronicamente por <b>{nome_assinante}</b> - {funcao_display}, "
-                    f"em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, "
-                    f"conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
+                    f"Documento assinado eletronicamente por <b>{nome_assinante}</b>, "
+                    f"em {data_formatada} {hora_formatada}, conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
                 )
                 
                 # Adicionar logo da assinatura eletrônica

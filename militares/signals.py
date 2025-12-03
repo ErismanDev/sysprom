@@ -403,36 +403,31 @@ def associar_usuario_a_militar(sender, instance, created, **kwargs):
     Associa automaticamente um usuário a um militar quando o usuário é criado
     """
     if created:
-        # Tentar encontrar um militar que corresponda ao usuário
+        # Ignorar usuários sintéticos do módulo de ensino
+        if instance.username.startswith(('aluno_', 'instrutor_', 'monitor_')):
+            return
+
+        # Tentar encontrar um militar que corresponda ao usuário de forma resiliente
+        militar = None
+
         # Primeiro, tentar por CPF (username)
-        try:
-            militar = Militar.objects.get(cpf=instance.username)
-            if not militar.user:
-                militar.user = instance
-                militar.save(update_fields=['user'])
-                print(f"[SINAL] Usuário {instance.username} associado automaticamente ao militar {militar.nome_completo}")
-        except Militar.DoesNotExist:
-            # Se não encontrar por CPF, tentar por nome
+        if instance.username:
+            militar = Militar.objects.filter(cpf=instance.username).first()
+
+        # Se não encontrou por CPF, tentar por nome completo
+        if not militar:
             nome_completo = f"{instance.first_name} {instance.last_name}".strip()
             if nome_completo:
-                try:
-                    militar = Militar.objects.get(nome_completo__iexact=nome_completo)
-                    if not militar.user:
-                        militar.user = instance
-                        militar.save(update_fields=['user'])
-                        print(f"[SINAL] Usuário {instance.username} associado automaticamente ao militar {militar.nome_completo} por nome")
-                except Militar.DoesNotExist:
-                    # Se não encontrar por nome, tentar por email
-                    if instance.email:
-                        try:
-                            militar = Militar.objects.get(email__iexact=instance.email)
-                            if not militar.user:
-                                militar.user = instance
-                                militar.save(update_fields=['user'])
-                                print(f"[SINAL] Usuário {instance.username} associado automaticamente ao militar {militar.nome_completo} por email")
-                        except Militar.DoesNotExist:
-                            print(f"[SINAL] Não foi possível associar automaticamente o usuário {instance.username} a nenhum militar")
-                            pass
+                militar = Militar.objects.filter(nome_completo__iexact=nome_completo).first()
+
+        # Se não encontrou por nome, tentar por email
+        if not militar and instance.email:
+            militar = Militar.objects.filter(email__iexact=instance.email).first()
+
+        if militar and not militar.user:
+            militar.user = instance
+            militar.save(update_fields=['user'])
+            print(f"[SINAL] Usuário {instance.username} associado automaticamente ao militar {militar.nome_completo}")
         
         # Atribuir função padrão "Serviço Operacional" para o usuário
         atribuir_funcao_padrao_usuario(instance) 
@@ -445,6 +440,9 @@ def criar_militar_para_usuario(sender, instance, created, **kwargs):
     if os.environ.get('DISABLE_SIGNALS', '0') == '1':
         return
     if created and not hasattr(instance, 'militar'):
+        # Ignorar usuários sintéticos do módulo de ensino
+        if instance.username.startswith(('aluno_', 'instrutor_', 'monitor_')):
+            return
         # Verificar se o usuário tem dados suficientes para criar um militar
         if instance.first_name and instance.last_name:
             try:

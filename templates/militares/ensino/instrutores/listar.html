@@ -1,0 +1,847 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Instrutores - Módulo de Ensino{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="mb-0">
+                    <i class="fas fa-chalkboard-teacher me-2"></i>
+                    Instrutores
+                </h1>
+                {% if menu_permissions.ENSINO_CRIAR or user.is_superuser %}
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#criarInstrutorModal">
+                    <i class="fas fa-plus me-2"></i>
+                    Novo Instrutor
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-10">
+                    <input type="text" name="busca" class="form-control" placeholder="Buscar por nome, CPF, habilitações ou especialidades..." value="{{ request.GET.busca }}">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-2"></i>
+                        Buscar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Tabela de Instrutores -->
+    <div class="card">
+        <div class="card-body">
+            {% if instrutores %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th class="text-center" style="width: 60px;">Nº</th>
+                                <th style="width: 80px;">Foto</th>
+                                <th>Tipo</th>
+                                <th>Nome</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for instrutor in instrutores %}
+                            <tr>
+                                <td class="text-center">
+                                    {{ instrutores.start_index|add:forloop.counter0 }}
+                                </td>
+                                <td>
+                                    <button type="button" 
+                                            class="btn btn-link p-0 text-decoration-none btn-detalhes-instrutor" 
+                                            title="Ver detalhes do instrutor"
+                                            data-instrutor-id="{{ instrutor.pk }}" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#detalhesInstrutorModal"
+                                            style="border: none; background: none;">
+                                        {% if instrutor.tipo_instrutor == 'BOMBEIRO' and instrutor.militar and instrutor.militar.foto %}
+                                            {# Para bombeiros, usar a foto da ficha de cadastro do militar #}
+                                            <img src="{{ instrutor.militar.foto.url }}" 
+                                                 alt="Foto do instrutor" 
+                                                 class="img-thumbnail rounded-circle border border-primary" 
+                                                 style="width: 50px; height: 50px; object-fit: cover; cursor: pointer; transition: transform 0.2s;"
+                                                 onmouseover="this.style.transform='scale(1.1)'"
+                                                 onmouseout="this.style.transform='scale(1)'">
+                                        {% elif instrutor.tipo_instrutor == 'OUTRA_FORCA' and instrutor.foto_outra_forca %}
+                                            {# Para militar de outra força, usar foto_outra_forca #}
+                                            <img src="{{ instrutor.foto_outra_forca.url }}" 
+                                                 alt="Foto do instrutor" 
+                                                 class="img-thumbnail rounded-circle border border-primary" 
+                                                 style="width: 50px; height: 50px; object-fit: cover; cursor: pointer; transition: transform 0.2s;"
+                                                 onmouseover="this.style.transform='scale(1.1)'"
+                                                 onmouseout="this.style.transform='scale(1)'">
+                                        {% elif instrutor.foto %}
+                                            {# Para outros tipos, usar a foto do instrutor se disponível #}
+                                            <img src="{{ instrutor.foto.url }}" 
+                                                 alt="Foto do instrutor" 
+                                                 class="img-thumbnail rounded-circle border border-primary" 
+                                                 style="width: 50px; height: 50px; object-fit: cover; cursor: pointer; transition: transform 0.2s;"
+                                                 onmouseover="this.style.transform='scale(1.1)'"
+                                                 onmouseout="this.style.transform='scale(1)'">
+                                        {% else %}
+                                            {# Se não houver foto, exibir ícone padrão #}
+                                            <div class="bg-secondary rounded-circle d-flex align-items-center justify-content-center border border-primary" 
+                                                 style="width: 50px; height: 50px; cursor: pointer; transition: transform 0.2s;"
+                                                 onmouseover="this.style.transform='scale(1.1)'"
+                                                 onmouseout="this.style.transform='scale(1)'">
+                                                <i class="fas fa-user text-white"></i>
+                                            </div>
+                                        {% endif %}
+                                    </button>
+                                </td>
+                                <td>
+                                    {% if instrutor.tipo_instrutor == 'BOMBEIRO' %}
+                                        <span class="badge bg-primary">Bombeiro</span>
+                                    {% elif instrutor.tipo_instrutor == 'OUTRA_FORCA' %}
+                                        <span class="badge bg-info">Outra Força</span>
+                                    {% elif instrutor.tipo_instrutor == 'CIVIL' %}
+                                        <span class="badge bg-secondary">Civil</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <strong>
+                                        {% if instrutor.tipo_instrutor == 'BOMBEIRO' and instrutor.militar %}
+                                            {% if instrutor.militar.get_posto_graduacao_display %}
+                                                {{ instrutor.militar.get_posto_graduacao_display }} 
+                                            {% endif %}
+                                            {{ instrutor.militar.nome_completo }}
+                                        {% elif instrutor.tipo_instrutor == 'OUTRA_FORCA' %}
+                                            {% if instrutor.posto_outra_forca %}
+                                                {{ instrutor.get_posto_outra_forca_display }} 
+                                            {% endif %}
+                                            {{ instrutor.nome_outra_forca|default:"Não informado" }}
+                                        {% elif instrutor.tipo_instrutor == 'CIVIL' %}
+                                            {{ instrutor.nome_civil|default:"Não informado" }}
+                                        {% else %}
+                                            {{ instrutor }}
+                                        {% endif %}
+                                    </strong>
+                                    <br>
+                                    <small class="text-muted">
+                                        CPF: {{ instrutor.get_cpf|default:"Não informado" }}
+                                    </small>
+                                    {% if instrutor.link_lattes %}
+                                        <br>
+                                        <a href="{{ instrutor.link_lattes }}" target="_blank" class="text-decoration-none" title="Currículo Lattes">
+                                            <i class="fas fa-external-link-alt me-1"></i>
+                                            <small>Lattes</small>
+                                        </a>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if instrutor.ativo %}
+                                        <span class="badge bg-success">Ativo</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Inativo</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        {% if menu_permissions.ENSINO_VISUALIZAR or user.is_superuser %}
+                                        <button type="button" class="btn btn-sm btn-info btn-detalhes-instrutor" title="Ver detalhes" data-instrutor-id="{{ instrutor.pk }}" data-bs-toggle="modal" data-bs-target="#detalhesInstrutorModal">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        {% endif %}
+                                        <a href="{% url 'militares:ensino_instrutor_ficha_pdf' pk=instrutor.pk %}" target="_blank" class="btn btn-sm btn-danger" title="Gerar PDF da Ficha">
+                                            <i class="fas fa-file-pdf"></i>
+                                        </a>
+                                        {% if menu_permissions.ENSINO_EDITAR or user.is_superuser %}
+                                        <button type="button" class="btn btn-sm btn-warning btn-editar-instrutor" title="Editar" data-instrutor-id="{{ instrutor.pk }}" data-bs-toggle="modal" data-bs-target="#editarInstrutorModal{{ instrutor.pk }}">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        {% endif %}
+                                        {% if menu_permissions.ENSINO_EXCLUIR or user.is_superuser %}
+                                        <button type="button" class="btn btn-sm btn-danger btn-excluir-instrutor" title="Excluir" data-bs-toggle="modal" data-bs-target="#excluirInstrutorModal{{ instrutor.pk }}" data-instrutor-id="{{ instrutor.pk }}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Paginação -->
+                {% if instrutores.has_other_pages %}
+                <nav aria-label="Paginação">
+                    <ul class="pagination justify-content-center">
+                        {% if instrutores.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1{% if request.GET.busca %}&busca={{ request.GET.busca }}{% endif %}">Primeira</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ instrutores.previous_page_number }}{% if request.GET.busca %}&busca={{ request.GET.busca }}{% endif %}">Anterior</a>
+                            </li>
+                        {% endif %}
+                        
+                        <li class="page-item active">
+                            <span class="page-link">
+                                Página {{ instrutores.number }} de {{ instrutores.paginator.num_pages }}
+                            </span>
+                        </li>
+                        
+                        {% if instrutores.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ instrutores.next_page_number }}{% if request.GET.busca %}&busca={{ request.GET.busca }}{% endif %}">Próxima</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ instrutores.paginator.num_pages }}{% if request.GET.busca %}&busca={{ request.GET.busca }}{% endif %}">Última</a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Nenhum instrutor encontrado.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Criar Instrutor -->
+<div class="modal fade" id="criarInstrutorModal" tabindex="-1" aria-labelledby="criarInstrutorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="criarInstrutorModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modais de Edição -->
+{% for instrutor in instrutores %}
+<div class="modal fade" id="editarInstrutorModal{{ instrutor.pk }}" tabindex="-1" aria-labelledby="editarInstrutorModalLabel{{ instrutor.pk }}" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content" id="editarInstrutorModalContent{{ instrutor.pk }}">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-warning" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando formulário...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Modais de Exclusão -->
+{% for instrutor in instrutores %}
+<div class="modal fade" id="excluirInstrutorModal{{ instrutor.pk }}" tabindex="-1" aria-labelledby="excluirInstrutorModalLabel{{ instrutor.pk }}" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="excluirInstrutorModalLabel{{ instrutor.pk }}">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Confirmar Exclusão
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'militares:ensino_instrutor_excluir' pk=instrutor.pk %}" id="formExcluirInstrutor{{ instrutor.pk }}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Atenção!</strong> Esta ação não pode ser desfeita.
+                    </div>
+                    
+                    <p>Tem certeza que deseja excluir o instrutor <strong>{{ instrutor }}</strong>?</p>
+                    
+                    <div id="excluirInstrutorErrors{{ instrutor.pk }}" class="alert alert-danger d-none">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <span id="excluirInstrutorErrorMessage{{ instrutor.pk }}"></span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-danger" id="btnExcluirInstrutor{{ instrutor.pk }}">
+                        <i class="fas fa-trash me-2"></i>Excluir Instrutor
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Modal de Detalhes do Instrutor -->
+<div class="modal fade" id="detalhesInstrutorModal" tabindex="-1" aria-labelledby="detalhesInstrutorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable" style="max-width: 85vw; width: 85%;">
+        <div class="modal-content" id="detalhesInstrutorModalContent">
+            <!-- Conteúdo será carregado via AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-info" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando detalhes...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Modal de detalhes do instrutor
+    const detalhesInstrutorModal = document.getElementById('detalhesInstrutorModal');
+    const detalhesInstrutorModalContent = document.getElementById('detalhesInstrutorModalContent');
+    
+    if (detalhesInstrutorModal && detalhesInstrutorModalContent) {
+        detalhesInstrutorModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            console.log('Modal de detalhes aberto, button:', button);
+            
+            const instrutorId = button ? button.getAttribute('data-instrutor-id') : null;
+            console.log('ID do instrutor:', instrutorId);
+            
+            if (!instrutorId) {
+                console.error('ID do instrutor não encontrado');
+                detalhesInstrutorModalContent.innerHTML = '<div class="modal-body"><div class="alert alert-danger">Erro: ID do instrutor não encontrado.</div></div>';
+                return;
+            }
+            
+            detalhesInstrutorModalContent.innerHTML = '<div class="modal-body text-center py-5"><div class="spinner-border text-info" role="status"><span class="visually-hidden">Carregando...</span></div><p class="mt-3 text-muted">Carregando detalhes...</p></div>';
+            
+            const url = '/militares/ensino/instrutores/' + instrutorId + '/';
+            console.log('Fazendo requisição para:', url);
+            
+            fetch(url, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                console.log('Resposta recebida, status:', response.status);
+                if (!response.ok) {
+                    throw new Error('Erro ao carregar detalhes: ' + response.status);
+                }
+                return response.text();
+            })
+            .then(html => {
+                console.log('HTML recebido, tamanho:', html.length);
+                detalhesInstrutorModalContent.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Erro ao carregar detalhes:', error);
+                detalhesInstrutorModalContent.innerHTML = '<div class="modal-header bg-danger text-white"><h5 class="modal-title">Erro</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>Erro ao carregar os detalhes do instrutor: ' + error.message + '</div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button></div>';
+            });
+        });
+    } else {
+        console.error('Elementos do modal de detalhes não encontrados');
+    }
+    
+    // Modal de criação de instrutor
+    const criarInstrutorModal = document.getElementById('criarInstrutorModal');
+    const criarInstrutorModalContent = document.getElementById('criarInstrutorModalContent');
+    
+    if (criarInstrutorModal && criarInstrutorModalContent) {
+        criarInstrutorModal.addEventListener('show.bs.modal', function(event) {
+            criarInstrutorModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            fetch('{% url "militares:ensino_instrutor_criar" %}', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.text())
+            .then(html => {
+                criarInstrutorModalContent.innerHTML = html;
+                
+                // Aguardar um pouco para garantir que o DOM foi atualizado
+                setTimeout(function() {
+                    // Re-executar scripts que podem estar no conteúdo carregado
+                    const scripts = criarInstrutorModalContent.querySelectorAll('script');
+                    scripts.forEach(function(oldScript) {
+                        const newScript = document.createElement('script');
+                        Array.from(oldScript.attributes).forEach(attr => {
+                            newScript.setAttribute(attr.name, attr.value);
+                        });
+                        newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                        oldScript.parentNode.replaceChild(newScript, oldScript);
+                    });
+                    
+                    // Forçar inicialização do Select2 após scripts serem executados
+                    setTimeout(function() {
+                        if (typeof jQuery !== 'undefined' && typeof jQuery.fn !== 'undefined' && typeof jQuery.fn.select2 !== 'undefined') {
+                            const elementoMilitar = document.getElementById('id_militar');
+                            if (elementoMilitar) {
+                                // Verificar se já foi inicializado
+                                if (!jQuery(elementoMilitar).hasClass('select2-hidden-accessible')) {
+                                    console.log('Inicializando Select2 após carregamento do modal...');
+                                    try {
+                                        jQuery(elementoMilitar).select2({
+                                            placeholder: 'Busque e selecione um militar...',
+                                            allowClear: true,
+                                            width: '100%',
+                                            dropdownParent: jQuery('#criarInstrutorModal'),
+                                            ajax: {
+                                                url: '{% url "militares:militar-autocomplete" %}',
+                                                dataType: 'json',
+                                                delay: 250,
+                                                data: function (params) {
+                                                    return {
+                                                        q: params.term,
+                                                        page: params.page
+                                                    };
+                                                },
+                                                processResults: function (data, params) {
+                                                    params.page = params.page || 1;
+                                                    return {
+                                                        results: data.results,
+                                                        pagination: {
+                                                            more: (params.page * 30) < data.total_count
+                                                        }
+                                                    };
+                                                },
+                                                cache: true
+                                            },
+                                            minimumInputLength: 0
+                                        });
+                                        
+                                        // Adicionar event listeners
+                                        jQuery(elementoMilitar).on('select2:select', function (e) {
+                                            const militarId = e.params.data.id;
+                                            if (militarId) {
+                                                fetch('{% url "militares:militar_info_completa_ajax" %}?militar_id=' + militarId)
+                                                    .then(response => response.json())
+                                                    .then(data => {
+                                                        if (data.success && data.militar) {
+                                                            const militar = data.militar;
+                                                            // Preencher dados de visualização
+                                                            jQuery('#militar_posto').val(militar.posto_graduacao_display || militar.posto_display || '');
+                                                            jQuery('#militar_cpf').val(militar.cpf || '');
+                                                            jQuery('#militar_email').val(militar.email || '');
+                                                            jQuery('#militar_telefone').val(militar.telefone || militar.celular || '');
+                                                            jQuery('#dados_militar_preenchidos').slideDown();
+                                                            
+                                                            // Preencher campos do formulário se o tipo for BOMBEIRO
+                                                            const tipoInstrutor = jQuery('input[name="tipo_instrutor"]:checked').val();
+                                                            if (tipoInstrutor === 'BOMBEIRO') {
+                                                                // Preencher email se o campo estiver vazio
+                                                                const emailField = jQuery('#id_email_bombeiro');
+                                                                if (emailField.length && !emailField.val()) {
+                                                                    emailField.val(militar.email || '');
+                                                                }
+                                                                
+                                                                // Preencher telefone se o campo estiver vazio (priorizar telefone, senão celular)
+                                                                const telefoneField = jQuery('#id_telefone_bombeiro');
+                                                                if (telefoneField.length && !telefoneField.val()) {
+                                                                    telefoneField.val(militar.telefone || militar.celular || '');
+                                                                }
+                                                                
+                                                                // Preencher campos de endereço se existirem e estiverem vazios
+                                                                const enderecoField = jQuery('#id_endereco_bombeiro');
+                                                                if (enderecoField.length && !enderecoField.val() && militar.endereco) {
+                                                                    enderecoField.val(militar.endereco);
+                                                                }
+                                                                
+                                                                const cidadeField = jQuery('#id_cidade_bombeiro');
+                                                                if (cidadeField.length && !cidadeField.val() && militar.cidade) {
+                                                                    cidadeField.val(militar.cidade);
+                                                                }
+                                                                
+                                                                const ufField = jQuery('#id_uf_bombeiro');
+                                                                if (ufField.length && !ufField.val() && (militar.uf || militar.estado)) {
+                                                                    ufField.val(militar.uf || militar.estado || '').trigger('change');
+                                                                }
+                                                                
+                                                                const cepField = jQuery('#id_cep_bombeiro');
+                                                                if (cepField.length && !cepField.val() && militar.cep) {
+                                                                    cepField.val(militar.cep);
+                                                                }
+                                                            }
+                                                        }
+                                                    })
+                                                    .catch(error => {
+                                                        console.error('Erro ao buscar dados do militar:', error);
+                                                    });
+                                            }
+                                        });
+                                        
+                                        jQuery(elementoMilitar).on('select2:clear', function (e) {
+                                            jQuery('#dados_militar_preenchidos').slideUp();
+                                            jQuery('#militar_posto').val('');
+                                            jQuery('#militar_cpf').val('');
+                                            jQuery('#militar_email').val('');
+                                            jQuery('#militar_telefone').val('');
+                                        });
+                                        
+                                        console.log('Select2 inicializado com sucesso!');
+                                    } catch (error) {
+                                        console.error('Erro ao inicializar Select2:', error);
+                                    }
+                                } else {
+                                    console.log('Select2 já estava inicializado');
+                                }
+                            }
+                        }
+                    }, 300);
+                }, 100);
+            })
+            .catch(error => {
+                console.error('Erro ao carregar formulário:', error);
+                criarInstrutorModalContent.innerHTML = `
+                    <div class="modal-body">
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Erro ao carregar formulário. Por favor, tente novamente.
+                        </div>
+                    </div>
+                `;
+            });
+        });
+        
+        // Também tentar inicializar quando o modal estiver totalmente aberto
+        criarInstrutorModal.addEventListener('shown.bs.modal', function(event) {
+            setTimeout(function() {
+                if (typeof jQuery !== 'undefined' && typeof jQuery.fn !== 'undefined' && typeof jQuery.fn.select2 !== 'undefined') {
+                    const elementoMilitar = document.getElementById('id_militar');
+                    if (elementoMilitar && !jQuery(elementoMilitar).hasClass('select2-hidden-accessible')) {
+                        console.log('Tentando inicializar Select2 após modal totalmente aberto...');
+                        try {
+                            jQuery(elementoMilitar).select2({
+                                placeholder: 'Busque e selecione um militar...',
+                                allowClear: true,
+                                width: '100%',
+                                dropdownParent: jQuery('#criarInstrutorModal'),
+                                ajax: {
+                                    url: '{% url "militares:militar-autocomplete" %}',
+                                    dataType: 'json',
+                                    delay: 250,
+                                    data: function (params) {
+                                        return {
+                                            q: params.term,
+                                            page: params.page
+                                        };
+                                    },
+                                    processResults: function (data, params) {
+                                        params.page = params.page || 1;
+                                        return {
+                                            results: data.results,
+                                            pagination: {
+                                                more: (params.page * 30) < data.total_count
+                                            }
+                                        };
+                                    },
+                                    cache: true
+                                },
+                                minimumInputLength: 0
+                            });
+                            
+                            // Adicionar event listeners
+                            jQuery(elementoMilitar).off('select2:select select2:clear').on('select2:select', function (e) {
+                                const militarId = e.params.data.id;
+                                if (militarId) {
+                                    fetch('{% url "militares:militar_info_completa_ajax" %}?militar_id=' + militarId)
+                                        .then(response => response.json())
+                                        .then(data => {
+                                            if (data.success && data.militar) {
+                                                const militar = data.militar;
+                                                // Preencher dados de visualização
+                                                jQuery('#militar_posto').val(militar.posto_graduacao_display || militar.posto_display || '');
+                                                jQuery('#militar_cpf').val(militar.cpf || '');
+                                                jQuery('#militar_email').val(militar.email || '');
+                                                jQuery('#militar_telefone').val(militar.telefone || militar.celular || '');
+                                                jQuery('#dados_militar_preenchidos').slideDown();
+                                                
+                                                // Preencher campos do formulário se o tipo for BOMBEIRO
+                                                const tipoInstrutor = jQuery('input[name="tipo_instrutor"]:checked').val();
+                                                if (tipoInstrutor === 'BOMBEIRO') {
+                                                    // Preencher email se o campo estiver vazio
+                                                    const emailField = jQuery('#id_email_bombeiro');
+                                                    if (emailField.length && !emailField.val()) {
+                                                        emailField.val(militar.email || '');
+                                                    }
+                                                    
+                                                    // Preencher telefone se o campo estiver vazio (priorizar telefone, senão celular)
+                                                    const telefoneField = jQuery('#id_telefone_bombeiro');
+                                                    if (telefoneField.length && !telefoneField.val()) {
+                                                        telefoneField.val(militar.telefone || militar.celular || '');
+                                                    }
+                                                    
+                                                    // Preencher campos de endereco se existirem e estiverem vazios
+                                                    const enderecoField = jQuery('#id_endereco_bombeiro');
+                                                    if (enderecoField.length && !enderecoField.val() && militar.endereco) {
+                                                        enderecoField.val(militar.endereco);
+                                                    }
+                                                    
+                                                    const cidadeField = jQuery('#id_cidade_bombeiro');
+                                                    if (cidadeField.length && !cidadeField.val() && militar.cidade) {
+                                                        cidadeField.val(militar.cidade);
+                                                    }
+                                                    
+                                                    const ufField = jQuery('#id_uf_bombeiro');
+                                                    if (ufField.length && !ufField.val() && (militar.uf || militar.estado)) {
+                                                        ufField.val(militar.uf || militar.estado || '').trigger('change');
+                                                    }
+                                                    
+                                                    const cepField = jQuery('#id_cep_bombeiro');
+                                                    if (cepField.length && !cepField.val() && militar.cep) {
+                                                        cepField.val(militar.cep);
+                                                    }
+                                                }
+                                            }
+                                        })
+                                        .catch(error => {
+                                            console.error('Erro ao buscar dados do militar:', error);
+                                        });
+                                }
+                            });
+                            
+                            jQuery(elementoMilitar).on('select2:clear', function (e) {
+                                jQuery('#dados_militar_preenchidos').slideUp();
+                                jQuery('#militar_posto').val('');
+                                jQuery('#militar_cpf').val('');
+                                jQuery('#militar_email').val('');
+                                jQuery('#militar_telefone').val('');
+                            });
+                            
+                            console.log('Select2 inicializado após modal aberto!');
+                        } catch (error) {
+                            console.error('Erro ao inicializar Select2:', error);
+                        }
+                    }
+                }
+            }, 200);
+        });
+    }
+    
+    // Listener genérico para todos os botões de edição
+    document.querySelectorAll('.btn-editar-instrutor').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const instrutorId = btn.getAttribute('data-instrutor-id');
+            const modalId = '#editarInstrutorModal' + instrutorId;
+            const modalContentId = '#editarInstrutorModalContent' + instrutorId;
+            const modalElement = document.getElementById('editarInstrutorModal' + instrutorId);
+            const modalContent = document.getElementById('editarInstrutorModalContent' + instrutorId);
+            
+            if (!modalElement || !modalContent) {
+                console.error('Modal não encontrado para instrutor:', instrutorId);
+                return;
+            }
+            
+            // Mostrar loading
+            modalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-warning" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            // Carregar conteúdo via AJAX
+            const editarUrl = '{% url "militares:ensino_instrutor_editar" pk=999999 %}'.replace('999999', instrutorId);
+            fetch(editarUrl, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.text())
+            .then(html => {
+                modalContent.innerHTML = html;
+                
+                // Re-executar scripts que podem estar no conteúdo carregado
+                setTimeout(function() {
+                    const scripts = modalContent.querySelectorAll('script');
+                    scripts.forEach(function(oldScript) {
+                        const newScript = document.createElement('script');
+                        Array.from(oldScript.attributes).forEach(attr => {
+                            newScript.setAttribute(attr.name, attr.value);
+                        });
+                        newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                        oldScript.parentNode.replaceChild(newScript, oldScript);
+                    });
+                }, 100);
+            })
+            .catch(error => {
+                console.error('Erro ao carregar formulário de edição:', error);
+                modalContent.innerHTML = `
+                    <div class="modal-body">
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Erro ao carregar formulário. Por favor, tente novamente.
+                        </div>
+                    </div>
+                `;
+            });
+        });
+    });
+    
+    // Listener genérico para todos os botões de exclusão
+    document.querySelectorAll('.btn-excluir-instrutor').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const instrutorId = btn.getAttribute('data-instrutor-id');
+            const modalId = '#excluirInstrutorModal' + instrutorId;
+            const modalElement = document.getElementById('excluirInstrutorModal' + instrutorId);
+            
+            if (modalElement) {
+                // Tentar usar Bootstrap Modal
+                if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+                    modal.show();
+                } else {
+                    // Fallback: mostrar modal manualmente
+                    modalElement.style.display = 'block';
+                    modalElement.classList.add('show');
+                    document.body.classList.add('modal-open');
+                    const backdrop = document.createElement('div');
+                    backdrop.className = 'modal-backdrop fade show';
+                    backdrop.id = 'modalBackdrop' + instrutorId;
+                    document.body.appendChild(backdrop);
+                    
+                    // Fechar modal ao clicar no backdrop
+                    backdrop.addEventListener('click', function() {
+                        modalElement.style.display = 'none';
+                        modalElement.classList.remove('show');
+                        document.body.classList.remove('modal-open');
+                        backdrop.remove();
+                    });
+                }
+            }
+        });
+    });
+    
+    // Adicionar listeners para fechar modais corretamente
+    {% for instrutor in instrutores %}
+    const modal{{ instrutor.pk }} = document.getElementById('excluirInstrutorModal{{ instrutor.pk }}');
+    if (modal{{ instrutor.pk }}) {
+        // Remover backdrop quando o modal for fechado
+        modal{{ instrutor.pk }}.addEventListener('hidden.bs.modal', function() {
+            const backdrop = document.getElementById('modalBackdrop{{ instrutor.pk }}');
+            if (backdrop) {
+                backdrop.remove();
+            }
+            document.body.classList.remove('modal-open');
+        });
+    }
+    {% endfor %}
+    
+    // Adicionar event listeners para os formulários de exclusão
+    {% for instrutor in instrutores %}
+    const form{{ instrutor.pk }} = document.getElementById('formExcluirInstrutor{{ instrutor.pk }}');
+    if (form{{ instrutor.pk }}) {
+        form{{ instrutor.pk }}.addEventListener('submit', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const formData = new FormData(form{{ instrutor.pk }});
+            const submitButton = form{{ instrutor.pk }}.querySelector('button[type="submit"]');
+            const originalText = submitButton.innerHTML;
+            
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Excluindo...';
+            
+            // Limpar mensagens de erro anteriores
+            const errorDiv = document.getElementById('excluirInstrutorErrors{{ instrutor.pk }}');
+            const errorMessage = document.getElementById('excluirInstrutorErrorMessage{{ instrutor.pk }}');
+            if (errorDiv) errorDiv.classList.add('d-none');
+            
+            fetch(form{{ instrutor.pk }}.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                const contentType = response.headers.get('content-type');
+                
+                if (contentType && contentType.includes('application/json')) {
+                    if (!response.ok) {
+                        return response.json().then(data => {
+                            throw new Error(data.message || `Erro ${response.status}: ${response.statusText}`);
+                        }).catch(err => {
+                            if (err.message) throw err;
+                            throw new Error(`Erro ${response.status}: ${response.statusText}`);
+                        });
+                    }
+                    return response.json();
+                } else {
+                    return response.text().then(text => {
+                        throw new Error('Resposta inesperada do servidor');
+                    });
+                }
+            })
+            .then(data => {
+                if (data && data.success) {
+                    // Fechar modal e redirecionar
+                    const modalElement = document.getElementById('excluirInstrutorModal{{ instrutor.pk }}');
+                    if (modalElement) {
+                        const modal = bootstrap.Modal.getInstance(modalElement);
+                        if (modal) {
+                            modal.hide();
+                        }
+                    }
+                    // Aguardar um pouco antes de redirecionar para garantir que o modal feche
+                    setTimeout(function() {
+                        window.location.href = data.redirect || '/militares/ensino/instrutores/';
+                    }, 300);
+                } else {
+                    // Mostrar erro
+                    if (errorDiv && errorMessage) {
+                        errorMessage.textContent = (data && data.message) || 'Erro ao excluir instrutor';
+                        errorDiv.classList.remove('d-none');
+                    }
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('Erro completo:', error);
+                if (errorDiv && errorMessage) {
+                    errorMessage.textContent = error.message || 'Erro ao processar exclusão. Tente novamente.';
+                    errorDiv.classList.remove('d-none');
+                }
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalText;
+            });
+        });
+    }
+    {% endfor %}
+});
+</script>
+{% endblock %}
+

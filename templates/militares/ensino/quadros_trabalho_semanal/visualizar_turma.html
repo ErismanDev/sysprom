@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Quadro de Trabalho Semanal - {{ turma.identificacao }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="mb-0">
+                    <i class="fas fa-calendar-week me-2"></i>
+                    Quadro de Trabalho Semanal - {{ turma.identificacao }}
+                </h1>
+                <div>
+                    <a href="{% url 'militares:ensino_quadro_trabalho_semanal_criar' %}?turma={{ turma.pk }}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>
+                        Adicionar Aula
+                    </a>
+                    {% if request.GET.next %}
+                    <a href="{{ request.GET.next }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>
+                        Voltar
+                    </a>
+                    {% else %}
+                    <a href="{% url 'militares:ensino_turma_detalhes' pk=turma.pk %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>
+                        Voltar
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filtro de Semana -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-4">
+                            <label for="data_semana" class="form-label">Data da Semana</label>
+                            <input type="date" name="data_semana" id="data_semana" class="form-control" value="{{ data_semana|date:'Y-m-d' }}">
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary me-2">
+                                <i class="fas fa-search me-2"></i>
+                                Buscar
+                            </button>
+                            <a href="{% url 'militares:ensino_quadro_trabalho_semanal_turma' turma_id=turma.pk %}" class="btn btn-secondary">
+                                <i class="fas fa-calendar me-2"></i>
+                                Semana Atual
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quadro Semanal -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calendar-week me-2"></i>
+                        Semana de {{ data_semana|date:"d/m/Y" }}
+                        <span class="badge bg-light text-dark ms-2">Total: {{ total_horas }}h</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 120px;">Dia da Semana</th>
+                                    <th style="width: 100px;">Data</th>
+                                    <th>Horário</th>
+                                    <th>Disciplina</th>
+                                    <th>Instrutor</th>
+                                    <th style="width: 100px;">Horas/Aula</th>
+                                    <th style="width: 150px;">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for dia, quadros in quadros_por_dia.items %}
+                                    {% if quadros %}
+                                        {% for quadro in quadros %}
+                                        <tr>
+                                            {% if forloop.first %}
+                                            <td rowspan="{{ quadros|length }}" class="align-middle text-center">
+                                                <strong>{{ quadro.get_dia_semana_display }}</strong>
+                                            </td>
+                                            {% endif %}
+                                            <td>{{ quadro.data|date:"d/m/Y" }}</td>
+                                            <td>{{ quadro.hora_inicio|time:"H:i" }} - {{ quadro.hora_fim|time:"H:i" }}</td>
+                                            <td>{{ quadro.disciplina.nome }}</td>
+                                            <td>
+                                                {% if quadro.instrutor_militar %}
+                                                    {{ quadro.instrutor_militar.get_posto_graduacao_display }} {{ quadro.instrutor_militar.nome_completo }}
+                                                {% elif quadro.instrutor_externo %}
+                                                    {{ quadro.instrutor_externo.get_nome_completo }}
+                                                {% else %}
+                                                    <span class="text-muted">Não definido</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-center">{{ quadro.horas_aula }}h</td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    <a href="{% url 'militares:ensino_quadro_trabalho_semanal_visualizar' pk=quadro.pk %}?next={{ request.get_full_path }}" class="btn btn-sm btn-info" title="Visualizar">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                    <a href="{% url 'militares:ensino_quadro_trabalho_semanal_editar' pk=quadro.pk %}?next={{ request.get_full_path }}" class="btn btn-sm btn-warning" title="Editar">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                    <a href="{% url 'militares:ensino_quadro_trabalho_semanal_deletar' pk=quadro.pk %}?next={{ request.get_full_path }}" class="btn btn-sm btn-danger" title="Deletar">
+                                                        <i class="fas fa-trash"></i>
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr>
+                                            <td class="text-center">
+                                                <strong>
+                                                    {% if dia == 'SEGUNDA' %}Segunda-feira
+                                                    {% elif dia == 'TERCA' %}Terça-feira
+                                                    {% elif dia == 'QUARTA' %}Quarta-feira
+                                                    {% elif dia == 'QUINTA' %}Quinta-feira
+                                                    {% elif dia == 'SEXTA' %}Sexta-feira
+                                                    {% elif dia == 'SABADO' %}Sábado
+                                                    {% elif dia == 'DOMINGO' %}Domingo
+                                                    {% endif %}
+                                                </strong>
+                                            </td>
+                                            <td colspan="6" class="text-center text-muted">
+                                                Nenhuma aula agendada
+                                            </td>
+                                        </tr>
+                                    {% endif %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

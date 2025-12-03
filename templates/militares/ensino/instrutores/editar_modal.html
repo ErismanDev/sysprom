@@ -1,0 +1,943 @@
+{% load static %}
+
+<div class="modal-header bg-warning text-dark">
+    <h5 class="modal-title" id="editarInstrutorModalLabel{{ instrutor.pk }}">
+        <i class="fas fa-edit me-2"></i>
+        Editar Instrutor: {{ instrutor }}
+    </h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+
+<form method="post" enctype="multipart/form-data" id="formEditarInstrutor{{ instrutor.pk }}" action="{% url 'militares:ensino_instrutor_editar' pk=instrutor.pk %}">
+    {% csrf_token %}
+    <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+        <div id="editarInstrutorErrors{{ instrutor.pk }}" class="alert alert-danger d-none">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <span id="editarInstrutorErrorMessage{{ instrutor.pk }}"></span>
+        </div>
+        
+        <!-- Tipo de Instrutor -->
+        <h5 class="mb-3 border-bottom pb-2">
+            <i class="fas fa-user-tag me-2"></i>1. Tipo de Instrutor
+        </h5>
+        <div class="mb-3">
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="tipo_instrutor" id="tipo_bombeiro_edit{{ instrutor.pk }}" value="BOMBEIRO" {% if instrutor.tipo_instrutor == 'BOMBEIRO' %}checked{% endif %}>
+                <label class="form-check-label" for="tipo_bombeiro_edit{{ instrutor.pk }}">
+                    <i class="fas fa-fire me-1"></i> Bombeiro Militar
+                </label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="tipo_instrutor" id="tipo_outra_forca_edit{{ instrutor.pk }}" value="OUTRA_FORCA" {% if instrutor.tipo_instrutor == 'OUTRA_FORCA' %}checked{% endif %}>
+                <label class="form-check-label" for="tipo_outra_forca_edit{{ instrutor.pk }}">
+                    <i class="fas fa-shield-alt me-1"></i> Militar de Outra Força
+                </label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="tipo_instrutor" id="tipo_civil_edit{{ instrutor.pk }}" value="CIVIL" {% if instrutor.tipo_instrutor == 'CIVIL' %}checked{% endif %}>
+                <label class="form-check-label" for="tipo_civil_edit{{ instrutor.pk }}">
+                    <i class="fas fa-user me-1"></i> Civil
+                </label>
+            </div>
+        </div>
+        
+        <!-- Seção Bombeiro Militar -->
+        <div id="secao_bombeiro_edit{{ instrutor.pk }}" class="tipo-secao-edit" {% if instrutor.tipo_instrutor != 'BOMBEIRO' %}style="display: none;"{% endif %}>
+            <h5 class="mb-3 border-bottom pb-2 mt-4">
+                <i class="fas fa-fire me-2"></i>2. Dados do Bombeiro Militar
+            </h5>
+            <div class="row">
+                <div class="col-md-12 mb-3">
+                    <label for="{{ form.militar.id_for_label }}" class="form-label">
+                        Militar <span class="text-danger">*</span>
+                    </label>
+                    {{ form.militar }}
+                    {% if form.militar.errors %}
+                        <div class="text-danger">{{ form.militar.errors }}</div>
+                    {% endif %}
+                    <small class="form-text text-muted">Selecione o militar bombeiro que será instrutor</small>
+                </div>
+            </div>
+            <div class="row" id="dados_militar_preenchidos_edit{{ instrutor.pk }}" style="display: {% if instrutor.militar %}block{% else %}none{% endif %};">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Posto/Graduação</label>
+                    <input type="text" class="form-control bg-light" id="militar_posto_edit{{ instrutor.pk }}" readonly value="{% if instrutor.militar %}{{ instrutor.militar.get_posto_graduacao_display }}{% endif %}">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">CPF</label>
+                    <input type="text" class="form-control bg-light" id="militar_cpf_edit{{ instrutor.pk }}" readonly value="{% if instrutor.militar %}{{ instrutor.militar.cpf }}{% endif %}">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">E-mail</label>
+                    <input type="text" class="form-control bg-light" id="militar_email_edit{{ instrutor.pk }}" readonly value="{% if instrutor.militar %}{{ instrutor.militar.email }}{% endif %}">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Telefone</label>
+                    <input type="text" class="form-control bg-light" id="militar_telefone_edit{{ instrutor.pk }}" readonly value="{% if instrutor.militar %}{{ instrutor.militar.telefone|default:instrutor.militar.celular }}{% endif %}">
+                </div>
+            </div>
+            
+            <!-- Contatos e Endereço do Instrutor (Opcional) -->
+            <div class="mt-4">
+                <h6 class="mb-3 border-bottom pb-2">
+                    <i class="fas fa-address-card me-2"></i>Contatos e Endereço do Instrutor (Opcional)
+                </h6>
+                <small class="text-muted d-block mb-3">Preencha apenas se os contatos/endereço do instrutor forem diferentes dos dados do militar</small>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.email_bombeiro.id_for_label }}" class="form-label">
+                            E-mail
+                        </label>
+                        {{ form.email_bombeiro }}
+                        {% if form.email_bombeiro.errors %}
+                            <div class="text-danger">{{ form.email_bombeiro.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.telefone_bombeiro.id_for_label }}" class="form-label">
+                            Telefone
+                        </label>
+                        {{ form.telefone_bombeiro }}
+                        {% if form.telefone_bombeiro.errors %}
+                            <div class="text-danger">{{ form.telefone_bombeiro.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <label for="{{ form.endereco_bombeiro.id_for_label }}" class="form-label">
+                            Endereço
+                        </label>
+                        {{ form.endereco_bombeiro }}
+                        {% if form.endereco_bombeiro.errors %}
+                            <div class="text-danger">{{ form.endereco_bombeiro.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.cidade_bombeiro.id_for_label }}" class="form-label">
+                            Cidade
+                        </label>
+                        {{ form.cidade_bombeiro }}
+                        {% if form.cidade_bombeiro.errors %}
+                            <div class="text-danger">{{ form.cidade_bombeiro.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="{{ form.uf_bombeiro.id_for_label }}" class="form-label">
+                            UF
+                        </label>
+                        {{ form.uf_bombeiro }}
+                        {% if form.uf_bombeiro.errors %}
+                            <div class="text-danger">{{ form.uf_bombeiro.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="{{ form.cep_bombeiro.id_for_label }}" class="form-label">
+                            CEP
+                        </label>
+                        {{ form.cep_bombeiro }}
+                        {% if form.cep_bombeiro.errors %}
+                            <div class="text-danger">{{ form.cep_bombeiro.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Seção Militar de Outra Força -->
+        <div id="secao_outra_forca_edit{{ instrutor.pk }}" class="tipo-secao-edit" {% if instrutor.tipo_instrutor != 'OUTRA_FORCA' %}style="display: none;"{% endif %}>
+            <h5 class="mb-3 border-bottom pb-2 mt-4">
+                <i class="fas fa-shield-alt me-2"></i>2. Dados do Militar de Outra Força
+            </h5>
+            <div class="row mb-3">
+                <div class="col-md-4 mb-3">
+                    <label for="{{ form.foto_outra_forca.id_for_label }}" class="form-label">
+                        Foto
+                    </label>
+                    {{ form.foto_outra_forca }}
+                    {% if form.foto_outra_forca.errors %}
+                        <div class="text-danger">{{ form.foto_outra_forca.errors }}</div>
+                    {% endif %}
+                    {% if instrutor.foto_outra_forca %}
+                        <div class="mt-2">
+                            <img src="{{ instrutor.foto_outra_forca.url }}" alt="Foto atual" class="img-thumbnail" style="max-width: 150px;">
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-8 mb-3">
+                    <label for="{{ form.nome_outra_forca.id_for_label }}" class="form-label">
+                        Nome Completo <span class="text-danger">*</span>
+                    </label>
+                    {{ form.nome_outra_forca }}
+                    {% if form.nome_outra_forca.errors %}
+                        <div class="text-danger">{{ form.nome_outra_forca.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="{{ form.posto_outra_forca.id_for_label }}" class="form-label">
+                        Posto/Graduação
+                    </label>
+                    {{ form.posto_outra_forca }}
+                    {% if form.posto_outra_forca.errors %}
+                        <div class="text-danger">{{ form.posto_outra_forca.errors }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label for="{{ form.forca_armada.id_for_label }}" class="form-label">
+                        Força Armada/Polícia
+                    </label>
+                    {{ form.forca_armada }}
+                    {% if form.forca_armada.errors %}
+                        <div class="text-danger">{{ form.forca_armada.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="{{ form.matricula_outra_forca.id_for_label }}" class="form-label">
+                        Matrícula/Identificação
+                    </label>
+                    {{ form.matricula_outra_forca }}
+                    {% if form.matricula_outra_forca.errors %}
+                        <div class="text-danger">{{ form.matricula_outra_forca.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="{{ form.cpf_outra_forca.id_for_label }}" class="form-label">
+                        CPF
+                    </label>
+                    {{ form.cpf_outra_forca }}
+                    {% if form.cpf_outra_forca.errors %}
+                        <div class="text-danger">{{ form.cpf_outra_forca.errors }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="{{ form.email_outra_forca.id_for_label }}" class="form-label">
+                        E-mail
+                    </label>
+                    {{ form.email_outra_forca }}
+                    {% if form.email_outra_forca.errors %}
+                        <div class="text-danger">{{ form.email_outra_forca.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="{{ form.telefone_outra_forca.id_for_label }}" class="form-label">
+                        Telefone
+                    </label>
+                    {{ form.telefone_outra_forca }}
+                    {% if form.telefone_outra_forca.errors %}
+                        <div class="text-danger">{{ form.telefone_outra_forca.errors }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-12 mb-3">
+                    <label for="{{ form.instituicao_outra_forca.id_for_label }}" class="form-label">
+                        Instituição/Órgão
+                    </label>
+                    {{ form.instituicao_outra_forca }}
+                    {% if form.instituicao_outra_forca.errors %}
+                        <div class="text-danger">{{ form.instituicao_outra_forca.errors }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Endereço -->
+            <div class="mt-4">
+                <h6 class="mb-3 border-bottom pb-2">
+                    <i class="fas fa-map-marker-alt me-2"></i>Endereço
+                </h6>
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <label for="{{ form.endereco_outra_forca.id_for_label }}" class="form-label">
+                            Endereço Completo
+                        </label>
+                        {{ form.endereco_outra_forca }}
+                        {% if form.endereco_outra_forca.errors %}
+                            <div class="text-danger">{{ form.endereco_outra_forca.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.cidade_outra_forca.id_for_label }}" class="form-label">
+                            Cidade
+                        </label>
+                        {{ form.cidade_outra_forca }}
+                        {% if form.cidade_outra_forca.errors %}
+                            <div class="text-danger">{{ form.cidade_outra_forca.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="{{ form.uf_outra_forca.id_for_label }}" class="form-label">
+                            UF
+                        </label>
+                        {{ form.uf_outra_forca }}
+                        {% if form.uf_outra_forca.errors %}
+                            <div class="text-danger">{{ form.uf_outra_forca.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="{{ form.cep_outra_forca.id_for_label }}" class="form-label">
+                            CEP
+                        </label>
+                        {{ form.cep_outra_forca }}
+                        {% if form.cep_outra_forca.errors %}
+                            <div class="text-danger">{{ form.cep_outra_forca.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Seção Civil -->
+        <div id="secao_civil_edit{{ instrutor.pk }}" class="tipo-secao-edit" {% if instrutor.tipo_instrutor != 'CIVIL' %}style="display: none;"{% endif %}>
+            <h5 class="mb-3 border-bottom pb-2 mt-4">
+                <i class="fas fa-user me-2"></i>2. Dados do Instrutor Civil
+            </h5>
+            <div class="row">
+                <div class="col-md-8 mb-3">
+                    <label for="{{ form.nome_civil.id_for_label }}" class="form-label">
+                        Nome Completo <span class="text-danger">*</span>
+                    </label>
+                    {{ form.nome_civil }}
+                    {% if form.nome_civil.errors %}
+                        <div class="text-danger">{{ form.nome_civil.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="{{ form.data_nascimento_civil.id_for_label }}" class="form-label">
+                        Data de Nascimento
+                    </label>
+                    {{ form.data_nascimento_civil }}
+                    {% if form.data_nascimento_civil.errors %}
+                        <div class="text-danger">{{ form.data_nascimento_civil.errors }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label for="{{ form.cpf_civil.id_for_label }}" class="form-label">
+                        CPF
+                    </label>
+                    {{ form.cpf_civil }}
+                    {% if form.cpf_civil.errors %}
+                        <div class="text-danger">{{ form.cpf_civil.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="{{ form.rg_civil.id_for_label }}" class="form-label">
+                        RG
+                    </label>
+                    {{ form.rg_civil }}
+                    {% if form.rg_civil.errors %}
+                        <div class="text-danger">{{ form.rg_civil.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="{{ form.foto.id_for_label }}" class="form-label">
+                        Foto
+                    </label>
+                    {{ form.foto }}
+                    {% if form.foto.errors %}
+                        <div class="text-danger">{{ form.foto.errors }}</div>
+                    {% endif %}
+                    {% if instrutor.foto %}
+                        <div class="mt-2">
+                            <img src="{{ instrutor.foto.url }}" alt="Foto atual" class="img-thumbnail" style="max-width: 150px;">
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            <!-- Contatos -->
+            <div class="mt-4">
+                <h6 class="mb-3 border-bottom pb-2">
+                    <i class="fas fa-address-card me-2"></i>Contatos
+                </h6>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.email_civil.id_for_label }}" class="form-label">
+                            E-mail
+                        </label>
+                        {{ form.email_civil }}
+                        {% if form.email_civil.errors %}
+                            <div class="text-danger">{{ form.email_civil.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.telefone_civil.id_for_label }}" class="form-label">
+                            Telefone
+                        </label>
+                        {{ form.telefone_civil }}
+                        {% if form.telefone_civil.errors %}
+                            <div class="text-danger">{{ form.telefone_civil.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Endereço -->
+            <div class="mt-4">
+                <h6 class="mb-3 border-bottom pb-2">
+                    <i class="fas fa-map-marker-alt me-2"></i>Endereço
+                </h6>
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <label for="{{ form.endereco_civil.id_for_label }}" class="form-label">
+                            Endereço Completo
+                        </label>
+                        {{ form.endereco_civil }}
+                        {% if form.endereco_civil.errors %}
+                            <div class="text-danger">{{ form.endereco_civil.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.cidade_civil.id_for_label }}" class="form-label">
+                            Cidade
+                        </label>
+                        {{ form.cidade_civil }}
+                        {% if form.cidade_civil.errors %}
+                            <div class="text-danger">{{ form.cidade_civil.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="{{ form.uf_civil.id_for_label }}" class="form-label">
+                            UF
+                        </label>
+                        {{ form.uf_civil }}
+                        {% if form.uf_civil.errors %}
+                            <div class="text-danger">{{ form.uf_civil.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="{{ form.cep_civil.id_for_label }}" class="form-label">
+                            CEP
+                        </label>
+                        {{ form.cep_civil }}
+                        {% if form.cep_civil.errors %}
+                            <div class="text-danger">{{ form.cep_civil.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="{{ form.formacao_civil.id_for_label }}" class="form-label">
+                        Formação Acadêmica
+                    </label>
+                    {{ form.formacao_civil }}
+                    {% if form.formacao_civil.errors %}
+                        <div class="text-danger">{{ form.formacao_civil.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="{{ form.instituicao_civil.id_for_label }}" class="form-label">
+                        Instituição de Ensino
+                    </label>
+                    {{ form.instituicao_civil }}
+                    {% if form.instituicao_civil.errors %}
+                        <div class="text-danger">{{ form.instituicao_civil.errors }}</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Campos Comuns -->
+        <h5 class="mb-3 border-bottom pb-2 mt-4">
+            <i class="fas fa-graduation-cap me-2"></i>3. Habilitações e Qualificações
+        </h5>
+        <div class="row">
+            <div class="col-md-12 mb-3">
+                <label for="{{ form.habilitacoes.id_for_label }}" class="form-label">
+                    Habilitações
+                </label>
+                {{ form.habilitacoes }}
+                {% if form.habilitacoes.errors %}
+                    <div class="text-danger">{{ form.habilitacoes.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-12 mb-3">
+                <label for="{{ form.especialidades.id_for_label }}" class="form-label">
+                    Especialidades
+                </label>
+                {{ form.especialidades }}
+                {% if form.especialidades.errors %}
+                    <div class="text-danger">{{ form.especialidades.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-12 mb-3">
+                <label for="{{ form.experiencia_profissional.id_for_label }}" class="form-label">
+                    Experiência Profissional
+                </label>
+                {{ form.experiencia_profissional }}
+                {% if form.experiencia_profissional.errors %}
+                    <div class="text-danger">{{ form.experiencia_profissional.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-12 mb-3">
+                <label for="{{ form.cursos_complementares.id_for_label }}" class="form-label">
+                    Cursos Complementares
+                </label>
+                {{ form.cursos_complementares }}
+                {% if form.cursos_complementares.errors %}
+                    <div class="text-danger">{{ form.cursos_complementares.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-12 mb-3">
+                <label for="{{ form.link_lattes.id_for_label }}" class="form-label">
+                    <i class="fas fa-external-link-alt me-1"></i>Link do Currículo Lattes
+                </label>
+                {{ form.link_lattes }}
+                {% if form.link_lattes.errors %}
+                    <div class="text-danger">{{ form.link_lattes.errors }}</div>
+                {% endif %}
+                <small class="form-text text-muted">Exemplo: https://lattes.cnpq.br/1234567890123456</small>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-12 mb-3">
+                <label for="{{ form.observacoes.id_for_label }}" class="form-label">
+                    Observações
+                </label>
+                {{ form.observacoes }}
+                {% if form.observacoes.errors %}
+                    <div class="text-danger">{{ form.observacoes.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Documentos -->
+        <h5 class="mb-3 border-bottom pb-2 mt-4">
+            <i class="fas fa-file-alt me-2"></i>4. Documentos
+        </h5>
+        <div class="mb-3">
+            <label class="form-label">Upload de Documentos</label>
+            <div id="documentos-container{{ instrutor.pk }}">
+                <div class="documento-item mb-2">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <select name="tipos_documentos[]" class="form-control form-control-sm">
+                                <option value="CERTIFICADO">Certificado</option>
+                                <option value="DIPLOMA">Diploma</option>
+                                <option value="HABILITACAO">Habilitação</option>
+                                <option value="COMPROVANTE">Comprovante</option>
+                                <option value="CONTRATO">Contrato</option>
+                                <option value="OUTROS" selected>Outros</option>
+                            </select>
+                        </div>
+                        <div class="col-md-5">
+                            <input type="text" name="titulos_documentos[]" class="form-control form-control-sm" placeholder="Título do documento">
+                        </div>
+                        <div class="col-md-4">
+                            <input type="file" name="documentos[]" class="form-control form-control-sm" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="adicionarDocumento{{ instrutor.pk }}()">
+                <i class="fas fa-plus me-1"></i>Adicionar Documento
+            </button>
+        </div>
+        
+        {% if instrutor.pk %}
+        <div class="mb-3">
+            <label class="form-label">Documentos Existentes</label>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Tipo</th>
+                            <th>Título</th>
+                            <th>Data Upload</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for doc in instrutor.documentos.all %}
+                        <tr>
+                            <td>{{ doc.get_tipo_display }}</td>
+                            <td>{{ doc.titulo }}</td>
+                            <td>{{ doc.data_upload|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                <a href="{{ doc.arquivo.url }}" target="_blank" class="btn btn-sm btn-info" title="Visualizar">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <button type="button" class="btn btn-sm btn-danger" onclick="removerDocumento{{ instrutor.pk }}({{ doc.pk }})" title="Remover">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted">Nenhum documento cadastrado</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Status -->
+        <h5 class="mb-3 border-bottom pb-2 mt-4">
+            <i class="fas fa-cog me-2"></i>5. Status
+        </h5>
+        <div class="mb-3">
+            <div class="form-check">
+                {{ form.ativo }}
+                <label class="form-check-label" for="{{ form.ativo.id_for_label }}">
+                    Instrutor Ativo
+                </label>
+            </div>
+            {% if form.ativo.errors %}
+                <div class="text-danger">{{ form.ativo.errors }}</div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <i class="fas fa-times me-2"></i>Cancelar
+        </button>
+        <button type="submit" class="btn btn-warning">
+            <i class="fas fa-save me-2"></i>Salvar Alterações
+        </button>
+    </div>
+</form>
+
+<script>
+(function() {
+    const formId = 'formEditarInstrutor{{ instrutor.pk }}';
+    const form = document.getElementById(formId);
+    const instrutorId = {{ instrutor.pk }};
+    
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(form);
+            const submitButton = form.querySelector('button[type="submit"]');
+            const originalText = submitButton.innerHTML;
+            
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Salvando...';
+            
+            // Limpar mensagens de erro anteriores
+            const errorDiv = document.getElementById('editarInstrutorErrors{{ instrutor.pk }}');
+            const errorMessage = document.getElementById('editarInstrutorErrorMessage{{ instrutor.pk }}');
+            if (errorDiv) errorDiv.classList.add('d-none');
+            
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    return response.json();
+                } else {
+                    return response.text().then(text => {
+                        // Se for HTML com erros, atualizar o modal com o HTML
+                        if (response.status === 200 || response.status === 400) {
+                            const modalContent = document.getElementById('editarInstrutorModalContent{{ instrutor.pk }}');
+                            if (modalContent) {
+                                modalContent.innerHTML = text;
+                                // Re-executar scripts
+                                const scripts = modalContent.querySelectorAll('script');
+                                scripts.forEach(function(oldScript) {
+                                    const newScript = document.createElement('script');
+                                    Array.from(oldScript.attributes).forEach(attr => {
+                                        newScript.setAttribute(attr.name, attr.value);
+                                    });
+                                    newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                                    oldScript.parentNode.replaceChild(newScript, oldScript);
+                                });
+                            }
+                            throw new Error('Formulário com erros');
+                        }
+                        throw new Error('Resposta não é JSON');
+                    });
+                }
+            })
+            .then(data => {
+                if (data && data.success) {
+                    // Sucesso - redirecionar
+                    window.location.href = data.redirect || '{% url "militares:ensino_instrutores_listar" %}';
+                } else {
+                    // Erro - mostrar mensagens
+                    let errorMsg = data.message || 'Erro ao salvar instrutor';
+                    
+                    if (data.errors) {
+                        const errorsList = [];
+                        for (const field in data.errors) {
+                            errorsList.push(`${field}: ${data.errors[field].join(', ')}`);
+                        }
+                        if (errorsList.length > 0) {
+                            errorMsg += '\n' + errorsList.join('\n');
+                        }
+                    }
+                    
+                    if (errorDiv && errorMessage) {
+                        errorMessage.textContent = errorMsg;
+                        errorDiv.classList.remove('d-none');
+                        errorDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                if (error.message !== 'Formulário com erros') {
+                    if (errorDiv && errorMessage) {
+                        errorMessage.textContent = 'Erro ao processar formulário. Verifique os campos obrigatórios.';
+                        errorDiv.classList.remove('d-none');
+                        errorDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalText;
+                }
+            });
+        });
+    }
+    
+    // Aguardar jQuery e Select2 estarem disponíveis e o elemento existir
+    function inicializarSelect2() {
+        // Verificar se jQuery e Select2 estão disponíveis
+        if (typeof jQuery === 'undefined' || typeof jQuery.fn === 'undefined' || typeof jQuery.fn.select2 === 'undefined') {
+            console.log('Aguardando jQuery/Select2...');
+            setTimeout(inicializarSelect2, 100);
+            return;
+        }
+        
+        // Verificar se o elemento existe no DOM
+        const elementoMilitar = document.getElementById('id_militar');
+        if (!elementoMilitar) {
+            console.log('Aguardando elemento #id_militar...');
+            setTimeout(inicializarSelect2, 100);
+            return;
+        }
+        
+        // Verificar se já foi inicializado
+        if (jQuery(elementoMilitar).hasClass('select2-hidden-accessible')) {
+            console.log('Select2 já inicializado para #id_militar');
+            return;
+        }
+        
+        if (typeof $ === 'undefined') {
+            window.$ = window.jQuery = jQuery;
+        }
+        
+        console.log('Inicializando Select2 para #id_militar');
+        
+        // Inicializar Select2 para o campo militar
+        jQuery('#id_militar').select2({
+            placeholder: 'Busque e selecione um militar...',
+            allowClear: true,
+            width: '100%',
+            dropdownParent: jQuery('#editarInstrutorModal{{ instrutor.pk }}'),
+            ajax: {
+                url: '{% url "militares:militar-autocomplete" %}',
+                dataType: 'json',
+                delay: 250,
+                data: function (params) {
+                    return {
+                        q: params.term,
+                        page: params.page
+                    };
+                },
+                processResults: function (data, params) {
+                    params.page = params.page || 1;
+                    return {
+                        results: data.results,
+                        pagination: {
+                            more: (params.page * 30) < data.total_count
+                        }
+                    };
+                },
+                cache: true
+            },
+            minimumInputLength: 0
+        });
+        
+        // Quando um militar é selecionado
+        jQuery('#id_militar').on('select2:select', function (e) {
+            const militarId = e.params.data.id;
+            if (militarId) {
+                fetch(`{% url 'militares:militar_info_completa_ajax' %}?militar_id=${militarId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.militar) {
+                            const militar = data.militar;
+                            if (typeof jQuery !== 'undefined') {
+                                // Preencher dados de visualização
+                                jQuery('#militar_posto_edit{{ instrutor.pk }}').val(militar.posto_graduacao_display || militar.posto_display || '');
+                                jQuery('#militar_cpf_edit{{ instrutor.pk }}').val(militar.cpf || '');
+                                jQuery('#militar_email_edit{{ instrutor.pk }}').val(militar.email || '');
+                                jQuery('#militar_telefone_edit{{ instrutor.pk }}').val(militar.telefone || militar.celular || '');
+                                jQuery('#dados_militar_preenchidos_edit{{ instrutor.pk }}').slideDown();
+                                
+                                // Preencher campos do formulário se o tipo for BOMBEIRO
+                                const tipoInstrutor = jQuery('input[name="tipo_instrutor"]:checked').val();
+                                if (tipoInstrutor === 'BOMBEIRO') {
+                                    // Preencher email se o campo estiver vazio
+                                    const emailField = jQuery('#id_email_bombeiro');
+                                    if (emailField.length && !emailField.val()) {
+                                        emailField.val(militar.email || '');
+                                    }
+                                    
+                                    // Preencher telefone se o campo estiver vazio
+                                    const telefoneField = jQuery('#id_telefone_bombeiro');
+                                    if (telefoneField.length && !telefoneField.val()) {
+                                        telefoneField.val(militar.telefone || militar.celular || '');
+                                    }
+                                    
+                                    // Preencher campos de endereco se existirem e estiverem vazios
+                                    const enderecoField = jQuery('#id_endereco_bombeiro');
+                                    if (enderecoField.length && !enderecoField.val() && militar.endereco) {
+                                        enderecoField.val(militar.endereco);
+                                    }
+                                    
+                                    const cidadeField = jQuery('#id_cidade_bombeiro');
+                                    if (cidadeField.length && !cidadeField.val() && militar.cidade) {
+                                        cidadeField.val(militar.cidade);
+                                    }
+                                    
+                                    const ufField = jQuery('#id_uf_bombeiro');
+                                    if (ufField.length && !ufField.val() && (militar.uf || militar.estado)) {
+                                        ufField.val(militar.uf || militar.estado || '').trigger('change');
+                                    }
+                                    
+                                    const cepField = jQuery('#id_cep_bombeiro');
+                                    if (cepField.length && !cepField.val() && militar.cep) {
+                                        cepField.val(militar.cep);
+                                    }
+                                }
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Erro ao buscar dados do militar:', error);
+                    });
+            }
+        });
+        
+        // Quando o militar é desmarcado
+        jQuery('#id_militar').on('select2:clear', function (e) {
+            if (typeof jQuery !== 'undefined') {
+                jQuery('#dados_militar_preenchidos_edit{{ instrutor.pk }}').slideUp();
+                jQuery('#militar_posto_edit{{ instrutor.pk }}').val('');
+                jQuery('#militar_cpf_edit{{ instrutor.pk }}').val('');
+                jQuery('#militar_email_edit{{ instrutor.pk }}').val('');
+                jQuery('#militar_telefone_edit{{ instrutor.pk }}').val('');
+            }
+        });
+        
+        console.log('Select2 inicializado com sucesso!');
+    }
+    
+    // Controlar exibição das seções baseado no tipo selecionado
+    function atualizarSecoes() {
+        if (typeof jQuery === 'undefined') return;
+        
+        const tipo = jQuery('input[name="tipo_instrutor"]:checked').val();
+        
+        jQuery('.tipo-secao-edit').hide();
+        
+        if (tipo === 'BOMBEIRO') {
+            jQuery('#secao_bombeiro_edit{{ instrutor.pk }}').show();
+        } else if (tipo === 'OUTRA_FORCA') {
+            jQuery('#secao_outra_forca_edit{{ instrutor.pk }}').show();
+        } else if (tipo === 'CIVIL') {
+            jQuery('#secao_civil_edit{{ instrutor.pk }}').show();
+        }
+    }
+    
+    // Event listener para mudança de tipo
+    if (typeof jQuery !== 'undefined') {
+        jQuery('input[name="tipo_instrutor"]').on('change', function() {
+            atualizarSecoes();
+        });
+    }
+    
+    // Função para adicionar novo campo de documento
+    window.adicionarDocumento{{ instrutor.pk }} = function() {
+        const container = document.getElementById('documentos-container{{ instrutor.pk }}');
+        const novoItem = document.createElement('div');
+        novoItem.className = 'documento-item mb-2';
+        novoItem.innerHTML = `
+            <div class="row">
+                <div class="col-md-3">
+                    <select name="tipos_documentos[]" class="form-control form-control-sm">
+                        <option value="CERTIFICADO">Certificado</option>
+                        <option value="DIPLOMA">Diploma</option>
+                        <option value="HABILITACAO">Habilitação</option>
+                        <option value="COMPROVANTE">Comprovante</option>
+                        <option value="CONTRATO">Contrato</option>
+                        <option value="OUTROS" selected>Outros</option>
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <input type="text" name="titulos_documentos[]" class="form-control form-control-sm" placeholder="Título do documento">
+                </div>
+                <div class="col-md-3">
+                    <input type="file" name="documentos[]" class="form-control form-control-sm" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+                </div>
+                <div class="col-md-1">
+                    <button type="button" class="btn btn-sm btn-danger" onclick="this.closest('.documento-item').remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        container.appendChild(novoItem);
+    };
+    
+    // Função para remover documento existente
+    window.removerDocumento{{ instrutor.pk }} = function(docId) {
+        if (confirm('Tem certeza que deseja remover este documento?')) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'documentos_remover[]';
+            input.value = docId;
+            document.getElementById('formEditarInstrutor{{ instrutor.pk }}').appendChild(input);
+            // Remover da tabela visualmente
+            event.target.closest('tr').remove();
+        }
+    };
+    
+    // Inicializar seções imediatamente
+    atualizarSecoes();
+    
+    // Inicializar Select2 - tentar várias vezes se necessário
+    inicializarSelect2();
+    
+    // Também tentar quando o modal estiver totalmente visível
+    const modal = document.getElementById('editarInstrutorModal{{ instrutor.pk }}');
+    if (modal) {
+        modal.addEventListener('shown.bs.modal', function() {
+            console.log('Modal totalmente aberto, reinicializando Select2...');
+            setTimeout(inicializarSelect2, 200);
+        });
+    }
+})();
+</script>
+

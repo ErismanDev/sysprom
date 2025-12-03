@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script de Atualização para Servidor Digital Ocean
-# IP: 64.23.185.235
+# IP: 164.92.118.212
 # Execute no terminal do Cursor: ./atualizar_servidor_do.sh
 
 echo "==============================================================="
@@ -9,7 +9,7 @@ echo "🚀 ATUALIZANDO SISTEMA NO DIGITAL OCEAN"
 echo "==============================================================="
 echo ""
 
-SERVER="64.23.185.235"
+SERVER="164.92.118.212"
 USER="root"
 REMOTE_PATH="/home/seprom/sepromcbmepi"
 SERVICE_NAME="seprom"
@@ -67,6 +67,8 @@ ssh ${USER}@${SERVER} << 'ENDSSH'
     echo ""
     echo "📁 Coletando arquivos estáticos..."
     python manage.py collectstatic --noinput --clear
+    echo "🔁 Recarregando Nginx (estáticos)"
+    sudo systemctl reload nginx || true
     
     echo ""
     echo "🔄 Reiniciando serviço Gunicorn..."
@@ -79,11 +81,10 @@ ssh ${USER}@${SERVER} << 'ENDSSH'
     
     echo ""
     echo "✅ ATUALIZAÇÃO CONCLUÍDA!"
-    echo "🌐 Acesse: http://64.23.185.235/login/"
+    echo "🌐 Acesse: https://164.92.118.212/login/"
 ENDSSH
 
 echo ""
 echo "==============================================================="
 echo "✅ Script executado com sucesso!"
 echo "==============================================================="
-

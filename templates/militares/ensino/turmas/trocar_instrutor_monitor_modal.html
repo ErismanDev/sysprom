@@ -1,0 +1,464 @@
+{% load static %}
+
+<div class="modal-header bg-warning text-dark">
+    <h5 class="modal-title" id="trocarInstrutorMonitorModalLabel">
+        <i class="fas fa-exchange-alt me-2"></i>
+        Trocar Instrutor/Monitores - {{ disciplina.nome }}
+    </h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+</div>
+
+<form method="post" id="formTrocarInstrutorMonitor" action="{% url 'militares:ensino_trocar_instrutor_monitor' turma_id=turma.pk disciplina_id=disciplina.pk %}">
+    {% csrf_token %}
+    <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
+        <!-- Troca de Instrutor -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h6 class="mb-0">
+                    <i class="fas fa-chalkboard-teacher me-2"></i>
+                    Trocar Instrutor
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label"><strong>Instrutor Atual:</strong></label>
+                    <p class="mb-2">
+                        {% if disciplina.instrutor_responsavel_militar %}
+                            {{ disciplina.instrutor_responsavel_militar.get_posto_graduacao_display }} {{ disciplina.instrutor_responsavel_militar.nome_completo }}
+                        {% elif disciplina.instrutor_responsavel_externo %}
+                            {{ disciplina.instrutor_responsavel_externo.get_nome_completo }}
+                        {% else %}
+                            <span class="text-muted">Não definido</span>
+                        {% endif %}
+                    </p>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="data_inicio_anterior" class="form-label">
+                        Data de Início do Instrutor Anterior (opcional)
+                    </label>
+                    <input type="date" class="form-control" id="data_inicio_anterior" name="data_inicio_anterior">
+                </div>
+                
+                <div class="mb-3">
+                    <label for="data_fim_anterior" class="form-label">
+                        Data de Fim do Instrutor Anterior <span class="text-danger">*</span>
+                    </label>
+                    <input type="date" class="form-control" id="data_fim_anterior" name="data_fim_anterior" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="novo_instrutor" class="form-label">
+                        Novo Instrutor <span class="text-danger">*</span>
+                    </label>
+                    <select class="form-select" id="novo_instrutor" name="novo_instrutor">
+                        <option value="">Selecione um instrutor...</option>
+                        {% for instrutor in instrutores %}
+                            {% if instrutor.militar %}
+                                <option value="MILITAR_{{ instrutor.pk }}">
+                                    {{ instrutor.militar.get_posto_graduacao_display }} {{ instrutor.militar.nome_completo }}
+                                </option>
+                            {% else %}
+                                <option value="EXTERNO_{{ instrutor.pk }}">
+                                    {{ instrutor.get_nome_completo }}
+                                </option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="data_inicio_novo" class="form-label">
+                        Data de Início do Novo Instrutor <span class="text-danger">*</span>
+                    </label>
+                    <input type="date" class="form-control" id="data_inicio_novo" name="data_inicio_novo" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="motivo_troca" class="form-label">
+                        Motivo da Troca <span class="text-danger">*</span>
+                    </label>
+                    <textarea class="form-control" id="motivo_troca" name="motivo_troca" rows="3" required></textarea>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Troca de Monitores -->
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <h6 class="mb-0">
+                    <i class="fas fa-user-tie me-2"></i>
+                    Trocar Monitores
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label"><strong>Monitores Atuais:</strong></label>
+                    <div class="border rounded p-2">
+                        {% if disciplina.monitores_militares.all %}
+                            <div class="mb-2">
+                                <strong>Monitores Militares:</strong>
+                                <ul class="mb-0">
+                                    {% for monitor in disciplina.monitores_militares.all %}
+                                    <li>
+                                        <div class="form-check">
+                                            <input class="form-check-input monitor-remover-checkbox" type="checkbox" 
+                                                   value="{{ monitor.pk }}" 
+                                                   id="remover_monitor_militar_{{ monitor.pk }}"
+                                                   data-monitor-id="{{ monitor.pk }}"
+                                                   data-monitor-tipo="MILITAR">
+                                            <label class="form-check-label" for="remover_monitor_militar_{{ monitor.pk }}">
+                                                {{ monitor.get_posto_graduacao_display }} {{ monitor.nome_completo }}
+                                            </label>
+                                        </div>
+                                        <div class="monitor-troca-info ms-4 mt-2" id="info_monitor_militar_{{ monitor.pk }}" style="display: none;">
+                                            <div class="row g-2">
+                                                <div class="col-md-4">
+                                                    <label class="form-label small">Data Fim:</label>
+                                                    <input type="date" class="form-control form-control-sm" 
+                                                           name="data_fim_monitor_militar_{{ monitor.pk }}">
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label small">Data Início Novo:</label>
+                                                    <input type="date" class="form-control form-control-sm" 
+                                                           name="data_inicio_novo_monitor_militar_{{ monitor.pk }}">
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label small">Novo Monitor:</label>
+                                                    <select class="form-select form-select-sm" 
+                                                            name="monitor_novo_militar_{{ monitor.pk }}">
+                                                        <option value="">Remover</option>
+                                                        {% for mon in monitores %}
+                                                            {% if mon.militar and mon.militar.pk != monitor.pk %}
+                                                            <option value="{{ mon.militar.pk }}">
+                                                                {{ mon.militar.get_posto_graduacao_display }} {{ mon.militar.nome_completo }}
+                                                            </option>
+                                                            {% endif %}
+                                                        {% endfor %}
+                                                    </select>
+                                                </div>
+                                                <div class="col-12">
+                                                    <label class="form-label small">Motivo:</label>
+                                                    <textarea class="form-control form-control-sm" rows="2" 
+                                                              name="motivo_troca_monitor_militar_{{ monitor.pk }}"></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+                        {% if disciplina.monitores_externos.all %}
+                            <div>
+                                <strong>Monitores Externos:</strong>
+                                <ul class="mb-0">
+                                    {% for monitor in disciplina.monitores_externos.all %}
+                                    <li>
+                                        <div class="form-check">
+                                            <input class="form-check-input monitor-remover-checkbox" type="checkbox" 
+                                                   value="{{ monitor.pk }}" 
+                                                   id="remover_monitor_externo_{{ monitor.pk }}"
+                                                   data-monitor-id="{{ monitor.pk }}"
+                                                   data-monitor-tipo="EXTERNO">
+                                            <label class="form-check-label" for="remover_monitor_externo_{{ monitor.pk }}">
+                                                {{ monitor.get_nome_completo }}
+                                            </label>
+                                        </div>
+                                        <div class="monitor-troca-info ms-4 mt-2" id="info_monitor_externo_{{ monitor.pk }}" style="display: none;">
+                                            <div class="row g-2">
+                                                <div class="col-md-4">
+                                                    <label class="form-label small">Data Fim:</label>
+                                                    <input type="date" class="form-control form-control-sm" 
+                                                           name="data_fim_monitor_externo_{{ monitor.pk }}">
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label small">Data Início Novo:</label>
+                                                    <input type="date" class="form-control form-control-sm" 
+                                                           name="data_inicio_novo_monitor_externo_{{ monitor.pk }}">
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label small">Novo Monitor:</label>
+                                                    <select class="form-select form-select-sm" 
+                                                            name="monitor_novo_externo_{{ monitor.pk }}">
+                                                        <option value="">Remover</option>
+                                                        {% for mon in monitores %}
+                                                            {% if mon.pk != monitor.pk %}
+                                                            <option value="{{ mon.pk }}">
+                                                                {{ mon.get_nome_completo }}
+                                                            </option>
+                                                            {% endif %}
+                                                        {% endfor %}
+                                                    </select>
+                                                </div>
+                                                <div class="col-12">
+                                                    <label class="form-label small">Motivo:</label>
+                                                    <textarea class="form-control form-control-sm" rows="2" 
+                                                              name="motivo_troca_monitor_externo_{{ monitor.pk }}"></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+                        {% if not disciplina.monitores_militares.all and not disciplina.monitores_externos.all %}
+                            <p class="text-muted mb-0">Nenhum monitor cadastrado.</p>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label"><strong>Adicionar Novos Monitores:</strong></label>
+                    <div class="border rounded p-2">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label small">Monitores Militares:</label>
+                                <div style="max-height: 200px; overflow-y: auto;">
+                                    {% for monitor in monitores %}
+                                        {% if monitor.militar %}
+                                            {% if monitor.militar not in disciplina.monitores_militares.all %}
+                                            <div class="form-check">
+                                                <input class="form-check-input monitor-adicionar-checkbox" type="checkbox" 
+                                                       value="{{ monitor.pk }}" 
+                                                       id="adicionar_monitor_militar_{{ monitor.pk }}"
+                                                       name="monitores_adicionados_militares[]">
+                                                <label class="form-check-label" for="adicionar_monitor_militar_{{ monitor.pk }}">
+                                                    {{ monitor.militar.get_posto_graduacao_display }} {{ monitor.militar.nome_completo }}
+                                                </label>
+                                            </div>
+                                            {% endif %}
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small">Monitores Externos:</label>
+                                <div style="max-height: 200px; overflow-y: auto;">
+                                    {% for monitor in monitores %}
+                                        {% if monitor not in disciplina.monitores_externos.all %}
+                                        <div class="form-check">
+                                            <input class="form-check-input monitor-adicionar-checkbox" type="checkbox" 
+                                                   value="{{ monitor.pk }}" 
+                                                   id="adicionar_monitor_externo_{{ monitor.pk }}"
+                                                   name="monitores_adicionados_externos[]">
+                                            <label class="form-check-label" for="adicionar_monitor_externo_{{ monitor.pk }}">
+                                                {{ monitor.get_nome_completo }}
+                                            </label>
+                                        </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Histórico de Trocas -->
+        {% if historicos_instrutor or historicos_monitor %}
+        <div class="card mb-4">
+            <div class="card-header bg-secondary text-white">
+                <h6 class="mb-0">
+                    <i class="fas fa-history me-2"></i>
+                    Histórico de Trocas
+                </h6>
+            </div>
+            <div class="card-body">
+                {% if historicos_instrutor %}
+                <div class="mb-3">
+                    <h6>Histórico de Instrutores:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Instrutor Anterior</th>
+                                    <th>Instrutor Novo</th>
+                                    <th>Data Início Anterior</th>
+                                    <th>Data Fim Anterior</th>
+                                    <th>Data Início Novo</th>
+                                    <th>Motivo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for historico in historicos_instrutor %}
+                                <tr>
+                                    <td>{{ historico.get_instrutor_anterior_nome }}</td>
+                                    <td>{{ historico.get_instrutor_novo_nome }}</td>
+                                    <td>{{ historico.data_inicio_anterior|date:"d/m/Y"|default:"-" }}</td>
+                                    <td>{{ historico.data_fim_anterior|date:"d/m/Y" }}</td>
+                                    <td>{{ historico.data_inicio_novo|date:"d/m/Y" }}</td>
+                                    <td><small>{{ historico.motivo_troca|truncatewords:10 }}</small></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if historicos_monitor %}
+                <div>
+                    <h6>Histórico de Monitores:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Monitor Anterior</th>
+                                    <th>Monitor Novo</th>
+                                    <th>Data Início Anterior</th>
+                                    <th>Data Fim Anterior</th>
+                                    <th>Data Início Novo</th>
+                                    <th>Motivo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for historico in historicos_monitor %}
+                                <tr>
+                                    <td>{{ historico.get_monitor_anterior_nome }}</td>
+                                    <td>{{ historico.get_monitor_novo_nome }}</td>
+                                    <td>{{ historico.data_inicio_anterior|date:"d/m/Y"|default:"-" }}</td>
+                                    <td>{{ historico.data_fim_anterior|date:"d/m/Y" }}</td>
+                                    <td>{{ historico.data_inicio_novo|date:"d/m/Y" }}</td>
+                                    <td><small>{{ historico.motivo_troca|truncatewords:10 }}</small></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-warning">
+            <i class="fas fa-exchange-alt me-2"></i>
+            Confirmar Troca
+        </button>
+    </div>
+</form>
+
+<script>
+(function() {
+    'use strict';
+    
+    // Mostrar/ocultar campos de troca quando monitor é marcado para remoção
+    document.querySelectorAll('.monitor-remover-checkbox').forEach(function(checkbox) {
+        checkbox.addEventListener('change', function() {
+            const monitorId = this.getAttribute('data-monitor-id');
+            const monitorTipo = this.getAttribute('data-monitor-tipo');
+            const infoDiv = document.getElementById('info_monitor_' + monitorTipo.toLowerCase() + '_' + monitorId);
+            
+            if (this.checked && infoDiv) {
+                infoDiv.style.display = 'block';
+                // Tornar campos obrigatórios
+                const inputs = infoDiv.querySelectorAll('input[type="date"], textarea');
+                inputs.forEach(function(input) {
+                    input.required = true;
+                });
+            } else if (infoDiv) {
+                infoDiv.style.display = 'none';
+                // Remover obrigatoriedade
+                const inputs = infoDiv.querySelectorAll('input[type="date"], textarea');
+                inputs.forEach(function(input) {
+                    input.required = false;
+                    input.value = '';
+                });
+            }
+        });
+    });
+    
+    // Submissão do formulário via AJAX
+    const form = document.getElementById('formTrocarInstrutorMonitor');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Coletar monitores removidos
+            const monitoresRemovidosMilitares = [];
+            const monitoresRemovidosExternos = [];
+            
+            document.querySelectorAll('.monitor-remover-checkbox:checked').forEach(function(checkbox) {
+                const monitorTipo = checkbox.getAttribute('data-monitor-tipo');
+                const monitorId = checkbox.value;
+                
+                if (monitorTipo === 'MILITAR') {
+                    monitoresRemovidosMilitares.push(monitorId);
+                } else {
+                    monitoresRemovidosExternos.push(monitorId);
+                }
+            });
+            
+            // Adicionar campos hidden para monitores removidos
+            monitoresRemovidosMilitares.forEach(function(monitorId) {
+                const hiddenInput = document.createElement('input');
+                hiddenInput.type = 'hidden';
+                hiddenInput.name = 'monitores_removidos_militares[]';
+                hiddenInput.value = monitorId;
+                form.appendChild(hiddenInput);
+            });
+            
+            monitoresRemovidosExternos.forEach(function(monitorId) {
+                const hiddenInput = document.createElement('input');
+                hiddenInput.type = 'hidden';
+                hiddenInput.name = 'monitores_removidos_externos[]';
+                hiddenInput.value = monitorId;
+                form.appendChild(hiddenInput);
+            });
+            
+            const formData = new FormData(form);
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processando...';
+            
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin'
+            })
+            .then(function(response) {
+                if (response.ok) {
+                    return response.json();
+                }
+                return response.json().then(function(data) {
+                    throw new Error(data.error || 'Erro ao trocar instrutor/monitor');
+                });
+            })
+            .then(function(data) {
+                if (data.success) {
+                    if (data.redirect) {
+                        window.location.href = data.redirect;
+                    } else {
+                        location.reload();
+                    }
+                } else {
+                    throw new Error(data.error || 'Erro ao trocar instrutor/monitor');
+                }
+            })
+            .catch(function(error) {
+                console.error('Erro:', error);
+                alert('Erro ao trocar instrutor/monitor: ' + error.message);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            });
+        });
+    }
+    
+    // Definir data atual como padrão
+    const hoje = new Date().toISOString().split('T')[0];
+    document.getElementById('data_fim_anterior').value = hoje;
+    document.getElementById('data_inicio_novo').value = hoje;
+})();
+</script>
+

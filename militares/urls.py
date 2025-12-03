@@ -1,5 +1,6 @@
 from django.urls import path, include
 from django.http import JsonResponse
+from django.shortcuts import redirect
 from . import views
 from . import views_simples
 from . import views_pracas
@@ -41,6 +42,11 @@ from . import views_material_belico
 from . import views_cautela_arma, views_municao, views_cautela_municao
 from . import views_tombamento, views_almoxarifado, views_requisicao_almoxarifado, views_processos
 from . import views_chat
+from . import views_ensino
+from . import views_dashboard_ensino
+from . import views_login_ensino
+from . import views_usuarios_ensino
+from . import views_assinaturas_qts
 
 app_name = 'militares'
 
@@ -743,6 +749,7 @@ urlpatterns = [
     # Publicações - URLs Gerais (removidas - usar listas específicas)
     
     # Publicações - URLs Específicas por Tipo
+    path('publicacoes/', views_publicacoes.notas_list, name='publicacoes_list'),
     # Notas
     path('notas/', views_publicacoes.notas_list, name='notas_list'),
     path('notas/novo/', views_publicacoes.notas_create, name='notas_create'),
@@ -1194,6 +1201,8 @@ urlpatterns += [
     path('viaturas/<int:viatura_id>/rodagens/', views_rodagens.rodagem_por_viatura, name='rodagem_por_viatura'),
     path('viaturas/<int:viatura_id>/rodagens/historico-pdf/', views_rodagens.historico_rodagem_pdf, name='historico_rodagem_pdf'),
     path('painel-guarda/', views_rodagens.painel_guarda, name='painel_guarda'),
+    path('painel-guarda/registrar-saida/<int:viatura_id>/', views_rodagens.painel_registrar_saida, name='painel_registrar_saida'),
+    path('painel-guarda/registrar-retorno/<int:rodagem_id>/', views_rodagens.painel_registrar_retorno, name='painel_registrar_retorno'),
     
     # URLs para Material Bélico - Armas da Instituição
     path('armas/', views_material_belico.ArmaListView.as_view(), name='arma_list'),
@@ -1562,5 +1571,231 @@ urlpatterns += [
     path('processos/<int:pk>/excluir/', views_processos.processo_administrativo_delete, name='processo_administrativo_delete'),
     path('processos/<int:pk>/pdf/', views_processos.processo_administrativo_pdf, name='processo_administrativo_pdf'),
     
+    # ============================================================================
+    # MÓDULO DE ENSINO
+    # Organizado na sequência hierárquica: Curso → Turmas → Disciplinas → Instrutores → Monitores → Alunos → Aulas → Frequências → Notas
+    # ============================================================================
+    
+    # Dashboard
+    path('ensino/', views_ensino.dashboard_ensino, name='ensino_dashboard'),
+    
+    # Dashboards específicos por tipo de usuário
+    path('ensino/dashboard/aluno/', views_dashboard_ensino.dashboard_aluno, name='ensino_dashboard_aluno'),
+    path('ensino/dashboard/instrutor/', views_dashboard_ensino.dashboard_instrutor, name='ensino_dashboard_instrutor'),
+    path('ensino/dashboard/supervisor/', views_dashboard_ensino.dashboard_supervisor, name='ensino_dashboard_supervisor'),
+    path('ensino/dashboard/coordenador/', views_dashboard_ensino.dashboard_coordenador, name='ensino_dashboard_coordenador'),
+    
+    # Login unificado para o módulo de ensino
+    path('ensino/login/', views_login_ensino.login_ensino, name='ensino_login'),
+    path('ensino/alterar-senha/', views_login_ensino.alterar_senha_primeiro_login, name='ensino_alterar_senha_primeiro_login'),
+    path('ensino/alterar-senha/minha/', views_login_ensino.alterar_senha_ensino, name='ensino_alterar_senha'),
+    # Redirecionamentos para URLs antigas (compatibilidade)
+    path('ensino/login/aluno/', lambda request: redirect('militares:ensino_login'), name='ensino_login_aluno'),
+    path('ensino/login/instrutor/', lambda request: redirect('militares:ensino_login'), name='ensino_login_instrutor'),
+    path('ensino/login/monitor/', lambda request: redirect('militares:ensino_login'), name='ensino_login_monitor'),
+    
+    # Controle de Usuários do Módulo de Ensino
+    path('ensino/usuarios/', views_usuarios_ensino.usuarios_ensino_listar, name='ensino_usuarios_listar'),
+    path('ensino/usuarios/<str:tipo>/<int:pk>/senha/', views_usuarios_ensino.usuario_ensino_definir_senha, name='ensino_usuario_definir_senha'),
+    path('ensino/usuarios/<str:tipo>/<int:pk>/detalhes/', views_usuarios_ensino.usuario_ensino_detalhes, name='ensino_usuario_detalhes'),
+    
+    # 0. PESSOAS EXTERNAS (Auxiliar - usada por outros módulos)
+    path('ensino/pessoas-externas/', views_ensino.listar_pessoas_externas, name='ensino_pessoas_externas_listar'),
+    path('ensino/pessoas-externas/criar/', views_ensino.criar_pessoa_externa, name='ensino_pessoa_externa_criar'),
+    path('ensino/pessoas-externas/<int:pk>/', views_ensino.detalhes_pessoa_externa, name='ensino_pessoa_externa_detalhes'),
+    path('ensino/pessoas-externas/<int:pk>/editar/', views_ensino.editar_pessoa_externa, name='ensino_pessoa_externa_editar'),
+    
+    # 0. EDIÇÕES DE CURSO (Para cursos permanentes)
+    path('ensino/edicoes/', views_ensino.listar_edicoes, name='ensino_edicoes_listar'),
+    path('ensino/edicoes/criar/', views_ensino.criar_edicao, name='ensino_edicao_criar'),
+    path('ensino/edicoes/<int:pk>/', views_ensino.detalhes_edicao, name='ensino_edicao_detalhes'),
+    path('ensino/edicoes/<int:pk>/editar/', views_ensino.editar_edicao, name='ensino_edicao_editar'),
+    path('ensino/edicoes/<int:pk>/deletar/', views_ensino.deletar_edicao, name='ensino_edicao_deletar'),
+    path('ensino/edicoes/<int:pk>/resultado-final/', views_ensino.resultado_final_edicao, name='ensino_edicao_resultado_final'),
+    path('ensino/edicoes/por-curso/<int:curso_id>/', views_ensino.edicoes_por_curso_json, name='ensino_edicoes_por_curso_json'),
+    
+    # 1. CURSOS (Nível Principal)
+    path('ensino/cursos/', views_ensino.listar_cursos, name='ensino_cursos_listar'),
+    path('ensino/cursos/criar/', views_ensino.criar_curso, name='ensino_curso_criar'),
+    path('ensino/cursos/<int:pk>/', views_ensino.detalhes_curso, name='ensino_curso_detalhes'),
+    path('ensino/cursos/<int:pk>/editar/', views_ensino.editar_curso, name='ensino_curso_editar'),
+    path('ensino/cursos/<int:pk>/disciplinas/', views_ensino.disciplinas_curso_json, name='ensino_curso_disciplinas_json'),
+    
+    # 2. TURMAS (Dependem de Curso e podem ter Edição)
+    path('ensino/turmas/', views_ensino.listar_turmas, name='ensino_turmas_listar'),
+    path('ensino/turmas/criar/', views_ensino.criar_turma, name='ensino_turma_criar'),
+    path('ensino/turmas/<int:pk>/', views_ensino.detalhes_turma, name='ensino_turma_detalhes'),
+    path('ensino/turmas/<int:pk>/dashboard/', views_ensino.dashboard_turma, name='ensino_turma_dashboard'),
+    path('ensino/turmas/<int:turma_id>/disciplinas/<int:disciplina_id>/caderneta-frequencia/', views_ensino.caderneta_frequencia_disciplina, name='ensino_caderneta_frequencia_disciplina'),
+    path('ensino/turmas/<int:pk>/editar/', views_ensino.editar_turma, name='ensino_turma_editar'),
+    path('ensino/turmas/<int:pk>/excluir/', views_ensino.excluir_turma, name='ensino_turma_excluir'),
+    path('ensino/turmas/<int:turma_id>/disciplinas/<int:disciplina_id>/trocar-instrutor-monitor/', views_ensino.trocar_instrutor_monitor_disciplina, name='ensino_trocar_instrutor_monitor'),
+    
+    # 3. DISCIPLINAS (Relacionadas a Curso e Turma)
+    path('ensino/disciplinas/', views_ensino.listar_disciplinas, name='ensino_disciplinas_listar'),
+    path('ensino/disciplinas/criar/', views_ensino.criar_disciplina, name='ensino_disciplina_criar'),
+    path('ensino/disciplinas/<int:pk>/', views_ensino.detalhes_disciplina, name='ensino_disciplina_detalhes'),
+    path('ensino/disciplinas/<int:pk>/editar/', views_ensino.editar_disciplina, name='ensino_disciplina_editar'),
+    path('ensino/disciplinas/<int:pk>/deletar/', views_ensino.deletar_disciplina, name='ensino_disciplina_deletar'),
+    
+    # 4. INSTRUTORES (Relacionados a Turma e Disciplina)
+    path('ensino/instrutores/', views_ensino.listar_instrutores, name='ensino_instrutores_listar'),
+    path('ensino/instrutores/criar/', views_ensino.criar_instrutor, name='ensino_instrutor_criar'),
+    path('ensino/instrutores/<int:pk>/', views_ensino.detalhes_instrutor, name='ensino_instrutor_detalhes'),
+    path('ensino/instrutores/<int:pk>/editar/', views_ensino.editar_instrutor, name='ensino_instrutor_editar'),
+    path('ensino/instrutores/<int:pk>/excluir/', views_ensino.excluir_instrutor, name='ensino_instrutor_excluir'),
+    path('ensino/instrutores/<int:pk>/ficha-pdf/', views_ensino.ficha_instrutor_pdf, name='ensino_instrutor_ficha_pdf'),
+    
+    # 5. MONITORES (Relacionados a Turma)
+    path('ensino/monitores/', views_ensino.listar_monitores, name='ensino_monitores_listar'),
+    path('ensino/monitores/criar/', views_ensino.criar_monitor, name='ensino_monitor_criar'),
+    path('ensino/monitores/<int:pk>/', views_ensino.detalhes_monitor, name='ensino_monitor_detalhes'),
+    path('ensino/monitores/<int:pk>/editar/', views_ensino.editar_monitor, name='ensino_monitor_editar'),
+    path('ensino/monitores/<int:pk>/excluir/', views_ensino.excluir_monitor, name='ensino_monitor_excluir'),
+    
+    # 6. ALUNOS (Relacionados a Turma)
+    path('ensino/alunos/', views_ensino.listar_alunos, name='ensino_alunos_listar'),
+    path('ensino/alunos/criar/', views_ensino.criar_aluno, name='ensino_aluno_criar'),
+    path('ensino/alunos/<int:pk>/', views_ensino.detalhes_aluno, name='ensino_aluno_detalhes'),
+    path('ensino/alunos/<int:pk>/editar/', views_ensino.editar_aluno, name='ensino_aluno_editar'),
+    path('ensino/alunos/<int:pk>/desligar/', views_ensino.desligar_aluno, name='ensino_aluno_desligar'),
+    path('ensino/alunos/<int:pk>/reativar/', views_ensino.reativar_aluno, name='ensino_aluno_reativar'),
+    path('ensino/alunos/<int:pk>/ficha-pdf/', views_ensino.ficha_aluno_pdf, name='ensino_aluno_ficha_pdf'),
+    
+    # 7. AULAS (Relacionadas a Turma e Disciplina)
+    path('ensino/aulas/', views_ensino.listar_aulas, name='ensino_aulas_listar'),
+    path('ensino/aulas/criar/', views_ensino.criar_aula, name='ensino_aula_criar'),
+    path('ensino/aulas/<int:pk>/', views_ensino.detalhes_aula, name='ensino_aula_detalhes'),
+    path('ensino/aulas/<int:pk>/editar/', views_ensino.editar_aula, name='ensino_aula_editar'),
+    path('ensino/aulas/<int:pk>/deletar/', views_ensino.deletar_aula, name='ensino_aula_deletar'),
+    path('ensino/aulas/<int:pk>/chamada/', views_ensino.registrar_chamada_aula, name='ensino_aula_registrar_chamada'),
+    path('ensino/turmas/<int:turma_id>/dados/', views_ensino.obter_dados_turma, name='ensino_turma_dados'),
+    path('ensino/turmas/<int:turma_id>/alunos/', views_ensino.obter_alunos_turma, name='ensino_turma_alunos'),
+    path('ensino/disciplinas/<int:disciplina_id>/dados/', views_ensino.obter_dados_disciplina, name='ensino_disciplina_dados'),
+    path('ensino/quadros-trabalho-semanal/<int:quadro_id>/ultimo-horario-dia/<str:dia_semana>/', views_ensino.obter_ultimo_horario_dia, name='ensino_quadro_ultimo_horario_dia'),
+    
+    # 9. AVALIAÇÕES E NOTAS (Relacionadas a Turma, Disciplina e Aluno)
+    path('ensino/avaliacoes/', views_ensino.listar_avaliacoes, name='ensino_avaliacoes_listar'),
+    path('ensino/avaliacoes/criar/', views_ensino.criar_avaliacao, name='ensino_avaliacao_criar'),
+    path('ensino/avaliacoes/<int:pk>/', views_ensino.detalhes_avaliacao, name='ensino_avaliacao_detalhes'),
+    path('ensino/avaliacoes/<int:pk>/editar/', views_ensino.editar_avaliacao, name='ensino_avaliacao_editar'),
+    path('ensino/avaliacoes/<int:pk>/deletar/', views_ensino.deletar_avaliacao, name='ensino_avaliacao_deletar'),
+    path('ensino/avaliacoes/<int:avaliacao_id>/lancar-notas/', views_ensino.lancar_notas, name='ensino_avaliacao_lancar_notas'),
+    path('ensino/turmas/<int:turma_id>/disciplinas/<int:disciplina_id>/inserir-notas/', views_ensino.inserir_notas_disciplina, name='ensino_inserir_notas_disciplina'),
+    path('ensino/avaliacoes/nota/<int:nota_id>/revisao/solicitar/', views_ensino.solicitar_revisao_prova, name='ensino_solicitar_revisao_prova'),
+    path('ensino/avaliacoes/nota/<int:nota_id>/revisao/solicitar/form/', views_ensino.solicitar_revisao_prova_form, name='ensino_revisao_solicitar_form'),
+    path('ensino/revisoes/<int:pedido_id>/despachar-instrutor/', views_ensino.ensino_despachar_revisao_para_instrutor, name='ensino_despachar_revisao_instrutor'),
+    path('ensino/revisoes/<int:pedido_id>/instrutor-parecer/', views_ensino.instrutor_parecer_revisao, name='ensino_instrutor_parecer_revisao'),
+    path('ensino/revisoes/<int:pedido_id>/aluno-recorrer-diretoria/', views_ensino.aluno_recorrer_diretoria, name='ensino_aluno_recorrer_diretoria'),
+    path('ensino/revisoes/<int:pedido_id>/aluno-reenviar/', views_ensino.aluno_reenviar_recurso, name='ensino_aluno_reenviar_recurso'),
+    path('ensino/revisoes/<int:pedido_id>/nomear-comissao/', views_ensino.ensino_nomear_comissao_revisao, name='ensino_nomear_comissao_revisao'),
+    path('ensino/revisoes/<int:pedido_id>/comissao-parecer-final/', views_ensino.comissao_parecer_revisao, name='ensino_comissao_parecer_final'),
+    path('ensino/revisoes/<int:pedido_id>/detalhes/', views_ensino.pedido_revisao_detalhes, name='ensino_pedido_revisao_detalhes'),
+    
+    # CERTIFICADOS (Relacionados a Aluno, Curso e Turma)
+    path('ensino/certificados/', views_ensino.listar_certificados, name='ensino_certificados_listar'),
+    
+    # QUADRO DE TRABALHO SEMANAL
+    path('ensino/quadros-trabalho-semanal/', views_ensino.listar_quadros_trabalho_semanal, name='ensino_quadros_trabalho_semanal_listar'),
+    path('ensino/quadros-trabalho-semanal/criar/', views_ensino.criar_quadro_trabalho_semanal, name='ensino_quadro_trabalho_semanal_criar'),
+    path('ensino/quadros-trabalho-semanal/<int:pk>/', views_ensino.visualizar_quadro_trabalho_semanal, name='ensino_quadro_trabalho_semanal_visualizar'),
+    path('ensino/quadros-trabalho-semanal/<int:pk>/pdf/', views_ensino.quadro_trabalho_semanal_pdf, name='ensino_quadro_trabalho_semanal_pdf'),
+    path('ensino/quadros-trabalho-semanal/<int:pk>/editar/', views_ensino.editar_quadro_trabalho_semanal, name='ensino_quadro_trabalho_semanal_editar'),
+    path('ensino/quadros-trabalho-semanal/<int:pk>/deletar/', views_ensino.deletar_quadro_trabalho_semanal, name='ensino_quadro_trabalho_semanal_deletar'),
+    path('ensino/turmas/<int:turma_id>/quadro-trabalho-semanal/', views_ensino.visualizar_quadro_trabalho_semanal_turma, name='ensino_quadro_trabalho_semanal_turma'),
+    path('ensino/quadros-trabalho-semanal/<int:quadro_id>/adicionar-aula/', views_ensino.adicionar_aula_quadro_trabalho_semanal, name='ensino_quadro_trabalho_semanal_adicionar_aula'),
+    # Assinaturas QTS
+    path('ensino/quadros-trabalho-semanal/<int:pk>/dados-assinatura/', views_assinaturas_qts.dados_assinatura_qts, name='ensino_qts_dados_assinatura'),
+    path('ensino/quadros-trabalho-semanal/<int:pk>/assinar-revisao/', views_assinaturas_qts.assinar_qts_revisao, name='ensino_qts_assinar_revisao'),
+    path('ensino/quadros-trabalho-semanal/<int:pk>/assinar-aprovacao/', views_assinaturas_qts.assinar_qts_aprovacao, name='ensino_qts_assinar_aprovacao'),
+    path('ensino/quadros-trabalho-semanal/<int:pk>/retirar-assinatura/<int:assinatura_pk>/', views_assinaturas_qts.retirar_assinatura_qts, name='ensino_qts_retirar_assinatura'),
+    path('ensino/quadros-trabalho-semanal/aulas/<int:pk>/editar/', views_ensino.editar_aula_quadro_trabalho_semanal, name='ensino_aula_quadro_trabalho_semanal_editar'),
+    path('ensino/quadros-trabalho-semanal/aulas/<int:pk>/deletar/', views_ensino.deletar_aula_quadro_trabalho_semanal, name='ensino_aula_quadro_trabalho_semanal_deletar'),
+    
+    # ============================================================================
+    # MODELOS ITE 01/2024 - DEIP/CBMEPI
+    # ============================================================================
+    
+    # PLANO GERAL DE ENSINO
+    path('ensino/ite/planos-gerais/', views_ensino.listar_planos_gerais_ensino, name='ensino_planos_gerais_listar'),
+    path('ensino/ite/planos-gerais/criar/', views_ensino.criar_plano_geral_ensino, name='ensino_planos_gerais_criar'),
+    path('ensino/ite/planos-gerais/<int:pk>/', views_ensino.detalhes_plano_geral_ensino, name='ensino_planos_gerais_detalhes'),
+    
+    # PROJETO PEDAGÓGICO
+    path('ensino/ite/projetos-pedagogicos/', views_ensino.listar_projetos_pedagogicos, name='ensino_projetos_pedagogicos_listar'),
+    path('ensino/ite/projetos-pedagogicos/criar/', views_ensino.criar_projeto_pedagogico, name='ensino_projetos_pedagogicos_criar'),
+    path('ensino/ite/projetos-pedagogicos/criar/<int:curso_id>/', views_ensino.criar_projeto_pedagogico, name='ensino_projetos_pedagogicos_criar_curso'),
+    path('ensino/ite/projetos-pedagogicos/<int:pk>/', views_ensino.detalhes_projeto_pedagogico, name='ensino_projetos_pedagogicos_detalhes'),
+    
+    # PLANO DE CURSO/ESTÁGIO
+    path('ensino/ite/planos-curso-estagio/', views_ensino.listar_planos_curso_estagio, name='ensino_planos_curso_estagio_listar'),
+    path('ensino/ite/planos-curso-estagio/criar/', views_ensino.criar_plano_curso_estagio, name='ensino_planos_curso_estagio_criar'),
+    path('ensino/ite/planos-curso-estagio/criar/<int:projeto_id>/', views_ensino.criar_plano_curso_estagio, name='ensino_planos_curso_estagio_criar_projeto'),
+    path('ensino/ite/planos-curso-estagio/<int:pk>/', views_ensino.detalhes_plano_curso_estagio, name='ensino_planos_curso_estagio_detalhes'),
+    
+    # PROCESSO DE SELEÇÃO DE ALUNOS
+    path('ensino/ite/processos-selecao/', views_ensino.listar_processos_selecao, name='ensino_processos_selecao_listar'),
+    path('ensino/ite/processos-selecao/criar/', views_ensino.criar_processo_selecao, name='ensino_processos_selecao_criar'),
+    path('ensino/ite/processos-selecao/criar/<int:curso_id>/', views_ensino.criar_processo_selecao, name='ensino_processos_selecao_criar_curso'),
+    path('ensino/ite/processos-selecao/<int:pk>/', views_ensino.detalhes_processo_selecao, name='ensino_processos_selecao_detalhes'),
+    
+    # RELATÓRIO ANUAL DA DEIP
+    path('ensino/ite/relatorios-anuais/', views_ensino.listar_relatorios_anuais_deip, name='ensino_relatorios_anuais_listar'),
+    path('ensino/ite/relatorios-anuais/criar/', views_ensino.criar_relatorio_anual_deip, name='ensino_relatorios_anuais_criar'),
+    path('ensino/ite/relatorios-anuais/<int:pk>/', views_ensino.detalhes_relatorio_anual_deip, name='ensino_relatorios_anuais_detalhes'),
+    
+    # TRABALHO DE CONCLUSÃO DE CURSO (TCC)
+    path('ensino/ite/tccs/', views_ensino.listar_trabalhos_conclusao_curso, name='ensino_tccs_listar'),
+    path('ensino/ite/tccs/criar/', views_ensino.criar_trabalho_conclusao_curso, name='ensino_tccs_criar'),
+    path('ensino/ite/tccs/criar/<int:aluno_id>/', views_ensino.criar_trabalho_conclusao_curso, name='ensino_tccs_criar_aluno'),
+    path('ensino/ite/tccs/<int:pk>/', views_ensino.detalhes_trabalho_conclusao_curso, name='ensino_tccs_detalhes'),
+    path('ensino/ite/tccs/<int:pk>/editar/', views_ensino.editar_trabalho_conclusao_curso, name='ensino_tccs_editar'),
+    
+    # PLANO DE SEGURANÇA
+    path('ensino/ite/planos-seguranca/', views_ensino.listar_planos_seguranca, name='ensino_planos_seguranca_listar'),
+    path('ensino/ite/planos-seguranca/criar/', views_ensino.criar_plano_seguranca, name='ensino_planos_seguranca_criar'),
+    path('ensino/ite/planos-seguranca/criar/curso/<int:curso_id>/', views_ensino.criar_plano_seguranca, name='ensino_planos_seguranca_criar_curso'),
+    path('ensino/ite/planos-seguranca/criar/turma/<int:turma_id>/', views_ensino.criar_plano_seguranca, name='ensino_planos_seguranca_criar_turma'),
+    path('ensino/ite/planos-seguranca/criar/disciplina/<int:disciplina_id>/', views_ensino.criar_plano_seguranca, name='ensino_planos_seguranca_criar_disciplina'),
+    path('ensino/ite/planos-seguranca/criar/aula/<int:aula_id>/', views_ensino.criar_plano_seguranca, name='ensino_planos_seguranca_criar_aula'),
+    path('ensino/ite/planos-seguranca/<int:pk>/', views_ensino.detalhes_plano_seguranca, name='ensino_planos_seguranca_detalhes'),
+    path('ensino/ite/planos-seguranca/<int:pk>/editar/', views_ensino.editar_plano_seguranca, name='ensino_planos_seguranca_editar'),
+    
+    # CLASSIFICAÇÃO FINAL DO CURSO
+    path('ensino/ite/classificacoes-finais/', views_ensino.listar_classificacoes_finais, name='ensino_classificacoes_finais_listar'),
+    path('ensino/ite/classificacoes-finais/turma/<int:turma_id>/', views_ensino.listar_classificacoes_finais, name='ensino_classificacoes_finais_turma'),
+    path('ensino/ite/classificacoes-finais/turma/<int:turma_id>/calcular/', views_ensino.calcular_classificacao_final, name='ensino_classificacoes_finais_calcular'),
+    path('ensino/ite/classificacoes-finais/<int:pk>/', views_ensino.detalhes_classificacao_final, name='ensino_classificacoes_finais_detalhes'),
+    
+    # PLANO DE PALESTRA
+    path('ensino/ite/planos-palestra/', views_ensino.listar_planos_palestra, name='ensino_planos_palestra_listar'),
+    path('ensino/ite/planos-palestra/criar/', views_ensino.criar_plano_palestra, name='ensino_planos_palestra_criar'),
+    path('ensino/ite/planos-palestra/criar/curso/<int:curso_id>/', views_ensino.criar_plano_palestra, name='ensino_planos_palestra_criar_curso'),
+    path('ensino/ite/planos-palestra/criar/turma/<int:turma_id>/', views_ensino.criar_plano_palestra, name='ensino_planos_palestra_criar_turma'),
+    path('ensino/ite/planos-palestra/<int:pk>/', views_ensino.detalhes_plano_palestra, name='ensino_planos_palestra_detalhes'),
+    
+    # ATIVIDADE DE TREINAMENTO DE CAMPO (ATC)
+    path('ensino/ite/atcs/', views_ensino.listar_atividades_treinamento_campo, name='ensino_atcs_listar'),
+    path('ensino/ite/atcs/criar/', views_ensino.criar_atividade_treinamento_campo, name='ensino_atcs_criar'),
+    path('ensino/ite/atcs/criar/curso/<int:curso_id>/', views_ensino.criar_atividade_treinamento_campo, name='ensino_atcs_criar_curso'),
+    path('ensino/ite/atcs/criar/turma/<int:turma_id>/', views_ensino.criar_atividade_treinamento_campo, name='ensino_atcs_criar_turma'),
+    path('ensino/ite/atcs/<int:pk>/', views_ensino.detalhes_atividade_treinamento_campo, name='ensino_atcs_detalhes'),
+    
+    # ATIVIDADE COMPLEMENTAR DE ENSINO (ACE)
+    path('ensino/ite/aces/', views_ensino.listar_atividades_complementares, name='ensino_aces_listar'),
+    path('ensino/ite/aces/criar/', views_ensino.criar_atividade_complementar, name='ensino_aces_criar'),
+    path('ensino/ite/aces/criar/curso/<int:curso_id>/', views_ensino.criar_atividade_complementar, name='ensino_aces_criar_curso'),
+    path('ensino/ite/aces/criar/turma/<int:turma_id>/', views_ensino.criar_atividade_complementar, name='ensino_aces_criar_turma'),
+    path('ensino/ite/aces/<int:pk>/', views_ensino.detalhes_atividade_complementar, name='ensino_aces_detalhes'),
+    
+    # TESTE DE CONHECIMENTOS PROFISSIONAIS (TCP)
+    path('ensino/ite/tcps/', views_ensino.listar_testes_conhecimentos_profissionais, name='ensino_tcps_listar'),
+    path('ensino/ite/tcps/criar/', views_ensino.criar_teste_conhecimentos_profissionais, name='ensino_tcps_criar'),
+    path('ensino/ite/tcps/<int:pk>/', views_ensino.detalhes_teste_conhecimentos_profissionais, name='ensino_tcps_detalhes'),
+    
+    # PLANO DE ESTÁGIO DE NIVELAMENTO PROFISSIONAL
+    path('ensino/ite/planos-estagio-nivelamento/', views_ensino.listar_planos_estagio_nivelamento, name='ensino_planos_estagio_nivelamento_listar'),
+    path('ensino/ite/planos-estagio-nivelamento/criar/', views_ensino.criar_plano_estagio_nivelamento, name='ensino_planos_estagio_nivelamento_criar'),
+    path('ensino/ite/planos-estagio-nivelamento/<int:pk>/', views_ensino.detalhes_plano_estagio_nivelamento, name='ensino_planos_estagio_nivelamento_detalhes'),
     
 ]

@@ -1,0 +1,144 @@
+{% load static %}
+
+<div class="modal-header bg-danger text-white">
+    <h5 class="modal-title" id="deletarDisciplinaModalLabel">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        Confirmar Exclusão
+    </h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+
+<form method="post" id="formDeletarDisciplina">
+    {% csrf_token %}
+    <div class="modal-body">
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Atenção!</strong> Esta ação não pode ser desfeita.
+        </div>
+        
+        <p>Tem certeza que deseja excluir a disciplina <strong>{{ disciplina.codigo }} - {{ disciplina.nome }}</strong>?</p>
+        
+        {% if disciplina.cursos.exists %}
+            <div class="alert alert-danger">
+                <i class="fas fa-ban me-2"></i>
+                <strong>Não é possível excluir!</strong> Esta disciplina está vinculada a cursos e não pode ser removida.
+            </div>
+        {% endif %}
+        
+        <div id="deletarDisciplinaErrors" class="alert alert-danger d-none">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <span id="deletarDisciplinaErrorMessage"></span>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <i class="fas fa-times me-2"></i>Cancelar
+        </button>
+        <button type="submit" class="btn btn-danger" {% if disciplina.cursos.exists %}disabled{% endif %}>
+            <i class="fas fa-trash me-2"></i>Excluir Disciplina
+        </button>
+    </div>
+</form>
+
+<script>
+// Aguardar o DOM estar pronto
+setTimeout(function() {
+    const form = document.getElementById('formDeletarDisciplina');
+    if (form) {
+        // Remover event listeners anteriores se existirem
+        const newForm = form.cloneNode(true);
+        form.parentNode.replaceChild(newForm, form);
+        
+        // Adicionar novo event listener
+        const formElement = document.getElementById('formDeletarDisciplina');
+        if (formElement) {
+            formElement.addEventListener('submit', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const formData = new FormData(formElement);
+                const submitButton = formElement.querySelector('button[type="submit"]');
+                const originalText = submitButton.innerHTML;
+                
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Excluindo...';
+                
+                // Limpar mensagens de erro anteriores
+                const errorDiv = document.getElementById('deletarDisciplinaErrors');
+                const errorMessage = document.getElementById('deletarDisciplinaErrorMessage');
+                if (errorDiv) errorDiv.classList.add('d-none');
+                
+                const disciplinaId = {{ disciplina.pk }};
+                const deletarUrl = `/militares/ensino/disciplinas/${disciplinaId}/deletar/`;
+                
+                console.log('Enviando requisição de exclusão para:', deletarUrl);
+                
+                fetch(deletarUrl, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => {
+                    console.log('Resposta recebida:', response.status, response.statusText);
+                    const contentType = response.headers.get('content-type');
+                    console.log('Content-Type:', contentType);
+                    
+                    if (contentType && contentType.includes('application/json')) {
+                        if (!response.ok) {
+                            return response.json().then(data => {
+                                throw new Error(data.message || `Erro ${response.status}: ${response.statusText}`);
+                            }).catch(err => {
+                                if (err.message) throw err;
+                                throw new Error(`Erro ${response.status}: ${response.statusText}`);
+                            });
+                        }
+                        return response.json();
+                    } else {
+                        return response.text().then(text => {
+                            console.error('Resposta não é JSON:', text.substring(0, 200));
+                            throw new Error('Resposta inesperada do servidor');
+                        });
+                    }
+                })
+                .then(data => {
+                    console.log('Dados recebidos:', data);
+                    if (data && data.success) {
+                        // Fechar modal e redirecionar
+                        const modalElement = document.getElementById('deletarDisciplinaModal');
+                        if (modalElement) {
+                            const modal = bootstrap.Modal.getInstance(modalElement);
+                            if (modal) {
+                                modal.hide();
+                            }
+                        }
+                        // Aguardar um pouco antes de redirecionar para garantir que o modal feche
+                        setTimeout(function() {
+                            window.location.href = data.redirect || '/militares/ensino/disciplinas/';
+                        }, 300);
+                    } else {
+                        // Mostrar erro
+                        if (errorDiv && errorMessage) {
+                            errorMessage.textContent = (data && data.message) || 'Erro ao excluir disciplina';
+                            errorDiv.classList.remove('d-none');
+                        }
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = originalText;
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro completo:', error);
+                    if (errorDiv && errorMessage) {
+                        errorMessage.textContent = error.message || 'Erro ao processar exclusão. Tente novamente.';
+                        errorDiv.classList.remove('d-none');
+                    }
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalText;
+                });
+            });
+        }
+    }
+}, 100);
+</script>
+

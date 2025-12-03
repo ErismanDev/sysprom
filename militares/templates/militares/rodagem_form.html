@@ -52,6 +52,15 @@
                                         {% endif %}
                                     </div>
                                     
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.condutor.id_for_label }}" class="form-label">Motorista (Condutor) <span class="text-danger">*</span></label>
+                                        {{ form.condutor }}
+                                        {% if form.condutor.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.condutor.errors }}</div>
+                                        {% endif %}
+                                        <small class="form-text text-muted">Selecione o militar que dirige a viatura</small>
+                                    </div>
+                                    
                                     <div class="col-md-3 mb-3">
                                         <label for="{{ form.data_saida.id_for_label }}" class="form-label">
                                             <i class="fas fa-calendar-alt me-2"></i>Data de Saída <span class="text-danger">*</span>
@@ -189,6 +198,8 @@
     </div>
 </div>
 
+<style></style>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Preencher hora de saída com a hora atual de Brasília (apenas para nova rodagem)
@@ -311,9 +322,30 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     {% else %}
-    // Na edição, garantir que os valores não sejam alterados automaticamente
-    // Não fazer nada - os valores já estão preenchidos pela instância
     {% endif %}
+
+    const condutorSelect = document.getElementById('id_condutor');
+    if (typeof $ !== 'undefined' && typeof $.fn.select2 !== 'undefined' && condutorSelect) {
+        const $condutor = $('#id_condutor');
+        $condutor.select2({
+            placeholder: 'Digite nome ou matrícula do militar...',
+            allowClear: true,
+            minimumInputLength: 2,
+            language: {
+                inputTooShort: function () { return 'Digite pelo menos 2 caracteres...'; },
+                noResults: function () { return 'Nenhum militar encontrado'; },
+                searching: function () { return 'Buscando...'; }
+            },
+            ajax: {
+                url: '{% url "militares:militar-autocomplete" %}',
+                dataType: 'json',
+                delay: 250,
+                data: function (params) { return { q: params.term }; },
+                processResults: function (data) { return { results: data.results }; },
+                cache: true
+            }
+        });
+    }
 });
 </script>
 {% endblock %}

@@ -11,6 +11,10 @@ def can_edit_ficha_conceito(user):
     Verifica se o usuário pode editar fichas de conceito.
     Baseado na função militar da sessão.
     """
+    if not user or not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
     from .permissoes_simples import pode_editar_fichas_conceito
     return pode_editar_fichas_conceito(user)
 
@@ -164,7 +168,7 @@ def apenas_visualizacao_comissao(view_func):
         funcoes_especiais = UsuarioFuncaoMilitar.objects.filter(
             usuario=request.user,
             ativo=True,
-            funcao_militar__nome__in=['Diretor de Gestão de Pessoas', 'Chefe da Seção de Promoções', 'Administrador do Sistema', 'Administrador']
+            funcao_militar__nome__in=['Diretor de Gestão de Pessoas', 'Chefe da Seção de Promoções', 'Auxiliar da Seção de Promoções', 'Administrador do Sistema', 'Administrador']
         ).exists()
         
         # Se for membro de comissão (CPO/CPP) e tentar fazer operações de escrita, bloquear
@@ -351,6 +355,9 @@ def ficha_conceito_visualizacao_required(view_func):
     def _wrapped_view(request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect('login')
+        
+        if request.user.is_superuser:
+            return view_func(request, *args, **kwargs)
         
         from .permissoes_simples import pode_editar_fichas_conceito, pode_visualizar_fichas_conceito
         

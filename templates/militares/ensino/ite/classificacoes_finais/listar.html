@@ -1,0 +1,232 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Classificações Finais - ITE 01/2024{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="mb-0">
+                    <i class="fas fa-trophy me-2"></i>
+                    Classificações Finais
+                    {% if turma %}
+                        - {{ turma.identificacao }}
+                    {% endif %}
+                </h1>
+                {% if turma and menu_permissions.ENSINO_EDITAR or user.is_superuser %}
+                <a href="{% url 'militares:ensino_classificacoes_finais_calcular' turma_id=turma.pk %}" class="btn btn-primary">
+                    <i class="fas fa-calculator me-2"></i>
+                    Calcular Classificação
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Estatísticas -->
+    {% if turma and classificacoes %}
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Total de Alunos</h5>
+                    <h2 class="mb-0">{{ total_alunos }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Aprovados Diretos</h5>
+                    <h2 class="mb-0">{{ total_aprovados_diretos }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Equações de Cálculo -->
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-calculator me-2"></i>
+                Equações de Cálculo do Resultado Final (ITE 01/2024, item 18)
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-12 mb-3">
+                    <h6 class="text-primary">
+                        <i class="fas fa-formula me-2"></i>
+                        Média Final do Curso (MFC)
+                    </h6>
+                    <div class="alert alert-light">
+                        <p class="mb-1"><strong>MFC = Média Aritmética das MGM das Disciplinas</strong></p>
+                        <p class="mb-0 text-muted">
+                            <small>
+                                Onde MGM = Média Geral da Matéria de cada disciplina cursada pelo aluno.
+                                A MFC é calculada pela média aritmética simples de todas as MGM das disciplinas,
+                                aproximada até milésimo (3 casas decimais).
+                            </small>
+                        </p>
+                        <div class="mt-2">
+                            <code class="text-primary">
+                                MFC = (MGM₁ + MGM₂ + MGM₃ + ... + MGMₙ) / n
+                            </code>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-12 mb-3">
+                    <h6 class="text-warning">
+                        <i class="fas fa-adjust me-2"></i>
+                        MFC Ajustada (para alunos em recuperação)
+                    </h6>
+                    <div class="alert alert-light">
+                        <p class="mb-1"><strong>MFC Ajustada = min(MFC calculada, MFC último aprovado direto - ε)</strong></p>
+                        <p class="mb-0 text-muted">
+                            <small>
+                                Onde ε = 0.01 (conforme ITE 18.2.3).
+                                A MFC ajustada é aplicada apenas para alunos aprovados com recuperação (2ª época),
+                                garantindo que sua classificação seja sempre inferior aos aprovados diretos.
+                            </small>
+                        </p>
+                        <div class="mt-2">
+                            <code class="text-warning">
+                                MFC Ajustada = min(MFC, MFC<sub>último direto</sub> - 0.01)
+                            </code>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-12">
+                    <h6 class="text-success">
+                        <i class="fas fa-sort-numeric-down me-2"></i>
+                        Classificação Final
+                    </h6>
+                    <div class="alert alert-light">
+                        <p class="mb-1"><strong>Ordem de Classificação:</strong></p>
+                        <ol class="mb-0">
+                            <li>Primeiro: Alunos aprovados diretos (1ª época), ordenados por MFC decrescente</li>
+                            <li>Segundo: Alunos aprovados com recuperação (2ª época), ordenados por MFC ajustada decrescente</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-body">
+            {% if classificacoes %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Classificação</th>
+                                <th>Aluno</th>
+                                <th>MFC</th>
+                                <th>MFC Ajustada</th>
+                                <th>Disciplinas Reprovadas</th>
+                                <th>Aprovação</th>
+                                <th>MFC Último Direto</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for classificacao in classificacoes %}
+                            <tr class="{% if classificacao.aprovado_direto %}table-success{% elif classificacao.aprovado_com_recuperacao %}table-warning{% endif %}">
+                                <td>
+                                    <strong class="h5">{{ classificacao.classificacao|default:"-" }}</strong>
+                                    {% if classificacao.classificacao == 1 %}
+                                        <i class="fas fa-trophy text-warning" title="1º Lugar"></i>
+                                    {% elif classificacao.classificacao == 2 %}
+                                        <i class="fas fa-medal text-secondary" title="2º Lugar"></i>
+                                    {% elif classificacao.classificacao == 3 %}
+                                        <i class="fas fa-award text-warning" title="3º Lugar"></i>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <strong>{{ classificacao.aluno.get_pessoa_nome }}</strong>
+                                    {% if classificacao.aluno.matricula %}
+                                        <br><small class="text-muted">Mat: {{ classificacao.aluno.matricula }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <strong>{{ classificacao.media_final_curso|floatformat:3|default:"-" }}</strong>
+                                </td>
+                                <td>
+                                    {% if classificacao.media_final_curso_ajustada %}
+                                        <strong class="text-warning">{{ classificacao.media_final_curso_ajustada|floatformat:3 }}</strong>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if classificacao.total_disciplinas_reprovadas > 0 %}
+                                        <span class="badge bg-danger">
+                                            <i class="fas fa-times-circle me-1"></i>{{ classificacao.total_disciplinas_reprovadas }}
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check-circle me-1"></i>0
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if classificacao.aprovado_direto %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check-circle me-1"></i>Aprovado Direto
+                                        </span>
+                                    {% elif classificacao.aprovado_com_recuperacao %}
+                                        <span class="badge bg-warning">
+                                            <i class="fas fa-exclamation-triangle me-1"></i>Aprovado com Recuperação
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">N/A</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if classificacao.mfc_ultimo_aprovado_direto %}
+                                        <small class="text-muted">{{ classificacao.mfc_ultimo_aprovado_direto|floatformat:3 }}</small>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'militares:ensino_classificacoes_finais_detalhes' pk=classificacao.pk %}" class="btn btn-sm btn-info" title="Ver detalhes">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                {% if classificacoes.has_other_pages %}
+                <nav aria-label="Paginação">
+                    <ul class="pagination justify-content-center">
+                        {% if classificacoes.has_previous %}
+                            <li class="page-item"><a class="page-link" href="?page={{ classificacoes.previous_page_number }}">Anterior</a></li>
+                        {% endif %}
+                        <li class="page-item active"><span class="page-link">Página {{ classificacoes.number }} de {{ classificacoes.paginator.num_pages }}</span></li>
+                        {% if classificacoes.has_next %}
+                            <li class="page-item"><a class="page-link" href="?page={{ classificacoes.next_page_number }}">Próxima</a></li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Nenhuma classificação final encontrada.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+

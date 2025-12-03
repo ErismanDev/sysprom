@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Trabalhos de Conclusão de Curso - ITE 01/2024{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="mb-0">
+                    <i class="fas fa-graduation-cap me-2"></i>
+                    Trabalhos de Conclusão de Curso (TCC)
+                </h1>
+                {% if menu_permissions.ENSINO_CRIAR or user.is_superuser %}
+                <a href="{% url 'militares:ensino_tccs_criar' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>
+                    Novo TCC
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-body">
+            {% if tccs %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Aluno</th>
+                                <th>Curso</th>
+                                <th>Título</th>
+                                <th>Status</th>
+                                <th>Data Entrega</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tcc in tccs %}
+                            <tr>
+                                <td>{{ tcc.aluno.militar.nome_completo|default:tcc.aluno.pessoa_externa.nome_completo }}</td>
+                                <td>{{ tcc.curso.nome }}</td>
+                                <td>{{ tcc.titulo|truncatewords:10 }}</td>
+                                <td>
+                                    <span class="badge bg-{% if tcc.status == 'APROVADO' %}success{% elif tcc.status == 'EM_AVALIACAO' %}warning{% elif tcc.status == 'REPROVADO' %}danger{% else %}secondary{% endif %}">
+                                        {{ tcc.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>{{ tcc.data_entrega|date:"d/m/Y"|default:"N/A" }}</td>
+                                <td>
+                                    <a href="{% url 'militares:ensino_tccs_detalhes' pk=tcc.pk %}" class="btn btn-sm btn-info" title="Ver detalhes">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                {% if tccs.has_other_pages %}
+                <nav aria-label="Paginação">
+                    <ul class="pagination justify-content-center">
+                        {% if tccs.has_previous %}
+                            <li class="page-item"><a class="page-link" href="?page={{ tccs.previous_page_number }}">Anterior</a></li>
+                        {% endif %}
+                        <li class="page-item active"><span class="page-link">Página {{ tccs.number }} de {{ tccs.paginator.num_pages }}</span></li>
+                        {% if tccs.has_next %}
+                            <li class="page-item"><a class="page-link" href="?page={{ tccs.next_page_number }}">Próxima</a></li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Nenhum trabalho de conclusão de curso encontrado.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+

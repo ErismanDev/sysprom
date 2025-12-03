@@ -103,7 +103,7 @@ def _eh_coordenador_ou_supervisor(user):
 
 def _usuario_vinculado_turma(user, turma):
     try:
-        if user.is_superuser or _eh_usuario_master(user):
+        if user.is_superuser:
             return True
         militar = getattr(user, 'militar', None)
         if not militar:
@@ -119,11 +119,11 @@ def _usuario_vinculado_turma(user, turma):
 
 def _filtrar_turmas_vinculadas(user, turmas_qs):
     try:
-        if user.is_superuser or _eh_usuario_master(user):
+        if user.is_superuser:
             return turmas_qs
         militar = getattr(user, 'militar', None)
         if not militar:
-            return turmas_qs
+            return turmas_qs.none()
         from django.db.models import Q
         return turmas_qs.filter(
             Q(supervisor_curso=militar) |
@@ -153,7 +153,7 @@ def _eh_coordenador_ou_supervisor_curso(user):
 
 def _usuario_vinculado_curso(user, curso):
     try:
-        if user.is_superuser or _eh_usuario_master(user):
+        if user.is_superuser:
             return True
         militar = getattr(user, 'militar', None)
         if not militar:
@@ -174,11 +174,11 @@ def _usuario_vinculado_curso(user, curso):
 
 def _filtrar_cursos_vinculados(user, cursos_qs):
     try:
-        if user.is_superuser or _eh_usuario_master(user):
+        if user.is_superuser:
             return cursos_qs
         militar = getattr(user, 'militar', None)
         if not militar:
-            return cursos_qs
+            return cursos_qs.none()
         from django.db.models import Q
         return cursos_qs.filter(
             Q(coordenador_militar=militar) |
@@ -192,7 +192,7 @@ def _filtrar_cursos_vinculados(user, cursos_qs):
 
 def _filtrar_edicoes_vinculadas(user, edicoes_qs):
     try:
-        if user.is_superuser or _eh_usuario_master(user):
+        if user.is_superuser:
             return edicoes_qs
         from .models import CursoEnsino
         cursos = _filtrar_cursos_vinculados(user, CursoEnsino.objects.all()).values_list('id', flat=True)
@@ -202,7 +202,7 @@ def _filtrar_edicoes_vinculadas(user, edicoes_qs):
 
 def _filtrar_qs_por_vinculo(user, qs, curso_field='curso', turma_field='turma'):
     try:
-        if user.is_superuser or _eh_usuario_master(user):
+        if user.is_superuser:
             return qs
         militar = getattr(user, 'militar', None)
         if not militar:
@@ -221,7 +221,7 @@ def _filtrar_qs_por_vinculo(user, qs, curso_field='curso', turma_field='turma'):
 
 def _usuario_vinculado_obj_ensino(user, obj):
     try:
-        if user.is_superuser or _eh_usuario_master(user):
+        if user.is_superuser:
             return True
         curso = getattr(obj, 'curso', None)
         turma = getattr(obj, 'turma', None)
@@ -3306,6 +3306,11 @@ def listar_edicoes(request):
     
     # Buscar cursos permanentes para filtro
     cursos_permanentes = CursoEnsino.objects.filter(tipo_curso='PERMANENTE').order_by('nome')
+    try:
+        if _eh_coordenador_ou_supervisor_curso(request.user):
+            cursos_permanentes = _filtrar_cursos_vinculados(request.user, cursos_permanentes)
+    except Exception:
+        pass
     
     paginator = Paginator(edicoes, 20)
     page = request.GET.get('page')
@@ -3781,9 +3786,7 @@ def deletar_edicao(request, pk):
 @login_required
 def listar_cursos(request):
     """Lista todos os cursos"""
-    cursos = CursoEnsino.objects.all()
-    if _eh_coordenador_ou_supervisor_curso(request.user):
-        cursos = _filtrar_cursos_vinculados(request.user, cursos)
+    cursos = _filtrar_cursos_vinculados(request.user, CursoEnsino.objects.all())
     
     busca = request.GET.get('busca', '')
     publico_alvo = request.GET.get('publico_alvo', '')
@@ -4444,9 +4447,7 @@ def editar_curso(request, pk):
 @login_required
 def listar_turmas(request):
     """Lista todas as turmas"""
-    turmas = TurmaEnsino.objects.select_related('curso', 'edicao').all()
-    if _eh_coordenador_ou_supervisor(request.user):
-        turmas = _filtrar_turmas_vinculadas(request.user, turmas)
+    turmas = _filtrar_turmas_vinculadas(request.user, TurmaEnsino.objects.select_related('curso', 'edicao').all())
     
     busca = request.GET.get('busca', '')
     curso_id = request.GET.get('curso', '')
@@ -4479,9 +4480,18 @@ def listar_turmas(request):
     turmas = paginator.get_page(page)
     
     cursos = CursoEnsino.objects.filter(ativo=True)
+    try:
+        if _eh_coordenador_ou_supervisor_curso(request.user):
+            cursos = _filtrar_cursos_vinculados(request.user, cursos)
+    except Exception:
+        pass
     
     # Buscar edições para filtro (apenas cursos permanentes)
     edicoes = EdicaoCurso.objects.select_related('curso').filter(curso__tipo_curso='PERMANENTE').order_by('-ano', '-numero_edicao')
+    try:
+        edicoes = _filtrar_edicoes_vinculadas(request.user, edicoes)
+    except Exception:
+        pass
     
     context = {
         'turmas': turmas,
@@ -7244,6 +7254,15 @@ def listar_disciplinas(request):
     disciplinas = DisciplinaEnsino.objects.select_related(
         'instrutor_responsavel_militar', 'instrutor_responsavel_externo'
     ).all()
+    try:
+        if _eh_coordenador_ou_supervisor(request.user):
+            try:
+                turmas = _filtrar_turmas_vinculadas(request.user, TurmaEnsino.objects.filter(ativa=True))
+                disciplinas = disciplinas.filter(turmas__in=turmas).distinct()
+            except Exception:
+                pass
+    except Exception:
+        pass
     
     busca = request.GET.get('busca', '')
     ativo = request.GET.get('ativo', '')
@@ -7726,6 +7745,11 @@ def listar_aulas(request):
         'turma__instrutor_chefe_externo',
         'instrutor'
     ).all()
+    try:
+        if _eh_coordenador_ou_supervisor(request.user):
+            aulas = _filtrar_qs_por_vinculo(request.user, aulas, curso_field='turma__curso', turma_field='turma')
+    except Exception:
+        pass
     
     busca = request.GET.get('busca', '')
     turma_id = request.GET.get('turma', '')
@@ -7754,7 +7778,17 @@ def listar_aulas(request):
     aulas = paginator.get_page(page)
     
     turmas = TurmaEnsino.objects.filter(ativa=True)
-    disciplinas = DisciplinaEnsino.objects.filter(ativo=True)
+    try:
+        if _eh_coordenador_ou_supervisor(request.user):
+            turmas = _filtrar_turmas_vinculadas(request.user, turmas)
+    except Exception:
+        pass
+    try:
+        disciplinas = DisciplinaEnsino.objects.filter(ativo=True)
+        if _eh_coordenador_ou_supervisor(request.user):
+            disciplinas = disciplinas.filter(turmas__in=turmas).distinct()
+    except Exception:
+        disciplinas = DisciplinaEnsino.objects.filter(ativo=True)
     
     context = {
         'aulas': aulas,
@@ -8539,6 +8573,12 @@ def detalhes_aula(request, pk):
     from militares.models import FrequenciaAula, AlunoEnsino
     
     aula = get_object_or_404(AulaEnsino, pk=pk)
+    try:
+        if _eh_coordenador_ou_supervisor(request.user) and aula.turma and not _usuario_vinculado_turma(request.user, aula.turma):
+            messages.error(request, 'Acesso negado. Você só pode acessar aulas de turmas em que está vinculado.')
+            return redirect('militares:ensino_aulas_listar')
+    except Exception:
+        pass
     
     # Buscar todos os alunos da turma
     alunos_turma = AlunoEnsino.objects.filter(
@@ -8746,6 +8786,11 @@ def registrar_chamada_aula(request, pk):
 def listar_avaliacoes(request):
     """Lista todas as avaliações"""
     avaliacoes = AvaliacaoEnsino.objects.select_related('disciplina', 'turma').all()
+    try:
+        if _eh_coordenador_ou_supervisor(request.user):
+            avaliacoes = _filtrar_qs_por_vinculo(request.user, avaliacoes, curso_field='turma__curso', turma_field='turma')
+    except Exception:
+        pass
     
     busca = request.GET.get('busca', '')
     tipo = request.GET.get('tipo', '')
@@ -8833,6 +8878,17 @@ def listar_avaliacoes(request):
     avaliacoes_paginadas = paginator.get_page(page)
     
     turmas = TurmaEnsino.objects.filter(ativa=True)
+    try:
+        if _eh_coordenador_ou_supervisor(request.user):
+            turmas = _filtrar_turmas_vinculadas(request.user, turmas)
+    except Exception:
+        pass
+    try:
+        disciplinas = DisciplinaEnsino.objects.filter(ativo=True)
+        if _eh_coordenador_ou_supervisor(request.user):
+            disciplinas = disciplinas.filter(turmas__in=turmas).distinct()
+    except Exception:
+        disciplinas = DisciplinaEnsino.objects.filter(ativo=True)
     is_instrutor_ensino = False
     try:
         militar = request.user.militar if hasattr(request.user, 'militar') else None
@@ -9832,16 +9888,7 @@ def listar_certificados(request):
 def dashboard_ensino(request):
     """Dashboard com indicadores do ensino"""
     try:
-        from .views_dashboard_ensino import identificar_tipo_usuario_ensino
-        tipo = identificar_tipo_usuario_ensino(request.user)
-        if tipo == 'aluno':
-            return redirect('militares:ensino_dashboard_aluno')
-        if tipo == 'instrutor':
-            return redirect('militares:ensino_dashboard_instrutor')
-        if tipo == 'coordenador':
-            return redirect('militares:ensino_dashboard_coordenador')
-        if tipo == 'supervisor':
-            return redirect('militares:ensino_dashboard_supervisor')
+        pass
     except Exception:
         pass
     
@@ -9904,7 +9951,7 @@ def dashboard_ensino(request):
         'pedidos_comissao': pedidos_comissao,
         'pedidos_finalizados': pedidos_finalizados,
     }
-    return redirect('militares:home')
+    return render(request, 'militares/ensino/dashboard.html', context)
 
 
 @login_required
@@ -10280,6 +10327,11 @@ def listar_quadros_trabalho_semanal(request):
         '-numero_quadro',
         '-id'  # Ordenação por ID decrescente para mostrar os mais recentes primeiro
     )
+    try:
+        if _eh_coordenador_ou_supervisor(request.user):
+            quadros = _filtrar_qs_por_vinculo(request.user, quadros, curso_field='turma__curso', turma_field='turma')
+    except Exception:
+        pass
     
     # Filtros
     turma_id = request.GET.get('turma')
@@ -10293,6 +10345,11 @@ def listar_quadros_trabalho_semanal(request):
     
     # Buscar turmas para filtro
     turmas = TurmaEnsino.objects.filter(ativa=True).order_by('identificacao')
+    try:
+        if _eh_coordenador_ou_supervisor(request.user):
+            turmas = _filtrar_turmas_vinculadas(request.user, turmas)
+    except Exception:
+        pass
     
     context = {
         'quadros': quadros,

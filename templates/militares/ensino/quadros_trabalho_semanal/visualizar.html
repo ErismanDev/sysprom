@@ -1,0 +1,1773 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load militares_extras %}
+
+{% block title %}Quadro de Trabalho Semanal Nº {{ quadro.get_numero_completo }} - {{ quadro.turma.identificacao }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="mb-0">
+                    <i class="fas fa-calendar-week me-2"></i>
+                    Quadro de Trabalho Semanal Nº {{ quadro.get_numero_completo }}
+                </h1>
+                <div>
+                    {% if menu_permissions.ENSINO_CRIAR or user.is_superuser %}
+                        {% if quadro.tem_aprovacao %}
+                            {% for assinatura in quadro.assinaturas.all %}
+                                {% if assinatura.tipo_assinatura == 'APROVACAO' %}
+                                    {% if user.is_superuser or assinatura.assinado_por == user %}
+                                        <a href="{% url 'militares:ensino_quadro_trabalho_semanal_adicionar_aula' quadro_id=quadro.pk %}?next={{ request.GET.next }}" class="btn btn-primary" id="btnAdicionarAula">
+                                            <i class="fas fa-plus me-2"></i>
+                                            Adicionar Aula
+                                        </a>
+                                    {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <a href="{% url 'militares:ensino_quadro_trabalho_semanal_adicionar_aula' quadro_id=quadro.pk %}?next={{ request.GET.next }}" class="btn btn-primary" id="btnAdicionarAula">
+                                <i class="fas fa-plus me-2"></i>
+                                Adicionar Aula
+                            </a>
+                        {% endif %}
+                    {% endif %}
+                    {% if menu_permissions.ENSINO_EDITAR or user.is_superuser %}
+                        {% if quadro.tem_aprovacao %}
+                            {% for assinatura in quadro.assinaturas.all %}
+                                {% if assinatura.tipo_assinatura == 'APROVACAO' %}
+                                    {% if user.is_superuser or assinatura.assinado_por == user %}
+                                        <a href="{% url 'militares:ensino_quadro_trabalho_semanal_editar' pk=quadro.pk %}?next={{ request.GET.next }}" class="btn btn-warning">
+                                            <i class="fas fa-edit me-2"></i>
+                                            Editar Quadro
+                                        </a>
+                                    {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <a href="{% url 'militares:ensino_quadro_trabalho_semanal_editar' pk=quadro.pk %}?next={{ request.GET.next }}" class="btn btn-warning">
+                                <i class="fas fa-edit me-2"></i>
+                                Editar Quadro
+                            </a>
+                        {% endif %}
+                    {% endif %}
+                    <a href="{% url 'militares:ensino_quadro_trabalho_semanal_pdf' pk=quadro.pk %}" class="btn btn-success" target="_blank">
+                        <i class="fas fa-file-pdf me-2"></i>
+                        Gerar PDF
+                    </a>
+                    {% if request.GET.next %}
+                    <a href="{{ request.GET.next }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>
+                        Voltar
+                    </a>
+                    {% else %}
+                    <a href="{% url 'militares:ensino_quadros_trabalho_semanal_listar' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>
+                        Voltar
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Cabeçalho do Quadro -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card-body text-center">
+                <h3 class="mb-3">QUADRO DE TRABALHO SEMANAL Nº {{ quadro.get_numero_completo }}</h3>
+                {% if quadro.local %}
+                <p class="mb-2"><strong>{{ quadro.local }}</strong>, {{ quadro.data_inicio_semana|date:"d \d\e F \d\e Y" }}.</p>
+                {% else %}
+                <p class="mb-2">{{ quadro.data_inicio_semana|date:"d \d\e F \d\e Y" }}.</p>
+                {% endif %}
+                <h4 class="mb-2">{{ quadro.turma.curso.nome|upper }}</h4>
+                <p class="mb-1"><strong>Turma:</strong> {{ quadro.turma.identificacao }}</p>
+                <h5 class="mb-0">
+                    {{ quadro.data_inicio_semana|date:"d \d\e F \d\e Y"|upper }} À {{ quadro.data_fim_semana|date:"d \d\e F \d\e Y"|upper }}
+                </h5>
+                <p class="mt-2 mb-0"><small class="text-muted">Nota: 1 hora/aula = 45 minutos</small></p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quadro Semanal -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm mb-0" style="font-size: 0.85rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 120px;" class="text-center align-middle">HORÁRIOS</th>
+                                    {% for dia in dias_semana_list %}
+                                    <th class="text-center">
+                                        {% with data=dias_semana_datas|lookup:dia %}
+                                        <div>{{ data|date:"d" }}</div>
+                                        <div style="font-size: 0.75rem;">{{ dia|slice:":3"|upper }}</div>
+                                        <div style="font-size: 0.7rem; font-weight: normal;">
+                                            {% if dia == 'SEGUNDA' %}SEGUNDA-FEIRA
+                                            {% elif dia == 'TERCA' %}TERÇA-FEIRA
+                                            {% elif dia == 'QUARTA' %}QUARTA-FEIRA
+                                            {% elif dia == 'QUINTA' %}QUINTA-FEIRA
+                                            {% elif dia == 'SEXTA' %}SEXTA-FEIRA
+                                            {% elif dia == 'SABADO' %}SÁBADO
+                                            {% elif dia == 'DOMINGO' %}DOMINGO
+                                            {% endif %}
+                                        </div>
+                                        <div class="mt-2">
+                                            {% if menu_permissions.ENSINO_CRIAR or user.is_superuser %}
+                                            <button type="button" 
+                                                    class="btn btn-sm btn-outline-primary btn-adicionar-aula-dia" 
+                                                    data-dia="{{ dia }}" 
+                                                    data-data="{{ dias_semana_datas|lookup:dia|date:'Y-m-d' }}"
+                                                    title="Adicionar aula neste dia">
+                                                <i class="fas fa-plus"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                        {% endwith %}
+                                    </th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if horarios_ordenados %}
+                                {% for horario in horarios_ordenados %}
+                                <tr>
+                                    <td class="text-center align-middle fw-bold" style="background-color: #f8f9fa;">
+                                        {{ horario|slice:":5" }} às {{ horario|slice:"6:" }}
+                                    </td>
+                                    {% for dia in dias_semana_list %}
+                                    {% with data=dias_semana_datas|lookup:dia %}
+                                    {% with horario_data=tabela_aulas|lookup:horario %}
+                                    {% with aulas_dia=horario_data|lookup:dia %}
+                                    <td style="min-height: 80px; vertical-align: top;">
+                                        {% if aulas_dia %}
+                                        {% for aula in aulas_dia %}
+                                        <div class="mb-2 p-2 text-center" style="border-left: 3px solid {% if aula.tipo_atividade == 'AULA' %}#007bff{% elif aula.tipo_atividade == 'INTERVALO' %}#ffc107{% elif aula.tipo_atividade == 'HORARIO_VAGO' %}#6c757d{% else %}#28a745{% endif %}; background-color: #f8f9fa;">
+                                            <div class="d-flex flex-column align-items-center">
+                                                <div class="w-100">
+                                                    {% if aula.tipo_atividade == 'AULA' %}
+                                                    <div class="fw-bold">{{ aula.disciplina.nome }}</div>
+                                                    {% if aula.instrutor_militar %}
+                                                    <div class="fw-bold"><small>{{ aula.instrutor_militar.get_posto_graduacao_display }} {{ aula.instrutor_militar.nome_completo }}</small></div>
+                                                    {% elif aula.instrutor_externo %}
+                                                    <div class="fw-bold"><small>
+                                                        {% if aula.instrutor_externo.tipo_instrutor == 'OUTRA_FORCA' and aula.instrutor_externo.posto_outra_forca %}
+                                                        {{ aula.instrutor_externo.get_posto_outra_forca_display }} {{ aula.instrutor_externo.get_nome_completo }}
+                                                        {% elif aula.instrutor_externo.tipo_instrutor == 'OUTRA_FORCA' and aula.instrutor_externo.nome_outra_forca %}
+                                                        {{ aula.instrutor_externo.nome_outra_forca }}
+                                                        {% else %}
+                                                        {{ aula.instrutor_externo.get_nome_completo }}
+                                                        {% endif %}
+                                                    </small></div>
+                                                    {% endif %}
+                                                    {% if carga_horaria_acumulada_por_aula %}
+                                                    {% with carga_info=carga_horaria_acumulada_por_aula|lookup:aula.pk %}
+                                                    {% if carga_info %}
+                                                    <div class="fw-bold"><small class="text-info">
+                                                        <i class="fas fa-clock"></i> 
+                                                        Carga: {{ carga_info.acumulado|floatformat:0 }}h/{{ carga_info.total_disciplina|floatformat:0 }}h
+                                                    </small></div>
+                                                    {% endif %}
+                                                    {% endwith %}
+                                                    {% endif %}
+                                                    {% else %}
+                                                    <div class="fw-bold">{{ aula.descricao }}</div>
+                                                    {% endif %}
+                                                    {% if aula.observacoes %}
+                                                    <div class="fw-bold"><small class="text-muted">{{ aula.observacoes }}</small></div>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="mt-2 d-flex gap-1 justify-content-center">
+                                                    {% if menu_permissions.ENSINO_EDITAR or user.is_superuser %}
+                                                    <button type="button" class="btn btn-sm btn-outline-warning btn-editar-aula" data-aula-id="{{ aula.pk }}" title="Editar aula">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    {% endif %}
+                                                    {% if menu_permissions.ENSINO_EXCLUIR or user.is_superuser %}
+                                                    <button type="button" class="btn btn-sm btn-outline-danger btn-deletar-aula" data-aula-id="{{ aula.pk }}" title="Deletar aula">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                        {% else %}
+                                        <div class="text-muted text-center" style="min-height: 40px; padding: 10px;">
+                                            <small>-</small>
+                                        </div>
+                                        {% endif %}
+                                    </td>
+                                    {% endwith %}
+                                    {% endwith %}
+                                    {% endwith %}
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                                {% else %}
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted p-4">
+                                        Nenhum horário cadastrado. 
+                                        {% if menu_permissions.ENSINO_CRIAR or user.is_superuser %}
+                                        <a href="{% url 'militares:ensino_quadro_trabalho_semanal_adicionar_aula' quadro_id=quadro.pk %}?next={{ request.GET.next }}" class="btn btn-sm btn-primary ms-2">
+                                            Adicionar Primeira Aula
+                                        </a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Assinaturas Eletrônicas (Formato SEI) -->
+    {% if quadro.assinaturas.exists %}
+    <div class="row mt-5">
+        <div class="col-12">
+            <h5 class="mb-3"><i class="fas fa-signature me-2"></i>Assinaturas Eletrônicas</h5>
+            {% for assinatura in quadro.assinaturas.all %}
+            <div style="display: flex; align-items: flex-start; border: 1px solid #888; border-radius: 6px; margin-bottom: 10px; background: #fafafa;">
+                <div style="padding: 8px;">
+                    <img src="{% static 'assinasyspro.png' %}" width="100" height="70" alt="Logo AssinaSysPro" style="background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                </div>
+                <div style="flex-grow: 1;">
+                    <div style="padding: 8px; font-size: 15px; text-align: justify; display: flex; align-items: center; justify-content: space-between;">
+                        <div style="flex-grow: 1;">
+                            Documento assinado eletronicamente por <b>{% if assinatura.assinado_por.militar %}{{ assinatura.assinado_por.militar.nome_completo }} - {{ assinatura.assinado_por.militar.get_posto_graduacao_display }} BM{% else %}{{ assinatura.assinado_por.get_full_name|default:assinatura.assinado_por.username }}{% endif %}</b> <b>- {{ assinatura.funcao_assinatura|default:"Função não registrada" }}</b>, em {{ assinatura.data_assinatura|date:"d/m/Y" }}, às {{ assinatura.data_assinatura|date:"H:i" }}, conforme horário oficial de Brasília, com fundamento na Portaria XXX/2025 Gab. Cmdo. Geral/CBMEPI de XX de XXXXX de 2025.
+                        </div>
+                        <div style="margin-left: 10px;">
+                            <span class="badge bg-{% if assinatura.tipo_assinatura == 'APROVACAO' %}primary{% elif assinatura.tipo_assinatura == 'REVISAO' %}info{% else %}secondary{% endif %}">
+                                {{ assinatura.get_tipo_assinatura_display }}
+                            </span>
+                            {% if user.is_superuser %}
+                            <a href="{% url 'militares:ensino_qts_retirar_assinatura' quadro.pk assinatura.pk %}" 
+                               class="btn btn-sm btn-outline-danger ms-2"
+                               onclick="return confirm('Tem certeza que deseja retirar esta assinatura?')"
+                               title="Retirar Assinatura">
+                                <i class="fas fa-times"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Botões de Assinatura -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="d-flex flex-wrap gap-2">
+                {% if not tem_revisao %}
+                <button class="btn btn-outline-info" 
+                        onclick="assinarRevisaoQTS({{ quadro.pk }})"
+                        title="Assinar como Revisor">
+                    <i class="fas fa-signature me-1"></i>
+                    Assinar como Revisor
+                </button>
+                {% endif %}
+                {% if not tem_aprovacao and quadro.tem_revisao %}
+                <button class="btn btn-outline-primary" 
+                        onclick="assinarAprovacaoQTS({{ quadro.pk }})"
+                        title="Assinar como Aprovador">
+                    <i class="fas fa-signature me-1"></i>
+                    Assinar como Aprovador
+                </button>
+                {% elif not tem_aprovacao and not quadro.tem_revisao %}
+                <button class="btn btn-outline-secondary" disabled
+                        title="O QTS precisa ser revisado antes de ser aprovado">
+                    <i class="fas fa-signature me-1"></i>
+                    Assinar como Aprovador
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Adicionar/Editar Aula -->
+<div class="modal fade" id="modalAula" tabindex="-1" aria-labelledby="modalAulaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" id="modalAulaContent">
+            <!-- Conteúdo será carregado via AJAX -->
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const btnAdicionarAula = document.getElementById('btnAdicionarAula');
+    const modalAula = new bootstrap.Modal(document.getElementById('modalAula'));
+    const modalAulaContent = document.getElementById('modalAulaContent');
+    const quadroId = {{ quadro.pk }};
+    const dataInicioSemana = '{{ quadro.data_inicio_semana|date:"Y-m-d" }}';
+    const dataFimSemana = '{{ quadro.data_fim_semana|date:"Y-m-d" }}';
+    
+    // Função auxiliar para processar resposta HTTP
+    function processarRespostaHTTP(response, url) {
+        // Se url não for fornecido, tentar obter da response
+        if (!url) {
+            url = response.url || 'URL desconhecida';
+        }
+        const contentType = response.headers.get('content-type') || '';
+        const isJSON = contentType.includes('application/json');
+        const isHTML = contentType.includes('text/html') || contentType.includes('text/plain');
+        
+        if (!response.ok) {
+            if (isJSON) {
+                return response.json()
+                    .then(data => {
+                        // Para erros 400 (Bad Request), retornar os dados diretamente
+                        // Isso permite que o código de tratamento de erros processe os erros de validação
+                        if (response.status === 400) {
+                            return { success: false, ...data };
+                        }
+                        throw { status: response.status, data: data, url: url };
+                    })
+                    .catch((parseError) => {
+                        // Se falhar ao parsear JSON, lançar exceção
+                        throw { 
+                            status: response.status, 
+                            message: `Erro ${response.status}: ${response.statusText}. URL: ${url}`,
+                            url: url,
+                            parseError: parseError
+                        };
+                    });
+            } else {
+                // Se não for JSON, provavelmente é HTML (página de erro)
+                return response.text()
+                    .then(html => {
+                        console.error('Resposta HTML recebida (erro):', html.substring(0, 200));
+                        throw { 
+                            status: response.status, 
+                            message: `Erro ${response.status}: O servidor retornou uma página de erro. URL: ${url}. Verifique se você tem permissão para acessar este recurso.`,
+                            url: url
+                        };
+                    });
+            }
+        }
+        
+        // Para respostas OK (200), verificar o conteúdo
+        return response.text().then(text => {
+            // Verificar se é HTML (página de erro mesmo com status 200)
+            if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html') || isHTML) {
+                console.error('Resposta HTML recebida (status 200):', text.substring(0, 500));
+                console.error('URL:', url);
+                throw { 
+                    status: response.status, 
+                    message: `O servidor retornou HTML em vez de JSON. URL: ${url}. Isso geralmente acontece quando a URL não existe ou há um problema de permissão.`,
+                    url: url
+                };
+            }
+            
+            // Se for JSON explícito ou se o conteúdo parece JSON
+            if (isJSON || (text.trim().startsWith('{') || text.trim().startsWith('['))) {
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    console.error('Erro ao parsear JSON:', e);
+                    console.error('Conteúdo recebido:', text.substring(0, 200));
+                    console.error('URL:', url);
+                    throw { 
+                        status: response.status, 
+                        message: 'Resposta do servidor não é JSON válido: ' + e.message + '. URL: ' + url,
+                        url: url
+                    };
+                }
+            }
+            
+            // Se estiver vazio, retornar objeto vazio
+            if (!text || text.trim() === '') {
+                return {};
+            }
+            
+            // Tentar parsear como JSON de qualquer forma
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                console.error('Erro ao parsear JSON (tentativa final):', e);
+                console.error('Conteúdo recebido:', text.substring(0, 200));
+                console.error('URL:', url);
+                throw { 
+                    status: response.status, 
+                    message: 'Resposta do servidor não é JSON válido. URL: ' + url + '. Conteúdo: ' + text.substring(0, 100),
+                    url: url
+                };
+            }
+        });
+    }
+    
+    // Função auxiliar para formatar mensagem de erro
+    function formatarMensagemErro(error) {
+        let errorMsg = 'Erro ao processar solicitação';
+        
+        if (error && typeof error === 'object') {
+            if (error.data) {
+                if (error.data.errors) {
+                    const errorList = [];
+                    for (const field in error.data.errors) {
+                        const fieldErrors = Array.isArray(error.data.errors[field]) 
+                            ? error.data.errors[field] 
+                            : [error.data.errors[field]];
+                        errorList.push(`${field}: ${fieldErrors.join(', ')}`);
+                    }
+                    if (errorList.length > 0) {
+                        errorMsg = 'Erros de validação:\n\n' + errorList.join('\n');
+                    }
+                } else if (error.data.error_message) {
+                    errorMsg = error.data.error_message;
+                } else if (error.data.message) {
+                    errorMsg = error.data.message;
+                }
+            } else if (error.message) {
+                errorMsg = error.message;
+            }
+        } else if (typeof error === 'string') {
+            errorMsg = error;
+        }
+        
+        return errorMsg;
+    }
+    
+    // Função para submeter formulário
+    function submeterFormulario(form, submitBtn) {
+        const formData = new FormData(form);
+        const originalText = submitBtn.innerHTML;
+        
+        // Processar campo carga_horaria_total antes de enviar
+        // Se estiver no formato "X de Y", remover o " de Y" e manter apenas o número
+        const cargaHorariaTotalField = form.querySelector('#id_carga_horaria_total');
+        if (cargaHorariaTotalField && cargaHorariaTotalField.value) {
+            const valor = cargaHorariaTotalField.value;
+            if (valor.includes(' de ')) {
+                // Extrair apenas o número antes de " de "
+                const numero = valor.split(' de ')[0].trim();
+                formData.set('carga_horaria_total', numero);
+                console.log('Campo carga_horaria_total processado:', valor, '->', numero);
+            }
+        }
+        
+        // Log dos dados do formulário para debug
+        console.log('Dados do formulário:');
+        for (let [key, value] of formData.entries()) {
+            console.log(`${key}: ${value}`);
+        }
+        
+        // Verificar se o action do formulário está correto
+        let formAction = form.action;
+        
+        // Verificar se é formulário de edição ou criação
+        const isEdicao = formAction.includes('/aulas/') && formAction.includes('/editar/');
+        const isCriacao = formAction.includes('/adicionar-aula/');
+        
+        // Obter o ID do quadro do campo hidden ou da variável JavaScript
+        const quadroIdField = form.querySelector('#id_quadro');
+        let idQuadro = quadroId;
+        
+        if (quadroIdField && quadroIdField.value) {
+            idQuadro = quadroIdField.value;
+        }
+        
+        // Para edição, extrair o ID da aula da URL
+        let aulaId = null;
+        if (isEdicao) {
+            const match = formAction.match(/\/aulas\/(\d+)\/editar/);
+            if (match) {
+                aulaId = match[1];
+            }
+        }
+        
+        // Verificar se o action está vazio, é relativo ou está incorreto
+        if (!formAction || formAction.trim() === '' || formAction === '#' || 
+            formAction === window.location.pathname) {
+            
+            if (isEdicao && aulaId) {
+                // Construir URL de edição
+                formAction = `/militares/ensino/quadros-trabalho-semanal/aulas/${aulaId}/editar/`;
+                form.action = formAction;
+                console.log('Action do formulário de edição corrigido para:', formAction);
+            } else if (isCriacao && idQuadro) {
+                // Construir URL de criação
+                formAction = `/militares/ensino/quadros-trabalho-semanal/${idQuadro}/adicionar-aula/`;
+                form.action = formAction;
+                console.log('Action do formulário de criação corrigido para:', formAction);
+            } else {
+                console.error('Não foi possível determinar a URL correta');
+                console.error('form.action:', form.action);
+                console.error('isEdicao:', isEdicao, 'aulaId:', aulaId);
+                console.error('isCriacao:', isCriacao, 'idQuadro:', idQuadro);
+                alert('Erro: Não foi possível determinar a URL correta. Por favor, recarregue a página.');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+                return;
+            }
+        } else {
+            // Validar se a URL está correta
+            if (isEdicao && !formAction.match(/\/aulas\/\d+\/editar/)) {
+                if (aulaId) {
+                    formAction = `/militares/ensino/quadros-trabalho-semanal/aulas/${aulaId}/editar/`;
+                    form.action = formAction;
+                    console.log('Action do formulário de edição corrigido para:', formAction);
+                }
+            } else if (isCriacao && !formAction.match(/\/\d+\/adicionar-aula/)) {
+                if (idQuadro) {
+                    formAction = `/militares/ensino/quadros-trabalho-semanal/${idQuadro}/adicionar-aula/`;
+                    form.action = formAction;
+                    console.log('Action do formulário de criação corrigido para:', formAction);
+                }
+            }
+        }
+        
+        // Validar se a URL está completa
+        if (!formAction.startsWith('http') && !formAction.startsWith('/')) {
+            formAction = '/' + formAction;
+        }
+        
+        console.log('URL final para submissão:', formAction);
+        
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Salvando...';
+        
+        console.log('Submetendo formulário para:', formAction);
+        
+        fetch(formAction, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            }
+        })
+        .then(response => processarRespostaHTTP(response, formAction))
+        .then(data => {
+            // Verificar se é um erro 400 retornado como objeto (não como exceção)
+            if (data && data.success === false) {
+                // Exibir erros de validação do formulário
+                let errorMsg = '';
+                
+                if (data.errors) {
+                    const errorList = [];
+                    for (const field in data.errors) {
+                        const fieldErrors = Array.isArray(data.errors[field]) 
+                            ? data.errors[field] 
+                            : [data.errors[field]];
+                        // Traduzir nomes de campos para português
+                        const fieldLabels = {
+                            'horas_aula': 'Horas/Aula',
+                            'hora_inicio': 'Hora de Início',
+                            'hora_fim': 'Hora de Término',
+                            'disciplina': 'Disciplina',
+                            'tipo_atividade': 'Tipo de Atividade',
+                            'dia_semana': 'Dia da Semana',
+                            'data': 'Data',
+                            'descricao': 'Descrição',
+                            '__all__': 'Erro geral'
+                        };
+                        const fieldLabel = fieldLabels[field] || field;
+                        errorList.push(`${fieldLabel}: ${fieldErrors.join(', ')}`);
+                    }
+                    if (errorList.length > 0) {
+                        errorMsg = 'Erros de validação:\n\n' + errorList.join('\n');
+                    }
+                }
+                
+                if (!errorMsg && data.error_message) {
+                    errorMsg = data.error_message;
+                }
+                
+                if (!errorMsg) {
+                    errorMsg = 'Por favor, corrija os erros no formulário.';
+                }
+                
+                console.error('Erros de validação:', JSON.stringify(data.errors || data, null, 2));
+                console.error('Dados completos da resposta:', JSON.stringify(data, null, 2));
+                
+                // Exibir erros de forma mais detalhada
+                if (data.errors) {
+                    console.table(data.errors);
+                }
+                
+                alert(errorMsg);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+                return;
+            }
+            
+            if (data && data.success) {
+                location.reload();
+            } else {
+                // Exibir erros de validação do formulário
+                let errorMsg = '';
+                
+                if (data && data.errors) {
+                    const errorList = [];
+                    for (const field in data.errors) {
+                        const fieldErrors = Array.isArray(data.errors[field]) 
+                            ? data.errors[field] 
+                            : [data.errors[field]];
+                        const fieldLabel = field === '__all__' ? 'Erro geral' : field;
+                        errorList.push(`${fieldLabel}: ${fieldErrors.join(', ')}`);
+                    }
+                    if (errorList.length > 0) {
+                        errorMsg = 'Erros de validação:\n\n' + errorList.join('\n');
+                    }
+                }
+                
+                if (!errorMsg && data && data.error_message) {
+                    errorMsg = data.error_message;
+                }
+                
+                if (!errorMsg) {
+                    errorMsg = formatarMensagemErro({ data: data });
+                }
+                
+                console.error('Erros de validação:', data.errors || data);
+                alert(errorMsg);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao submeter formulário:', error);
+            console.error('Detalhes do erro:', error.data || error);
+            
+            // Se o erro tiver dados, tentar exibir os erros de validação
+            if (error.data && error.data.errors) {
+                const errorList = [];
+                for (const field in error.data.errors) {
+                    const fieldErrors = Array.isArray(error.data.errors[field]) 
+                        ? error.data.errors[field] 
+                        : [error.data.errors[field]];
+                    const fieldLabel = field === '__all__' ? 'Erro geral' : field;
+                    errorList.push(`${fieldLabel}: ${fieldErrors.join(', ')}`);
+                }
+                if (errorList.length > 0) {
+                    alert('Erros de validação:\n\n' + errorList.join('\n'));
+                } else {
+                    alert(formatarMensagemErro(error));
+                }
+            } else {
+                alert(formatarMensagemErro(error));
+            }
+            
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        });
+    }
+    
+    // Event listener para botão adicionar aula
+    if (btnAdicionarAula) {
+        btnAdicionarAula.addEventListener('click', function(e) {
+            e.preventDefault();
+            const url = this.getAttribute('href');
+            
+            modalAulaContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            modalAula.show();
+            
+            fetch(url, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => processarRespostaHTTP(response, url))
+            .then(data => {
+                if (data.html) {
+                    modalAulaContent.innerHTML = data.html;
+                    inicializarFormularioModal();
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                modalAulaContent.innerHTML = `
+                    <div class="modal-body">
+                        <div class="alert alert-danger">
+                            Erro ao carregar formulário: ${formatarMensagemErro(error)}
+                        </div>
+                    </div>
+                `;
+            });
+        });
+    }
+    
+    // Event listeners para botões adicionar aula por dia
+    document.querySelectorAll('.btn-adicionar-aula-dia').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const dia = this.getAttribute('data-dia');
+            const data = this.getAttribute('data-data');
+            let url = '{% url "militares:ensino_quadro_trabalho_semanal_adicionar_aula" quadro_id=quadro.pk %}';
+            const params = new URLSearchParams();
+            if (dia) params.append('dia_semana', dia);
+            if (data) params.append('data', data);
+            const query = params.toString();
+            if (query) url += `?${query}`;
+            
+            modalAulaContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            modalAula.show();
+            
+            fetch(url, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => processarRespostaHTTP(response, url))
+            .then(data => {
+                if (data.html) {
+                    modalAulaContent.innerHTML = data.html;
+                    
+                    setTimeout(function() {
+                        inicializarFormularioModal();
+                        
+                        setTimeout(function() {
+                            const diaSemanaSelect = document.getElementById('id_dia_semana');
+                            const dataInput = document.getElementById('id_data');
+                            const horaInicioInput = document.getElementById('id_hora_inicio');
+                            
+                            if (dataInput && data) {
+                                dataInput.value = data;
+                            }
+                            if (diaSemanaSelect && dia) {
+                                diaSemanaSelect.value = dia;
+                                calcularDataDoDia(diaSemanaSelect, dataInput);
+                                
+                                // Buscar último horário do dia
+                                if (horaInicioInput) {
+                                    const urlHorario = `/militares/ensino/quadros-trabalho-semanal/${quadroId}/ultimo-horario-dia/${dia}/`;
+                                    fetch(urlHorario, {
+                                        method: 'GET',
+                                        headers: {
+                                            'X-Requested-With': 'XMLHttpRequest',
+                                        }
+                                    })
+                                    .then(response => processarRespostaHTTP(response, urlHorario))
+                                    .then(horarioData => {
+                                        if (horarioData.hora_fim && horarioData.existe_aula) {
+                                            horaInicioInput.value = horarioData.hora_fim;
+                                            const changeEvent = new Event('change', { bubbles: true });
+                                            horaInicioInput.dispatchEvent(changeEvent);
+                                        }
+                                    })
+                                    .catch(error => {
+                                        console.error('Erro ao buscar último horário:', error);
+                                    });
+                                }
+                            }
+                        }, 300);
+                    }, 100);
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                modalAulaContent.innerHTML = `
+                    <div class="modal-body">
+                        <div class="alert alert-danger">
+                            Erro ao carregar formulário: ${formatarMensagemErro(error)}
+                        </div>
+                    </div>
+                `;
+            });
+        });
+    });
+    
+    // Variáveis globais para armazenar dados da disciplina
+    let cargaHorariaTotalDisciplinaModal = null;
+    let cargaHorariaCadastradaInicialModal = 0;
+    let ultimaAulaAcumuladoModal = null;
+    
+    // Função para calcular data do dia da semana
+    function calcularDataDoDia(diaSemanaSelect, dataInput) {
+        if (!diaSemanaSelect || !diaSemanaSelect.value || !dataInput) return;
+        
+        const normalizar = (s) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+        const diasSemanaMap = {
+            'DOMINGO': 0, 'SEGUNDA': 1, 'TERCA': 2, 'QUARTA': 3,
+            'QUINTA': 4, 'SEXTA': 5, 'SABADO': 6
+        };
+        
+        const diaNumero = diasSemanaMap[normalizar(diaSemanaSelect.value)];
+        
+        if (diaNumero !== undefined && dataInicioSemana) {
+            const dataInicio = new Date(dataInicioSemana + 'T00:00:00');
+            const diaSemanaInicio = dataInicio.getDay();
+            
+            let diasAdicionar = diaNumero - diaSemanaInicio;
+            if (diasAdicionar < 0) {
+                diasAdicionar += 7;
+            }
+            
+            const dataCalculada = new Date(dataInicio);
+            dataCalculada.setDate(dataInicio.getDate() + diasAdicionar);
+            
+            const dataFim = new Date(dataFimSemana + 'T00:00:00');
+            if (dataCalculada <= dataFim) {
+                const ano = dataCalculada.getFullYear();
+                const mes = String(dataCalculada.getMonth() + 1).padStart(2, '0');
+                const dia = String(dataCalculada.getDate()).padStart(2, '0');
+                const dataFormatada = `${ano}-${mes}-${dia}`;
+                dataInput.value = dataFormatada;
+            }
+        }
+    }
+    
+    // Função para calcular horas/aula
+    function calcularHoras(horaInicio, horaFim, horasAula, tipoAtividade) {
+        if (!horaInicio || !horaFim || !horaInicio.value || !horaFim.value) return;
+        
+        const inicio = new Date('2000-01-01T' + horaInicio.value);
+        const fim = new Date('2000-01-01T' + horaFim.value);
+        
+        if (fim < inicio) {
+            fim.setDate(fim.getDate() + 1);
+        }
+        
+        const diffMs = fim - inicio;
+        const minutosTotais = diffMs / (1000 * 60);
+        
+        let horasCalculadas;
+        if (tipoAtividade === 'INTERVALO') {
+            horasCalculadas = minutosTotais;
+        } else {
+            horasCalculadas = minutosTotais / 45;
+        }
+        
+        if (horasAula) {
+            if (tipoAtividade === 'INTERVALO') {
+                horasAula.value = Math.round(horasCalculadas);
+            } else {
+                horasAula.value = horasCalculadas.toFixed(2);
+            }
+        }
+    }
+    
+    // Função para calcular hora final
+    function calcularHoraFim(horaInicio, horasAula, horaFim, tipoAtividade) {
+        if (!horaInicio || !horasAula || !horaInicio.value || !horasAula.value) return;
+        
+        const horasAulaValue = parseFloat(horasAula.value);
+        if (isNaN(horasAulaValue) || horasAulaValue <= 0) return;
+        
+        const inicio = new Date('2000-01-01T' + horaInicio.value);
+        
+        let minutosTotais;
+        if (tipoAtividade === 'INTERVALO') {
+            minutosTotais = horasAulaValue;
+        } else {
+            minutosTotais = horasAulaValue * 45;
+        }
+        
+        const fim = new Date(inicio.getTime() + minutosTotais * 60 * 1000);
+        
+        const horas = String(fim.getHours()).padStart(2, '0');
+        const minutos = String(fim.getMinutes()).padStart(2, '0');
+        const horaFimFormatada = `${horas}:${minutos}`;
+        
+        if (horaFim) {
+            horaFim.value = horaFimFormatada;
+        }
+    }
+    
+    // Função para inicializar formulário no modal
+    function inicializarFormularioModal() {
+        const form = document.getElementById('formAulaQuadro');
+        if (form) {
+            // Garantir que o action do formulário está correto antes de adicionar o listener
+            let formAction = form.action;
+            const isEdicao = formAction.includes('/aulas/') && formAction.includes('/editar/');
+            const isCriacao = formAction.includes('/adicionar-aula/');
+            
+            if (!formAction || formAction.trim() === '' || formAction === '#' || 
+                formAction === window.location.pathname) {
+                
+                if (isEdicao) {
+                    // Extrair ID da aula da URL atual ou do action
+                    const match = formAction.match(/\/aulas\/(\d+)\/editar/) || 
+                                  window.location.pathname.match(/\/aulas\/(\d+)\/editar/);
+                    if (match) {
+                        formAction = `/militares/ensino/quadros-trabalho-semanal/aulas/${match[1]}/editar/`;
+                        form.action = formAction;
+                        console.log('Action do formulário de edição definido para:', formAction);
+                    }
+                } else if (isCriacao) {
+                    const quadroIdField = form.querySelector('#id_quadro');
+                    let idQuadro = quadroId;
+                    
+                    if (quadroIdField && quadroIdField.value) {
+                        idQuadro = quadroIdField.value;
+                    }
+                    
+                    if (idQuadro) {
+                        formAction = `/militares/ensino/quadros-trabalho-semanal/${idQuadro}/adicionar-aula/`;
+                        form.action = formAction;
+                        console.log('Action do formulário de criação definido para:', formAction);
+                    } else {
+                        console.error('Não foi possível determinar o ID do quadro');
+                    }
+                }
+            }
+            
+            // Adicionar listener ao formulário (usar once para evitar duplicação)
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const submitBtn = this.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submeterFormulario(this, submitBtn);
+                }
+            }, { once: false });
+        }
+        
+        // Inicializar Select2 para instrutor militar
+        let instrutorMilitarSelect2 = null;
+        if ($('#id_instrutor_militar').length) {
+            instrutorMilitarSelect2 = $('#id_instrutor_militar').select2({
+                theme: 'bootstrap-5',
+                dropdownParent: $('#modalAula'),
+                placeholder: 'Selecione o instrutor militar...',
+                allowClear: true,
+                ajax: {
+                    url: '/militares/militares/buscar/',
+                    dataType: 'json',
+                    delay: 250,
+                    data: function(params) {
+                        return {
+                            q: params.term,
+                            page: params.page || 1
+                        };
+                    },
+                    processResults: function(data) {
+                        return {
+                            results: data.results || []
+                        };
+                    },
+                    cache: true
+                }
+            });
+        }
+        
+        // Atualizar campos por tipo de atividade
+        const tipoAtividadeSelect = document.getElementById('id_tipo_atividade');
+        const camposAulaModal = document.getElementById('campos-aula-modal');
+        const camposOutrosModal = document.getElementById('campos-outros-modal');
+        
+        function atualizarCamposPorTipo() {
+            if (!tipoAtividadeSelect || !camposAulaModal || !camposOutrosModal) return;
+            
+            const tipo = tipoAtividadeSelect.value;
+            if (tipo === 'AULA') {
+                camposAulaModal.style.display = 'block';
+                camposOutrosModal.style.display = 'none';
+                const disciplinaField = document.getElementById('id_disciplina');
+                if (disciplinaField) disciplinaField.required = true;
+                const descricaoField = document.getElementById('id_descricao');
+                if (descricaoField) descricaoField.required = false;
+            } else {
+                camposAulaModal.style.display = 'none';
+                camposOutrosModal.style.display = 'block';
+                const disciplinaField = document.getElementById('id_disciplina');
+                if (disciplinaField) disciplinaField.required = false;
+                const descricaoField = document.getElementById('id_descricao');
+                if (descricaoField) descricaoField.required = true;
+            }
+            
+            const horasAulaHelp = document.getElementById('horas-aula-help');
+            if (horasAulaHelp) {
+                if (tipo === 'INTERVALO') {
+                    horasAulaHelp.textContent = 'Informe a quantidade de minutos (o sistema calculará a hora de término automaticamente)';
+                } else {
+                    horasAulaHelp.textContent = 'Informe a quantidade de horas/aula (o sistema calculará a hora de término automaticamente)';
+                }
+            }
+        }
+        
+        if (tipoAtividadeSelect) {
+            atualizarCamposPorTipo();
+            tipoAtividadeSelect.addEventListener('change', atualizarCamposPorTipo);
+        }
+        
+        // Função para atualizar carga horária total
+        function atualizarCargaHorariaTotalModal() {
+            const cargaHorariaTotalField = document.getElementById('id_carga_horaria_total');
+            const horasAulaField = document.getElementById('id_horas_aula');
+            
+            if (!cargaHorariaTotalField || !cargaHorariaTotalDisciplinaModal) return;
+            
+            let cargaCadastrada = cargaHorariaCadastradaInicialModal;
+            
+            // Se houver horas/aula já preenchidas, adicionar ao total
+            if (horasAulaField && horasAulaField.value) {
+                const horasAulaAtual = parseFloat(horasAulaField.value) || 0;
+                cargaCadastrada += horasAulaAtual;
+            }
+            
+            // Formato: "X de Y" (ex: "2 de 20", "4 de 20")
+            cargaHorariaTotalField.value = `${Math.round(cargaCadastrada)} de ${cargaHorariaTotalDisciplinaModal}`;
+        }
+        
+        // Event listener para disciplina - carregar instrutor
+        const disciplinaSelect = document.getElementById('id_disciplina');
+        if (disciplinaSelect) {
+            disciplinaSelect.addEventListener('change', function() {
+                const disciplinaId = this.value;
+                if (disciplinaId) {
+                    const url = `/militares/ensino/disciplinas/${disciplinaId}/dados/?quadro_id=${quadroId}`;
+                    
+                    console.log('Buscando dados da disciplina:', disciplinaId, 'URL:', url);
+                    
+                    fetch(url, {
+                        method: 'GET',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                        }
+                    })
+                    .then(response => processarRespostaHTTP(response, url))
+                    .then(data => {
+                        console.log('Dados da disciplina recebidos:', data);
+                        
+                        // Verificar se data é válido
+                        if (!data || typeof data !== 'object') {
+                            console.error('Resposta inválida da disciplina:', data);
+                            return;
+                        }
+                        
+                        // Verificar se há erro na resposta
+                        if (data.error) {
+                            console.error('Erro na resposta da disciplina:', data.error);
+                            alert('Erro ao buscar dados da disciplina: ' + data.error);
+                            return;
+                        }
+                        
+                        // Armazenar dados da disciplina
+                        if (data.carga_horaria_total) {
+                            cargaHorariaTotalDisciplinaModal = data.carga_horaria_total;
+                            cargaHorariaCadastradaInicialModal = data.carga_horaria_cadastrada || 0;
+                            ultimaAulaAcumuladoModal = data.ultima_aula_acumulado !== null && data.ultima_aula_acumulado !== undefined ? data.ultima_aula_acumulado : null;
+                            
+                            // Atualizar campo de carga horária total
+                            atualizarCargaHorariaTotalModal();
+                        } else {
+                            cargaHorariaTotalDisciplinaModal = null;
+                            cargaHorariaCadastradaInicialModal = 0;
+                            ultimaAulaAcumuladoModal = null;
+                            const cargaHorariaTotalField = document.getElementById('id_carga_horaria_total');
+                            if (cargaHorariaTotalField) {
+                                cargaHorariaTotalField.value = '';
+                            }
+                        }
+                        
+                        // Mostrar/esconder campos de instrutor e preencher automaticamente
+                        const campoMilitarWrapper = document.getElementById('campo-instrutor-militar-wrapper');
+                        const campoExternoWrapper = document.getElementById('campo-instrutor-externo-wrapper');
+                        const labelInstrutor = document.querySelector('#campo-instrutor-wrapper label');
+                        
+                        if (data.instrutor && data.instrutor.id && data.instrutor.campo) {
+                            const campoInstrutor = data.instrutor.campo;
+                            
+                            if (campoInstrutor === 'instrutor_militar') {
+                                if (campoMilitarWrapper) campoMilitarWrapper.style.display = 'block';
+                                if (campoExternoWrapper) campoExternoWrapper.style.display = 'none';
+                                if (labelInstrutor) labelInstrutor.textContent = 'Instrutor (Militar)';
+                            } else {
+                                if (campoMilitarWrapper) campoMilitarWrapper.style.display = 'none';
+                                if (campoExternoWrapper) campoExternoWrapper.style.display = 'block';
+                                if (labelInstrutor) labelInstrutor.textContent = 'Instrutor (Externo)';
+                            }
+                            
+                            const selectElement = document.getElementById(`id_${campoInstrutor}`);
+                            
+                            if (selectElement && data.instrutor.id) {
+                                if (campoInstrutor === 'instrutor_militar') {
+                                    setTimeout(function() {
+                                        const $select = $('#id_instrutor_militar');
+                                        if ($select.length) {
+                                            if (!$select.hasClass('select2-hidden-accessible')) {
+                                                inicializarFormularioModal();
+                                            }
+                                            const option = new Option(data.instrutor.nome, data.instrutor.id, true, true);
+                                            $select.append(option).trigger('change');
+                                            $select.val(data.instrutor.id).trigger('change');
+                                        }
+                                    }, 200);
+                                } else {
+                                    let optionExists = false;
+                                    for (let i = 0; i < selectElement.options.length; i++) {
+                                        if (selectElement.options[i].value == data.instrutor.id) {
+                                            optionExists = true;
+                                            break;
+                                        }
+                                    }
+                                    
+                                    if (!optionExists) {
+                                        const newOption = new Option(data.instrutor.nome, data.instrutor.id, true, true);
+                                        selectElement.appendChild(newOption);
+                                    }
+                                    selectElement.value = data.instrutor.id;
+                                }
+                                
+                                // Limpar o outro campo
+                                const outroCampo = campoInstrutor === 'instrutor_militar' ? 'instrutor_externo' : 'instrutor_militar';
+                                const outroSelect = document.getElementById(`id_${outroCampo}`);
+                                if (outroSelect) {
+                                    outroSelect.value = '';
+                                    if (outroCampo === 'instrutor_militar') {
+                                        const $outroSelect = $('#id_instrutor_militar');
+                                        if ($outroSelect.length && $outroSelect.hasClass('select2-hidden-accessible')) {
+                                            $outroSelect.val(null).trigger('change');
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            if (campoMilitarWrapper) campoMilitarWrapper.style.display = 'block';
+                            if (campoExternoWrapper) campoExternoWrapper.style.display = 'none';
+                            if (labelInstrutor) labelInstrutor.textContent = 'Instrutor';
+                            
+                            const instrutorMilitarSelect = document.getElementById('id_instrutor_militar');
+                            const instrutorExternoSelect = document.getElementById('id_instrutor_externo');
+                            if (instrutorMilitarSelect) {
+                                instrutorMilitarSelect.value = '';
+                                if (instrutorMilitarSelect2) {
+                                    instrutorMilitarSelect2.val(null).trigger('change');
+                                }
+                            }
+                            if (instrutorExternoSelect) {
+                                instrutorExternoSelect.value = '';
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Erro ao buscar dados da disciplina:', error);
+                        console.error('URL da requisição:', url);
+                        console.error('Disciplina ID:', disciplinaId);
+                        
+                        // Limpar campos em caso de erro
+                        cargaHorariaTotalDisciplinaModal = null;
+                        cargaHorariaCadastradaInicialModal = 0;
+                        ultimaAulaAcumuladoModal = null;
+                        const cargaHorariaTotalField = document.getElementById('id_carga_horaria_total');
+                        if (cargaHorariaTotalField) {
+                            cargaHorariaTotalField.value = '';
+                        }
+                        
+                        // Mostrar mensagem de erro mais amigável
+                        const errorMsg = formatarMensagemErro(error);
+                        if (errorMsg && !errorMsg.includes('Erro ao processar solicitação')) {
+                            console.warn('Erro ao buscar dados da disciplina:', errorMsg);
+                        }
+                    });
+                } else {
+                    // Limpar dados quando não há disciplina selecionada
+                    cargaHorariaTotalDisciplinaModal = null;
+                    cargaHorariaCadastradaInicialModal = 0;
+                    ultimaAulaAcumuladoModal = null;
+                    const cargaHorariaTotalField = document.getElementById('id_carga_horaria_total');
+                    if (cargaHorariaTotalField) {
+                        cargaHorariaTotalField.value = '';
+                    }
+                }
+            });
+            
+            // Se já houver disciplina selecionada, disparar evento
+            if (disciplinaSelect.value) {
+                setTimeout(function() {
+                    const changeEvent = new Event('change', { bubbles: true });
+                    disciplinaSelect.dispatchEvent(changeEvent);
+                }, 100);
+            }
+        }
+        
+        // Event listeners para cálculo de horas
+        const horaInicio = document.getElementById('id_hora_inicio');
+        const horaFim = document.getElementById('id_hora_fim');
+        const horasAula = document.getElementById('id_horas_aula');
+        
+        if (horaInicio) {
+            horaInicio.addEventListener('change', function() {
+                const tipoAtividade = tipoAtividadeSelect ? tipoAtividadeSelect.value : 'AULA';
+                calcularHoras(horaInicio, horaFim, horasAula, tipoAtividade);
+            });
+        }
+        
+        if (horaFim) {
+            horaFim.addEventListener('change', function() {
+                const tipoAtividade = tipoAtividadeSelect ? tipoAtividadeSelect.value : 'AULA';
+                calcularHoras(horaInicio, horaFim, horasAula, tipoAtividade);
+            });
+        }
+        
+        if (horasAula) {
+            horasAula.addEventListener('change', function() {
+                const tipoAtividade = tipoAtividadeSelect ? tipoAtividadeSelect.value : 'AULA';
+                calcularHoraFim(horaInicio, horasAula, horaFim, tipoAtividade);
+                // Atualizar carga horária total quando horas/aula mudar
+                atualizarCargaHorariaTotalModal();
+            });
+            
+            horasAula.addEventListener('input', function() {
+                const tipoAtividade = tipoAtividadeSelect ? tipoAtividadeSelect.value : 'AULA';
+                calcularHoraFim(horaInicio, horasAula, horaFim, tipoAtividade);
+                // Atualizar carga horária total quando horas/aula mudar
+                atualizarCargaHorariaTotalModal();
+            });
+        }
+        
+        // Event listener para dia da semana - calcular data
+        const diaSemanaSelect = document.getElementById('id_dia_semana');
+        const dataInput = document.getElementById('id_data');
+        
+        if (diaSemanaSelect && dataInput) {
+            diaSemanaSelect.addEventListener('change', function() {
+                calcularDataDoDia(diaSemanaSelect, dataInput);
+            });
+            
+            // Se já houver valor, calcular imediatamente
+            if (diaSemanaSelect.value) {
+                calcularDataDoDia(diaSemanaSelect, dataInput);
+            }
+        }
+        
+        // Fallback para garantir que a data esteja preenchida
+        if (dataInput && !dataInput.value && dataInicioSemana) {
+            dataInput.value = dataInicioSemana;
+        }
+        
+        // Buscar último horário do dia se houver dia selecionado
+        if (diaSemanaSelect && diaSemanaSelect.value && horaInicio) {
+            const dia = diaSemanaSelect.value;
+            const urlHorario = `/militares/ensino/quadros-trabalho-semanal/${quadroId}/ultimo-horario-dia/${dia}/`;
+            fetch(urlHorario, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => processarRespostaHTTP(response, urlHorario))
+            .then(horarioData => {
+                if (horarioData.hora_fim && horarioData.existe_aula) {
+                    horaInicio.value = horarioData.hora_fim;
+                    const changeEvent = new Event('change', { bubbles: true });
+                    horaInicio.dispatchEvent(changeEvent);
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao buscar último horário:', error);
+            });
+        }
+    }
+    
+    // Event listeners para editar/deletar aula
+    document.querySelectorAll('.btn-editar-aula').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const aulaId = this.getAttribute('data-aula-id');
+            const url = `/militares/ensino/quadros-trabalho-semanal/aulas/${aulaId}/editar/`;
+            
+            modalAulaContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Carregando formulário...</p>
+                </div>
+            `;
+            
+            modalAula.show();
+            
+            fetch(url, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => processarRespostaHTTP(response, url))
+            .then(data => {
+                if (data.html) {
+                    modalAulaContent.innerHTML = data.html;
+                    
+                    setTimeout(function() {
+                        // Garantir que o action do formulário está correto ANTES de inicializar
+                        const form = document.getElementById('formAulaQuadro');
+                        if (form) {
+                            const formAction = form.action;
+                            if (!formAction || formAction.trim() === '' || formAction === '#' || 
+                                formAction === window.location.pathname ||
+                                (formAction.includes('/quadros-trabalho-semanal/') && !formAction.match(/\/aulas\/\d+\/editar/))) {
+                                form.action = url;
+                                console.log('Action do formulário de edição corrigido para:', form.action);
+                            }
+                        }
+                        
+                        inicializarFormularioModal();
+                        
+                        // Carregar dados dinâmicos após inicialização (igual ao modal de criação)
+                        setTimeout(function() {
+                            const disciplinaSelect = document.getElementById('id_disciplina');
+                            const diaSemanaSelect = document.getElementById('id_dia_semana');
+                            const dataInput = document.getElementById('id_data');
+                            const horaInicioInput = document.getElementById('id_hora_inicio');
+                            const horasAulaInput = document.getElementById('id_horas_aula');
+                            const horaFimInput = document.getElementById('id_hora_fim');
+                            const tipoAtividadeSelect = document.getElementById('id_tipo_atividade');
+                            
+                            // Se houver disciplina selecionada, carregar dados da disciplina
+                            if (disciplinaSelect && disciplinaSelect.value) {
+                                const disciplinaId = disciplinaSelect.value;
+                                const urlDisciplina = `/militares/ensino/disciplinas/${disciplinaId}/dados/?quadro_id=${quadroId}`;
+                                
+                                console.log('Carregando dados da disciplina para edição:', disciplinaId);
+                                
+                                fetch(urlDisciplina, {
+                                    method: 'GET',
+                                    headers: {
+                                        'X-Requested-With': 'XMLHttpRequest',
+                                    }
+                                })
+                                .then(response => processarRespostaHTTP(response, urlDisciplina))
+                                .then(data => {
+                                    console.log('Dados da disciplina recebidos (edição):', data);
+                                    
+                                    // Armazenar dados da disciplina para atualização de carga horária
+                                    if (data.carga_horaria_total) {
+                                        cargaHorariaTotalDisciplinaModal = data.carga_horaria_total;
+                                        cargaHorariaCadastradaInicialModal = data.carga_horaria_cadastrada || 0;
+                                        ultimaAulaAcumuladoModal = data.ultima_aula_acumulado !== null && data.ultima_aula_acumulado !== undefined ? data.ultima_aula_acumulado : null;
+                                        
+                                        // Atualizar campo de carga horária total
+                                        // A carga_horaria_cadastrada já inclui a aula atual
+                                        // Para edição, precisamos subtrair as horas atuais e adicionar quando mudar
+                                        const cargaHorariaTotalField = document.getElementById('id_carga_horaria_total');
+                                        if (cargaHorariaTotalField && horasAulaInput) {
+                                            const horasAulaAtual = parseFloat(horasAulaInput.value) || 0;
+                                            // A carga cadastrada já inclui esta aula, então usamos diretamente
+                                            // Mas quando o usuário mudar as horas, precisamos recalcular
+                                            const cargaTotal = cargaHorariaCadastradaInicialModal;
+                                            cargaHorariaTotalField.value = `${Math.round(cargaTotal)} de ${Math.round(data.carga_horaria_total)}`;
+                                            
+                                            // Armazenar horas iniciais para cálculo correto quando mudar
+                                            const horasIniciaisAula = horasAulaAtual;
+                                            
+                                            // Adicionar listener para atualizar quando horas_aula mudar
+                                            const atualizarCargaAoMudarHoras = function() {
+                                                const horasNovas = parseFloat(horasAulaInput.value) || 0;
+                                                // Subtrair horas iniciais e adicionar horas novas
+                                                const cargaSemEstaAula = cargaHorariaCadastradaInicialModal - horasIniciaisAula;
+                                                const cargaTotalNova = cargaSemEstaAula + horasNovas;
+                                                cargaHorariaTotalField.value = `${Math.round(cargaTotalNova)} de ${Math.round(data.carga_horaria_total)}`;
+                                            };
+                                            
+                                            horasAulaInput.addEventListener('input', atualizarCargaAoMudarHoras);
+                                            horasAulaInput.addEventListener('change', atualizarCargaAoMudarHoras);
+                                        } else if (cargaHorariaTotalField) {
+                                            // Se não houver horas_aula, usar carga cadastrada diretamente
+                                            const cargaTotal = cargaHorariaCadastradaInicialModal;
+                                            cargaHorariaTotalField.value = `${Math.round(cargaTotal)} de ${Math.round(data.carga_horaria_total)}`;
+                                        }
+                                    }
+                                    
+                                    // Atualizar campos de instrutor se necessário (mas não sobrescrever se já estiver preenchido)
+                                    if (data.instrutor && data.instrutor.id && data.instrutor.campo) {
+                                        const campoInstrutor = data.instrutor.campo;
+                                        const selectElement = document.getElementById(`id_${campoInstrutor}`);
+                                        
+                                        // Só preencher se o campo estiver vazio
+                                        if (selectElement && (!selectElement.value || selectElement.value === '')) {
+                                            if (campoInstrutor === 'instrutor_militar') {
+                                                const $select = $('#id_instrutor_militar');
+                                                if ($select.length && !$select.val()) {
+                                                    if (!$select.hasClass('select2-hidden-accessible')) {
+                                                        inicializarFormularioModal();
+                                                    }
+                                                    const option = new Option(data.instrutor.nome, data.instrutor.id, true, true);
+                                                    $select.append(option).trigger('change');
+                                                }
+                                            } else if (campoInstrutor === 'instrutor_externo') {
+                                                selectElement.value = data.instrutor.id;
+                                            }
+                                        }
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error('Erro ao buscar dados da disciplina (edição):', error);
+                                });
+                            }
+                            
+                            // Se houver dia da semana selecionado, calcular data (se não estiver preenchida)
+                            if (diaSemanaSelect && diaSemanaSelect.value && dataInput && !dataInput.value) {
+                                calcularDataDoDia(diaSemanaSelect, dataInput);
+                            }
+                            
+                            // Se houver hora de início e horas/aula, calcular hora final (se não estiver preenchida)
+                            if (horaInicioInput && horasAulaInput && horaFimInput) {
+                                const tipoAtividade = tipoAtividadeSelect ? tipoAtividadeSelect.value : 'AULA';
+                                if (horaInicioInput.value && horasAulaInput.value && !horaFimInput.value) {
+                                    calcularHoraFim(horaInicioInput, horasAulaInput, horaFimInput, tipoAtividade);
+                                }
+                            }
+                            
+                            // Disparar evento de mudança na disciplina para atualizar carga horária
+                            if (disciplinaSelect && disciplinaSelect.value) {
+                                setTimeout(function() {
+                                    const changeEvent = new Event('change', { bubbles: true });
+                                    disciplinaSelect.dispatchEvent(changeEvent);
+                                }, 100);
+                            }
+                        }, 200);
+                    }, 100);
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                modalAulaContent.innerHTML = `
+                    <div class="modal-body">
+                        <div class="alert alert-danger">
+                            Erro ao carregar formulário: ${formatarMensagemErro(error)}
+                        </div>
+                    </div>
+                `;
+            });
+        });
+    });
+    
+    document.querySelectorAll('.btn-deletar-aula').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const aulaId = this.getAttribute('data-aula-id');
+            
+            if (!confirm('Tem certeza que deseja excluir esta aula?')) {
+                return;
+            }
+            
+            const url = `/militares/ensino/quadros-trabalho-semanal/aulas/${aulaId}/deletar/`;
+            
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+                }
+            })
+            .then(response => processarRespostaHTTP(response, url))
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Erro ao excluir aula: ' + (data.message || 'Erro desconhecido'));
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert('Erro ao excluir aula: ' + formatarMensagemErro(error));
+            });
+        });
+    });
+    
+    // Funções para assinaturas do QTS
+    function assinarRevisaoQTS(quadroId) {
+        // Buscar dados do QTS via AJAX
+        fetch(`/militares/ensino/quadros-trabalho-semanal/${quadroId}/dados-assinatura/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Preencher informações do QTS no modal
+                    document.getElementById('qtsId').value = quadroId;
+                    document.getElementById('qtsNumero').textContent = data.quadro.numero || '-';
+                    document.getElementById('qtsTurma').textContent = data.quadro.turma || '-';
+                    
+                    // Preencher opções de função
+                    const funcaoSelect = document.getElementById('funcao_assinatura_modal_qts');
+                    funcaoSelect.innerHTML = '<option value="">Selecione uma função...</option>';
+                    data.funcoes_usuario.forEach(funcao => {
+                        const option = document.createElement('option');
+                        option.value = funcao.nome;
+                        option.textContent = funcao.nome;
+                        if (funcao.ativo) {
+                            option.selected = true;
+                        }
+                        funcaoSelect.appendChild(option);
+                    });
+                    
+                    // Limpar campos do formulário
+                    document.getElementById('observacoes_modal_qts').value = '';
+                    
+                    // Mostrar modal
+                    const modal = new bootstrap.Modal(document.getElementById('modalAssinarRevisaoQTS'));
+                    modal.show();
+                } else {
+                    alert('Erro ao carregar dados do QTS: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert('Erro ao carregar dados do QTS. Tente novamente.');
+            });
+    }
+    
+    function assinarAprovacaoQTS(quadroId) {
+        // Buscar dados do QTS via AJAX
+        fetch(`/militares/ensino/quadros-trabalho-semanal/${quadroId}/dados-assinatura/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Preencher informações do QTS no modal
+                    document.getElementById('qtsIdAprovacao').value = quadroId;
+                    document.getElementById('qtsNumeroAprovacao').textContent = data.quadro.numero || '-';
+                    document.getElementById('qtsTurmaAprovacao').textContent = data.quadro.turma || '-';
+                    
+                    // Preencher opções de função
+                    const funcaoSelect = document.getElementById('funcao_assinatura_modal_qts_aprovacao');
+                    funcaoSelect.innerHTML = '<option value="">Selecione uma função...</option>';
+                    data.funcoes_usuario.forEach(funcao => {
+                        const option = document.createElement('option');
+                        option.value = funcao.nome;
+                        option.textContent = funcao.nome;
+                        if (funcao.ativo) {
+                            option.selected = true;
+                        }
+                        funcaoSelect.appendChild(option);
+                    });
+                    
+                    // Limpar campos do formulário
+                    document.getElementById('observacoes_modal_qts_aprovacao').value = '';
+                    
+                    // Mostrar modal
+                    const modal = new bootstrap.Modal(document.getElementById('modalAssinarAprovacaoQTS'));
+                    modal.show();
+                } else {
+                    alert('Erro ao carregar dados do QTS: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert('Erro ao carregar dados do QTS. Tente novamente.');
+            });
+    }
+    
+    // Event listeners para os botões de confirmação
+    document.addEventListener('DOMContentLoaded', function() {
+        const btnConfirmarRevisao = document.getElementById('btnConfirmarAssinaturaRevisaoQTS');
+        if (btnConfirmarRevisao) {
+            btnConfirmarRevisao.addEventListener('click', function() {
+                const form = document.getElementById('formAssinaturaRevisaoQTS');
+                const formData = new FormData(form);
+                const quadroId = document.getElementById('qtsId').value;
+                
+                fetch(`/militares/ensino/quadros-trabalho-semanal/${quadroId}/assinar-revisao/`, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message || 'QTS assinado como Revisor com sucesso!');
+                        location.reload();
+                    } else {
+                        alert('Erro: ' + (data.error || 'Erro desconhecido'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro:', error);
+                    alert('Erro ao assinar QTS. Tente novamente.');
+                });
+            });
+        }
+        
+        const btnConfirmarAprovacao = document.getElementById('btnConfirmarAssinaturaAprovacaoQTS');
+        if (btnConfirmarAprovacao) {
+            btnConfirmarAprovacao.addEventListener('click', function() {
+                const form = document.getElementById('formAssinaturaAprovacaoQTS');
+                const formData = new FormData(form);
+                const quadroId = document.getElementById('qtsIdAprovacao').value;
+                
+                fetch(`/militares/ensino/quadros-trabalho-semanal/${quadroId}/assinar-aprovacao/`, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message || 'QTS assinado como Aprovador com sucesso!');
+                        location.reload();
+                    } else {
+                        alert('Erro: ' + (data.error || 'Erro desconhecido'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro:', error);
+                    alert('Erro ao assinar QTS. Tente novamente.');
+                });
+            });
+        }
+    });
+});
+</script>
+
+<!-- Modal de Assinatura de Revisão QTS -->
+<div class="modal fade" id="modalAssinarRevisaoQTS" tabindex="-1" aria-labelledby="modalAssinarRevisaoQTSLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-info text-white border-0">
+                <h5 class="modal-title" id="modalAssinarRevisaoQTSLabel">
+                    <i class="fas fa-signature me-2"></i>
+                    Assinar QTS como Revisor
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Informações do QTS -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-muted mb-3">Informações do Quadro de Trabalho Semanal</h6>
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p class="mb-2"><strong>Número:</strong> <span id="qtsNumero">-</span></p>
+                                        <p class="mb-2"><strong>Turma:</strong> <span id="qtsTurma">-</span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Formulário de Assinatura -->
+                <form id="formAssinaturaRevisaoQTS">
+                    {% csrf_token %}
+                    <input type="hidden" id="qtsId" name="quadro_id">
+                    
+                    <!-- Campo para selecionar função -->
+                    <div class="mb-3">
+                        <label for="funcao_assinatura_modal_qts" class="form-label"><strong>Função para Assinatura *</strong></label>
+                        <select class="form-select" id="funcao_assinatura_modal_qts" name="funcao_assinatura" required>
+                            <option value="">Selecione uma função...</option>
+                        </select>
+                        <div class="form-text">Selecione a função que será exibida na assinatura do QTS.</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="observacoes_modal_qts" class="form-label">Observações (opcional)</label>
+                        <textarea name="observacoes" id="observacoes_modal_qts" class="form-control" rows="3" placeholder="Observações sobre a assinatura..."></textarea>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Atenção:</strong> A assinatura eletrônica tem a mesma validade de uma assinatura física. 
+                        Certifique-se de que todas as informações estão corretas antes de assinar.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-info" id="btnConfirmarAssinaturaRevisaoQTS">
+                    <i class="fas fa-signature me-1"></i>
+                    Assinar como Revisor
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Assinatura de Aprovação QTS -->
+<div class="modal fade" id="modalAssinarAprovacaoQTS" tabindex="-1" aria-labelledby="modalAssinarAprovacaoQTSLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white border-0">
+                <h5 class="modal-title" id="modalAssinarAprovacaoQTSLabel">
+                    <i class="fas fa-signature me-2"></i>
+                    Assinar QTS como Aprovador
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Informações do QTS -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-muted mb-3">Informações do Quadro de Trabalho Semanal</h6>
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p class="mb-2"><strong>Número:</strong> <span id="qtsNumeroAprovacao">-</span></p>
+                                        <p class="mb-2"><strong>Turma:</strong> <span id="qtsTurmaAprovacao">-</span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Formulário de Assinatura -->
+                <form id="formAssinaturaAprovacaoQTS">
+                    {% csrf_token %}
+                    <input type="hidden" id="qtsIdAprovacao" name="quadro_id">
+                    
+                    <!-- Campo para selecionar função -->
+                    <div class="mb-3">
+                        <label for="funcao_assinatura_modal_qts_aprovacao" class="form-label"><strong>Função para Assinatura *</strong></label>
+                        <select class="form-select" id="funcao_assinatura_modal_qts_aprovacao" name="funcao_assinatura" required>
+                            <option value="">Selecione uma função...</option>
+                        </select>
+                        <div class="form-text">Selecione a função que será exibida na assinatura do QTS.</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="observacoes_modal_qts_aprovacao" class="form-label">Observações (opcional)</label>
+                        <textarea name="observacoes" id="observacoes_modal_qts_aprovacao" class="form-control" rows="3" placeholder="Observações sobre a assinatura..."></textarea>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Atenção:</strong> A assinatura eletrônica tem a mesma validade de uma assinatura física. 
+                        Certifique-se de que todas as informações estão corretas antes de assinar.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" id="btnConfirmarAssinaturaAprovacaoQTS">
+                    <i class="fas fa-signature me-1"></i>
+                    Assinar como Aprovador
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load militares_extras %}
+
+{% block title %}Resultado Final - {{ edicao.nome }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="mb-0">
+                    <i class="fas fa-trophy me-2"></i>
+                    Resultado Final - {{ edicao.nome }}
+                </h1>
+                <a href="{% url 'militares:ensino_edicao_detalhes' pk=edicao.pk %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Voltar
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Informações da Edição</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <p><strong>Curso:</strong><br>{{ edicao.curso.nome }}</p>
+                </div>
+                <div class="col-md-3">
+                    <p><strong>Edição:</strong><br>{{ edicao.nome }}</p>
+                </div>
+                <div class="col-md-3">
+                    <p><strong>Turmas:</strong><br>{{ turmas.count }}</p>
+                </div>
+                <div class="col-md-3">
+                    <p><strong>Alunos:</strong><br>{{ resultado_final|length }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-list-ol me-2"></i>
+                Classificação Final (Ordenada por MFC - Média Final do Curso)
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th class="text-center" style="width: 60px;">Pos.</th>
+                            <th>Aluno</th>
+                            <th class="text-center">MFC</th>
+                            <th class="text-center">Aprovadas</th>
+                            <th class="text-center">Reprovadas</th>
+                            <th class="text-center">Status Final</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for resultado in resultado_final_aprovados %}
+                        <tr>
+                            <td class="text-center">
+                                <strong class="text-primary">{{ forloop.counter }}º</strong>
+                            </td>
+                            <td>
+                                {% if resultado.aluno.militar %}
+                                    <strong>{{ resultado.aluno.militar.get_posto_graduacao_display }} {{ resultado.aluno.militar.nome_completo }}</strong>
+                                    {% if resultado.aluno.matricula %}
+                                        <br><small class="text-muted">Matrícula: {{ resultado.aluno.matricula }}</small>
+                                    {% endif %}
+                                {% elif resultado.aluno.pessoa_externa %}
+                                    <strong>{{ resultado.aluno.pessoa_externa.get_nome_completo }}</strong>
+                                {% elif resultado.aluno.nome_outra_forca %}
+                                    <strong>{{ resultado.aluno.nome_outra_forca }}</strong>
+                                {% elif resultado.aluno.nome_civil %}
+                                    <strong>{{ resultado.aluno.nome_civil }}</strong>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <strong class="fs-5">{{ resultado.mfc|floatformat:3 }}</strong>
+                                {% if resultado.status_final == 'APROVADO_2_EPOCA' %}
+                                    <span class="badge bg-info ms-2" title="MFC ajustada por 2ª época">ajustada</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-success">{{ resultado.disciplinas_aprovadas }}</span>
+                            </td>
+                            <td class="text-center">
+                                {% if resultado.disciplinas_reprovadas > 0 %}
+                                    <span class="badge bg-danger">{{ resultado.disciplinas_reprovadas }}</span>
+                                {% else %}
+                                    <span class="text-muted">0</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if resultado.status_final == 'APROVADO' %}
+                                    <span class="badge bg-success">Aprovado</span>
+                                {% elif resultado.status_final == 'APROVADO_2_EPOCA' %}
+                                    <span class="badge bg-success">Aprovado em 2ª Época</span>
+                                {% elif resultado.status_final == 'REPROVADO_POR_FALTAS' %}
+                                    <span class="badge bg-danger">Reprovado por Faltas</span>
+                                {% elif resultado.status_final == 'REPROVADO' %}
+                                    <span class="badge bg-danger">Reprovado</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">Em Andamento</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Nenhum aluno aprovado.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-times-circle me-2"></i>
+                Reprovados
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Aluno</th>
+                            <th class="text-center">MFC</th>
+                            <th class="text-center">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for resultado in resultado_final_reprovados %}
+                        <tr>
+                            <td>
+                                {% if resultado.aluno.militar %}
+                                    <strong>{{ resultado.aluno.militar.get_posto_graduacao_display }} {{ resultado.aluno.militar.nome_completo }}</strong>
+                                    {% if resultado.aluno.matricula %}
+                                        <br><small class="text-muted">Matrícula: {{ resultado.aluno.matricula }}</small>
+                                    {% endif %}
+                                {% elif resultado.aluno.pessoa_externa %}
+                                    <strong>{{ resultado.aluno.pessoa_externa.get_nome_completo }}</strong>
+                                {% elif resultado.aluno.nome_outra_forca %}
+                                    <strong>{{ resultado.aluno.nome_outra_forca }}</strong>
+                                {% elif resultado.aluno.nome_civil %}
+                                    <strong>{{ resultado.aluno.nome_civil }}</strong>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <strong class="fs-5">{{ resultado.mfc|floatformat:3 }}</strong>
+                            </td>
+                            <td class="text-center">
+                                {% if resultado.status_final == 'REPROVADO_POR_FALTAS' %}
+                                    <span class="badge bg-danger">Reprovado por Faltas</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Reprovado</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Nenhum aluno reprovado.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,471 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load militares_extras %}
+
+{% block title %}Caderneta de Frequência - {{ disciplina.nome }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="mb-0">
+                        <i class="fas fa-clipboard-list me-2"></i>
+                        Caderneta de Frequência
+                    </h1>
+                    <p class="mb-0">
+                        <strong>Instrutor:</strong>
+                        {% if disciplina.instrutor_responsavel_militar %}
+                            {{ disciplina.instrutor_responsavel_militar.get_posto_graduacao_display }} {{ disciplina.instrutor_responsavel_militar.nome_completo }}
+                        {% else %}
+                            <span class="text-muted">Não definido</span>
+                        {% endif %}
+                        | <span class="text-muted"><strong>Disciplina:</strong> {{ disciplina.nome }} {% if disciplina.codigo %}({{ disciplina.codigo }}){% endif %}</span>
+                    </p>
+                    <small class="text-muted d-block mt-1">Turma: {{ turma.identificacao }}</small>
+                </div>
+                <a href="{% url 'militares:ensino_dashboard_instrutor' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Voltar
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Botão para adicionar nova data/aula -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalAdicionarAula">
+                <i class="fas fa-plus me-2"></i>
+                Adicionar Data/Aula
+            </button>
+        </div>
+    </div>
+    
+    <!-- Tabela de Frequência -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-table me-2"></i>
+                        Caderneta de Frequência
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <form method="post" id="formFrequencias">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="salvar_frequencias">
+                        
+                        {% if is_apk or request.GET.apk %}
+                            <div class="mb-2" style="display:none;">
+                                {% for aula in aulas %}
+                                <input type="hidden" name="aulas_ids[]" value="{{ aula.pk }}">
+                                {% endfor %}
+                            </div>
+                            <div class="d-grid gap-3">
+                                {% for aluno in alunos %}
+                                <div class="card border-0 shadow-sm">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-start">
+                                            <div class="flex-grow-1">
+                                                <div class="fw-bold">
+                                                    {% if aluno.militar %}
+                                                        {{ aluno.militar.get_posto_graduacao_display }} {{ aluno.militar.nome_completo }}
+                                                    {% elif aluno.pessoa_externa %}
+                                                        {{ aluno.pessoa_externa.get_nome_completo }}
+                                                    {% else %}
+                                                        {{ aluno.get_nome_completo }}
+                                                    {% endif %}
+                                                </div>
+                                                <div class="text-muted">Matrícula: {{ aluno.matricula|default:"-" }}</div>
+                                            </div>
+                                        </div>
+                                        <div class="mt-3">
+                                            <div class="d-flex overflow-auto gap-2">
+                                                {% for aula in aulas %}
+                                                <div class="border rounded p-2" style="min-width: 180px;">
+                                                    <div class="small fw-bold">{{ aula.data_aula|date:"d/m/Y" }}</div>
+                                                    <div class="small text-muted">{{ aula.hora_inicio|time:"H:i" }} - {{ aula.hora_fim|time:"H:i" }}</div>
+                                                    {% with horas_aula=horas_aula_por_aula|lookup:aula.pk %}
+                                                    {% with acumulado=acumulado_por_aula|lookup:aula.pk %}
+                                                    {% if horas_aula %}
+                                                        <div class="small text-info fw-bold mt-1">{{ horas_aula|floatformat:0 }} h/a</div>
+                                                        {% if carga_horaria_total %}
+                                                        <div class="small text-secondary">{{ acumulado|floatformat:0 }} h/a de {{ carga_horaria_total|floatformat:0 }} h/a</div>
+                                                        {% endif %}
+                                                    {% endif %}
+                                                    {% endwith %}
+                                                    {% endwith %}
+                                                    {% with key=aula.pk|stringformat:"s" %}
+                                                    {% with key2=aluno.pk|stringformat:"s" %}
+                                                    {% with key_full=key|add:"_"|add:key2 %}
+                                                    {% with freq=frequencias_dict|lookup:key_full %}
+                                                    <select name="presenca_{{ aula.pk }}_{{ aluno.pk }}" class="form-select form-select-sm presenca-select mt-2">
+                                                        <option value="">-</option>
+                                                        <option value="PRESENTE" {% if freq and freq.presenca == 'PRESENTE' %}selected{% endif %}>Presente</option>
+                                                        <option value="FALTA" {% if freq and freq.presenca == 'FALTA' %}selected{% endif %}>Falta</option>
+                                                        <option value="FALTA_JUSTIFICADA" {% if freq and freq.presenca == 'FALTA_JUSTIFICADA' %}selected{% endif %}>Falta Justificada</option>
+                                                        <option value="ATRASO" {% if freq and freq.presenca == 'ATRASO' %}selected{% endif %}>Atraso</option>
+                                                        <option value="SAIDA_ANTECIPADA" {% if freq and freq.presenca == 'SAIDA_ANTECIPADA' %}selected{% endif %}>Saída Antecipada</option>
+                                                    </select>
+                                                    {% endwith %}
+                                                    {% endwith %}
+                                                    {% endwith %}
+                                                    {% endwith %}
+                                                </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% empty %}
+                                <div class="text-center text-muted">Nenhum aluno cadastrado nesta turma.</div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="table-responsive" style="max-height: 70vh; overflow-y: auto;">
+                                <table class="table table-bordered table-sm table-sticky-header" style="margin-bottom: 0;">
+                                    <thead class="table-light sticky-top" style="z-index: 10;">
+                                        <tr>
+                                            <th style="position: sticky; left: 0; background-color: #f8f9fa; z-index: 11; min-width: 200px;">
+                                                <div class="d-flex align-items-center">
+                                                    <span>Aluno</span>
+                                                </div>
+                                            </th>
+                                            {% for aula in aulas %}
+                                                <th class="text-center" style="min-width: 120px;">
+                                                    <div class="d-flex flex-column align-items-center">
+                                                        <strong>{{ aula.data_aula|date:"d/m/Y" }}</strong>
+                                                        <small class="text-muted">{{ aula.hora_inicio|time:"H:i" }} - {{ aula.hora_fim|time:"H:i" }}</small>
+                                                        {% with horas_aula=horas_aula_por_aula|lookup:aula.pk %}
+                                                        {% with acumulado=acumulado_por_aula|lookup:aula.pk %}
+                                                        {% if horas_aula %}
+                                                            <small class="text-info fw-bold mt-1">
+                                                                {{ horas_aula|floatformat:0 }} h/a
+                                                            </small>
+                                                            {% if carga_horaria_total %}
+                                                                <small class="text-secondary">
+                                                                    {{ acumulado|floatformat:0 }} h/a de {{ carga_horaria_total|floatformat:0 }} h/a
+                                                                </small>
+                                                            {% endif %}
+                                                        {% endif %}
+                                                        {% endwith %}
+                                                        {% endwith %}
+                                                        <input type="hidden" name="aulas_ids[]" value="{{ aula.pk }}">
+                                                    </div>
+                                                </th>
+                                            {% endfor %}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for aluno in alunos %}
+                                            <tr>
+                                                <td style="position: sticky; left: 0; background-color: white; z-index: 9; font-weight: bold;">
+                                                    <div>
+                                                        <span class="badge bg-secondary me-2">{{ forloop.counter }}</span>
+                                                        {% if aluno.militar %}
+                                                            <strong>{{ aluno.militar.get_posto_graduacao_display }} {{ aluno.militar.nome_completo }}</strong>
+                                                        {% elif aluno.pessoa_externa %}
+                                                            <strong>{{ aluno.pessoa_externa.get_nome_completo }}</strong>
+                                                        {% else %}
+                                                            <strong>{{ aluno.get_nome_completo }}</strong>
+                                                        {% endif %}
+                                                        <br><small class="text-muted">Matrícula: {{ aluno.matricula|default:"-" }}</small>
+                                                    </div>
+                                                </td>
+                                                {% for aula in aulas %}
+                                                    <td class="text-center">
+                                                        {% with key=aula.pk|stringformat:"s" %}
+                                                        {% with key2=aluno.pk|stringformat:"s" %}
+                                                        {% with key_full=key|add:"_"|add:key2 %}
+                                                        {% with freq=frequencias_dict|lookup:key_full %}
+                                                            <select name="presenca_{{ aula.pk }}_{{ aluno.pk }}" class="form-select form-select-sm presenca-select" 
+                                                                    data-aula-id="{{ aula.pk }}" 
+                                                                    data-aluno-id="{{ aluno.pk }}"
+                                                                    style="min-width: 100px;">
+                                                                <option value="">-</option>
+                                                                <option value="PRESENTE" {% if freq and freq.presenca == 'PRESENTE' %}selected{% endif %}>Presente</option>
+                                                                <option value="FALTA" {% if freq and freq.presenca == 'FALTA' %}selected{% endif %}>Falta</option>
+                                                                <option value="FALTA_JUSTIFICADA" {% if freq and freq.presenca == 'FALTA_JUSTIFICADA' %}selected{% endif %}>Falta Justificada</option>
+                                                                <option value="ATRASO" {% if freq and freq.presenca == 'ATRASO' %}selected{% endif %}>Atraso</option>
+                                                                <option value="SAIDA_ANTECIPADA" {% if freq and freq.presenca == 'SAIDA_ANTECIPADA' %}selected{% endif %}>Saída Antecipada</option>
+                                                            </select>
+                                                        {% endwith %}
+                                                        {% endwith %}
+                                                        {% endwith %}
+                                                        {% endwith %}
+                                                    </td>
+                                                {% endfor %}
+                                            </tr>
+                                        {% empty %}
+                                            <tr>
+                                                <td colspan="{{ aulas|length|add:1 }}" class="text-center text-muted">
+                                                    <i class="fas fa-info-circle me-2"></i>
+                                                    Nenhum aluno cadastrado nesta turma.
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% endif %}
+                        
+                        {% if alunos and aulas %}
+                            <div class="card-footer">
+                                <button type="submit" class="btn btn-success">
+                                    <i class="fas fa-save me-2"></i>
+                                    Salvar Frequências
+                                </button>
+                            </div>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Adicionar Nova Aula -->
+<div class="modal fade" id="modalAdicionarAula" tabindex="-1" aria-labelledby="modalAdicionarAulaLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="adicionar_aula">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalAdicionarAulaLabel">
+                        <i class="fas fa-plus me-2"></i>
+                        Adicionar Nova Data/Aula
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="data_aula" class="form-label">Data da Aula <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control" id="data_aula" name="data_aula" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="hora_inicio" class="form-label">Hora de Início</label>
+                            <input type="time" class="form-control" id="hora_inicio" name="hora_inicio" value="08:00">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="horas_aula" class="form-label">Horas/Aula</label>
+                            <input type="number" class="form-control" id="horas_aula" name="horas_aula" min="0" step="0.01" value="1.5" placeholder="Informe a quantidade de horas/aula">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="hora_fim" class="form-label">Hora de Término</label>
+                            <input type="time" class="form-control" id="hora_fim" name="hora_fim" value="09:30" readonly>
+                            <small class="form-text text-muted">Calculado automaticamente</small>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="tipo_local" class="form-label">Tipo de Local</label>
+                            <select class="form-select" id="tipo_local" name="tipo_local">
+                                <option value="SALA" selected>Sala de Aula</option>
+                                <option value="AUDITORIO">Auditório</option>
+                                <option value="CAMPO">Campo</option>
+                                <option value="PISTA">Pista</option>
+                                <option value="LABORATORIO">Laboratório</option>
+                                <option value="OUTROS">Outros</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="local" class="form-label">Local</label>
+                            <input type="text" class="form-control" id="local" name="local" value="Sala de Aula">
+                        </div>
+                    </div>
+                    {% if disciplina.instrutor_responsavel_militar %}
+                    <div class="mb-3">
+                        <label class="form-label">Instrutor</label>
+                        <div class="form-control-plaintext">
+                            {{ disciplina.instrutor_responsavel_militar.get_posto_graduacao_display }} {{ disciplina.instrutor_responsavel_militar.nome_completo }}
+                        </div>
+                        <input type="hidden" name="instrutor" value="{{ disciplina.instrutor_responsavel_militar.pk }}">
+                    </div>
+                    {% else %}
+                    <div class="mb-3">
+                        <label for="instrutor" class="form-label">Instrutor</label>
+                        <select class="form-select militar-select2" id="instrutor" name="instrutor">
+                            <option value="">Selecione um instrutor...</option>
+                        </select>
+                    </div>
+                    {% endif %}
+                    <div class="mb-3">
+                        <label for="conteudo_ministrado" class="form-label">Conteúdo Ministrado <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="conteudo_ministrado" name="conteudo_ministrado" rows="4" required placeholder="Descreva o conteúdo ministrado nesta aula..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="observacoes" class="form-label">Observações</label>
+                        <textarea class="form-control" id="observacoes" name="observacoes" rows="3" placeholder="Observações adicionais sobre a aula..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>
+                        Adicionar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.table-sticky-header thead th {
+    position: sticky;
+    top: 0;
+    background-color: #f8f9fa;
+    z-index: 10;
+}
+
+.table-sticky-header tbody td:first-child {
+    position: sticky;
+    left: 0;
+    background-color: white;
+    z-index: 9;
+}
+
+.table-sticky-header thead th:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 11;
+}
+
+.presenca-select {
+    cursor: pointer;
+}
+
+.presenca-select option[value="PRESENTE"] {
+    background-color: #d4edda;
+}
+
+.presenca-select option[value="FALTA"] {
+    background-color: #f8d7da;
+}
+
+.presenca-select option[value="FALTA_JUSTIFICADA"] {
+    background-color: #fff3cd;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Definir data mínima como hoje
+    const dataAulaInput = document.getElementById('data_aula');
+    if (dataAulaInput) {
+        const hoje = new Date().toISOString().split('T')[0];
+        dataAulaInput.setAttribute('min', hoje);
+    }
+    
+    // Função para calcular horário final baseado na hora inicial e quantidade de horas
+    function calcularHorarioFinal() {
+        const horaInicio = document.getElementById('hora_inicio').value;
+        const horasAula = parseFloat(document.getElementById('horas_aula').value) || 0;
+        const horaFimInput = document.getElementById('hora_fim');
+        
+        if (horaInicio && horasAula > 0) {
+            // Converter hora inicial para minutos
+            const [horas, minutos] = horaInicio.split(':').map(Number);
+            const minutosInicio = horas * 60 + minutos;
+            
+            // Adicionar as horas aula (convertidas para minutos)
+            // Cada hora-aula = 45 minutos
+            const minutosAula = horasAula * 45;
+            const minutosFim = minutosInicio + minutosAula;
+            
+            // Converter de volta para formato HH:MM
+            const horasFim = Math.floor(minutosFim / 60) % 24;
+            const minutosFimFinal = minutosFim % 60;
+            
+            // Formatar com zero à esquerda
+            const horaFimFormatada = String(horasFim).padStart(2, '0') + ':' + String(minutosFimFinal).padStart(2, '0');
+            horaFimInput.value = horaFimFormatada;
+        }
+    }
+    
+    // Adicionar event listeners para calcular automaticamente
+    const horaInicioInput = document.getElementById('hora_inicio');
+    const horasAulaInput = document.getElementById('horas_aula');
+    
+    if (horaInicioInput && horasAulaInput) {
+        horaInicioInput.addEventListener('change', calcularHorarioFinal);
+        horaInicioInput.addEventListener('input', calcularHorarioFinal);
+        horasAulaInput.addEventListener('change', calcularHorarioFinal);
+        horasAulaInput.addEventListener('input', calcularHorarioFinal);
+        
+        // Calcular inicialmente
+        calcularHorarioFinal();
+    }
+    
+    // Auto-save ao mudar presença (opcional - pode ser removido se preferir salvar apenas ao clicar no botão)
+    // Descomente as linhas abaixo se quiser salvar automaticamente ao mudar
+    /*
+    const presencaSelects = document.querySelectorAll('.presenca-select');
+    presencaSelects.forEach(select => {
+        select.addEventListener('change', function() {
+            // Aqui poderia fazer um AJAX para salvar automaticamente
+            console.log('Presença alterada:', this.value);
+        });
+    });
+    */
+    
+    // Inicializar Select2 para o campo de instrutor quando o modal for aberto
+    const modalAdicionarAula = document.getElementById('modalAdicionarAula');
+    if (modalAdicionarAula) {
+        modalAdicionarAula.addEventListener('shown.bs.modal', function () {
+            // Aguardar jQuery e Select2 estarem disponíveis
+            function inicializarSelect2Instrutor() {
+                if (typeof jQuery !== 'undefined' && typeof jQuery.fn !== 'undefined' && typeof jQuery.fn.select2 !== 'undefined') {
+                    const instrutorSelect = jQuery('#instrutor');
+                    if (instrutorSelect.length && !instrutorSelect.hasClass('select2-hidden-accessible')) {
+                        instrutorSelect.select2({
+                            placeholder: 'Digite o nome, matrícula ou posto do militar...',
+                            allowClear: true,
+                            minimumInputLength: 2,
+                            dropdownParent: jQuery('#modalAdicionarAula'),
+                            ajax: {
+                                url: '{% url "militares:militar-autocomplete" %}',
+                                dataType: 'json',
+                                delay: 250,
+                                data: function (params) {
+                                    return {
+                                        q: params.term
+                                    };
+                                },
+                                processResults: function (data) {
+                                    return {
+                                        results: data.results || []
+                                    };
+                                },
+                                cache: true
+                            },
+                            language: {
+                                inputTooShort: function () {
+                                    return 'Digite pelo menos 2 caracteres...';
+                                },
+                                noResults: function () {
+                                    return 'Nenhum militar encontrado';
+                                },
+                                searching: function () {
+                                    return 'Buscando...';
+                                }
+                            }
+                        });
+                    }
+                } else {
+                    // Tentar novamente após um pequeno delay
+                    setTimeout(inicializarSelect2Instrutor, 100);
+                }
+            }
+            inicializarSelect2Instrutor();
+        });
+    }
+});
+</script>
+{% endblock %}
+

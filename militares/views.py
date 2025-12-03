@@ -111,7 +111,7 @@ from .models import (
 )
 from .forms import MilitarForm, DocumentoForm, UserRegistrationForm, ConfirmarSenhaForm, ComissaoPromocaoForm, MembroComissaoForm, SessaoComissaoForm, DeliberacaoComissaoForm, DocumentoSessaoForm, AtaSessaoForm, ModeloAtaForm, CargoComissaoForm, FichaConceitoPracasForm, FichaConceitoOficiaisForm, UsuarioForm, FuncaoMilitarForm, QualificacaoForm, MilitarFuncaoForm
 from .decorators import usuario_comissao_required, usuario_cpo_required, usuario_cpp_required, apenas_visualizacao_comissao, administracao_required, militar_edit_permission, comissao_acesso_total, cargos_especiais_required, can_edit_ficha_conceito, can_edit_militar, diretor_gestao_chefe_promocoes_required
-from .admin_decorators import admin_bypass, admin_or_permission_required
+from .admin_decorators import admin_bypass, admin_or_permission_required, admin_or_gerenciar_usuarios_required
 # from .permissoes_simples import requer_gerenciamento_comissoes
 from .permissoes import requer_funcao_ativa
 from django import forms
@@ -156,7 +156,61 @@ def teste_modal_simples(request):
 @requer_funcao_ativa
 def militar_list(request):
     """Lista todos os militares ativos com paginação e busca"""
-    militares = Militar.objects.filter(classificacao='ATIVO')
+    # Parâmetros de filtro
+    query = request.GET.get('q', '').strip()
+    posto_param = request.GET.get('posto', '').strip()
+    situacao_param = request.GET.get('situacao', '').strip()  # 'at' ou 'in'
+    quadro_param = request.GET.get('quadro', '').strip()
+    estrutura_param = request.GET.get('estrutura', '').strip()
+
+    # Base: ativos por padrão
+    if situacao_param == 'in':
+        militares = Militar.objects.filter(classificacao='INATIVO')
+    else:
+        militares = Militar.objects.filter(classificacao='ATIVO')
+
+    # Filtro por busca textual
+    if query:
+        militares = militares.filter(
+            Q(nome_completo__icontains=query) |
+            Q(nome_guerra__icontains=query) |
+            Q(matricula__icontains=query) |
+            Q(cpf__icontains=query)
+        )
+
+    # Filtro por posto/graduação (valores da UI vêm minúsculos)
+    posto_map = {
+        '1s': '1S', '2s': '2S', '3s': '3S',
+        'cab': 'CAB', 'sd': 'SD', 'nvrr': 'NVRR'
+    }
+    if posto_param:
+        pg = posto_map.get(posto_param.lower())
+        if pg:
+            militares = militares.filter(posto_graduacao=pg)
+
+    # Filtro por quadro
+    if quadro_param:
+        militares = militares.filter(quadro=quadro_param)
+
+    # Filtro por estrutura organizacional selecionada
+    if estrutura_param:
+        try:
+            tipo, id_str = estrutura_param.split('_', 1)
+            alvo_id = int(id_str)
+            from militares.models import Lotacao
+            lotacoes_qs = Lotacao.objects.filter(ativo=True, status='ATUAL')
+            if tipo == 'orgao':
+                lotacoes_qs = lotacoes_qs.filter(orgao_id=alvo_id)
+            elif tipo == 'gc':
+                lotacoes_qs = lotacoes_qs.filter(grande_comando_id=alvo_id)
+            elif tipo == 'unidade':
+                lotacoes_qs = lotacoes_qs.filter(unidade_id=alvo_id)
+            elif tipo == 'sub_unidade':
+                lotacoes_qs = lotacoes_qs.filter(sub_unidade_id=alvo_id)
+            militares_ids = lotacoes_qs.values_list('militar_id', flat=True).distinct()
+            militares = militares.filter(id__in=militares_ids)
+        except Exception:
+            pass
 
     # Ordenação padrão por hierarquia e antiguidade
     ordenacao = 'hierarquia_antiguidade'
@@ -746,6 +800,20 @@ def buscar_usuarios_ajax(request):
 @login_required
 def home(request):
     """Página inicial do sistema - acessível por todos os usuários"""
+    try:
+        if not request.user.is_superuser:
+            from .views_dashboard_ensino import identificar_tipo_usuario_ensino
+            tipo = identificar_tipo_usuario_ensino(request.user)
+            if tipo == 'aluno':
+                return redirect('militares:ensino_dashboard_aluno')
+            if tipo == 'instrutor':
+                return redirect('militares:ensino_dashboard_instrutor')
+            if tipo == 'coordenador':
+                return redirect('militares:ensino_dashboard_coordenador')
+            if tipo == 'supervisor':
+                return redirect('militares:ensino_dashboard_supervisor')
+    except Exception:
+        pass
     from .models import UsuarioSessao, Publicacao, EscalaServico, EscalaMilitar
     from django.utils import timezone
     from datetime import datetime, date
@@ -3954,10 +4022,10 @@ def quadro_acesso_pdf(request, pk):
         from .utils import formatar_data_assinatura
         data_formatada, hora_formatada = formatar_data_assinatura(assinatura.data_assinatura)
         
-        # Função
-        funcao = assinatura.funcao_assinatura or "Função não registrada"
-        
-        texto_assinatura = f"Documento assinado eletronicamente por {nome_assinante} - {funcao}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
+        texto_assinatura = (
+            f"Documento assinado eletronicamente por {nome_assinante}, em {data_formatada} {hora_formatada}, "
+            f"conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
+        )
         
         # Adicionar logo da assinatura eletrônica
         from .utils import obter_caminho_assinatura_eletronica
@@ -6027,9 +6095,12 @@ def tempo_servico_certidao_pdf(request, militar_id):
             # Data e hora da assinatura
             agora = timezone.now().astimezone(brasilia_tz) if timezone.is_aware(timezone.now()) else brasilia_tz.localize(timezone.now())
             data_formatada = agora.strftime('%d/%m/%Y')
-            hora_formatada = agora.strftime('%H:%M')
+            hora_formatada = agora.strftime('%H:%M:%S')
             
-            texto_assinatura = f"Documento assinado eletronicamente por {nome_posto_quadro} - {funcao_display}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
+            texto_assinatura = (
+                f"Documento assinado eletronicamente por {nome_posto_quadro}, em {data_formatada} {hora_formatada}, "
+                f"conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
+            )
             
             # Adicionar logo da assinatura eletrônica
             from .utils import obter_caminho_assinatura_eletronica
@@ -12230,7 +12301,10 @@ def ata_gerar_pdf(request, pk):
             # Obter a função da assinatura (que foi capturada durante a assinatura)
             funcao_atual = assinatura_eletronica.funcao_assinatura or 'Usuário do Sistema'
             
-            texto_assinatura = f"Documento assinado eletronicamente por {nome_posto_quadro} - {funcao_atual}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
+            texto_assinatura = (
+                f"Documento assinado eletronicamente por {nome_posto_quadro}, em {data_formatada} {hora_formatada}, "
+                f"conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
+            )
             
             # Tabela das assinaturas: Logo + Texto de assinatura
             from .utils import obter_caminho_assinatura_eletronica
@@ -13980,10 +14054,13 @@ def quadro_fixacao_vagas_pdf(request, pk):
         # Data da assinatura
         from .utils import formatar_data_assinatura
         data_formatada, hora_formatada = formatar_data_assinatura(assinatura.data_assinatura)
-        data_assinatura = f"{data_formatada} às {hora_formatada}"
+        data_assinatura = f"{data_formatada} {hora_formatada}"
         
         # Texto da assinatura eletrônica no padrão solicitado
-        texto_assinatura = f"Documento assinado eletronicamente por {nome_completo} - {funcao}, em {data_assinatura}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
+        texto_assinatura = (
+            f"Documento assinado eletronicamente por {nome_completo}, em {data_assinatura}, "
+            f"conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
+        )
         
         # Tabela das assinaturas: Logo + Texto de assinatura
         from .utils import obter_caminho_assinatura_eletronica
@@ -15338,6 +15415,21 @@ def usuario_create(request):
                 usuario.set_password(password)
             usuario.save()
             form.save_m2m()  # Salvar grupos
+            # Atribuir função militar selecionada ao usuário
+            try:
+                from .models import UsuarioFuncaoMilitar
+                funcao_selecionada = form.cleaned_data.get('funcao_militar')
+                if funcao_selecionada:
+                    UsuarioFuncaoMilitar.objects.get_or_create(
+                        usuario=usuario,
+                        funcao_militar=funcao_selecionada,
+                        defaults={
+                            'tipo_funcao': 'PRINCIPAL',
+                            'ativo': True
+                        }
+                    )
+            except Exception:
+                pass
             
             # Associar militar se fornecido
             militar_id = form.cleaned_data.get('militar_id')
@@ -16031,11 +16123,21 @@ def usuario_update(request, pk):
     
     if request.method == 'POST':
         # Formulário simples para editar dados básicos
+        username = request.POST.get('username', '').strip()
         first_name = request.POST.get('first_name', '')
         last_name = request.POST.get('last_name', '')
         email = request.POST.get('email', '')
         is_active = request.POST.get('is_active') == 'on'
         
+        # Validar username
+        if not username:
+            messages.error(request, 'O username é obrigatório.')
+            return render(request, 'militares/usuarios/update.html', {'usuario': usuario})
+        if User.objects.filter(username=username).exclude(pk=usuario.pk).exists():
+            messages.error(request, 'Já existe usuário com esse username.')
+            return render(request, 'militares/usuarios/update.html', {'usuario': usuario})
+
+        usuario.username = username
         usuario.first_name = first_name
         usuario.last_name = last_name
         usuario.email = email
@@ -16396,11 +16498,14 @@ def alterar_senha(request):
     context = {
         'form': form,
         'usuario': request.user,
+        'ensino_tipo': request.session.get('ensino_tipo'),
+        'ensino_id': request.session.get('ensino_id'),
+        'requer_senha_atual': request.user.has_usable_password(),
     }
     return render(request, 'militares/usuarios/alterar_senha.html', context)
 
 @login_required
-@administracao_required
+@admin_or_gerenciar_usuarios_required
 def alterar_senha_usuario(request, pk):
     """View para administradores alterarem senha de outros usuários"""
     usuario = get_object_or_404(User, pk=pk)
@@ -16451,11 +16556,16 @@ class AlterarSenhaForm(forms.Form):
     def __init__(self, user, *args, **kwargs):
         self.user = user
         super().__init__(*args, **kwargs)
+        # Se o usuário não possui senha utilizável, não exigir senha atual
+        if not self.user.has_usable_password():
+            self.fields['senha_atual'].required = False
 
     def clean_senha_atual(self):
         senha_atual = self.cleaned_data.get('senha_atual')
-        if not self.user.check_password(senha_atual):
-            raise forms.ValidationError('Senha atual incorreta.')
+        # Apenas validar quando o usuário possui senha utilizável
+        if self.user.has_usable_password():
+            if not senha_atual or not self.user.check_password(senha_atual):
+                raise forms.ValidationError('Senha atual incorreta.')
         return senha_atual
 
     def clean(self):
@@ -17343,16 +17453,16 @@ def voto_deliberacao_pdf(request, pk):
                 posto = f"{posto} BM"
             nome_assinante = f"{posto} {voto.membro.militar.nome_completo}"
         
-        # Função da assinatura
-        funcao = voto.funcao_assinatura or "Membro da Comissão"
-        
         # Data e hora da assinatura
         from django.utils import timezone
         agora = timezone.localtime(voto.data_assinatura)
         data_formatada = agora.strftime('%d/%m/%Y')
-        hora_formatada = agora.strftime('%H:%M')
+        hora_formatada = agora.strftime('%H:%M:%S')
         
-        texto_assinatura = f"Documento assinado eletronicamente por {nome_assinante} - {funcao}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
+        texto_assinatura = (
+            f"Documento assinado eletronicamente por {nome_assinante}, em {data_formatada} {hora_formatada}, "
+            f"conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
+        )
         
         # Adicionar logo da assinatura eletrônica
         from .utils import obter_caminho_assinatura_eletronica
@@ -18538,16 +18648,16 @@ def calendario_promocao_gerar_pdf(request, pk):
         else:
             nome_completo = assinatura.assinado_por.get_full_name() or assinatura.assinado_por.username
         
-        # Função
-        funcao = assinatura.funcao_assinatura or "Função não registrada"
-        
         # Data da assinatura
         from .utils import formatar_data_assinatura
         data_formatada, hora_formatada = formatar_data_assinatura(assinatura.data_assinatura)
-        data_assinatura = f"{data_formatada} às {hora_formatada}"
+        data_assinatura = f"{data_formatada} {hora_formatada}"
         
         # Texto da assinatura eletrônica no padrão solicitado
-        texto_assinatura = f"Documento assinado eletronicamente por {nome_completo} - {funcao}, em {data_assinatura}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
+        texto_assinatura = (
+            f"Documento assinado eletronicamente por {nome_completo}, em {data_assinatura}, "
+            f"conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
+        )
         from .utils import obter_caminho_assinatura_eletronica
         # Tabela das assinaturas: Logo + Texto de assinatura
         assinatura_data = [
@@ -20728,6 +20838,9 @@ def funcoes_militares_create(request):
                 'punicoes_criar': 'PUNICOES_CRIAR',
                 'punicoes_editar': 'PUNICOES_EDITAR',
                 
+                # Nota: Campos de ensino (ensino_visualizar, ensino_criar, etc.) são processados
+                # apenas em permissoes_especificas, não aqui no template_to_modulo
+                
                 # Seção de Promoções - Fichas de Oficiais
                 'fichas_oficiais_visualizar': 'FICHAS_OFICIAIS_VISUALIZAR',
                 'fichas_oficiais_criar': 'FICHAS_OFICIAIS_CRIAR',
@@ -21193,12 +21306,16 @@ def gerenciar_permissoes_unificado(request, funcao_id):
             menu_fields = [
                 'show_dashboard', 'show_efetivo', 'show_publicacoes', 'show_escalas',
                 'show_secao_promocoes', 'show_medalhas', 'show_configuracoes', 'show_administracao', 'show_logs',
-                'show_pessoal', 'show_relatorios', 'show_planejadas', 'show_afastamentos', 'show_ferias',
+                'show_pessoal', 'show_relatorios',                 'show_planejadas', 'show_afastamentos', 'show_ferias',
                 # Submenus - Efetivo
                 'show_ativos', 'show_inativos', 'show_lotacoes', 'show_averbacoes',
+                # Menus e Submenus - Ensino
+                'show_ensino', 'show_ensino_dashboard', 'show_ensino_cursos', 'show_ensino_turmas',
+                'show_ensino_disciplinas', 'show_ensino_alunos', 'show_ensino_instrutores',
+                'show_ensino_monitores', 'show_ensino_aulas', 'show_ensino_frequencias',
+                'show_ensino_avaliacoes', 'show_ensino_certificados', 'show_ensino_quadros_trabalho_semanal',
                 # Submenus - Publicações
                 'show_notas', 'show_boletins_ostensivos', 'show_boletins_reservados', 'show_boletins_especiais',
-                'show_avisos', 'show_ordens_servico',
                 # Submenus - Seção de Promoções
                 'show_fichas_oficiais', 'show_fichas_pracas', 'show_calendarios', 'show_quadros_fixacao',
                 'show_quadros_acesso', 'show_comissoes', 'show_meus_votos', 'show_promocoes', 'show_almanaques',
@@ -21334,8 +21451,6 @@ def gerenciar_permissoes_unificado(request, funcao_id):
                 'SUBMENU_BOLETINS_OSTENSIVOS': 'VISUALIZAR',
                 'SUBMENU_BOLETINS_RESERVADOS': 'VISUALIZAR',
                 'SUBMENU_BOLETINS_ESPECIAIS': 'VISUALIZAR',
-                'SUBMENU_AVISOS': 'VISUALIZAR',
-                'SUBMENU_ORDENS_SERVICO': 'VISUALIZAR',
                 
                 # Submenus - Escalas de Serviço
                 'SUBMENU_ESCALAS_DASHBOARD': 'VISUALIZAR',
@@ -21413,6 +21528,21 @@ def gerenciar_permissoes_unificado(request, funcao_id):
                 'SUBMENU_ALMOXARIFADO_ENTRADAS': 'VISUALIZAR',
                 'SUBMENU_ALMOXARIFADO_SAIDAS': 'VISUALIZAR',
                 'SUBMENU_ALMOXARIFADO_REQUISICOES': 'VISUALIZAR',
+                
+                # Menus e Submenus - Ensino
+                'MENU_ENSINO': 'VISUALIZAR',
+                'SUBMENU_ENSINO_DASHBOARD': 'VISUALIZAR',
+                'SUBMENU_ENSINO_CURSOS': 'VISUALIZAR',
+                'SUBMENU_ENSINO_TURMAS': 'VISUALIZAR',
+                'SUBMENU_ENSINO_DISCIPLINAS': 'VISUALIZAR',
+                'SUBMENU_ENSINO_ALUNOS': 'VISUALIZAR',
+                'SUBMENU_ENSINO_INSTRUTORES': 'VISUALIZAR',
+                'SUBMENU_ENSINO_MONITORES': 'VISUALIZAR',
+                'SUBMENU_ENSINO_AULAS': 'VISUALIZAR',
+                'SUBMENU_ENSINO_FREQUENCIAS': 'VISUALIZAR',
+                'SUBMENU_ENSINO_AVALIACOES': 'VISUALIZAR',
+                'SUBMENU_ENSINO_CERTIFICADOS': 'VISUALIZAR',
+                'SUBMENU_ENSINO_QUADROS_TRABALHO_SEMANAL': 'VISUALIZAR',
             }
             
             # Mapeamento de campos do template para módulos
@@ -21468,8 +21598,6 @@ def gerenciar_permissoes_unificado(request, funcao_id):
                 'show_boletins_ostensivos': 'SUBMENU_BOLETINS_OSTENSIVOS',
                 'show_boletins_reservados': 'SUBMENU_BOLETINS_RESERVADOS',
                 'show_boletins_especiais': 'SUBMENU_BOLETINS_ESPECIAIS',
-                'show_avisos': 'SUBMENU_AVISOS',
-                'show_ordens_servico': 'SUBMENU_ORDENS_SERVICO',
                 
                 # Submenus - Escalas de Serviço
                 'show_escalas_dashboard': 'SUBMENU_ESCALAS_DASHBOARD',
@@ -21529,6 +21657,21 @@ def gerenciar_permissoes_unificado(request, funcao_id):
                 'show_almoxarifado': 'MENU_ALMOXARIFADO',
                 'show_processos': 'MENU_PROCESSOS',
                 
+                # Menus e Submenus - Ensino
+                'show_ensino': 'MENU_ENSINO',
+                'show_ensino_dashboard': 'SUBMENU_ENSINO_DASHBOARD',
+                'show_ensino_cursos': 'SUBMENU_ENSINO_CURSOS',
+                'show_ensino_turmas': 'SUBMENU_ENSINO_TURMAS',
+                'show_ensino_disciplinas': 'SUBMENU_ENSINO_DISCIPLINAS',
+                'show_ensino_alunos': 'SUBMENU_ENSINO_ALUNOS',
+                'show_ensino_instrutores': 'SUBMENU_ENSINO_INSTRUTORES',
+                'show_ensino_monitores': 'SUBMENU_ENSINO_MONITORES',
+                'show_ensino_aulas': 'SUBMENU_ENSINO_AULAS',
+                'show_ensino_frequencias': 'SUBMENU_ENSINO_FREQUENCIAS',
+                'show_ensino_avaliacoes': 'SUBMENU_ENSINO_AVALIACOES',
+                'show_ensino_certificados': 'SUBMENU_ENSINO_CERTIFICADOS',
+                'show_ensino_quadros_trabalho_semanal': 'SUBMENU_ENSINO_QUADROS_TRABALHO_SEMANAL',
+                
                 'show_armas_instituicao': 'SUBMENU_ARMAS_INSTITUICAO',
                 'show_armas_particulares': 'SUBMENU_ARMAS_PARTICULARES',
                 'show_cautelas_armas': 'SUBMENU_CAUTELAS_ARMAS',
@@ -21548,7 +21691,12 @@ def gerenciar_permissoes_unificado(request, funcao_id):
                 'SUBMENU_TROCAS_OLEO', 'SUBMENU_LICENCIAMENTOS', 'SUBMENU_RODAGENS',
                 'SUBMENU_PAINEL_GUARDA', 'SUBMENU_ARMAS_INSTITUICAO', 'SUBMENU_ARMAS_PARTICULARES',
                 'SUBMENU_CAUTELAS_ARMAS', 'SUBMENU_CONTROLE_MOVIMENTACOES', 'SUBMENU_CONTROLE_MUNICAO',
-                'SUBMENU_CAUTELAS_MUNICOES'
+                'SUBMENU_CAUTELAS_MUNICOES',
+                # Menus e Submenus - Ensino
+                'MENU_ENSINO', 'SUBMENU_ENSINO_DASHBOARD', 'SUBMENU_ENSINO_CURSOS', 'SUBMENU_ENSINO_TURMAS',
+                'SUBMENU_ENSINO_DISCIPLINAS', 'SUBMENU_ENSINO_ALUNOS', 'SUBMENU_ENSINO_INSTRUTORES',
+                'SUBMENU_ENSINO_MONITORES', 'SUBMENU_ENSINO_AULAS', 'SUBMENU_ENSINO_FREQUENCIAS',
+                'SUBMENU_ENSINO_AVALIACOES', 'SUBMENU_ENSINO_CERTIFICADOS', 'SUBMENU_ENSINO_QUADROS_TRABALHO_SEMANAL'
             }
             
             for campo_direto in campos_diretos:
@@ -21639,8 +21787,6 @@ def gerenciar_permissoes_unificado(request, funcao_id):
                 'SUBMENU_BOLETINS_OSTENSIVOS': 'SUBMENU_BOLETINS_OSTENSIVOS',
                 'SUBMENU_BOLETINS_RESERVADOS': 'SUBMENU_BOLETINS_RESERVADOS',
                 'SUBMENU_BOLETINS_ESPECIAIS': 'SUBMENU_BOLETINS_ESPECIAIS',
-                'SUBMENU_AVISOS': 'SUBMENU_AVISOS',
-                'SUBMENU_ORDENS_SERVICO': 'SUBMENU_ORDENS_SERVICO',
                 'SUBMENU_ESCALAS_DASHBOARD': 'SUBMENU_ESCALAS_DASHBOARD',
                 'SUBMENU_ESCALAS_LISTA': 'SUBMENU_ESCALAS_LISTA',
                 'SUBMENU_ESCALAS_CONFIGURACAO': 'SUBMENU_ESCALAS_CONFIGURACAO',
@@ -21938,6 +22084,16 @@ def gerenciar_permissoes_unificado(request, funcao_id):
                 'PUNICOES_EDITAR': ('PUNICOES', 'EDITAR'),
                 'PUNICOES_EXCLUIR': ('PUNICOES', 'EXCLUIR'),
                 
+                # Ensino
+                'ensino_visualizar': ('ENSINO', 'VISUALIZAR'),
+                'ensino_criar': ('ENSINO', 'CRIAR'),
+                'ensino_editar': ('ENSINO', 'EDITAR'),
+                'ensino_excluir': ('ENSINO', 'EXCLUIR'),
+                'ENSINO_VISUALIZAR': ('ENSINO', 'VISUALIZAR'),
+                'ENSINO_CRIAR': ('ENSINO', 'CRIAR'),
+                'ENSINO_EDITAR': ('ENSINO', 'EDITAR'),
+                'ENSINO_EXCLUIR': ('ENSINO', 'EXCLUIR'),
+                
                 # Fichas de Conceito
                 'FICHAS_CONCEITO_VISUALIZAR': ('FICHAS_CONCEITO', 'VISUALIZAR'),
                 'FICHAS_CONCEITO_CRIAR': ('FICHAS_CONCEITO', 'CRIAR'),
@@ -21955,20 +22111,6 @@ def gerenciar_permissoes_unificado(request, funcao_id):
                 'COMISSOES_CRIAR': ('COMISSOES', 'CRIAR'),
                 'COMISSOES_EDITAR': ('COMISSOES', 'EDITAR'),
                 'COMISSOES_EXCLUIR': ('COMISSOES', 'EXCLUIR'),
-                
-                # Avisos
-                'AVISOS_VISUALIZAR': ('AVISOS', 'VISUALIZAR'),
-                'AVISOS_CRIAR': ('AVISOS', 'CRIAR'),
-                'AVISOS_EDITAR': ('AVISOS', 'EDITAR'),
-                'AVISOS_EXCLUIR': ('AVISOS', 'EXCLUIR'),
-                'AVISOS_PUBLICAR': ('AVISOS', 'PUBLICAR'),
-                
-                # Ordens de Serviço
-                'ORDENS_SERVICO_VISUALIZAR': ('ORDENS_SERVICO', 'VISUALIZAR'),
-                'ORDENS_SERVICO_CRIAR': ('ORDENS_SERVICO', 'CRIAR'),
-                'ORDENS_SERVICO_EDITAR': ('ORDENS_SERVICO', 'EDITAR'),
-                'ORDENS_SERVICO_EXCLUIR': ('ORDENS_SERVICO', 'EXCLUIR'),
-                'ORDENS_SERVICO_PUBLICAR': ('ORDENS_SERVICO', 'PUBLICAR'),
                 
                 # Boletins Especiais
                 'BOLETINS_ESPECIAIS_VISUALIZAR': ('BOLETINS_ESPECIAIS', 'VISUALIZAR'),
@@ -22350,8 +22492,6 @@ def gerenciar_permissoes_unificado(request, funcao_id):
             'SUBMENU_BOLETINS_OSTENSIVOS': 'show_boletins_ostensivos',
             'SUBMENU_BOLETINS_RESERVADOS': 'show_boletins_reservados',
             'SUBMENU_BOLETINS_ESPECIAIS': 'show_boletins_especiais',
-            'SUBMENU_AVISOS': 'show_avisos',
-            'SUBMENU_ORDENS_SERVICO': 'show_ordens_servico',
             
             # Submenus - Escalas de Serviço
             'SUBMENU_ESCALAS_DASHBOARD': 'show_escalas_dashboard',
@@ -22418,6 +22558,21 @@ def gerenciar_permissoes_unificado(request, funcao_id):
                 # Menus e Submenus - Almoxarifado
                 'MENU_ALMOXARIFADO': 'show_almoxarifado',
                 'MENU_PROCESSOS': 'show_processos',
+                
+                # Menus e Submenus - Ensino
+                'MENU_ENSINO': 'show_ensino',
+                'SUBMENU_ENSINO_DASHBOARD': 'show_ensino_dashboard',
+                'SUBMENU_ENSINO_CURSOS': 'show_ensino_cursos',
+                'SUBMENU_ENSINO_TURMAS': 'show_ensino_turmas',
+                'SUBMENU_ENSINO_DISCIPLINAS': 'show_ensino_disciplinas',
+                'SUBMENU_ENSINO_ALUNOS': 'show_ensino_alunos',
+                'SUBMENU_ENSINO_INSTRUTORES': 'show_ensino_instrutores',
+                'SUBMENU_ENSINO_MONITORES': 'show_ensino_monitores',
+                'SUBMENU_ENSINO_AULAS': 'show_ensino_aulas',
+                'SUBMENU_ENSINO_FREQUENCIAS': 'show_ensino_frequencias',
+                'SUBMENU_ENSINO_AVALIACOES': 'show_ensino_avaliacoes',
+                'SUBMENU_ENSINO_CERTIFICADOS': 'show_ensino_certificados',
+                'SUBMENU_ENSINO_QUADROS_TRABALHO_SEMANAL': 'show_ensino_quadros_trabalho_semanal',
         }
         
         # Converter para dicionário para facilitar verificação no template
@@ -24063,7 +24218,10 @@ def banco_horas_relatorio_pdf(request):
         data_formatada, hora_formatada = formatar_data_assinatura(data_atual)
         
         # Texto da assinatura eletrônica
-        texto_assinatura = f"Documento assinado eletronicamente por {nome_assinante}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
+        texto_assinatura = (
+            f"Documento assinado eletronicamente por {nome_assinante}, em {data_formatada} {hora_formatada}, "
+            f"conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
+        )
         
         # Estilo para texto justificado
         style_assinatura_texto = ParagraphStyle('assinatura_texto', parent=styles['Normal'], fontSize=10, fontName='Helvetica', alignment=4, spaceAfter=1, spaceBefore=1, leading=14)
@@ -24657,7 +24815,10 @@ def banco_horas_relatorio_pdf_militar(request):
         data_formatada, hora_formatada = formatar_data_assinatura(data_atual)
         
         # Texto da assinatura eletrônica
-        texto_assinatura = f"Documento assinado eletronicamente por {nome_assinante}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
+        texto_assinatura = (
+            f"Documento assinado eletronicamente por {nome_assinante}, em {data_formatada} {hora_formatada}, "
+            f"conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
+        )
         
         # Estilo para texto justificado
         style_assinatura_texto = ParagraphStyle('assinatura_texto', parent=styles['Normal'], fontSize=10, fontName='Helvetica', alignment=4, spaceAfter=1, spaceBefore=1, leading=14)
@@ -25411,7 +25572,7 @@ def funcoes_militares_update(request, funcao_id):
             # Campos de submenu - Publicações
             submenu_publicacoes_fields = [
                 'show_notas', 'show_boletins_ostensivos', 'show_boletins_reservados',
-                'show_boletins_especiais', 'show_avisos', 'show_ordens_servico'
+                'show_boletins_especiais'
             ]
             
             # Campos de submenu - Escalas de Serviço
@@ -29452,10 +29613,13 @@ def escalas_abono_pdf(request):
         data_formatada, hora_formatada = formatar_data_assinatura(data_hora)
         
         # Incluir posto e função na assinatura
-        assinante_com_posto_funcao = f"{assinante_com_posto} - {funcao_assinatura}"
+        assinante_com_posto_funcao = f"{assinante_com_posto}"
         
         # Texto da assinatura eletrônica seguindo o padrão dos outros PDFs
-        texto_assinatura = f"Documento assinado eletronicamente por {assinante_com_posto_funcao}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, conforme portaria comando geral nº59/2020 publicada em boletim geral nº26/2020"
+        texto_assinatura = (
+            f"Documento assinado eletronicamente por {assinante_com_posto_funcao}, em {data_formatada} {hora_formatada}, "
+            f"conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
+        )
         
         # Estilo para texto alinhado à esquerda
         style_assinatura_texto = ParagraphStyle('assinatura_texto', parent=styles['Normal'], fontSize=9, fontName='Helvetica', alignment=0, spaceAfter=1, spaceBefore=1, leading=12)
@@ -29788,8 +29952,58 @@ def escala_detail(request, pk):
         # Buscar alterações registradas
         alteracoes = AlteracaoEscala.objects.filter(escala=escala).order_by('-data_alteracao')
     
+    # Criar lista simplificada de todos os militares escalados para exibição
+    todos_militares_escalados = []
+    try:
+        for escala_militar in militares_escalados:
+            try:
+                militar_dict = {
+                    'id': escala_militar.id,
+                    'militar_id': escala_militar.militar.id,
+                    'nome_completo': escala_militar.militar.nome_completo,
+                    'posto_graduacao': escala_militar.militar.get_posto_graduacao_display(),
+                    'posto_graduacao_codigo': escala_militar.militar.posto_graduacao,
+                    'foto_url': escala_militar.militar.foto.url if escala_militar.militar.foto else None,
+                    'cpf': escala_militar.militar.cpf,
+                    'funcao': escala_militar.funcao,
+                    'funcao_display': escala_militar.get_funcao_display(),
+                    'tipo_servico': escala_militar.tipo_servico,
+                    'tipo_servico_display': escala_militar.get_tipo_servico_display(),
+                    'turno': escala_militar.turno,
+                    'turno_display': escala_militar.get_turno_display(),
+                    'hora_inicio': escala_militar.hora_inicio.strftime('%H:%M') if escala_militar.hora_inicio else '',
+                    'hora_fim': escala_militar.hora_fim.strftime('%H:%M') if escala_militar.hora_fim else '',
+                    'funcao_operacional': escala_militar.funcao_operacional or '',
+                    'equipe': escala_militar.equipe or '',
+                    'viatura': escala_militar.viatura or '',
+                    'secao': escala_militar.secao or '',
+                    'observacoes': escala_militar.observacoes or ''
+                }
+                todos_militares_escalados.append(militar_dict)
+            except Exception as e:
+                print(f"🔍 DEBUG: Erro ao processar militar {escala_militar.id}: {e}")
+                import traceback
+                traceback.print_exc()
+                continue
+    except Exception as e:
+        print(f"🔍 DEBUG: Erro ao criar lista de militares escalados: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    # Debug: Verificar dados antes de passar para o template
+    print(f"🔍 DEBUG Escala {escala.pk}:")
+    print(f"  - Total militares escalados (QuerySet): {militares_escalados.count()}")
+    print(f"  - Total militares escalados (Lista): {len(militares_escalados)}")
+    print(f"  - Lista simplificada criada: {len(todos_militares_escalados)}")
+    print(f"  - Militares administrativos: {len(militares_administrativos)}")
+    print(f"  - Militares operacionais: {len(militares_operacionais)}")
+    print(f"  - Equipes: {len(equipes)}")
+    if todos_militares_escalados:
+        print(f"  - Primeiro militar: {todos_militares_escalados[0]['nome_completo']}")
+    
     escala_info = {
         'escala': escala,
+        'todos_militares_escalados': todos_militares_escalados,
         'militares_operacionais': militares_operacionais,
         'militares_administrativos': militares_administrativos,
         'equipes': list(equipes.values()),
@@ -29813,6 +30027,11 @@ def escala_detail(request, pk):
         'militares_escalados': militares_escalados,
         'escala_info': escala_info,
     }
+    
+    # Verificar se deve renderizar como modal
+    if request.GET.get('modal') == '1':
+        return render(request, 'militares/escala_detail_modal.html', context)
+    
     return render(request, 'militares/escala_detail.html', context)
 
 
@@ -30000,6 +30219,16 @@ def escala_pdf(request, pk):
             return texto
         return texto[:max_chars-3] + "..."
     
+    # Função para ordenar militares: responsável primeiro, depois substituto, depois militar
+    def ordenar_por_funcao(militar_dict):
+        funcao = militar_dict.get('funcao', 'militar')
+        if funcao == 'responsavel':
+            return 0
+        elif funcao == 'substituto':
+            return 1
+        else:
+            return 2
+    
     # Organizar militares por horário - agrupar quando o mesmo militar tem múltiplos turnos
     militares_por_horario = {}
     militares_administrativos = []
@@ -30010,6 +30239,7 @@ def escala_pdf(request, pk):
         militar_info = {
             'nome_completo': escala_militar.militar.nome_completo,
             'posto_graduacao': escala_militar.militar.get_posto_graduacao_display(),
+            'funcao': escala_militar.funcao,  # Adicionar campo funcao para ordenação
             'funcao_display': escala_militar.get_funcao_display(),
             'tipo_servico': escala_militar.tipo_servico,
             'tipo_servico_display': escala_militar.get_tipo_servico_display(),
@@ -30074,7 +30304,28 @@ def escala_pdf(request, pk):
             equipes_administrativas[turno_key]['militares'].append(militar_info)
     
     # Converter dicionários em listas ordenadas
-    militares_operacionais = list(equipes.values())
+    # Ordenar militares dentro de cada equipe/turno: responsável primeiro
+    for equipe_nome, militares_equipe in equipes.items():
+        equipes[equipe_nome] = sorted(militares_equipe, key=ordenar_por_funcao)
+    
+    for turno_key, turno_data in equipes_administrativas.items():
+        turno_data['militares'] = sorted(turno_data['militares'], key=ordenar_por_funcao)
+    
+    # Função para ordenar equipes: equipe com responsável primeiro
+    def ordenar_equipes(equipe_militares):
+        # Verificar se algum militar da equipe é responsável
+        tem_responsavel = any(m.get('funcao') == 'responsavel' for m in equipe_militares)
+        # Verificar se o nome da equipe contém "coordenação" (case insensitive)
+        equipe_nome = equipe_militares[0].get('equipe', '').lower() if equipe_militares else ''
+        tem_coordenacao_no_nome = 'coordenação' in equipe_nome or 'coordenacao' in equipe_nome or 'coord' in equipe_nome
+        
+        if tem_responsavel or tem_coordenacao_no_nome:
+            return 0  # Primeiro
+        else:
+            return 1  # Depois
+    
+    # Ordenar as equipes: equipe com responsável/coordenação primeiro
+    militares_operacionais = sorted(list(equipes.values()), key=ordenar_equipes)
     militares_administrativos = list(equipes_administrativas.values())
     
     # Criar buffer para o PDF
@@ -30310,10 +30561,13 @@ def escala_pdf(request, pk):
                 
                 # Formatar data e hora
                 data_formatada = assinatura.data_assinatura.strftime('%d/%m/%Y')
-                hora_formatada = assinatura.data_assinatura.strftime('%H:%M')
+                hora_formatada = assinatura.data_assinatura.strftime('%H:%M:%S')
                 
                 # Texto da assinatura
-                texto_assinatura = f"Documento assinado eletronicamente por {nome_completo} - {funcao}, em {data_formatada}, às {hora_formatada}, conforme horário oficial de Brasília, com fundamento na Portaria XXX/2025 Gab. Cmdo. Geral/CBMEPI de XX de XXXXX de 2025."
+                texto_assinatura = (
+                    f"Documento assinado eletronicamente por {nome_completo}, em {data_formatada} {hora_formatada}, "
+                    f"conforme Portaria GCG/ CBMEPI N 167 de 23 de novembro de 2021 e publicada no DOE PI N 253 de 26 de novembro de 2021"
+                )
                 
                 # Adicionar logo da assinatura eletrônica
                 from .utils import obter_caminho_assinatura_eletronica
@@ -30424,86 +30678,91 @@ def api_militares_disponiveis(request, pk):
             Q(nome_guerra__icontains=termo_pesquisa) |
             Q(matricula__icontains=termo_pesquisa)
         ).distinct()
+        # Quando há termo de pesquisa, não filtrar por organização
+        print(f"🔍 DEBUG: Busca com termo encontrou {militares_organizacao.count()} militares (todos os ativos)")
     else:
         # Sem termo de pesquisa: listar apenas os militares da organização da escala
         print(f"🔍 DEBUG: Listando militares da organização: '{organizacao_escala}'")
-        # Primeiro, tentar busca exata
+        
+        # Dividir a organização em partes (pode usar " | " ou " - ")
+        partes_org = organizacao_escala.split(' | ')
+        if len(partes_org) < 2:
+            partes_org = organizacao_escala.split(' - ')
+        
+        # Pegar a última parte (unidade mais específica) - ex: "1º Grupamento de Bombeiros Militar"
+        todas_partes = [p.strip() for p in partes_org if p.strip()]
+        ultima_parte = todas_partes[-1] if todas_partes else organizacao_escala
+        
+        print(f"🔍 DEBUG: Partes da organização: {todas_partes}, Última parte (unidade específica): '{ultima_parte}'")
+        
+        # PRIORIDADE 1: Busca EXATA com a última parte (unidade mais específica) - mais restritiva
+        # Focar APENAS em unidade (não incluir sub_unidades/dependências)
+        print(f"🔍 DEBUG: PRIORIDADE 1 - Busca EXATA com última parte (SEM dependências): '{ultima_parte}'")
         militares_organizacao = Militar.objects.filter(
             classificacao='ATIVO',
             lotacoes__status='ATUAL',
-            lotacoes__ativo=True
+            lotacoes__ativo=True,
+            lotacoes__sub_unidade__isnull=True  # Excluir militares de sub_unidades (dependências)
+        ).filter(
+            Q(lotacoes__unidade__nome=ultima_parte) |
+            Q(lotacoes__lotacao=ultima_parte)
+        ).distinct()
+        
+        print(f"🔍 DEBUG: Busca EXATA com última parte encontrou {militares_organizacao.count()} militares")
+        
+        # PRIORIDADE 2: Se não encontrou, tentar busca EXATA com organização completa
+        # Mas APENAS em unidade (não incluir sub_unidades/dependências)
+        if not militares_organizacao.exists():
+            print(f"🔍 DEBUG: PRIORIDADE 2 - Busca EXATA com organização completa (SEM dependências): '{organizacao_escala}'")
+            militares_organizacao = Militar.objects.filter(
+                classificacao='ATIVO',
+                lotacoes__status='ATUAL',
+                lotacoes__ativo=True,
+                lotacoes__sub_unidade__isnull=True  # Excluir militares de sub_unidades (dependências)
             ).filter(
                 Q(lotacoes__orgao__nome=organizacao_escala) |
                 Q(lotacoes__grande_comando__nome=organizacao_escala) |
                 Q(lotacoes__unidade__nome=organizacao_escala) |
-                Q(lotacoes__sub_unidade__nome=organizacao_escala) |
                 Q(lotacoes__lotacao=organizacao_escala)
             ).distinct()
-    
-    # Se não encontrou resultados exatos e NÃO há termo de pesquisa, tentar busca por partes
-    if not termo_pesquisa and not militares_organizacao.exists():
-        print(f"🔍 DEBUG: Busca exata não encontrou resultados, tentando busca por partes...")
-        # Dividir o nome da organização em partes para busca mais flexível
-        partes_organizacao = organizacao_escala.split(' - ')
-        if len(partes_organizacao) >= 2:
-            nome_principal = partes_organizacao[0].strip()
-            sigla = partes_organizacao[1].strip()
-            print(f"🔍 DEBUG: Nome principal: '{nome_principal}', Sigla: '{sigla}'")
             
+            print(f"🔍 DEBUG: Busca EXATA com organização completa encontrou {militares_organizacao.count()} militares")
+        
+        # PRIORIDADE 3: Se ainda não encontrou, tentar busca PARCIAL (icontains) apenas com última parte
+        # Focar APENAS em unidade (não incluir sub_unidades/dependências)
+        if not militares_organizacao.exists():
+            print(f"🔍 DEBUG: PRIORIDADE 3 - Busca PARCIAL (icontains) com última parte (SEM dependências): '{ultima_parte}'")
             militares_organizacao = Militar.objects.filter(
                 classificacao='ATIVO',
                 lotacoes__status='ATUAL',
-                lotacoes__ativo=True
+                lotacoes__ativo=True,
+                lotacoes__sub_unidade__isnull=True  # Excluir militares de sub_unidades (dependências)
             ).filter(
-                Q(lotacoes__orgao__nome=nome_principal) |
-                Q(lotacoes__grande_comando__nome=nome_principal) |
-                Q(lotacoes__unidade__nome=nome_principal) |
-                Q(lotacoes__sub_unidade__nome=nome_principal) |
-                Q(lotacoes__orgao__sigla=sigla) |
-                Q(lotacoes__grande_comando__sigla=sigla) |
-                Q(lotacoes__unidade__sigla=sigla) |
-                Q(lotacoes__sub_unidade__sigla=sigla) |
-                Q(lotacoes__lotacao=organizacao_escala)
+                Q(lotacoes__unidade__nome__icontains=ultima_parte) |
+                Q(lotacoes__lotacao__icontains=ultima_parte)
             ).distinct()
             
-            print(f"🔍 DEBUG: Busca por partes encontrou {militares_organizacao.count()} militares")
-    
-    # Se ainda não encontrou resultados e NÃO há termo de pesquisa, tentar busca mais ampla por palavras-chave
-    if not termo_pesquisa and not militares_organizacao.exists():
-        print(f"🔍 DEBUG: Busca por partes não encontrou resultados, tentando busca ampla...")
+            print(f"🔍 DEBUG: Busca PARCIAL com última parte encontrou {militares_organizacao.count()} militares")
         
-        # Extrair palavras-chave da organização
-        palavras_chave = []
-        if 'Subgrupamento' in organizacao_escala:
-            palavras_chave.append('Subgrupamento')
-        if 'Grupamento' in organizacao_escala:
-            palavras_chave.append('Grupamento')
-        if 'Bombeiros' in organizacao_escala:
-            palavras_chave.append('Bombeiros')
-        if 'Militar' in organizacao_escala:
-            palavras_chave.append('Militar')
-        
-        print(f"🔍 DEBUG: Palavras-chave: {palavras_chave}")
-        
-        if palavras_chave:
-            # Buscar militares que tenham pelo menos uma das palavras-chave
-            query = Q()
-            for palavra in palavras_chave:
-                query |= (
-                    Q(lotacoes__orgao__nome=palavra) |
-                    Q(lotacoes__grande_comando__nome=palavra) |
-                    Q(lotacoes__unidade__nome=palavra) |
-                    Q(lotacoes__sub_unidade__nome=palavra) |
-                    Q(lotacoes__lotacao=palavra)
+        # PRIORIDADE 4: Se ainda não encontrou, tentar busca PARCIAL com todas as partes
+        # Mas APENAS em unidade (não incluir sub_unidades/dependências)
+        if not militares_organizacao.exists() and len(todas_partes) > 1:
+            print(f"🔍 DEBUG: PRIORIDADE 4 - Busca PARCIAL com todas as partes (SEM dependências): {todas_partes}")
+            query_todas_partes = Q()
+            for parte in todas_partes:
+                # Apenas unidade (sem sub_unidades)
+                query_todas_partes |= (
+                    Q(lotacoes__unidade__nome__icontains=parte) |
+                    Q(lotacoes__lotacao__icontains=parte)
                 )
             
             militares_organizacao = Militar.objects.filter(
                 classificacao='ATIVO',
                 lotacoes__status='ATUAL',
-                lotacoes__ativo=True
-            ).filter(query).distinct()
-            
-            print(f"🔍 DEBUG: Busca ampla encontrou {militares_organizacao.count()} militares")
+                lotacoes__ativo=True,
+                lotacoes__sub_unidade__isnull=True  # Excluir militares de sub_unidades (dependências)
+            ).filter(query_todas_partes).distinct()
+            print(f"🔍 DEBUG: Busca PARCIAL com todas as partes encontrou {militares_organizacao.count()} militares")
     
     # Ordenar por hierarquia militar e antiguidade
     # Hierarquia: Oficiais (CB, TC, MJ, CP, 1T, 2T), Aspirantes (AS), Subtenentes (ST), Sargentos (1S, 2S, 3S), Cabos (CAB), Soldados (SD)
@@ -30522,7 +30781,7 @@ def api_militares_disponiveis(request, pk):
         hierarquia_ordem,  # Hierarquia militar
         'data_promocao_atual',  # Data de promoção (mais antiga primeiro)
         'numeracao_antiguidade'  # Numeração de antiguidade como desempate
-    ).values('id', 'nome_completo', 'posto_graduacao', 'data_promocao_atual', 'numeracao_antiguidade')
+    ).values('id', 'nome_completo', 'posto_graduacao', 'data_promocao_atual', 'numeracao_antiguidade', 'situacao', 'cpf')
     
     # Converter para lista e marcar quais já estão escalados
     militares = []
@@ -30570,9 +30829,116 @@ def api_militares_disponiveis(request, pk):
         }
         posto_graduacao_display = posto_choices.get(militar['posto_graduacao'], militar['posto_graduacao'])
         
+        # Obter a lotação atual do militar - mostrar apenas a instância mais específica
+        lotacao_display = ''
+        try:
+            # Buscar lotação atual com select_related para carregar relações
+            lotacao_atual = Lotacao.objects.filter(
+                militar=militar_obj,
+                status='ATUAL',
+                ativo=True
+            ).select_related('unidade', 'sub_unidade', 'grande_comando', 'orgao').first()
+            
+            if lotacao_atual:
+                # Mostrar apenas a instância mais específica (prioridade: sub_unidade > unidade > lotacao > grande_comando > orgao)
+                if lotacao_atual.sub_unidade:
+                    lotacao_display = lotacao_atual.sub_unidade.nome
+                elif lotacao_atual.unidade:
+                    lotacao_display = lotacao_atual.unidade.nome
+                elif lotacao_atual.lotacao:
+                    lotacao_display = lotacao_atual.lotacao
+                elif lotacao_atual.grande_comando:
+                    lotacao_display = lotacao_atual.grande_comando.nome
+                elif lotacao_atual.orgao:
+                    lotacao_display = lotacao_atual.orgao.nome
+        except Exception as e:
+            import traceback
+            print(f"🔍 DEBUG: Erro ao obter lotação do militar {militar['id']}: {e}")
+            print(f"🔍 DEBUG: Traceback: {traceback.format_exc()}")
+            lotacao_display = ''
+        
+        # Obter situação do militar
+        situacao_militar = militar.get('situacao', 'PRONTO')
+        situacao_display = militar_obj.get_situacao_display() if hasattr(militar_obj, 'get_situacao_display') else situacao_militar
+        
+        # Verificar se o militar está com situação PRONTO
+        situacao_pronto = (situacao_militar == 'PRONTO')
+        
+        # Buscar informações de afastamento (férias, licença ou outros) na data da escala para orientação do escalante
+        situacao_com_datas = situacao_display
+        situacao_datas_texto = None
+        try:
+            from .models import Afastamento, Ferias, LicencaEspecial
+            from datetime import date
+            data_escala = escala.data if hasattr(escala, 'data') else date.today()
+            
+            # Verificar se é situação de FÉRIAS
+            if 'FERIAS' in situacao_militar or 'FÉRIAS' in situacao_display.upper():
+                # Buscar férias ativa na data da escala
+                ferias_ativa = Ferias.objects.filter(
+                    militar=militar_obj
+                ).exclude(status__in=['CANCELADA', 'REPROGRAMADA', 'GOZADA']).filter(
+                    data_inicio__lte=data_escala,
+                    data_fim__gte=data_escala
+                ).order_by('-data_inicio').first()
+                
+                if ferias_ativa:
+                    situacao_com_datas = f"{situacao_display} ({ferias_ativa.data_inicio.strftime('%d/%m/%Y')} a {ferias_ativa.data_fim.strftime('%d/%m/%Y')})"
+                    situacao_datas_texto = f"{ferias_ativa.data_inicio.strftime('%d/%m/%Y')} a {ferias_ativa.data_fim.strftime('%d/%m/%Y')}"
+            
+            # Verificar se é situação de LICENÇA
+            elif 'LICENCA' in situacao_militar or 'LICENÇA' in situacao_display.upper():
+                # Buscar licença especial ativa na data da escala
+                licenca_ativa = LicencaEspecial.objects.filter(
+                    militar=militar_obj
+                ).exclude(status='CANCELADA').filter(
+                    data_inicio__lte=data_escala
+                ).filter(
+                    Q(data_fim__gte=data_escala) | 
+                    Q(data_fim__isnull=True)
+                ).order_by('-data_inicio').first()
+                
+                if licenca_ativa and licenca_ativa.data_fim:
+                    situacao_com_datas = f"{situacao_display} ({licenca_ativa.data_inicio.strftime('%d/%m/%Y')} a {licenca_ativa.data_fim.strftime('%d/%m/%Y')})"
+                    situacao_datas_texto = f"{licenca_ativa.data_inicio.strftime('%d/%m/%Y')} a {licenca_ativa.data_fim.strftime('%d/%m/%Y')}"
+                elif licenca_ativa:
+                    situacao_com_datas = f"{situacao_display} (desde {licenca_ativa.data_inicio.strftime('%d/%m/%Y')})"
+                    situacao_datas_texto = f"desde {licenca_ativa.data_inicio.strftime('%d/%m/%Y')}"
+            
+            # Outros afastamentos
+            elif not situacao_pronto:
+                # Buscar afastamento ativo que inclua a data da escala
+                afastamento_ativo = Afastamento.objects.filter(
+                    militar=militar_obj,
+                    status='ATIVO'
+                ).filter(
+                    data_inicio__lte=data_escala
+                ).filter(
+                    Q(data_fim_prevista__gte=data_escala) | 
+                    Q(data_fim_real__gte=data_escala) | 
+                    Q(data_fim_prevista__isnull=True, data_fim_real__isnull=True)
+                ).order_by('-data_inicio').first()
+                
+                if afastamento_ativo:
+                    data_fim = afastamento_ativo.data_fim_real or afastamento_ativo.data_fim_prevista
+                    if data_fim:
+                        situacao_com_datas = f"{situacao_display} ({afastamento_ativo.data_inicio.strftime('%d/%m/%Y')} a {data_fim.strftime('%d/%m/%Y')})"
+                        situacao_datas_texto = f"{afastamento_ativo.data_inicio.strftime('%d/%m/%Y')} a {data_fim.strftime('%d/%m/%Y')}"
+                    else:
+                        situacao_com_datas = f"{situacao_display} (desde {afastamento_ativo.data_inicio.strftime('%d/%m/%Y')})"
+                        situacao_datas_texto = f"desde {afastamento_ativo.data_inicio.strftime('%d/%m/%Y')}"
+        except Exception as e:
+            import traceback
+            print(f"🔍 DEBUG: Erro ao obter informações de afastamento do militar {militar['id']}: {e}")
+            print(f"🔍 DEBUG: Traceback: {traceback.format_exc()}")
+        
         # Determinar status de disponibilidade
+        # Se não estiver PRONTO, não pode estar disponível
+        if not situacao_pronto:
+            status_disponibilidade = "indisponivel_situacao"
+            mensagem_status = f"Indisponível - Situação: {situacao_display}"
         # Priorizar disponibilidade de 24h sobre status de "já escalado" para permitir múltiplos turnos
-        if not disponivel_24h:
+        elif not disponivel_24h:
             status_disponibilidade = "indisponivel_24h"
             mensagem_status = f"Indisponível - {mensagem_disponibilidade}"
         elif ja_escalado:
@@ -30582,14 +30948,27 @@ def api_militares_disponiveis(request, pk):
             status_disponibilidade = "disponivel"
             mensagem_status = f"Disponível - {mensagem_disponibilidade}"
         
+        # Obter URL da foto do militar
+        foto_url = None
+        if militar_obj.foto:
+            foto_url = militar_obj.foto.url
+        
         militares.append({
             'id': militar['id'],
             'nome_completo': militar['nome_completo'],
+            'cpf': militar.get('cpf', ''),
             'posto_graduacao': militar['posto_graduacao'],
             'posto_graduacao_display': posto_graduacao_display,
             'data_promocao_atual': militar['data_promocao_atual'].strftime('%d/%m/%Y') if militar['data_promocao_atual'] else '',
             'numeracao_antiguidade': militar['numeracao_antiguidade'] or 0,
             'tempo_posto': tempo_posto,
+            'lotacao': lotacao_display,
+            'foto_url': foto_url,
+            'situacao': situacao_militar,
+            'situacao_display': situacao_display,
+            'situacao_com_datas': situacao_com_datas,
+            'situacao_datas_texto': situacao_datas_texto,
+            'situacao_pronto': situacao_pronto,
             'ja_escalado': ja_escalado,
             'disponivel_24h': disponivel_24h,
             'horas_atuais': round(horas_atuais, 1),
@@ -31650,10 +32029,18 @@ def gerar_escalas_mes(request):
                     'error': 'Todos os campos obrigatórios devem ser preenchidos'
                 })
             
-            # Calcular dias do mês
+            # Validar faixa do mês
+            if mes < 1 or mes > 12:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Mês inválido: deve estar entre 1 e 12'
+                })
+
+            # Calcular dias do mês sem estourar o limite (12 -> 13)
+            import calendar
             primeiro_dia = datetime(ano, mes, 1)
-            ultimo_dia = datetime(ano, mes + 1, 1) - timedelta(days=1)
-            dias_no_mes = ultimo_dia.day
+            dias_no_mes = calendar.monthrange(ano, mes)[1]
+            ultimo_dia = datetime(ano, mes, dias_no_mes)
             
             # Usar o nome da organização diretamente (já vem formatado da API)
             nome_organizacao = organizacao

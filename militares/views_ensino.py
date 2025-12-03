@@ -9831,6 +9831,19 @@ def listar_certificados(request):
 @login_required
 def dashboard_ensino(request):
     """Dashboard com indicadores do ensino"""
+    try:
+        from .views_dashboard_ensino import identificar_tipo_usuario_ensino
+        tipo = identificar_tipo_usuario_ensino(request.user)
+        if tipo == 'aluno':
+            return redirect('militares:ensino_dashboard_aluno')
+        if tipo == 'instrutor':
+            return redirect('militares:ensino_dashboard_instrutor')
+        if tipo == 'coordenador':
+            return redirect('militares:ensino_dashboard_coordenador')
+        if tipo == 'supervisor':
+            return redirect('militares:ensino_dashboard_supervisor')
+    except Exception:
+        pass
     
     # Estatísticas gerais
     total_cursos = CursoEnsino.objects.filter(ativo=True).count()
@@ -9891,7 +9904,7 @@ def dashboard_ensino(request):
         'pedidos_comissao': pedidos_comissao,
         'pedidos_finalizados': pedidos_finalizados,
     }
-    return render(request, 'militares/ensino/dashboard.html', context)
+    return redirect('militares:home')
 
 
 @login_required

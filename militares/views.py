@@ -111,7 +111,7 @@ from .models import (
 )
 from .forms import MilitarForm, DocumentoForm, UserRegistrationForm, ConfirmarSenhaForm, ComissaoPromocaoForm, MembroComissaoForm, SessaoComissaoForm, DeliberacaoComissaoForm, DocumentoSessaoForm, AtaSessaoForm, ModeloAtaForm, CargoComissaoForm, FichaConceitoPracasForm, FichaConceitoOficiaisForm, UsuarioForm, FuncaoMilitarForm, QualificacaoForm, MilitarFuncaoForm
 from .decorators import usuario_comissao_required, usuario_cpo_required, usuario_cpp_required, apenas_visualizacao_comissao, administracao_required, militar_edit_permission, comissao_acesso_total, cargos_especiais_required, can_edit_ficha_conceito, can_edit_militar, diretor_gestao_chefe_promocoes_required
-from .admin_decorators import admin_bypass, admin_or_permission_required, admin_or_gerenciar_usuarios_required
+from .admin_decorators import admin_bypass, admin_or_permission_required
 # from .permissoes_simples import requer_gerenciamento_comissoes
 from .permissoes import requer_funcao_ativa
 from django import forms
@@ -16505,7 +16505,7 @@ def alterar_senha(request):
     return render(request, 'militares/usuarios/alterar_senha.html', context)
 
 @login_required
-@admin_or_gerenciar_usuarios_required
+@administracao_required
 def alterar_senha_usuario(request, pk):
     """View para administradores alterarem senha de outros usuários"""
     usuario = get_object_or_404(User, pk=pk)

@@ -232,10 +232,9 @@ class InstrutorParecerForm(forms.ModelForm):
     )
     class Meta:
         model = PedidoRevisaoProva
-        fields = ['parecer_instrutor', 'parecer_instrutor_texto', 'nova_nota_instrutor', 'confirmar_limite_itens']
+        fields = ['parecer_instrutor']
         widgets = {
-            'parecer_instrutor_texto': CKEditor5Widget(config_name='default'),
-            'nova_nota_instrutor': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'})
+            
         }
 
     def clean(self):

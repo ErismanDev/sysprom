@@ -2,14 +2,24 @@ from django.contrib import admin
 from .models import (
     Medalha, ConcessaoMedalha, PropostaMedalha, AssinaturaConcessaoMedalha, AssinaturaPropostaMedalha,
     Qualificacao, FuncaoMilitar, Publicacao, Militar, FichaConceitoOficiais, FichaConceitoPracas, 
-    QuadroAcesso, ItemQuadroAcesso, Promocao, Vaga, Curso, MedalhaCondecoracao, Documento, 
+    QuadroAcesso, ItemQuadroAcesso, Promocao, Vaga, Curso, Disciplina, MedalhaCondecoracao, Documento, 
     Intersticio, PrevisaoVaga, ComissaoPromocao, MembroComissao, SessaoComissao, PresencaSessao, 
     DeliberacaoComissao, VotoDeliberacao, DocumentoSessao, JustificativaEncerramento, AtaSessao, 
     AssinaturaAta, ModeloAta, NotificacaoSessao, MensagemInstantanea, Chat, MensagemChat, Chamada, CargoComissao, UsuarioFuncaoMilitar,
     CalendarioPromocao, ItemCalendarioPromocao, AssinaturaCalendarioPromocao, AlmanaqueMilitar, 
     AssinaturaAlmanaque, LogSistema,     PlanoFerias, Ferias, DocumentoFerias, PlanoLicencaEspecial, LicencaEspecial, Viatura, AbastecimentoViatura, ManutencaoViatura,
     TrocaOleoViatura, HistoricoAbastecimentoAssinado, AssinaturaHistoricoAbastecimento, Arma, ArmaParticular, MovimentacaoArma, ConfiguracaoArma, HistoricoAlteracaoArma, AssinaturaMovimentacaoArma, TransferenciaArma, CautelaArma,
-    BemMovel, TombamentoBemMovel, HistoricoTombamento, ProdutoAlmoxarifado, EntradaAlmoxarifado, SaidaAlmoxarifado, HistoricoAlmoxarifado, ProcessoAdministrativo
+    BemMovel, TombamentoBemMovel, HistoricoTombamento, ProdutoAlmoxarifado, EntradaAlmoxarifado, SaidaAlmoxarifado, HistoricoAlmoxarifado, ProcessoAdministrativo,
+    # Módulo de Ensino
+    PessoaExterna, CursoEnsino, DisciplinaCurso, DisciplinaEnsino, TurmaEnsino, AlunoEnsino, InstrutorEnsino, MonitorEnsino, AulaEnsino, FrequenciaAula,
+    AproveitamentoDisciplina, AvaliacaoEnsino, NotaAvaliacao, CertificadoEnsino, DocumentoAluno,
+    OcorrenciaDisciplinar, EscalaInstrucao, HistoricoEscolar, MaterialEscolar, CautelaMaterialEscolar,
+    # ITE 01/2024 - Novos Modelos
+    PlanoGeralEnsino, ItemPlanoGeralEnsino, ProjetoPedagogico, PlanoCursoEstagio,
+    PlanoDisciplina, PlanoPalestra, AtividadeTreinamentoCampo, AtividadeComplementarEnsino,
+    TesteConhecimentosProfissionais, PlanoEstagioNivelamentoProfissional,
+    RelatorioAnualDEIP, ProcessoSelecaoAlunos, InscricaoProcessoSelecao,
+    RecursoProcessoSelecao, TrabalhoConclusaoCurso, PlanoSeguranca, ClassificacaoFinalCurso
 )
 
 
@@ -462,6 +472,9 @@ class MilitarAdmin(admin.ModelAdmin):
         ('Informações de Contato', {
             'fields': ('email', 'telefone', 'celular')
         }),
+        ('Informações de Endereço', {
+            'fields': ('endereco', 'cidade', 'uf', 'cep')
+        }),
         ('Cursos e Formação', {
             'fields': (
                 'curso_formacao_oficial', 'curso_aperfeicoamento_oficial', 'curso_cho', 'nota_cho', 'curso_superior', 
@@ -668,9 +681,38 @@ class VagaAdmin(admin.ModelAdmin):
 
 @admin.register(Curso)
 class CursoAdmin(admin.ModelAdmin):
-    list_display = ['nome', 'tipo', 'pontuacao', 'ativo']
+    list_display = ['nome', 'sigla', 'carga_horaria_total', 'ativo']
+    list_filter = ['ativo']
+    search_fields = ['nome', 'sigla', 'descricao']
+    fieldsets = (
+        ('Informações Básicas', {
+            'fields': ('nome', 'sigla', 'descricao', 'carga_horaria_total')
+        }),
+        ('Detalhes do Curso', {
+            'fields': ('objetivo', 'publico_alvo', 'requisitos')
+        }),
+        ('Status', {
+            'fields': ('ativo',)
+        }),
+    )
+
+
+@admin.register(Disciplina)
+class DisciplinaAdmin(admin.ModelAdmin):
+    list_display = ['nome', 'sigla', 'tipo', 'carga_horaria_padrao', 'ativo']
     list_filter = ['tipo', 'ativo']
-    search_fields = ['nome', 'descricao']
+    search_fields = ['nome', 'sigla', 'ementa']
+    fieldsets = (
+        ('Informações Básicas', {
+            'fields': ('nome', 'sigla', 'tipo', 'carga_horaria_padrao')
+        }),
+        ('Conteúdo', {
+            'fields': ('ementa', 'objetivo', 'conteudo_programatico')
+        }),
+        ('Status', {
+            'fields': ('ativo',)
+        }),
+    )
 
 
 @admin.register(MedalhaCondecoracao)
@@ -2330,4 +2372,431 @@ class ProcessoAdministrativoAdmin(admin.ModelAdmin):
             'fields': ('observacoes', 'criado_por', 'data_criacao', 'data_atualizacao')
         }),
     )
+
+
+# ============================================================================
+# ADMIN - MÓDULO DE ENSINO MILITAR
+# ============================================================================
+
+@admin.register(PessoaExterna)
+class PessoaExternaAdmin(admin.ModelAdmin):
+    list_display = ('nome_completo', 'cpf', 'tipo_pessoa', 'instituicao_origem', 'ativo')
+    list_filter = ('tipo_pessoa', 'ativo', 'data_criacao')
+    search_fields = ('nome_completo', 'cpf', 'email', 'instituicao_origem')
+    readonly_fields = ('data_criacao', 'data_atualizacao')
+    fieldsets = (
+        ('Informações Pessoais', {
+            'fields': ('nome_completo', 'cpf', 'rg', 'data_nascimento', 'foto')
+        }),
+        ('Contato', {
+            'fields': ('email', 'telefone', 'endereco', 'cidade', 'uf', 'cep')
+        }),
+        ('Informações do Sistema de Ensino', {
+            'fields': ('tipo_pessoa', 'instituicao_origem')
+        }),
+        ('Outras Informações', {
+            'fields': ('observacoes', 'ativo')
+        }),
+        ('Datas', {
+            'fields': ('data_criacao', 'data_atualizacao')
+        }),
+    )
+
+
+@admin.register(DisciplinaCurso)
+class DisciplinaCursoAdmin(admin.ModelAdmin):
+    list_display = ('curso', 'disciplina', 'tipo', 'ordem', 'carga_horaria_curso')
+    list_filter = ('tipo', 'curso')
+    search_fields = ('curso__nome', 'disciplina__nome')
+    ordering = ('curso', 'ordem')
+
+
+class DisciplinaCursoInline(admin.TabularInline):
+    """Inline para gerenciar disciplinas do curso através do modelo intermediário"""
+    model = DisciplinaCurso
+    extra = 1
+    autocomplete_fields = ('disciplina',)
+    fields = ('disciplina', 'ordem', 'obrigatoria', 'carga_horaria')
+
+
+@admin.register(CursoEnsino)
+class CursoEnsinoAdmin(admin.ModelAdmin):
+    list_display = ('codigo', 'nome', 'publico_alvo', 'carga_horaria', 'get_coordenador_nome', 'ativo')
+    list_filter = ('publico_alvo', 'ativo', 'data_criacao')
+    search_fields = ('codigo', 'nome', 'finalidade')
+    autocomplete_fields = ('coordenador_militar', 'coordenador_externo')
+    filter_horizontal = ('instrutores_curso', 'monitores_curso')
+    readonly_fields = ('data_criacao', 'data_atualizacao')
+    inlines = [DisciplinaCursoInline]
+    fieldsets = (
+        ('Informações Básicas', {
+            'fields': ('codigo', 'nome', 'finalidade', 'publico_alvo', 'carga_horaria')
+        }),
+        ('Equipe', {
+            'fields': ('instrutores_curso', 'monitores_curso')
+        }),
+        ('Requisitos e Documentos', {
+            'fields': ('pre_requisitos', 'legislacao', 'ementa', 'plano_curso')
+        }),
+        ('Coordenador', {
+            'fields': ('coordenador_militar', 'coordenador_externo')
+        }),
+        ('Status', {
+            'fields': ('ativo',)
+        }),
+        ('Controle', {
+            'fields': ('data_criacao', 'data_atualizacao')
+        }),
+    )
+
+
+@admin.register(DisciplinaEnsino)
+class DisciplinaEnsinoAdmin(admin.ModelAdmin):
+    list_display = ('codigo', 'nome', 'get_instrutor_nome', 'carga_horaria', 'frequencia_minima', 'ativo')
+    list_filter = ('ativo', 'data_criacao')
+    search_fields = ('codigo', 'nome', 'ementa')
+    autocomplete_fields = ('instrutor_responsavel_militar', 'instrutor_responsavel_externo')
+    filter_horizontal = ('monitores_militares', 'monitores_externos')
+    readonly_fields = ('data_criacao', 'data_atualizacao')
+    fieldsets = (
+        ('Informações Básicas', {
+            'fields': ('codigo', 'nome', 'carga_horaria', 'frequencia_minima')
+        }),
+        ('Instrutor Responsável', {
+            'fields': ('instrutor_responsavel_militar', 'instrutor_responsavel_externo')
+        }),
+        ('Monitores', {
+            'fields': ('monitores_militares', 'monitores_externos')
+        }),
+        ('Conteúdo', {
+            'fields': ('ementa', 'conteudo_programatico', 'metodos_avaliacao')
+        }),
+        ('Status', {
+            'fields': ('ativo',)
+        }),
+        ('Controle', {
+            'fields': ('data_criacao', 'data_atualizacao')
+        }),
+    )
+
+
+@admin.register(TurmaEnsino)
+class TurmaEnsinoAdmin(admin.ModelAdmin):
+    list_display = ('identificacao', 'curso', 'data_inicio', 'data_fim', 'ativa')
+    list_filter = ('ativa', 'data_inicio', 'data_fim')
+    search_fields = ('identificacao', 'curso__nome', 'observacoes')
+    autocomplete_fields = ('curso',)
+    filter_horizontal = ('monitores_militares', 'monitores_externos', 'disciplinas')
+    readonly_fields = ('data_criacao', 'data_atualizacao')
+    date_hierarchy = 'data_inicio'
+
+
+@admin.register(AlunoEnsino)
+class AlunoEnsinoAdmin(admin.ModelAdmin):
+    list_display = ('matricula', 'get_pessoa_nome', 'turma', 'situacao', 'data_matricula')
+    list_filter = ('situacao', 'data_matricula', 'turma__curso')
+    search_fields = ('matricula', 'militar__nome_completo', 'militar__cpf', 'pessoa_externa__nome_completo', 'pessoa_externa__cpf')
+    autocomplete_fields = ('militar', 'pessoa_externa', 'turma')
+    readonly_fields = ('data_criacao', 'data_atualizacao')
+    date_hierarchy = 'data_matricula'
+
+
+@admin.register(InstrutorEnsino)
+class InstrutorEnsinoAdmin(admin.ModelAdmin):
+    list_display = ('__str__', 'habilitacoes', 'ativo')
+    list_filter = ('ativo', 'data_criacao')
+    search_fields = ('militar__nome_completo', 'militar__cpf', 'habilitacoes')
+    autocomplete_fields = ('militar',)
+    readonly_fields = ('data_criacao', 'data_atualizacao')
+    fieldsets = (
+        ('Informações Básicas', {
+            'fields': ('militar', 'habilitacoes', 'ativo')
+        }),
+        ('Controle', {
+            'fields': ('data_criacao', 'data_atualizacao')
+        }),
+    )
+
+
+@admin.register(MonitorEnsino)
+class MonitorEnsinoAdmin(admin.ModelAdmin):
+    list_display = ('__str__', 'tipo_monitor', 'ativo')
+    list_filter = ('ativo', 'tipo_monitor', 'data_criacao')
+    search_fields = ('militar__nome_completo', 'militar__cpf', 'nome_outra_forca', 'nome_civil', 'cpf_outra_forca', 'cpf_civil', 'habilitacoes', 'especialidades')
+    autocomplete_fields = ('militar',)
+    readonly_fields = ('data_criacao', 'data_atualizacao')
+
+
+@admin.register(AulaEnsino)
+class AulaEnsinoAdmin(admin.ModelAdmin):
+    list_display = ('disciplina', 'turma', 'data_aula', 'hora_inicio', 'instrutor', 'local')
+    list_filter = ('tipo_local', 'data_aula', 'disciplina')
+    search_fields = ('disciplina__nome', 'turma__identificacao', 'local', 'conteudo_ministrado')
+    autocomplete_fields = ('disciplina', 'turma', 'instrutor')
+    readonly_fields = ('data_criacao', 'data_atualizacao')
+    date_hierarchy = 'data_aula'
+
+
+@admin.register(FrequenciaAula)
+class FrequenciaAulaAdmin(admin.ModelAdmin):
+    list_display = ('aluno', 'aula', 'presenca', 'data_registro')
+    list_filter = ('presenca', 'data_registro', 'aula__disciplina')
+    search_fields = ('aluno__matricula', 'aluno__militar__nome_completo', 'aula__disciplina__nome')
+    autocomplete_fields = ('aula', 'aluno')
+    readonly_fields = ('data_registro',)
+
+
+@admin.register(AproveitamentoDisciplina)
+class AproveitamentoDisciplinaAdmin(admin.ModelAdmin):
+    list_display = ('aluno', 'disciplina', 'turma', 'frequencia_percentual', 'nota_final', 'aprovado')
+    list_filter = ('aprovado', 'disciplina', 'turma')
+    search_fields = ('aluno__matricula', 'aluno__militar__nome_completo', 'disciplina__nome')
+    autocomplete_fields = ('aluno', 'disciplina', 'turma')
+    readonly_fields = ('data_criacao', 'data_atualizacao')
+
+
+@admin.register(AvaliacaoEnsino)
+class AvaliacaoEnsinoAdmin(admin.ModelAdmin):
+    list_display = ('nome', 'disciplina', 'turma', 'tipo', 'data_avaliacao', 'peso', 'nota_maxima')
+    list_filter = ('tipo', 'data_avaliacao', 'disciplina')
+    search_fields = ('nome', 'descricao', 'disciplina__nome', 'turma__identificacao')
+    autocomplete_fields = ('disciplina', 'turma')
+    readonly_fields = ('data_criacao', 'data_atualizacao')
+    date_hierarchy = 'data_avaliacao'
+
+
+@admin.register(NotaAvaliacao)
+class NotaAvaliacaoAdmin(admin.ModelAdmin):
+    list_display = ('aluno', 'avaliacao', 'nota', 'data_lancamento', 'lancado_por')
+    list_filter = ('data_lancamento', 'avaliacao__tipo')
+    search_fields = ('aluno__matricula', 'aluno__militar__nome_completo', 'avaliacao__nome')
+    autocomplete_fields = ('avaliacao', 'aluno', 'lancado_por')
+    readonly_fields = ('data_lancamento',)
+
+
+@admin.register(CertificadoEnsino)
+class CertificadoEnsinoAdmin(admin.ModelAdmin):
+    list_display = ('numero', 'aluno', 'curso', 'turma', 'data_conclusao', 'status')
+    list_filter = ('status', 'data_conclusao', 'curso')
+    search_fields = ('numero', 'aluno__matricula', 'aluno__militar__nome_completo', 'curso__nome')
+    autocomplete_fields = ('aluno', 'curso', 'turma', 'assinado_por_comandante', 'assinado_por_diretor')
+    readonly_fields = ('data_criacao', 'data_atualizacao')
+    date_hierarchy = 'data_conclusao'
+
+
+@admin.register(DocumentoAluno)
+class DocumentoAlunoAdmin(admin.ModelAdmin):
+    list_display = ('aluno', 'tipo', 'nome', 'data_emissao', 'data_upload')
+    list_filter = ('tipo', 'data_emissao', 'data_upload')
+    search_fields = ('aluno__matricula', 'aluno__militar__nome_completo', 'nome', 'descricao')
+    autocomplete_fields = ('aluno',)
+    readonly_fields = ('data_upload',)
+    date_hierarchy = 'data_upload'
+
+
+@admin.register(OcorrenciaDisciplinar)
+class OcorrenciaDisciplinarAdmin(admin.ModelAdmin):
+    list_display = ('aluno', 'turma', 'tipo', 'gravidade', 'data_ocorrencia', 'responsavel_registro')
+    list_filter = ('tipo', 'gravidade', 'data_ocorrencia')
+    search_fields = ('aluno__matricula', 'aluno__militar__nome_completo', 'descricao')
+    autocomplete_fields = ('aluno', 'turma', 'responsavel_registro')
+    readonly_fields = ('data_registro',)
+    date_hierarchy = 'data_ocorrencia'
+
+
+@admin.register(EscalaInstrucao)
+class EscalaInstrucaoAdmin(admin.ModelAdmin):
+    list_display = ('turma', 'data_escala', 'instrutor', 'disciplina', 'hora_inicio', 'hora_fim', 'local')
+    list_filter = ('data_escala', 'disciplina')
+    search_fields = ('turma__identificacao', 'instrutor__nome_completo', 'local', 'observacoes')
+    autocomplete_fields = ('turma', 'instrutor', 'disciplina')
+    readonly_fields = ('data_criacao',)
+    date_hierarchy = 'data_escala'
+
+
+@admin.register(HistoricoEscolar)
+class HistoricoEscolarAdmin(admin.ModelAdmin):
+    list_display = ('aluno', 'curso', 'turma', 'disciplina', 'frequencia_percentual', 'nota_final', 'aprovado')
+    list_filter = ('aprovado', 'curso', 'turma', 'disciplina')
+    search_fields = ('aluno__matricula', 'aluno__militar__nome_completo', 'curso__nome', 'disciplina__nome')
+    autocomplete_fields = ('aluno', 'curso', 'turma', 'disciplina')
+    readonly_fields = ('data_registro',)
+
+
+@admin.register(MaterialEscolar)
+class MaterialEscolarAdmin(admin.ModelAdmin):
+    list_display = ('codigo', 'nome', 'tipo', 'quantidade_total', 'quantidade_disponivel', 'ativo')
+    list_filter = ('tipo', 'ativo', 'data_criacao')
+    search_fields = ('codigo', 'nome', 'descricao')
+    readonly_fields = ('data_criacao', 'data_atualizacao')
+
+
+@admin.register(CautelaMaterialEscolar)
+class CautelaMaterialEscolarAdmin(admin.ModelAdmin):
+    list_display = ('aluno', 'material', 'quantidade', 'data_emprestimo', 'data_devolucao', 'status')
+    list_filter = ('status', 'data_emprestimo', 'material__tipo')
+    search_fields = ('aluno__matricula', 'aluno__militar__nome_completo', 'material__nome', 'material__codigo')
+    autocomplete_fields = ('aluno', 'material', 'responsavel_emprestimo')
+    readonly_fields = ('data_registro',)
+    date_hierarchy = 'data_emprestimo'
+
+
+# ============================================================================
+# ITE 01/2024 - Registros dos Novos Modelos
+# ============================================================================
+
+@admin.register(PlanoGeralEnsino)
+class PlanoGeralEnsinoAdmin(admin.ModelAdmin):
+    list_display = ('ano_exercicio', 'data_elaboracao', 'status', 'data_homologacao', 'data_publicacao')
+    list_filter = ('status', 'ano_exercicio', 'data_elaboracao')
+    search_fields = ('ano_exercicio', 'observacoes')
+    readonly_fields = ('data_criacao', 'data_atualizacao', 'elaborado_por')
+    date_hierarchy = 'data_elaboracao'
+
+
+@admin.register(ItemPlanoGeralEnsino)
+class ItemPlanoGeralEnsinoAdmin(admin.ModelAdmin):
+    list_display = ('plano_geral', 'tipo_atividade', 'descricao', 'periodo_realizacao', 'prioridade')
+    list_filter = ('tipo_atividade', 'prioridade', 'plano_geral__ano_exercicio')
+    search_fields = ('descricao', 'local', 'observacoes')
+    autocomplete_fields = ('plano_geral', 'curso')
+
+
+@admin.register(ProjetoPedagogico)
+class ProjetoPedagogicoAdmin(admin.ModelAdmin):
+    list_display = ('curso', 'versao', 'status', 'data_aprovacao')
+    list_filter = ('status', 'data_aprovacao', 'data_criacao')
+    search_fields = ('curso__nome', 'versao', 'objetivo_geral')
+    autocomplete_fields = ('curso',)
+    readonly_fields = ('data_criacao', 'data_atualizacao')
+
+
+@admin.register(PlanoCursoEstagio)
+class PlanoCursoEstagioAdmin(admin.ModelAdmin):
+    list_display = ('projeto_pedagogico', 'tipo', 'edicao', 'ano_edicao', 'status')
+    list_filter = ('tipo', 'status', 'regime_escolar', 'ano_edicao')
+    search_fields = ('projeto_pedagogico__curso__nome', 'edicao', 'observacoes')
+    autocomplete_fields = ('projeto_pedagogico', 'turma', 'coordenador_geral', 'coordenador_curso', 'supervisor_curso')
+
+
+@admin.register(PlanoDisciplina)
+class PlanoDisciplinaAdmin(admin.ModelAdmin):
+    list_display = ('disciplina', 'projeto_pedagogico', 'versao', 'status')
+    list_filter = ('status', 'versao', 'disciplina')
+    search_fields = ('disciplina__nome', 'projeto_pedagogico__curso__nome')
+    autocomplete_fields = ('disciplina', 'projeto_pedagogico')
+
+
+@admin.register(PlanoPalestra)
+class PlanoPalestraAdmin(admin.ModelAdmin):
+    list_display = ('finalidade', 'curso', 'data_palestra', 'status', 'palestrante_militar', 'palestrante_externo')
+    list_filter = ('status', 'data_palestra', 'curso')
+    search_fields = ('finalidade', 'objetivos', 'observacoes')
+    autocomplete_fields = ('curso', 'turma', 'palestrante_militar', 'palestrante_externo')
+    date_hierarchy = 'data_palestra'
+
+
+@admin.register(AtividadeTreinamentoCampo)
+class AtividadeTreinamentoCampoAdmin(admin.ModelAdmin):
+    list_display = ('nome', 'curso', 'turma', 'data_realizacao', 'status')
+    list_filter = ('status', 'data_realizacao', 'curso')
+    search_fields = ('nome', 'objetivos', 'local', 'observacoes')
+    autocomplete_fields = ('curso', 'turma', 'disciplina', 'coordenador', 'supervisor')
+    date_hierarchy = 'data_realizacao'
+
+
+@admin.register(AtividadeComplementarEnsino)
+class AtividadeComplementarEnsinoAdmin(admin.ModelAdmin):
+    list_display = ('nome', 'tipo', 'curso', 'data_realizacao', 'status')
+    list_filter = ('tipo', 'status', 'data_realizacao', 'curso')
+    search_fields = ('nome', 'descricao', 'local', 'observacoes')
+    autocomplete_fields = ('curso', 'turma', 'responsavel')
+    date_hierarchy = 'data_realizacao'
+
+
+@admin.register(TesteConhecimentosProfissionais)
+class TesteConhecimentosProfissionaisAdmin(admin.ModelAdmin):
+    list_display = ('nome', 'tipo', 'data_aplicacao', 'status', 'coordenador')
+    list_filter = ('tipo', 'status', 'data_aplicacao')
+    search_fields = ('nome', 'descricao', 'objetivo', 'observacoes')
+    autocomplete_fields = ('coordenador',)
+    date_hierarchy = 'data_aplicacao'
+
+
+@admin.register(PlanoEstagioNivelamentoProfissional)
+class PlanoEstagioNivelamentoProfissionalAdmin(admin.ModelAdmin):
+    list_display = ('ano_edicao', 'edicao', 'status', 'coordenador', 'supervisor')
+    list_filter = ('status', 'ano_edicao')
+    search_fields = ('objetivo', 'observacoes')
+    autocomplete_fields = ('coordenador', 'supervisor')
+
+
+@admin.register(RelatorioAnualDEIP)
+class RelatorioAnualDEIPAdmin(admin.ModelAdmin):
+    list_display = ('ano_referencia', 'data_elaboracao', 'status', 'elaborado_por')
+    list_filter = ('status', 'ano_referencia', 'data_elaboracao')
+    search_fields = ('ano_referencia', 'resumo_executivo', 'observacoes')
+    readonly_fields = ('data_criacao', 'data_atualizacao')
+    date_hierarchy = 'data_elaboracao'
+
+
+@admin.register(ProcessoSelecaoAlunos)
+class ProcessoSelecaoAlunosAdmin(admin.ModelAdmin):
+    list_display = ('curso', 'edital', 'numero_vagas', 'data_inicio_inscricoes', 'data_fim_inscricoes', 'status')
+    list_filter = ('status', 'data_inicio_inscricoes', 'curso')
+    search_fields = ('edital', 'criterios_selecao', 'observacoes')
+    autocomplete_fields = ('curso', 'turma', 'homologado_por')
+    filter_horizontal = ('comissao_conducao_trabalhos',)
+    readonly_fields = ('data_criacao', 'data_atualizacao')
+    date_hierarchy = 'data_inicio_inscricoes'
+
+
+@admin.register(InscricaoProcessoSelecao)
+class InscricaoProcessoSelecaoAdmin(admin.ModelAdmin):
+    list_display = ('processo', 'militar', 'data_inscricao', 'status')
+    list_filter = ('status', 'data_inscricao', 'processo__curso')
+    search_fields = ('processo__edital', 'militar__nome_completo')
+    autocomplete_fields = ('processo', 'militar')
+    readonly_fields = ('data_inscricao', 'data_atualizacao')
+    date_hierarchy = 'data_inscricao'
+
+
+@admin.register(RecursoProcessoSelecao)
+class RecursoProcessoSelecaoAdmin(admin.ModelAdmin):
+    list_display = ('inscricao', 'tipo', 'data_apresentacao', 'status')
+    list_filter = ('tipo', 'status', 'data_apresentacao')
+    search_fields = ('inscricao__militar__nome_completo', 'fundamentacao', 'parecer')
+    autocomplete_fields = ('inscricao', 'analisado_por')
+    readonly_fields = ('data_apresentacao', 'data_analise', 'data_criacao', 'data_atualizacao')
+    date_hierarchy = 'data_apresentacao'
+
+
+@admin.register(TrabalhoConclusaoCurso)
+class TrabalhoConclusaoCursoAdmin(admin.ModelAdmin):
+    list_display = ('aluno', 'curso', 'titulo', 'status', 'data_entrega', 'nota_final')
+    list_filter = ('status', 'data_entrega', 'curso')
+    search_fields = ('titulo', 'aluno__militar__nome_completo', 'aluno__pessoa_externa__nome_completo')
+    autocomplete_fields = ('aluno', 'curso', 'turma', 'orientador_militar', 'orientador_externo')
+    filter_horizontal = ('banca_examinadora',)
+    readonly_fields = ('data_criacao', 'data_atualizacao')
+    date_hierarchy = 'data_entrega'
+
+
+@admin.register(PlanoSeguranca)
+class PlanoSegurancaAdmin(admin.ModelAdmin):
+    list_display = ('curso', 'turma', 'data_atividade', 'local', 'status')
+    list_filter = ('status', 'data_atividade', 'tipo_atividade', 'curso')
+    search_fields = ('local', 'objetivo', 'observacoes')
+    autocomplete_fields = ('curso', 'turma', 'disciplina', 'aula', 'responsavel_coordenacao', 'responsavel_supervisao', 'aprovado_por')
+    readonly_fields = ('data_criacao', 'data_atualizacao')
+    date_hierarchy = 'data_atividade'
+
+
+@admin.register(ClassificacaoFinalCurso)
+class ClassificacaoFinalCursoAdmin(admin.ModelAdmin):
+    list_display = ('aluno', 'curso', 'turma', 'classificacao', 'media_final_curso', 'total_disciplinas_reprovadas', 'aprovado_direto', 'aprovado_com_recuperacao')
+    list_filter = ('aprovado_direto', 'aprovado_com_recuperacao', 'curso', 'turma')
+    search_fields = ('aluno__militar__nome_completo', 'aluno__pessoa_externa__nome_completo', 'curso__nome')
+    autocomplete_fields = ('aluno', 'curso', 'turma')
+    readonly_fields = ('data_criacao', 'data_atualizacao')
 

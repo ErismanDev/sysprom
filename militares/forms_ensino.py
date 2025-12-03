@@ -201,9 +201,10 @@ class PedidoRevisaoProvaForm(forms.ModelForm):
 
     class Meta:
         model = PedidoRevisaoProva
-        fields = ['fundamentacao']
+        fields = ['fundamentacao', 'itens_solicitados']
         widgets = {
             'fundamentacao': CKEditor5Widget(config_name='default'),
+            'itens_solicitados': CKEditor5Widget(config_name='default'),
         }
 
     def clean(self):
@@ -232,9 +233,10 @@ class InstrutorParecerForm(forms.ModelForm):
     )
     class Meta:
         model = PedidoRevisaoProva
-        fields = ['parecer_instrutor']
+        fields = ['parecer_instrutor', 'parecer_instrutor_texto', 'nova_nota_instrutor']
         widgets = {
-            
+            'parecer_instrutor_texto': CKEditor5Widget(config_name='default'),
+            'nova_nota_instrutor': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'})
         }
 
     def clean(self):
@@ -261,9 +263,10 @@ class InstrutorParecerForm(forms.ModelForm):
 class ComissaoParecerForm(forms.ModelForm):
     class Meta:
         model = PedidoRevisaoProva
-        fields = ['parecer_final_texto']
+        fields = ['parecer_final_texto', 'nova_nota_final']
         widgets = {
             'parecer_final_texto': CKEditor5Widget(config_name='default'),
+            'nova_nota_final': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'})
         }
 
     def clean(self):

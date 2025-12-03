@@ -1,5 +1,6 @@
 import os
 from datetime import date
+from decimal import Decimal
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -14,6 +15,7 @@ import qrcode
 from io import BytesIO
 from django.core.files import File
 from django.db import connection
+from django.conf import settings
 
 
 def normalizar_data_para_date(data_operacao):
@@ -58,6 +60,9 @@ class CargoComissao(models.Model):
 def documento_upload_path(instance, filename):
     """Define o caminho de upload para documentos"""
     return f'documentos/{instance.militar.matricula}/{instance.tipo}/{filename}'
+
+def documento_legislacao_upload_path(instance, filename):
+    return f'legislacao_geral/{filename}'
 
 
 # Opções para campos de escolha - definidas no nível do módulo
@@ -418,7 +423,6 @@ POSTO_GRADUACAO_CHOICES = [
     ('2T', '2º Tenente'),
     ('AS', 'Aspirante a Oficial'),
     ('AA', 'Aluno de Adaptação'),
-    ('NVRR', 'Navegador'),
     # Praças
     ('ST', 'Subtenente'),
     ('1S', '1º Sargento'),
@@ -426,6 +430,7 @@ POSTO_GRADUACAO_CHOICES = [
     ('3S', '3º Sargento'),
     ('CAB', 'Cabo'),
     ('SD', 'Soldado'),
+    ('ALS', 'Aluno-Soldado'),  # Praça
 ]
 
 SITUACAO_CHOICES = [
@@ -559,6 +564,12 @@ class Militar(models.Model):
     email = models.EmailField(verbose_name="E-mail")
     telefone = models.CharField(max_length=20, verbose_name="Telefone")
     celular = models.CharField(max_length=20, verbose_name="Celular")
+    
+    # Informações de endereço
+    endereco = models.TextField(blank=True, null=True, verbose_name="Endereço Completo", help_text="Logradouro, número, complemento, bairro")
+    cidade = models.CharField(max_length=100, blank=True, null=True, verbose_name="Cidade")
+    uf = models.CharField(max_length=2, choices=UF_CHOICES, blank=True, null=True, verbose_name="UF")
+    cep = models.CharField(max_length=10, blank=True, null=True, verbose_name="CEP", help_text="Formato: 00000-000")
     
     foto = models.ImageField(upload_to='fotos_militares/', blank=True, null=True, verbose_name="Foto do Militar")
     
@@ -3936,24 +3947,55 @@ class Vaga(models.Model):
 class Curso(models.Model):
     """Cadastro de Cursos Militares e Civis"""
     
-    TIPO_CHOICES = [
-        ('MILITAR', 'Militar'),
-        ('CIVIL', 'Civil'),
-    ]
-    
-    nome = models.CharField(max_length=200, verbose_name="Nome do Curso")
-    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES, verbose_name="Tipo")
-    pontuacao = models.DecimalField(max_digits=5, decimal_places=2, verbose_name="Pontuação")
+    nome = models.CharField(max_length=150, verbose_name="Nome do Curso")
+    sigla = models.CharField(max_length=20, blank=True, null=True, verbose_name="Sigla")
     descricao = models.TextField(blank=True, null=True, verbose_name="Descrição")
+    objetivo = models.TextField(blank=True, null=True, verbose_name="Objetivo")
+    publico_alvo = models.TextField(blank=True, null=True, verbose_name="Público-Alvo")
+    requisitos = models.TextField(blank=True, null=True, verbose_name="Requisitos")
+    carga_horaria_total = models.PositiveIntegerField(blank=True, null=True, verbose_name="Carga Horária Total")
     ativo = models.BooleanField(default=True, verbose_name="Ativo")
     
     class Meta:
         verbose_name = "Curso"
         verbose_name_plural = "Cursos"
-        ordering = ['tipo', 'nome']
+        ordering = ['nome']
     
     def __str__(self):
-        return f"{self.nome} ({self.get_tipo_display()})"
+        if self.sigla:
+            return f"{self.nome} ({self.sigla})"
+        return self.nome
+
+
+class Disciplina(models.Model):
+    """Cadastro de Disciplinas"""
+    
+    nome = models.CharField(max_length=150, verbose_name="Nome")
+    sigla = models.CharField(max_length=30, blank=True, null=True, verbose_name="Sigla")
+    ementa = models.TextField(blank=True, null=True, verbose_name="Ementa")
+    objetivo = models.TextField(blank=True, null=True, verbose_name="Objetivo")
+    conteudo_programatico = models.TextField(blank=True, null=True, verbose_name="Conteúdo Programático")
+    carga_horaria_padrao = models.PositiveIntegerField(verbose_name="Carga Horária Padrão")
+    
+    tipo = models.CharField(
+        max_length=30,
+        choices=[
+            ('teorica', 'Teórica'),
+            ('pratica', 'Prática'),
+            ('mista', 'Teórico-Prática'),
+        ],
+        verbose_name="Tipo"
+    )
+    
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    
+    class Meta:
+        verbose_name = "Disciplina"
+        verbose_name_plural = "Disciplinas"
+        ordering = ['nome']
+    
+    def __str__(self):
+        return f"{self.nome}"
 
 
 class MedalhaCondecoracao(models.Model):
@@ -6297,15 +6339,14 @@ class FuncaoMilitar(models.Model):
                 'show_almoxarifado_requisicoes': False,
             }
         
-        # Obter permissões de submenu
-        permissoes_submenu = PermissaoFuncao.objects.filter(
+        # Obter permissões de módulos (menus e submenus) independentemente do tipo de acesso
+        permissoes_modulos = PermissaoFuncao.objects.filter(
             funcao_militar=self,
-            ativo=True,
-            acesso='VISUALIZAR'
+            ativo=True
         ).values_list('modulo', flat=True)
         
         # Mapear módulos para permissões de submenu
-        for modulo in permissoes_submenu:
+        for modulo in permissoes_modulos:
             if modulo == 'MENU_DASHBOARD':
                 permissoes_dict['show_dashboard'] = True
             elif modulo == 'MENU_EFETIVO':
@@ -6448,10 +6489,6 @@ class FuncaoMilitar(models.Model):
                 permissoes_dict['show_boletins_reservados'] = True
             elif modulo == 'SUBMENU_BOLETINS_ESPECIAIS':
                 permissoes_dict['show_boletins_especiais'] = True
-            elif modulo == 'SUBMENU_AVISOS':
-                permissoes_dict['show_avisos'] = True
-            elif modulo == 'SUBMENU_ORDENS_SERVICO':
-                permissoes_dict['show_ordens_servico'] = True
             elif modulo == 'SUBMENU_ESCALAS_DASHBOARD':
                 permissoes_dict['show_escalas_dashboard'] = True
             elif modulo == 'SUBMENU_ESCALAS_LISTA':
@@ -7183,8 +7220,6 @@ class PermissaoFuncao(models.Model):
         ('SUBMENU_BOLETINS_OSTENSIVOS', 'Boletins Ostensivos'),
         ('SUBMENU_BOLETINS_RESERVADOS', 'Boletins Reservados'),
         ('SUBMENU_BOLETINS_ESPECIAIS', 'Boletins Especiais'),
-        ('SUBMENU_AVISOS', 'Avisos'),
-        ('SUBMENU_ORDENS_SERVICO', 'Ordens de Serviço'),
         
         # Submenus - Escalas de Serviço
         ('SUBMENU_ESCALAS_DASHBOARD', 'Dashboard de Escalas'),
@@ -10739,8 +10774,6 @@ class FuncaoMenuConfig(models.Model):
     show_boletins_ostensivos = models.BooleanField(default=False, verbose_name="Boletins Ostensivos")
     show_boletins_reservados = models.BooleanField(default=False, verbose_name="Boletins Reservados")
     show_boletins_especiais = models.BooleanField(default=False, verbose_name="Boletins Especiais")
-    show_avisos = models.BooleanField(default=False, verbose_name="Avisos")
-    show_ordens_servico = models.BooleanField(default=False, verbose_name="Ordens de Serviço")
     
     # Submenus - Seção de Promoções
     show_fichas_oficiais = models.BooleanField(default=False, verbose_name="Fichas de Conceito (Oficiais)")
@@ -10827,6 +10860,21 @@ class FuncaoMenuConfig(models.Model):
     show_criar_ficha_conceito_oficial = models.BooleanField(default=False, verbose_name="Criar Ficha de Conceito (Oficial)")
     show_criar_ficha_conceito_praca = models.BooleanField(default=False, verbose_name="Criar Ficha de Conceito (Praça)")
     
+    # Menus e Submenus - Ensino
+    show_ensino = models.BooleanField(default=False, verbose_name="Ensino")
+    show_ensino_dashboard = models.BooleanField(default=False, verbose_name="Dashboard de Ensino")
+    show_ensino_cursos = models.BooleanField(default=False, verbose_name="Cursos")
+    show_ensino_turmas = models.BooleanField(default=False, verbose_name="Turmas")
+    show_ensino_disciplinas = models.BooleanField(default=False, verbose_name="Disciplinas")
+    show_ensino_alunos = models.BooleanField(default=False, verbose_name="Alunos")
+    show_ensino_instrutores = models.BooleanField(default=False, verbose_name="Instrutores")
+    show_ensino_monitores = models.BooleanField(default=False, verbose_name="Monitores")
+    show_ensino_aulas = models.BooleanField(default=False, verbose_name="Aulas")
+    show_ensino_frequencias = models.BooleanField(default=False, verbose_name="Frequências")
+    show_ensino_avaliacoes = models.BooleanField(default=False, verbose_name="Avaliações")
+    show_ensino_certificados = models.BooleanField(default=False, verbose_name="Certificados")
+    show_ensino_quadros_trabalho_semanal = models.BooleanField(default=False, verbose_name="Quadros de Trabalho Semanal")
+    
     # Campos de controle
     ativo = models.BooleanField(default=True, verbose_name="Ativo")
     data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
@@ -10880,8 +10928,6 @@ class FuncaoMenuConfig(models.Model):
             'boletins_ostensivos': self.show_boletins_ostensivos,
             'boletins_reservados': self.show_boletins_reservados,
             'boletins_especiais': self.show_boletins_especiais,
-            'avisos': self.show_avisos,
-            'ordens_servico': self.show_ordens_servico,
         }
     
     def get_submenus_promocoes(self):
@@ -11076,8 +11122,6 @@ class FuncaoMenuConfig(models.Model):
             'show_boletins_ostensivos': self.show_boletins_ostensivos,
             'show_boletins_reservados': self.show_boletins_reservados,
             'show_boletins_especiais': self.show_boletins_especiais,
-            'show_avisos': self.show_avisos,
-            'show_ordens_servico': self.show_ordens_servico,
             
             # Submenus - Seção de Promoções
             'show_fichas_oficiais': self.show_fichas_oficiais,
@@ -22218,6 +22262,7 @@ class RequisicaoAlmoxarifado(models.Model):
     def _criar_saida_transferencia(self, produtos_requisicao, quantidade_total, tabela_saida_produto_existe):
         """Cria a saída na OM requisitada"""
         import logging
+        import traceback
         
         logger = logging.getLogger(__name__)
         
@@ -23543,3 +23588,5600 @@ class ProcessoAdministrativo(models.Model):
         return cores.get(self.status, 'secondary')
 
 
+# ============================================================================
+# MÓDULO DE ENSINO MILITAR
+# ============================================================================
+
+def foto_aluno_upload_path(instance, filename):
+    """Define o caminho de upload para fotos de alunos"""
+    return f'ensino/alunos/{instance.matricula}/{filename}'
+
+
+def documento_ensino_upload_path(instance, filename):
+    """Define o caminho de upload para documentos do ensino"""
+    return f'ensino/documentos/{instance.tipo}/{filename}'
+
+
+class PessoaExterna(models.Model):
+    """Modelo para cadastrar pessoas externas (não militares) no sistema de ensino"""
+    
+    TIPO_PESSOA_CHOICES = [
+        ('ALUNO', 'Aluno'),
+        ('INSTRUTOR', 'Instrutor'),
+        ('MONITOR', 'Monitor'),
+        ('ALUNO_INSTRUTOR', 'Aluno e Instrutor'),
+        ('ALUNO_MONITOR', 'Aluno e Monitor'),
+        ('INSTRUTOR_MONITOR', 'Instrutor e Monitor'),
+        ('TODOS', 'Todos os Perfis'),
+    ]
+    
+    nome_completo = models.CharField(max_length=200, verbose_name="Nome Completo")
+    cpf = models.CharField(max_length=14, unique=True, verbose_name="CPF", help_text="Apenas números")
+    rg = models.CharField(max_length=20, blank=True, null=True, verbose_name="RG")
+    data_nascimento = models.DateField(blank=True, null=True, verbose_name="Data de Nascimento")
+    email = models.EmailField(blank=True, null=True, verbose_name="E-mail")
+    telefone = models.CharField(max_length=20, blank=True, null=True, verbose_name="Telefone")
+    endereco = models.TextField(blank=True, null=True, verbose_name="Endereço")
+    cidade = models.CharField(max_length=100, blank=True, null=True, verbose_name="Cidade")
+    uf = models.CharField(max_length=2, choices=UF_CHOICES, blank=True, null=True, verbose_name="UF")
+    cep = models.CharField(max_length=10, blank=True, null=True, verbose_name="CEP")
+    tipo_pessoa = models.CharField(
+        max_length=20,
+        choices=TIPO_PESSOA_CHOICES,
+        default='ALUNO',
+        verbose_name="Tipo de Pessoa",
+        help_text="Define o perfil desta pessoa no sistema de ensino"
+    )
+    instituicao_origem = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name="Instituição de Origem",
+        help_text="Instituição de onde a pessoa vem (ex: PM, CBM, Civil, etc)"
+    )
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    foto = models.ImageField(
+        upload_to='ensino/pessoas_externas/fotos/',
+        blank=True,
+        null=True,
+        verbose_name="Foto"
+    )
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Pessoa Externa"
+        verbose_name_plural = "Pessoas Externas"
+        ordering = ['nome_completo']
+        indexes = [
+            models.Index(fields=['cpf']),
+            models.Index(fields=['nome_completo']),
+        ]
+    
+    def __str__(self):
+        return f"{self.nome_completo} ({self.cpf})"
+    
+    def clean(self):
+        """Validação do CPF"""
+        if self.cpf:
+            # Remove caracteres não numéricos
+            cpf_limpo = ''.join(filter(str.isdigit, self.cpf))
+            if len(cpf_limpo) != 11:
+                raise ValidationError({'cpf': 'CPF deve conter 11 dígitos'})
+            self.cpf = cpf_limpo
+
+
+class CursoEnsino(models.Model):
+    """Modelo para cursos de ensino - estrutura robusta e interligada"""
+    
+    TIPO_CURSO_CHOICES = [
+        ('FORMACAO', 'Formação'),
+        ('HABILITACAO', 'Habilitação'),
+        ('APERFEICOAMENTO', 'Aperfeiçoamento'),
+        ('ESPECIALIZACAO', 'Especialização'),
+        ('EXTENSAO', 'Extensão'),
+        ('CAPACITACAO', 'Capacitação'),
+        ('ATUALIZACAO', 'Atualização'),
+        ('QUALIFICACAO', 'Qualificação'),
+        ('TECNICO', 'Técnico'),
+        ('PERMANENTE', 'Permanente'),
+        ('REGULAR', 'Regular'),
+        ('INTENSIVO', 'Intensivo'),
+        ('MODULAR', 'Modular'),
+        ('LIVRE', 'Livre'),
+        ('POS_GRADUACAO', 'Pós-graduação'),
+        ('NIVELAMENTO', 'Nivelamento'),
+    ]
+    
+    MODALIDADE_CHOICES = [
+        ('PRESENCIAL', 'Presencial'),
+        ('SEMIPRESENCIAL', 'Semipresencial (Híbrida)'),
+        ('EAD', 'EAD (Online)'),
+        ('ONLINE_AO_VIVO', 'Online ao Vivo'),
+        ('AUTOINSTRUCIONAL', 'Autoinstrucional'),
+        ('INTENSIVA', 'Intensiva'),
+        ('MODULAR', 'Modular'),
+        ('CONTINUADA', 'Continuada'),
+        ('PRATICA_OPERACIONAL', 'Prática/Operacional'),
+        ('TEORICA', 'Teórica'),
+    ]
+    
+    PUBLICO_ALVO_CHOICES = [
+        ('PRACAS', 'Praças'),
+        ('OFICIAIS', 'Oficiais'),
+        ('CIVIS', 'Civis'),
+        ('MISTO', 'Misto'),
+        ('CRIANCAS', 'Crianças'),
+        ('COMUNIDADE', 'Comunidade'),
+    ]
+    
+    REGIME_MATRICULA_CHOICES = [
+        ('UNICA', 'Única'),
+        ('CONTINUA', 'Contínua'),
+        ('TURMAS_ANUAIS', 'Turmas Anuais'),
+    ]
+    
+    TIPO_CERTIFICADO_CHOICES = [
+        ('PARTICIPACAO', 'Participação'),
+        ('CONCLUSAO', 'Conclusão'),
+        ('HABILITACAO', 'Habilitação'),
+        ('ESPECIALIZACAO', 'Especialização'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('ATIVO', 'Ativo'),
+        ('INATIVO', 'Inativo'),
+        ('EM_REVISAO', 'Em Revisão'),
+    ]
+    
+    # 1. Identificação Geral
+    nome = models.CharField(max_length=200, blank=True, null=True, verbose_name="Nome do Curso")
+    codigo = models.CharField(max_length=50, unique=True, blank=True, null=True, verbose_name="Código", help_text="Ex: CBM-OP-2025")
+    tipo_curso = models.CharField(
+        max_length=20,
+        choices=TIPO_CURSO_CHOICES,
+        blank=True,
+        null=True,
+        verbose_name="Tipo de Curso"
+    )
+    modalidade = models.CharField(
+        max_length=20,
+        choices=MODALIDADE_CHOICES,
+        default='PRESENCIAL',
+        verbose_name="Modalidade"
+    )
+    
+    # 2. Descrição e Objetivos
+    descricao_resumida = models.TextField(blank=True, null=True, verbose_name="Descrição Resumida")
+    finalidade = models.TextField(blank=True, null=True, verbose_name="Objetivo Geral / Finalidade")
+    objetivos_especificos = models.TextField(blank=True, null=True, verbose_name="Objetivos Específicos")
+    competencias_habilidades = models.TextField(blank=True, null=True, verbose_name="Competências e Habilidades Desenvolvidas")
+    publico_alvo = models.CharField(max_length=20, choices=PUBLICO_ALVO_CHOICES, blank=True, null=True, verbose_name="Público-Alvo")
+    
+    # 3. Carga Horária
+    carga_horaria = models.PositiveIntegerField(blank=True, null=True, verbose_name="Carga Horária Total (horas)")
+    carga_horaria_minima_aprovacao = models.PositiveIntegerField(blank=True, null=True, verbose_name="Carga Horária Mínima para Aprovação")
+    horas_teoricas = models.PositiveIntegerField(blank=True, null=True, verbose_name="Horas Teóricas")
+    horas_praticas = models.PositiveIntegerField(blank=True, null=True, verbose_name="Horas Práticas")
+    horas_complementares = models.PositiveIntegerField(blank=True, null=True, verbose_name="Horas Complementares")
+    duracao_prevista_dias = models.PositiveIntegerField(blank=True, null=True, verbose_name="Duração Prevista (dias)")
+    duracao_prevista_semanas = models.PositiveIntegerField(blank=True, null=True, verbose_name="Duração Prevista (semanas)")
+    duracao_prevista_meses = models.PositiveIntegerField(blank=True, null=True, verbose_name="Duração Prevista (meses)")
+    
+    # 4. Estrutura Curricular
+    disciplinas = models.ManyToManyField(
+        'DisciplinaEnsino',
+        through='DisciplinaCurso',
+        related_name='cursos',
+        verbose_name="Disciplinas do Curso",
+        help_text="Disciplinas que compõem este curso"
+    )
+    matriz_curricular = models.FileField(
+        upload_to='ensino/cursos/matrizes/',
+        blank=True,
+        null=True,
+        verbose_name="Matriz Curricular (PDF)"
+    )
+    sequencia_recomendada = models.TextField(blank=True, null=True, verbose_name="Sequência Recomendada das Disciplinas")
+    possibilidade_equivalencia = models.BooleanField(default=False, verbose_name="Possibilidade de Equivalência entre Disciplinas")
+    
+    # 5. Requisitos do Curso
+    requisitos_ingresso = models.TextField(blank=True, null=True, verbose_name="Requisitos de Ingresso")
+    idade_minima = models.PositiveIntegerField(blank=True, null=True, verbose_name="Idade Mínima")
+    escolaridade_requerida = models.TextField(blank=True, null=True, verbose_name="Escolaridade Requerida")
+    posto_graduacao_requerido = models.CharField(max_length=100, blank=True, null=True, verbose_name="Posto/Graduação Requerido")
+    atestado_medico_obrigatorio = models.BooleanField(default=False, verbose_name="Inspeção de Saúde Obrigatória")
+    teste_fisico_obrigatorio = models.BooleanField(default=False, verbose_name="Teste Físico (TAF) Obrigatório")
+    documentos_obrigatorios = models.TextField(blank=True, null=True, verbose_name="Documentos Obrigatórios")
+    uniformes_equipamentos = models.TextField(blank=True, null=True, verbose_name="Uniformes e Equipamentos Necessários")
+    
+    # 6. Administração e Gestão
+    unidade_responsavel = models.CharField(max_length=200, blank=True, null=True, verbose_name="Unidade Responsável pelo Curso")
+    coordenador_militar = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cursos_coordenados_militar',
+        verbose_name="Coordenador Geral (Militar)"
+    )
+    coordenador_externo = models.ForeignKey(
+        'PessoaExterna',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cursos_coordenados_externo',
+        verbose_name="Coordenador Geral (Externo)"
+    )
+    instrutores_curso = models.ManyToManyField(
+        'InstrutorEnsino',
+        related_name='cursos_instrutores',
+        blank=True,
+        verbose_name="Instrutores Principais",
+        help_text="Instrutores que atuam neste curso"
+    )
+    monitores_curso = models.ManyToManyField(
+        'MonitorEnsino',
+        related_name='cursos_monitores',
+        blank=True,
+        verbose_name="Monitores",
+        help_text="Monitores que atuam neste curso"
+    )
+    numero_minimo_alunos = models.PositiveIntegerField(blank=True, null=True, verbose_name="Número Mínimo de Alunos")
+    numero_maximo_alunos = models.PositiveIntegerField(blank=True, null=True, verbose_name="Número Máximo de Alunos")
+    calendario_inicio = models.DateField(blank=True, null=True, verbose_name="Calendário de Início")
+    calendario_termino = models.DateField(blank=True, null=True, verbose_name="Calendário de Término")
+    regime_matricula = models.CharField(
+        max_length=20,
+        choices=REGIME_MATRICULA_CHOICES,
+        default='UNICA',
+        verbose_name="Regime de Matrícula"
+    )
+    
+    # 7. Avaliação do Curso
+    criterios_gerais_avaliacao = models.TextField(blank=True, null=True, verbose_name="Critérios Gerais de Avaliação")
+    formas_avaliacao = models.TextField(blank=True, null=True, verbose_name="Formas de Avaliação")
+    percentual_frequencia_minima = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=75.00,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        verbose_name="Percentual Mínimo de Frequência",
+        help_text="Percentual mínimo de frequência para aprovação"
+    )
+    formacao_notas = models.TextField(blank=True, null=True, verbose_name="Formação de Notas (peso por disciplina ou atividades)")
+    
+    # 8. Certificação
+    tipo_certificado = models.CharField(
+        max_length=20,
+        choices=TIPO_CERTIFICADO_CHOICES,
+        blank=True,
+        null=True,
+        verbose_name="Tipo de Certificado"
+    )
+    carga_horaria_certificada = models.PositiveIntegerField(blank=True, null=True, verbose_name="Carga Horária Certificada")
+    modelo_certificado = models.FileField(
+        upload_to='ensino/cursos/certificados/',
+        blank=True,
+        null=True,
+        verbose_name="Modelo do Certificado (Upload ou Template)"
+    )
+    
+    # 9. Materiais e Recursos
+    apostilas_pdfs = models.FileField(
+        upload_to='ensino/cursos/apostilas/',
+        blank=True,
+        null=True,
+        verbose_name="Apostilas / PDFs"
+    )
+    manuais = models.FileField(
+        upload_to='ensino/cursos/manuais/',
+        blank=True,
+        null=True,
+        verbose_name="Manuais"
+    )
+    videos_instrucionais = models.URLField(blank=True, null=True, verbose_name="Vídeos Instrucionais (Link)")
+    equipamentos_necessarios = models.TextField(blank=True, null=True, verbose_name="Equipamentos Necessários")
+    local_realizacao = models.TextField(blank=True, null=True, verbose_name="Local de Realização")
+    
+    # 10. Segurança e Procedimentos Operacionais
+    normas_seguranca = models.TextField(blank=True, null=True, verbose_name="Normas de Segurança Aplicáveis ao Curso")
+    riscos_envolvidos = models.TextField(blank=True, null=True, verbose_name="Riscos Envolvidos")
+    procedimentos_emergencia = models.TextField(blank=True, null=True, verbose_name="Procedimentos de Emergência")
+    epis_necessarios = models.TextField(blank=True, null=True, verbose_name="EPIs Necessários")
+    planos_contingencia = models.TextField(blank=True, null=True, verbose_name="Planos de Contingência")
+    
+    # 11. Informações Administrativas Extras
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='ATIVO',
+        verbose_name="Status do Curso"
+    )
+    versao = models.CharField(max_length=20, blank=True, null=True, verbose_name="Versão / Ano Letivo")
+    historico_versoes = models.TextField(blank=True, null=True, verbose_name="Histórico de Versões")
+    observacoes_internas = models.TextField(blank=True, null=True, verbose_name="Observações Internas")
+    
+    # Campos legados (mantidos para compatibilidade)
+    pre_requisitos = models.TextField(blank=True, null=True, verbose_name="Pré-requisitos")
+    legislacao = models.TextField(blank=True, null=True, verbose_name="Legislação e Normas Internas")
+    ementa = models.FileField(upload_to='ensino/cursos/ementas/', blank=True, null=True, verbose_name="Ementa")
+    plano_curso = models.FileField(upload_to='ensino/cursos/planos/', blank=True, null=True, verbose_name="Plano de Curso")
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    
+    # Extras Avançados
+    plano_pedagogico = models.FileField(
+        upload_to='ensino/cursos/planos_pedagogicos/',
+        blank=True,
+        null=True,
+        verbose_name="Plano Pedagógico Completo"
+    )
+    carga_horaria_por_instrutor = models.TextField(blank=True, null=True, verbose_name="Carga Horária por Instrutor")
+    controle_vagas_reservadas = models.BooleanField(default=False, verbose_name="Controle de Vagas Reservadas")
+    acompanhamento_individual = models.BooleanField(default=False, verbose_name="Acompanhamento Individual dos Alunos")
+    registro_ocorrencias = models.BooleanField(default=False, verbose_name="Registro de Ocorrências")
+    integracao_financeiro = models.BooleanField(default=False, verbose_name="Integração com Módulo Financeiro")
+    taxa_matricula = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        verbose_name="Taxa de Matrícula"
+    )
+    taxa_material = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        verbose_name="Taxa de Material"
+    )
+    pagamentos_mensais = models.BooleanField(default=False, verbose_name="Pagamentos Mensais")
+    checklist_equipamentos_aluno = models.TextField(blank=True, null=True, verbose_name="Checklist de Equipamentos por Aluno")
+    
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Curso de Ensino"
+        verbose_name_plural = "Cursos de Ensino"
+        ordering = ['nome']
+    
+    def __str__(self):
+        return f"{self.codigo} - {self.nome}"
+    
+    def get_coordenador(self):
+        """Retorna o coordenador (militar ou externo)"""
+        if self.coordenador_militar:
+            return self.coordenador_militar
+        elif self.coordenador_externo:
+            return self.coordenador_externo
+        return None
+    
+    def get_coordenador_nome(self):
+        """Retorna o nome do coordenador"""
+        coordenador = self.get_coordenador()
+        if coordenador:
+            if hasattr(coordenador, 'nome_completo'):
+                return coordenador.nome_completo
+            elif hasattr(coordenador, 'get_posto_graduacao_display'):
+                return f"{coordenador.get_posto_graduacao_display()} {coordenador.nome_completo}"
+        return "Não definido"
+
+
+class DisciplinaCurso(models.Model):
+    """Modelo intermediário para relacionar disciplinas com cursos (com informações adicionais)"""
+    
+    TIPO_CHOICE = [
+        ('OBRIGATORIA', 'Obrigatória'),
+        ('COMPLEMENTAR', 'Complementar'),
+        ('OPTATIVA', 'Optativa'),
+    ]
+    
+    curso = models.ForeignKey(CursoEnsino, on_delete=models.CASCADE, verbose_name="Curso")
+    disciplina = models.ForeignKey('DisciplinaEnsino', on_delete=models.CASCADE, verbose_name="Disciplina")
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICE, default='OBRIGATORIA', verbose_name="Tipo")
+    ordem = models.PositiveIntegerField(default=1, verbose_name="Ordem", help_text="Ordem de apresentação da disciplina no curso")
+    carga_horaria_curso = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        verbose_name="Carga Horária no Curso",
+        help_text="Carga horária específica desta disciplina neste curso (opcional)"
+    )
+    
+    class Meta:
+        verbose_name = "Disciplina do Curso"
+        verbose_name_plural = "Disciplinas dos Cursos"
+        ordering = ['curso', 'ordem', 'disciplina']
+        unique_together = ['curso', 'disciplina']
+    
+    def __str__(self):
+        return f"{self.curso.codigo} - {self.disciplina.nome} ({self.get_tipo_display()})"
+
+
+class DisciplinaEnsino(models.Model):
+    """Modelo para disciplinas dos cursos - suporta instrutores e monitores militares ou externos"""
+    
+    nome = models.CharField(max_length=200, verbose_name="Nome da Disciplina")
+    codigo = models.CharField(max_length=50, unique=True, blank=True, null=True, verbose_name="Código")
+    
+    # Instrutor responsável pode ser militar ou externo
+    instrutor_responsavel_militar = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='disciplinas_responsaveis_militar',
+        verbose_name="Instrutor Responsável (Militar)"
+    )
+    instrutor_responsavel_externo = models.ForeignKey(
+        'InstrutorEnsino',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='disciplinas_responsaveis_externo',
+        verbose_name="Instrutor Responsável (Externo)"
+    )
+    
+    # Monitores podem ser militares ou externos
+    monitores_militares = models.ManyToManyField(
+        'Militar',
+        related_name='disciplinas_monitoradas_militar',
+        blank=True,
+        verbose_name="Monitores Militares"
+    )
+    monitores_externos = models.ManyToManyField(
+        'MonitorEnsino',
+        related_name='disciplinas_monitoradas_externo',
+        blank=True,
+        verbose_name="Monitores Externos"
+    )
+    
+    # Categoria/Área de conhecimento
+    CATEGORIA_CHOICES = [
+        ('AREA_TEMATICA_I', 'ÁREA TEMÁTICA I - SISTEMAS, INSTITUIÇÕES E GESTÃO INTEGRADA EM SEGURANÇA PÚBLICA'),
+        ('AREA_TEMATICA_II', 'ÁREA TEMÁTICA II - VIOLÊNCIA, CRIME E CONTROLE SOCIAL'),
+        ('AREA_TEMATICA_III', 'ÁREA TEMÁTICA III - CONHECIMENTOS JURÍDICOS'),
+        ('AREA_TEMATICA_IV', 'ÁREA TEMÁTICA IV - MODALIDADES DE GESTÃO DE CONFLITOS E EVENTOS CRÍTICOS'),
+        ('AREA_TEMATICA_V', 'ÁREA TEMÁTICA V - VALORIZAÇÃO PROFISSIONAL E SAÚDE DO TRABALHADOR'),
+        ('AREA_TEMATICA_VI', 'ÁREA TEMÁTICA VI - COMUNICAÇÃO, INFORMAÇÃO E TECNOLOGIAS EM SEGURANÇA PÚBLICA'),
+        ('AREA_TEMATICA_VII', 'ÁREA TEMÁTICA VII - CULTURA, COTIDIANO E PRÁTICA REFLEXIVA'),
+        ('AREA_TEMATICA_VIII', 'ÁREA TEMÁTICA VIII - FUNÇÕES, TÉCNICAS E PROCEDIMENTOS EM SEGURANÇA PÚBLICA'),
+    ]
+    categoria = models.CharField(
+        max_length=100,
+        choices=CATEGORIA_CHOICES,
+        blank=True,
+        null=True,
+        verbose_name="Categoria / Área de Conhecimento"
+    )
+    descricao_geral = models.TextField(blank=True, null=True, verbose_name="Descrição Geral")
+    objetivos = models.TextField(blank=True, null=True, verbose_name="Objetivos da Disciplina")
+    competencias_desenvolvidas = models.TextField(blank=True, null=True, verbose_name="Competências Desenvolvidas")
+    
+    # Carga Horária
+    carga_horaria = models.PositiveIntegerField(verbose_name="Carga Horária Total (horas)")
+    carga_horaria_teorica = models.PositiveIntegerField(blank=True, null=True, verbose_name="Carga Horária Teórica (horas)")
+    carga_horaria_pratica = models.PositiveIntegerField(blank=True, null=True, verbose_name="Carga Horária Prática (horas)")
+    numero_encontros = models.PositiveIntegerField(blank=True, null=True, verbose_name="Número de Encontros/Aulas")
+    
+    # Requisitos
+    pre_requisitos_disciplinas = models.ManyToManyField(
+        'self',
+        symmetrical=False,
+        blank=True,
+        related_name='disciplinas_que_requerem',
+        verbose_name="Pré-requisitos de Disciplinas"
+    )
+    requisitos_matricula = models.TextField(blank=True, null=True, verbose_name="Requisitos de Matrícula")
+    materiais_obrigatorios = models.TextField(blank=True, null=True, verbose_name="Materiais Obrigatórios")
+    requisitos_infraestrutura = models.TextField(blank=True, null=True, verbose_name="Requisitos de Infraestrutura")
+    
+    # Estrutura Didática
+    ementa = models.TextField(verbose_name="Ementa")
+    conteudo_programatico = models.TextField(verbose_name="Conteúdo Programático")
+    metodologia_ensino = models.TextField(blank=True, null=True, verbose_name="Metodologia de Ensino")
+    cronograma_sugerido = models.TextField(blank=True, null=True, verbose_name="Cronograma Sugerido")
+    plano_ensino = models.FileField(
+        upload_to='planos_ensino/',
+        blank=True,
+        null=True,
+        verbose_name="Plano de Ensino (Upload)"
+    )
+    
+    # Avaliação
+    metodos_avaliacao = models.TextField(verbose_name="Métodos de Avaliação")
+    criterios_avaliacao = models.TextField(blank=True, null=True, verbose_name="Critérios de Avaliação")
+    media_minima_aprovacao = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=7.0,
+        validators=[MinValueValidator(0), MaxValueValidator(10)],
+        verbose_name="Média Mínima para Aprovação",
+        help_text="Nota mínima para aprovação (0-10)"
+    )
+    media_minima_recuperacao = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=6.0,
+        validators=[MinValueValidator(0), MaxValueValidator(10)],
+        verbose_name="Média Mínima para Recuperação",
+        help_text="Nota mínima na recuperação para aprovação (0-10)"
+    )
+    
+    # Frequência
+    frequencia_minima = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=75.00,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        verbose_name="Frequência Mínima (%)",
+        help_text="Percentual mínimo de frequência para aprovação"
+    )
+    forma_registro_frequencia = models.CharField(
+        max_length=50,
+        choices=[
+            ('POR_AULA', 'Por Aula'),
+            ('POR_ATIVIDADE', 'Por Atividade Prática'),
+            ('POR_MODULO', 'Por Módulo'),
+        ],
+        default='POR_AULA',
+        blank=True,
+        null=True,
+        verbose_name="Forma de Registro de Frequência"
+    )
+    
+    # Administração
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    versao = models.CharField(max_length=20, blank=True, null=True, verbose_name="Versão da Disciplina")
+    ano_vigencia = models.PositiveIntegerField(blank=True, null=True, verbose_name="Ano de Vigência")
+    semestre_vigencia = models.CharField(
+        max_length=20,
+        choices=[
+            ('1', '1º Semestre'),
+            ('2', '2º Semestre'),
+            ('ANUAL', 'Anual'),
+        ],
+        blank=True,
+        null=True,
+        verbose_name="Semestre de Vigência"
+    )
+    observacoes_administrativas = models.TextField(blank=True, null=True, verbose_name="Observações Administrativas")
+    
+    # Materiais e Recursos
+    # Nota: arquivos_complementares e links_uteis foram movidos para modelos separados
+    # (DocumentoDisciplinaEnsino e LinkUtilDisciplina) para permitir múltiplos arquivos/links
+    materiais_utilizados = models.TextField(blank=True, null=True, verbose_name="Materiais Utilizados em Aula")
+    equipamentos_necessarios = models.TextField(blank=True, null=True, verbose_name="Equipamentos Necessários")
+    
+    # Segurança e Procedimentos Operacionais
+    normas_seguranca = models.TextField(blank=True, null=True, verbose_name="Normas de Segurança Aplicáveis")
+    riscos_envolvidos = models.TextField(blank=True, null=True, verbose_name="Riscos Envolvidos")
+    epis_obrigatorios = models.TextField(blank=True, null=True, verbose_name="EPIs Obrigatórios")
+    procedimentos_emergencia = models.TextField(blank=True, null=True, verbose_name="Procedimentos em Caso de Incidente/Emergência")
+    
+    # Campos extras avançados
+    disciplina_substituivel = models.BooleanField(default=False, verbose_name="Disciplina Substituível por Equivalente?")
+    carga_horaria_maxima_dia = models.PositiveIntegerField(blank=True, null=True, verbose_name="Carga Horária Máxima Permitida por Dia")
+    
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Disciplina"
+        verbose_name_plural = "Disciplinas"
+        ordering = ['nome']
+    
+    def save(self, *args, **kwargs):
+        """Gera código automaticamente se não existir"""
+        if not self.codigo or self.codigo.strip() == '':
+            # Buscar todas as disciplinas com código no formato DISC-XXX
+            disciplinas_com_codigo = DisciplinaEnsino.objects.exclude(
+                codigo__isnull=True
+            ).exclude(
+                codigo=''
+            ).exclude(
+                pk=self.pk if self.pk else None
+            )
+            
+            # Encontrar o maior número usado
+            maior_numero = 0
+            for disciplina in disciplinas_com_codigo:
+                if disciplina.codigo and disciplina.codigo.startswith('DISC-'):
+                    try:
+                        # Extrair o número do código (ex: DISC-001 -> 1)
+                        numero = int(disciplina.codigo.split('-')[1])
+                        if numero > maior_numero:
+                            maior_numero = numero
+                    except (ValueError, IndexError):
+                        continue
+            
+            # Gerar código no formato DISC-001, DISC-002, etc.
+            proximo_numero = maior_numero + 1
+            self.codigo = f"DISC-{proximo_numero:03d}"
+        
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        if self.codigo:
+            return f"{self.codigo} - {self.nome}"
+        return self.nome
+    
+    def get_instrutor_responsavel(self):
+        """Retorna o instrutor responsável (militar ou externo)"""
+        if self.instrutor_responsavel_militar:
+            return self.instrutor_responsavel_militar
+        elif self.instrutor_responsavel_externo:
+            return self.instrutor_responsavel_externo
+        return None
+    
+    def calcular_numero_avaliacoes_obrigatorio(self):
+        """
+        Calcula o número obrigatório de avaliações baseado na carga horária da disciplina
+        Conforme regra:
+        - Até 20 horas: 1 avaliação
+        - 21 a 40 horas: 2 avaliações
+        - 41 a 60 horas: 3 avaliações
+        - Acima de 60 horas: 4 avaliações
+        """
+        if not self.carga_horaria:
+            return 0
+        
+        carga = self.carga_horaria
+        
+        if carga <= 20:
+            return 1
+        elif carga <= 40:
+            return 2
+        elif carga <= 60:
+            return 3
+        else:
+            return 4
+    
+    def get_numero_avaliacoes_atual(self, turma=None):
+        """
+        Retorna o número atual de avaliações (exceto recuperação) para esta disciplina
+        Se turma for especificada, conta apenas avaliações daquela turma
+        """
+        # Usar referência string para evitar import circular
+        queryset = self.avaliacoes.exclude(tipo='RECUPERACAO')
+        
+        if turma:
+            queryset = queryset.filter(turma=turma)
+        
+        return queryset.count()
+    
+    def verificar_numero_avaliacoes(self, turma=None):
+        """
+        Verifica se o número de avaliações está correto conforme a carga horária
+        Retorna um dicionário com informações sobre a verificação
+        """
+        obrigatorio = self.calcular_numero_avaliacoes_obrigatorio()
+        atual = self.get_numero_avaliacoes_atual(turma)
+        
+        return {
+            'obrigatorio': obrigatorio,
+            'atual': atual,
+            'correto': atual == obrigatorio,
+            'faltam': max(0, obrigatorio - atual),
+            'excedem': max(0, atual - obrigatorio),
+        }
+    
+    def get_instrutor_nome(self):
+        """Retorna o nome do instrutor responsável"""
+        instrutor = self.get_instrutor_responsavel()
+        if instrutor:
+            if hasattr(instrutor, 'nome_completo'):
+                return instrutor.nome_completo
+            elif hasattr(instrutor, 'get_posto_graduacao_display'):
+                return f"{instrutor.get_posto_graduacao_display()} {instrutor.nome_completo}"
+            elif hasattr(instrutor, 'get_pessoa_nome'):
+                return instrutor.get_pessoa_nome()
+        return "Não definido"
+
+
+def documento_disciplina_upload_path(instance, filename):
+    """Define o caminho de upload para documentos da disciplina"""
+    return f'ensino/disciplinas/documentos/{instance.disciplina.pk}/{filename}'
+
+
+class DocumentoDisciplinaEnsino(models.Model):
+    """Documentos anexados às disciplinas"""
+    
+    TIPO_CHOICES = [
+        ('ARQUIVO_COMPLEMENTAR', 'Arquivo Complementar'),
+        ('APOSTILA', 'Apostila'),
+        ('SLIDE', 'Slide'),
+        ('MANUAL', 'Manual'),
+        ('PLANO_AULA', 'Plano de Aula'),
+        ('MATERIAL_DIDATICO', 'Material Didático'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    disciplina = models.ForeignKey(
+        DisciplinaEnsino,
+        on_delete=models.CASCADE,
+        related_name='documentos',
+        verbose_name="Disciplina"
+    )
+    tipo = models.CharField(
+        max_length=20,
+        choices=TIPO_CHOICES,
+        default='ARQUIVO_COMPLEMENTAR',
+        verbose_name="Tipo de Documento"
+    )
+    titulo = models.CharField(
+        max_length=200,
+        verbose_name="Título do Documento"
+    )
+    descricao = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Descrição"
+    )
+    arquivo = models.FileField(
+        upload_to=documento_disciplina_upload_path,
+        verbose_name="Arquivo"
+    )
+    upload_por = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name="Upload por"
+    )
+    data_upload = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Data do Upload"
+    )
+    
+    class Meta:
+        verbose_name = "Documento da Disciplina"
+        verbose_name_plural = "Documentos da Disciplina"
+        ordering = ['-data_upload', 'tipo']
+    
+    def __str__(self):
+        return f"{self.get_tipo_display()} - {self.titulo}"
+
+
+class LinkUtilDisciplina(models.Model):
+    """Links úteis relacionados às disciplinas"""
+    
+    disciplina = models.ForeignKey(
+        DisciplinaEnsino,
+        on_delete=models.CASCADE,
+        related_name='links_uteis',
+        verbose_name="Disciplina"
+    )
+    titulo = models.CharField(
+        max_length=200,
+        verbose_name="Título do Link"
+    )
+    url = models.URLField(
+        verbose_name="URL"
+    )
+    descricao = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Descrição"
+    )
+    criado_por = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name="Criado por"
+    )
+    data_criacao = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Data de Criação"
+    )
+    
+    class Meta:
+        verbose_name = "Link Útil da Disciplina"
+        verbose_name_plural = "Links Úteis da Disciplina"
+        ordering = ['-data_criacao', 'titulo']
+    
+    def __str__(self):
+        return f"{self.titulo} - {self.disciplina.nome}"
+
+
+class EdicaoCurso(models.Model):
+    """Modelo para edições de cursos permanentes - agrupa turmas de uma mesma edição"""
+    
+    curso = models.ForeignKey(
+        CursoEnsino,
+        on_delete=models.CASCADE,
+        related_name='edicoes',
+        verbose_name="Curso"
+    )
+    numero_edicao = models.IntegerField(verbose_name="Número da Edição", help_text="Ex: 1, 2, 3...")
+    nome = models.CharField(max_length=200, verbose_name="Nome da Edição", help_text="Ex: 1ª Edição 2025")
+    ano = models.IntegerField(verbose_name="Ano da Edição")
+    data_inicio = models.DateField(verbose_name="Data de Início da Edição")
+    data_fim = models.DateField(verbose_name="Data de Término da Edição", null=True, blank=True)
+    ativa = models.BooleanField(default=True, verbose_name="Edição Ativa")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Edição de Curso"
+        verbose_name_plural = "Edições de Curso"
+        ordering = ['curso', '-ano', '-numero_edicao']
+        unique_together = [['curso', 'numero_edicao', 'ano']]
+    
+    def __str__(self):
+        return f"{self.curso.nome} - {self.nome}"
+    
+    def get_total_turmas(self):
+        """Retorna o total de turmas desta edição"""
+        return self.turmas.count()
+    
+    def get_total_alunos(self):
+        """Retorna o total de alunos em todas as turmas desta edição"""
+        from django.db.models import Count
+        return AlunoEnsino.objects.filter(turma__edicao=self).distinct().count()
+
+
+class TurmaEnsino(models.Model):
+    """Modelo para turmas de ensino - interligado com curso e disciplinas"""
+    
+    curso = models.ForeignKey(
+        CursoEnsino,
+        on_delete=models.CASCADE,
+        related_name='turmas',
+        verbose_name="Curso"
+    )
+    edicao = models.ForeignKey(
+        EdicaoCurso,
+        on_delete=models.PROTECT,
+        null=False,
+        blank=False,
+        related_name='turmas',
+        verbose_name="Edição",
+        help_text="Edição do curso - OBRIGATÓRIO: Todas as turmas devem estar dentro de uma edição"
+    )
+    identificacao = models.CharField(max_length=200, verbose_name="Identificação", help_text="Ex: Curso X – Turma Alfa 2025")
+    data_inicio = models.DateField(verbose_name="Data de Início")
+    data_fim = models.DateField(verbose_name="Data de Término")
+    
+    # Supervisor do curso
+    supervisor_curso = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='turmas_supervisor_curso',
+        verbose_name="Supervisor do Curso"
+    )
+    
+    # Coordenador do curso
+    coordenador_curso = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='turmas_coordenador_curso',
+        verbose_name="Coordenador do Curso"
+    )
+    
+    # Instrutor-chefe pode ser militar ou externo
+    instrutor_chefe_militar = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='turmas_chefiadas_militar',
+        verbose_name="Instrutor-Chefe (Militar)"
+    )
+    instrutor_chefe_externo = models.ForeignKey(
+        'InstrutorEnsino',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='turmas_chefiadas_externo',
+        verbose_name="Instrutor-Chefe (Externo)"
+    )
+    
+    # Supervisor de turma
+    supervisor_turma = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='turmas_supervisionadas',
+        verbose_name="Supervisor de Turma"
+    )
+    
+    # Coordenador de turma
+    coordenador_turma = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='turmas_coordenadas',
+        verbose_name="Coordenador de Turma"
+    )
+    
+    # Monitores podem ser militares ou externos
+    monitores_militares = models.ManyToManyField(
+        'Militar',
+        related_name='turmas_monitoradas_militar',
+        blank=True,
+        verbose_name="Monitores Militares"
+    )
+    monitores_externos = models.ManyToManyField(
+        'MonitorEnsino',
+        related_name='turmas_monitoradas_externo',
+        blank=True,
+        verbose_name="Monitores Externos"
+    )
+    
+    # Disciplinas da turma (herdadas do curso, mas podem ser customizadas)
+    disciplinas = models.ManyToManyField(
+        DisciplinaEnsino,
+        related_name='turmas_disciplinas',
+        blank=True,
+        verbose_name="Disciplinas da Turma",
+        help_text="Disciplinas que serão ministradas nesta turma"
+    )
+    
+    ativa = models.BooleanField(default=True, verbose_name="Turma Ativa")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Turma"
+        verbose_name_plural = "Turmas"
+        ordering = ['-data_inicio', 'identificacao']
+    
+    def __str__(self):
+        return f"{self.identificacao} - {self.curso.nome}"
+    
+    def get_instrutor_chefe(self):
+        """Retorna o instrutor-chefe (militar ou externo)"""
+        if self.instrutor_chefe_militar:
+            return self.instrutor_chefe_militar
+        elif self.instrutor_chefe_externo:
+            return self.instrutor_chefe_externo
+        return None
+
+
+class AlunoEnsino(models.Model):
+    """Modelo para alunos do ensino - pode ser bombeiro, militar outra força ou civil"""
+    
+    SITUACAO_CHOICES = [
+        ('ATIVO', 'Ativo'),
+        ('DESLIGADO', 'Desligado'),
+        ('TRANSFERIDO', 'Transferido'),
+        ('CONCLUIDO', 'Concluído'),
+        ('JUBILADO', 'Jubilado'),
+        ('EXCLUIDO', 'Excluído'),
+    ]
+    
+    TIPO_ALUNO_CHOICES = [
+        ('BOMBEIRO', 'Bombeiro Militar'),
+        ('OUTRA_FORCA', 'Militar de Outra Força'),
+        ('CIVIL', 'Civil'),
+    ]
+    
+    POSTO_OUTRA_FORCA_CHOICES_ALUNO = [
+        ('CEL', 'Coronel'),
+        ('TEN CEL', 'Tenente-Coronel'),
+        ('MAJ', 'Major'),
+        ('CAP', 'Capitão'),
+        ('1º TEN', '1º Tenente'),
+        ('2º TEN', '2º Tenente'),
+        ('SUBTEN', 'Subtenente'),
+        ('1º SGT', '1º Sargento'),
+        ('2º SGT', '2º Sargento'),
+        ('3º SGT', '3º Sargento'),
+        ('CB', 'Cabo'),
+        ('SD', 'Soldado'),
+        ('ALS', 'Aluno-Soldado'),
+    ]
+    
+    FORCA_ARMADA_CHOICES_ALUNO = [
+        ('EB', 'Exército Brasileiro'),
+        ('MB', 'Marinha do Brasil'),
+        ('FAB', 'Força Aérea Brasileira'),
+        ('PM', 'Polícia Militar'),
+        ('PC', 'Polícia Civil'),
+        ('PF', 'Polícia Federal'),
+        ('PRF', 'Polícia Rodoviária Federal'),
+        ('OUTRA', 'Outra'),
+    ]
+    
+    # Tipo de aluno
+    tipo_aluno = models.CharField(
+        max_length=20,
+        choices=TIPO_ALUNO_CHOICES,
+        default='BOMBEIRO',
+        verbose_name="Tipo de Aluno"
+    )
+    
+    # Para Bombeiro Militar - puxa dados da ficha do militar
+    militar = models.ForeignKey(
+        'Militar',
+        on_delete=models.CASCADE,
+        related_name='aluno_ensino',
+        null=True,
+        blank=True,
+        verbose_name="Militar Bombeiro"
+    )
+    
+    # Para Militar de Outra Força - preencher todos os dados
+    nome_outra_forca = models.CharField(max_length=200, blank=True, null=True, verbose_name="Nome Completo")
+    posto_outra_forca = models.CharField(max_length=20, choices=POSTO_OUTRA_FORCA_CHOICES_ALUNO, blank=True, null=True, verbose_name="Posto/Graduação")
+    forca_armada = models.CharField(max_length=20, choices=FORCA_ARMADA_CHOICES_ALUNO, blank=True, null=True, verbose_name="Força Armada/Polícia")
+    matricula_outra_forca = models.CharField(max_length=50, blank=True, null=True, verbose_name="Matrícula/Identificação")
+    cpf_outra_forca = models.CharField(max_length=14, blank=True, null=True, verbose_name="CPF", db_index=True)
+    rg_outra_forca = models.CharField(max_length=20, blank=True, null=True, verbose_name="RG")
+    data_nascimento_outra_forca = models.DateField(blank=True, null=True, verbose_name="Data de Nascimento")
+    email_outra_forca = models.EmailField(blank=True, null=True, verbose_name="E-mail")
+    telefone_outra_forca = models.CharField(max_length=20, blank=True, null=True, verbose_name="Telefone")
+    instituicao_outra_forca = models.CharField(max_length=200, blank=True, null=True, verbose_name="Instituição/Órgão")
+    endereco_outra_forca = models.TextField(blank=True, null=True, verbose_name="Endereço")
+    cidade_outra_forca = models.CharField(max_length=100, blank=True, null=True, verbose_name="Cidade")
+    uf_outra_forca = models.CharField(max_length=2, choices=UF_CHOICES, blank=True, null=True, verbose_name="UF")
+    cep_outra_forca = models.CharField(max_length=10, blank=True, null=True, verbose_name="CEP")
+    
+    # Para Civil - preencher todos os dados
+    nome_civil = models.CharField(max_length=200, blank=True, null=True, verbose_name="Nome Completo")
+    cpf_civil = models.CharField(max_length=14, blank=True, null=True, verbose_name="CPF", db_index=True)
+    rg_civil = models.CharField(max_length=20, blank=True, null=True, verbose_name="RG")
+    data_nascimento_civil = models.DateField(blank=True, null=True, verbose_name="Data de Nascimento")
+    email_civil = models.EmailField(blank=True, null=True, verbose_name="E-mail")
+    telefone_civil = models.CharField(max_length=20, blank=True, null=True, verbose_name="Telefone")
+    endereco_civil = models.TextField(blank=True, null=True, verbose_name="Endereço")
+    cidade_civil = models.CharField(max_length=100, blank=True, null=True, verbose_name="Cidade")
+    uf_civil = models.CharField(max_length=2, choices=UF_CHOICES, blank=True, null=True, verbose_name="UF")
+    cep_civil = models.CharField(max_length=10, blank=True, null=True, verbose_name="CEP")
+    formacao_civil = models.CharField(max_length=200, blank=True, null=True, verbose_name="Formação Acadêmica")
+    instituicao_civil = models.CharField(max_length=200, blank=True, null=True, verbose_name="Instituição de Ensino")
+    
+    # Mantido para compatibilidade (deprecated - usar tipo_aluno)
+    pessoa_externa = models.ForeignKey(
+        'PessoaExterna',
+        on_delete=models.CASCADE,
+        related_name='aluno_ensino',
+        null=True,
+        blank=True,
+        verbose_name="Pessoa Externa (Deprecated)"
+    )
+    
+    matricula = models.CharField(max_length=50, unique=True, blank=True, null=True, verbose_name="Matrícula do Aluno")
+    foto = models.ImageField(upload_to=foto_aluno_upload_path, blank=True, null=True, verbose_name="Foto")
+    situacao = models.CharField(max_length=20, choices=SITUACAO_CHOICES, default='ATIVO', verbose_name="Situação")
+    turma = models.ForeignKey(
+        TurmaEnsino,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='alunos',
+        verbose_name="Turma"
+    )
+    data_matricula = models.DateField(auto_now_add=True, verbose_name="Data de Matrícula")
+    data_desligamento = models.DateField(blank=True, null=True, verbose_name="Data de Desligamento")
+    motivo_desligamento = models.TextField(blank=True, null=True, verbose_name="Motivo do Desligamento")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    
+    # ============================================================================
+    # CAPACITAÇÃO FÍSICA E TAF - ITE 01/2024, item 12
+    # ============================================================================
+    
+    # Teste de Aptidão Física (TAF)
+    taf_data_realizacao = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Realização do TAF",
+        help_text="Data em que o aluno realizou o Teste de Aptidão Física"
+    )
+    taf_aprovado = models.BooleanField(
+        default=False,
+        verbose_name="Aprovado no TAF",
+        help_text="Indica se o aluno foi aprovado no Teste de Aptidão Física"
+    )
+    taf_nota_final = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        verbose_name="Nota Final do TAF",
+        help_text="Nota final obtida no Teste de Aptidão Física (0 a 100)"
+    )
+    taf_observacoes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações do TAF",
+        help_text="Observações sobre o desempenho no TAF"
+    )
+    
+    # Prova de Capacitação Física (PCF)
+    pcf_data_realizacao = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Realização da PCF",
+        help_text="Data em que o aluno realizou a Prova de Capacitação Física"
+    )
+    pcf_aprovado = models.BooleanField(
+        default=False,
+        verbose_name="Aprovado na PCF",
+        help_text="Indica se o aluno foi aprovado na Prova de Capacitação Física"
+    )
+    pcf_nota_final = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        verbose_name="Nota Final da PCF",
+        help_text="Nota final obtida na Prova de Capacitação Física (0 a 100)"
+    )
+    pcf_observacoes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações da PCF",
+        help_text="Observações sobre o desempenho na PCF"
+    )
+    
+    # Capacitação Física Geral
+    capacidade_fisica_geral = models.CharField(
+        max_length=20,
+        choices=[
+            ('EXCELENTE', 'Excelente'),
+            ('BOM', 'Bom'),
+            ('REGULAR', 'Regular'),
+            ('RUIM', 'Ruim'),
+            ('NAO_AVALIADO', 'Não Avaliado'),
+        ],
+        default='NAO_AVALIADO',
+        verbose_name="Capacidade Física Geral",
+        help_text="Avaliação geral da capacidade física do aluno"
+    )
+    data_ultima_avaliacao_fisica = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Data da Última Avaliação Física",
+        help_text="Data da última avaliação física realizada"
+    )
+    observacoes_capacitacao_fisica = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações sobre Capacitação Física",
+        help_text="Observações gerais sobre a capacitação física do aluno"
+    )
+    
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    # Campo de senha para login
+    senha_hash = models.CharField(max_length=128, blank=True, null=True, verbose_name="Hash da Senha")
+    
+    class Meta:
+        verbose_name = "Aluno"
+        verbose_name_plural = "Alunos"
+        ordering = ['matricula']
+        indexes = [
+            models.Index(fields=['situacao', 'matricula']),
+            models.Index(fields=['situacao', 'cpf_outra_forca']),
+            models.Index(fields=['situacao', 'cpf_civil']),
+        ]
+    
+    def __str__(self):
+        nome = self.get_pessoa_nome()
+        return f"{self.matricula} - {nome}"
+    
+    def get_pessoa(self):
+        """Retorna a pessoa (militar ou externa)"""
+        if self.militar:
+            return self.militar
+        elif self.pessoa_externa:
+            return self.pessoa_externa
+        return None
+    
+    def get_pessoa_nome(self):
+        """Retorna o nome da pessoa baseado no tipo"""
+        if self.tipo_aluno == 'BOMBEIRO' and self.militar:
+            return f"{self.militar.get_posto_graduacao_display()} {self.militar.nome_completo}"
+        elif self.tipo_aluno == 'OUTRA_FORCA' and self.nome_outra_forca:
+            posto = self.get_posto_outra_forca_display() if self.posto_outra_forca else ''
+            return f"{posto} {self.nome_outra_forca}".strip()
+        elif self.tipo_aluno == 'CIVIL' and self.nome_civil:
+            return self.nome_civil
+        # Fallback para compatibilidade
+        pessoa = self.get_pessoa()
+        if pessoa:
+            if hasattr(pessoa, 'nome_completo'):
+                if hasattr(pessoa, 'get_posto_graduacao_display'):
+                    return f"{pessoa.get_posto_graduacao_display()} {pessoa.nome_completo}"
+                return pessoa.nome_completo
+        return "Não definido"
+    
+    def get_nome_completo(self):
+        """Retorna o nome completo baseado no tipo (sem posto)"""
+        if self.tipo_aluno == 'BOMBEIRO' and self.militar:
+            return self.militar.nome_completo
+        elif self.tipo_aluno == 'OUTRA_FORCA' and self.nome_outra_forca:
+            return self.nome_outra_forca
+        elif self.tipo_aluno == 'CIVIL' and self.nome_civil:
+            return self.nome_civil
+        # Fallback para compatibilidade
+        pessoa = self.get_pessoa()
+        if pessoa:
+            if hasattr(pessoa, 'nome_completo'):
+                return pessoa.nome_completo
+        return "Não definido"
+    
+    def get_cpf(self):
+        """Retorna o CPF baseado no tipo"""
+        if self.tipo_aluno == 'BOMBEIRO' and self.militar:
+            return self.militar.cpf or ''
+        elif self.tipo_aluno == 'OUTRA_FORCA':
+            return self.cpf_outra_forca or ''
+        elif self.tipo_aluno == 'CIVIL':
+            return self.cpf_civil or ''
+        # Fallback para compatibilidade
+        pessoa = self.get_pessoa()
+        if pessoa and hasattr(pessoa, 'cpf'):
+            return pessoa.cpf or ''
+        return ''
+    
+    def get_email(self):
+        """Retorna o email baseado no tipo"""
+        if self.tipo_aluno == 'BOMBEIRO' and self.militar:
+            return self.militar.email or ''
+        elif self.tipo_aluno == 'OUTRA_FORCA':
+            return self.email_outra_forca or ''
+        elif self.tipo_aluno == 'CIVIL':
+            return self.email_civil or ''
+        return ''
+    
+    def clean(self):
+        """Validação baseada no tipo de aluno"""
+        # Validação baseada no tipo_aluno
+        if self.tipo_aluno == 'BOMBEIRO':
+            if not self.militar:
+                raise ValidationError('Aluno bombeiro deve ter um militar associado.')
+        elif self.tipo_aluno == 'OUTRA_FORCA':
+            if not self.nome_outra_forca:
+                raise ValidationError('Aluno de outra força deve ter nome completo.')
+            if not self.cpf_outra_forca:
+                raise ValidationError('Aluno de outra força deve ter CPF.')
+        elif self.tipo_aluno == 'CIVIL':
+            if not self.nome_civil:
+                raise ValidationError('Aluno civil deve ter nome completo.')
+            if not self.cpf_civil:
+                raise ValidationError('Aluno civil deve ter CPF.')
+        
+        # Validação de compatibilidade (mantida para retrocompatibilidade)
+        if self.militar and self.pessoa_externa:
+            raise ValidationError('Aluno não pode ser militar e pessoa externa ao mesmo tempo.')
+
+
+class InstrutorEnsino(models.Model):
+    """Modelo para instrutores do ensino - pode ser bombeiro, militar outra força ou civil"""
+    
+    TIPO_INSTRUTOR_CHOICES = [
+        ('BOMBEIRO', 'Bombeiro Militar'),
+        ('OUTRA_FORCA', 'Militar de Outra Força'),
+        ('CIVIL', 'Civil'),
+    ]
+    
+    POSTO_OUTRA_FORCA_CHOICES = [
+        ('CEL', 'Coronel'),
+        ('TEN CEL', 'Tenente-Coronel'),
+        ('MAJ', 'Major'),
+        ('CAP', 'Capitão'),
+        ('1TEN', '1º Tenente'),
+        ('2TEN', '2º Tenente'),
+        ('SUBTEN', 'Subtenente'),
+        ('1SGT', '1º Sargento'),
+        ('2SGT', '2º Sargento'),
+        ('3SGT', '3º Sargento'),
+        ('CB', 'Cabo'),
+        ('SD', 'Soldado'),
+        ('ALS', 'Aluno-Soldado'),
+    ]
+    
+    FORCA_ARMADA_CHOICES = [
+        ('EB', 'Exército Brasileiro'),
+        ('MB', 'Marinha do Brasil'),
+        ('FAB', 'Força Aérea Brasileira'),
+        ('PM', 'Polícia Militar'),
+        ('PC', 'Polícia Civil'),
+        ('PRF', 'Polícia Rodoviária Federal'),
+        ('PF', 'Polícia Federal'),
+        ('OUTRA', 'Outra'),
+    ]
+    
+    # Tipo de instrutor
+    tipo_instrutor = models.CharField(
+        max_length=20,
+        choices=TIPO_INSTRUTOR_CHOICES,
+        default='BOMBEIRO',
+        verbose_name="Tipo de Instrutor"
+    )
+    
+    # Para Bombeiro Militar
+    militar = models.ForeignKey(
+        'Militar',
+        on_delete=models.CASCADE,
+        related_name='instrutor_ensino',
+        blank=True,
+        null=True,
+        verbose_name="Militar Bombeiro"
+    )
+    # Contatos e endereço específicos do instrutor (opcional, caso seja diferente do militar)
+    email_bombeiro = models.EmailField(blank=True, null=True, verbose_name="E-mail (Instrutor)")
+    telefone_bombeiro = models.CharField(max_length=20, blank=True, null=True, verbose_name="Telefone (Instrutor)")
+    endereco_bombeiro = models.TextField(blank=True, null=True, verbose_name="Endereço (Instrutor)")
+    cidade_bombeiro = models.CharField(max_length=100, blank=True, null=True, verbose_name="Cidade (Instrutor)")
+    uf_bombeiro = models.CharField(max_length=2, choices=UF_CHOICES, blank=True, null=True, verbose_name="UF (Instrutor)")
+    cep_bombeiro = models.CharField(max_length=10, blank=True, null=True, verbose_name="CEP (Instrutor)")
+    
+    # Para Militar de Outra Força
+    nome_outra_forca = models.CharField(max_length=200, blank=True, null=True, verbose_name="Nome Completo")
+    posto_outra_forca = models.CharField(max_length=20, choices=POSTO_OUTRA_FORCA_CHOICES, blank=True, null=True, verbose_name="Posto/Graduação")
+    forca_armada = models.CharField(max_length=20, choices=FORCA_ARMADA_CHOICES, blank=True, null=True, verbose_name="Força Armada/Polícia")
+    matricula_outra_forca = models.CharField(max_length=50, blank=True, null=True, verbose_name="Matrícula/Identificação")
+    cpf_outra_forca = models.CharField(max_length=14, blank=True, null=True, verbose_name="CPF", db_index=True)
+    email_outra_forca = models.EmailField(blank=True, null=True, verbose_name="E-mail")
+    telefone_outra_forca = models.CharField(max_length=20, blank=True, null=True, verbose_name="Telefone")
+    instituicao_outra_forca = models.CharField(max_length=200, blank=True, null=True, verbose_name="Instituição/Órgão")
+    endereco_outra_forca = models.TextField(blank=True, null=True, verbose_name="Endereço")
+    cidade_outra_forca = models.CharField(max_length=100, blank=True, null=True, verbose_name="Cidade")
+    uf_outra_forca = models.CharField(max_length=2, choices=UF_CHOICES, blank=True, null=True, verbose_name="UF")
+    cep_outra_forca = models.CharField(max_length=10, blank=True, null=True, verbose_name="CEP")
+    foto_outra_forca = models.ImageField(upload_to='ensino/instrutores/fotos/', blank=True, null=True, verbose_name="Foto")
+    
+    # Para Civil
+    nome_civil = models.CharField(max_length=200, blank=True, null=True, verbose_name="Nome Completo")
+    cpf_civil = models.CharField(max_length=14, blank=True, null=True, verbose_name="CPF", db_index=True)
+    rg_civil = models.CharField(max_length=20, blank=True, null=True, verbose_name="RG")
+    data_nascimento_civil = models.DateField(blank=True, null=True, verbose_name="Data de Nascimento")
+    email_civil = models.EmailField(blank=True, null=True, verbose_name="E-mail")
+    telefone_civil = models.CharField(max_length=20, blank=True, null=True, verbose_name="Telefone")
+    endereco_civil = models.TextField(blank=True, null=True, verbose_name="Endereço")
+    cidade_civil = models.CharField(max_length=100, blank=True, null=True, verbose_name="Cidade")
+    uf_civil = models.CharField(max_length=2, choices=UF_CHOICES, blank=True, null=True, verbose_name="UF")
+    cep_civil = models.CharField(max_length=10, blank=True, null=True, verbose_name="CEP")
+    formacao_civil = models.CharField(max_length=200, blank=True, null=True, verbose_name="Formação Acadêmica")
+    instituicao_civil = models.CharField(max_length=200, blank=True, null=True, verbose_name="Instituição de Ensino")
+    
+    # Campos comuns
+    habilitacoes = models.TextField(blank=True, null=True, verbose_name="Habilitações")
+    especialidades = models.TextField(blank=True, null=True, verbose_name="Especialidades")
+    experiencia_profissional = models.TextField(blank=True, null=True, verbose_name="Experiência Profissional")
+    cursos_complementares = models.TextField(blank=True, null=True, verbose_name="Cursos Complementares")
+    link_lattes = models.URLField(blank=True, null=True, verbose_name="Link do Currículo Lattes", max_length=500)
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    foto = models.ImageField(upload_to='ensino/instrutores/fotos/', blank=True, null=True, verbose_name="Foto")
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    # Campo de senha para login
+    senha_hash = models.CharField(max_length=128, blank=True, null=True, verbose_name="Hash da Senha")
+    
+    class Meta:
+        verbose_name = "Instrutor"
+        verbose_name_plural = "Instrutores"
+        indexes = [
+            models.Index(fields=['ativo', 'cpf_outra_forca']),
+            models.Index(fields=['ativo', 'cpf_civil']),
+            models.Index(fields=['ativo', 'militar']),
+        ]
+    
+    def __str__(self):
+        if self.tipo_instrutor == 'BOMBEIRO' and self.militar:
+            if hasattr(self.militar, 'get_posto_graduacao_display'):
+                return f"Instrutor {self.militar.get_posto_graduacao_display()} {self.militar.nome_completo}"
+            return f"Instrutor {self.militar.nome_completo}"
+        elif self.tipo_instrutor == 'OUTRA_FORCA' and self.nome_outra_forca:
+            posto = self.get_posto_outra_forca_display() if self.posto_outra_forca else ''
+            return f"Instrutor {posto} {self.nome_outra_forca}".strip()
+        elif self.tipo_instrutor == 'CIVIL' and self.nome_civil:
+            return f"Instrutor {self.nome_civil}"
+        return "Instrutor"
+    
+    def get_nome_completo(self):
+        """Retorna o nome completo baseado no tipo"""
+        if self.tipo_instrutor == 'BOMBEIRO' and self.militar:
+            return self.militar.nome_completo
+        elif self.tipo_instrutor == 'OUTRA_FORCA':
+            return self.nome_outra_forca or ''
+        elif self.tipo_instrutor == 'CIVIL':
+            return self.nome_civil or ''
+        return ''
+    
+    def get_cpf(self):
+        """Retorna o CPF baseado no tipo"""
+        if self.tipo_instrutor == 'BOMBEIRO' and self.militar:
+            return self.militar.cpf or ''
+        elif self.tipo_instrutor == 'OUTRA_FORCA':
+            return self.cpf_outra_forca or ''
+        elif self.tipo_instrutor == 'CIVIL':
+            return self.cpf_civil or ''
+        return ''
+
+
+def documento_instrutor_upload_path(instance, filename):
+    """Define o caminho de upload para documentos do instrutor"""
+    return f'ensino/instrutores/documentos/{instance.instrutor.pk}/{filename}'
+
+
+class DocumentoInstrutorEnsino(models.Model):
+    """Documentos anexados aos instrutores"""
+    
+    TIPO_CHOICES = [
+        ('CERTIFICADO', 'Certificado'),
+        ('DIPLOMA', 'Diploma'),
+        ('HABILITACAO', 'Habilitação'),
+        ('COMPROVANTE', 'Comprovante'),
+        ('CONTRATO', 'Contrato'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    instrutor = models.ForeignKey(
+        InstrutorEnsino,
+        on_delete=models.CASCADE,
+        related_name='documentos',
+        verbose_name="Instrutor"
+    )
+    tipo = models.CharField(
+        max_length=20,
+        choices=TIPO_CHOICES,
+        default='OUTROS',
+        verbose_name="Tipo de Documento"
+    )
+    titulo = models.CharField(
+        max_length=200,
+        verbose_name="Título do Documento"
+    )
+    descricao = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Descrição"
+    )
+    arquivo = models.FileField(
+        upload_to=documento_instrutor_upload_path,
+        verbose_name="Arquivo"
+    )
+    upload_por = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name="Upload por"
+    )
+    data_upload = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Data do Upload"
+    )
+    
+    class Meta:
+        verbose_name = "Documento do Instrutor"
+        verbose_name_plural = "Documentos do Instrutor"
+        ordering = ['-data_upload', 'tipo']
+    
+    def __str__(self):
+        return f"{self.get_tipo_display()} - {self.titulo}"
+
+
+class MonitorEnsino(models.Model):
+    """Modelo para monitores do ensino - pode ser bombeiro, militar outra força ou civil"""
+    
+    TIPO_MONITOR_CHOICES = [
+        ('BOMBEIRO', 'Bombeiro Militar'),
+        ('OUTRA_FORCA', 'Militar de Outra Força'),
+        ('CIVIL', 'Civil'),
+    ]
+    
+    POSTO_OUTRA_FORCA_CHOICES = [
+        ('CEL', 'Coronel'),
+        ('TEN CEL', 'Tenente-Coronel'),
+        ('MAJ', 'Major'),
+        ('CAP', 'Capitão'),
+        ('1TEN', '1º Tenente'),
+        ('2TEN', '2º Tenente'),
+        ('SUBTEN', 'Subtenente'),
+        ('1SGT', '1º Sargento'),
+        ('2SGT', '2º Sargento'),
+        ('3SGT', '3º Sargento'),
+        ('CB', 'Cabo'),
+        ('SD', 'Soldado'),
+        ('ALS', 'Aluno-Soldado'),
+    ]
+    
+    FORCA_ARMADA_CHOICES = [
+        ('EB', 'Exército Brasileiro'),
+        ('MB', 'Marinha do Brasil'),
+        ('FAB', 'Força Aérea Brasileira'),
+        ('PM', 'Polícia Militar'),
+        ('PC', 'Polícia Civil'),
+        ('PRF', 'Polícia Rodoviária Federal'),
+        ('PF', 'Polícia Federal'),
+        ('OUTRA', 'Outra'),
+    ]
+    
+    # Tipo de monitor
+    tipo_monitor = models.CharField(
+        max_length=20,
+        choices=TIPO_MONITOR_CHOICES,
+        default='BOMBEIRO',
+        verbose_name="Tipo de Monitor"
+    )
+    
+    # Para Bombeiro Militar
+    militar = models.ForeignKey(
+        'Militar',
+        on_delete=models.CASCADE,
+        related_name='monitor_ensino',
+        blank=True,
+        null=True,
+        verbose_name="Militar Bombeiro"
+    )
+    # Contatos e endereço específicos do monitor (opcional, caso seja diferente do militar)
+    email_bombeiro = models.EmailField(blank=True, null=True, verbose_name="E-mail (Monitor)")
+    telefone_bombeiro = models.CharField(max_length=20, blank=True, null=True, verbose_name="Telefone (Monitor)")
+    endereco_bombeiro = models.TextField(blank=True, null=True, verbose_name="Endereço (Monitor)")
+    cidade_bombeiro = models.CharField(max_length=100, blank=True, null=True, verbose_name="Cidade (Monitor)")
+    uf_bombeiro = models.CharField(max_length=2, choices=UF_CHOICES, blank=True, null=True, verbose_name="UF (Monitor)")
+    cep_bombeiro = models.CharField(max_length=10, blank=True, null=True, verbose_name="CEP (Monitor)")
+    
+    # Para Militar de Outra Força
+    nome_outra_forca = models.CharField(max_length=200, blank=True, null=True, verbose_name="Nome Completo")
+    posto_outra_forca = models.CharField(max_length=20, choices=POSTO_OUTRA_FORCA_CHOICES, blank=True, null=True, verbose_name="Posto/Graduação")
+    forca_armada = models.CharField(max_length=20, choices=FORCA_ARMADA_CHOICES, blank=True, null=True, verbose_name="Força Armada/Polícia")
+    matricula_outra_forca = models.CharField(max_length=50, blank=True, null=True, verbose_name="Matrícula/Identificação")
+    cpf_outra_forca = models.CharField(max_length=14, blank=True, null=True, verbose_name="CPF", db_index=True)
+    email_outra_forca = models.EmailField(blank=True, null=True, verbose_name="E-mail")
+    telefone_outra_forca = models.CharField(max_length=20, blank=True, null=True, verbose_name="Telefone")
+    instituicao_outra_forca = models.CharField(max_length=200, blank=True, null=True, verbose_name="Instituição/Órgão")
+    endereco_outra_forca = models.TextField(blank=True, null=True, verbose_name="Endereço")
+    cidade_outra_forca = models.CharField(max_length=100, blank=True, null=True, verbose_name="Cidade")
+    uf_outra_forca = models.CharField(max_length=2, choices=UF_CHOICES, blank=True, null=True, verbose_name="UF")
+    cep_outra_forca = models.CharField(max_length=10, blank=True, null=True, verbose_name="CEP")
+    foto_outra_forca = models.ImageField(upload_to='ensino/monitores/fotos/', blank=True, null=True, verbose_name="Foto")
+    
+    # Para Civil
+    nome_civil = models.CharField(max_length=200, blank=True, null=True, verbose_name="Nome Completo")
+    cpf_civil = models.CharField(max_length=14, blank=True, null=True, verbose_name="CPF", db_index=True)
+    rg_civil = models.CharField(max_length=20, blank=True, null=True, verbose_name="RG")
+    data_nascimento_civil = models.DateField(blank=True, null=True, verbose_name="Data de Nascimento")
+    email_civil = models.EmailField(blank=True, null=True, verbose_name="E-mail")
+    telefone_civil = models.CharField(max_length=20, blank=True, null=True, verbose_name="Telefone")
+    endereco_civil = models.TextField(blank=True, null=True, verbose_name="Endereço")
+    cidade_civil = models.CharField(max_length=100, blank=True, null=True, verbose_name="Cidade")
+    uf_civil = models.CharField(max_length=2, choices=UF_CHOICES, blank=True, null=True, verbose_name="UF")
+    cep_civil = models.CharField(max_length=10, blank=True, null=True, verbose_name="CEP")
+    formacao_civil = models.CharField(max_length=200, blank=True, null=True, verbose_name="Formação Acadêmica")
+    instituicao_civil = models.CharField(max_length=200, blank=True, null=True, verbose_name="Instituição de Ensino")
+    
+    # Campos comuns
+    habilitacoes = models.TextField(blank=True, null=True, verbose_name="Habilitações")
+    especialidades = models.TextField(blank=True, null=True, verbose_name="Especialidades")
+    experiencia_profissional = models.TextField(blank=True, null=True, verbose_name="Experiência Profissional")
+    cursos_complementares = models.TextField(blank=True, null=True, verbose_name="Cursos Complementares")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    foto = models.ImageField(upload_to='ensino/monitores/fotos/', blank=True, null=True, verbose_name="Foto")
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    # Campo de senha para login
+    senha_hash = models.CharField(max_length=128, blank=True, null=True, verbose_name="Hash da Senha")
+    
+    class Meta:
+        verbose_name = "Monitor"
+        verbose_name_plural = "Monitores"
+        indexes = [
+            models.Index(fields=['ativo', 'cpf_outra_forca']),
+            models.Index(fields=['ativo', 'cpf_civil']),
+            models.Index(fields=['ativo', 'militar']),
+        ]
+    
+    def __str__(self):
+        tipo = getattr(self, 'tipo_monitor', None)
+        if tipo == 'BOMBEIRO' and self.militar:
+            if hasattr(self.militar, 'get_posto_graduacao_display'):
+                return f"Monitor {self.militar.get_posto_graduacao_display()} {self.militar.nome_completo}"
+            return f"Monitor {self.militar.nome_completo}"
+        elif tipo == 'OUTRA_FORCA' and hasattr(self, 'nome_outra_forca') and self.nome_outra_forca:
+            posto = self.get_posto_outra_forca_display() if self.posto_outra_forca else ''
+            return f"Monitor {posto} {self.nome_outra_forca}".strip()
+        elif tipo == 'CIVIL' and hasattr(self, 'nome_civil') and self.nome_civil:
+            return f"Monitor {self.nome_civil}"
+        # Fallback para monitores antigos
+        elif self.militar:
+            return f"Monitor {self.militar.nome_completo}"
+        elif hasattr(self, 'nome_outra_forca') and self.nome_outra_forca:
+            return f"Monitor {self.nome_outra_forca}"
+        elif hasattr(self, 'nome_civil') and self.nome_civil:
+            return f"Monitor {self.nome_civil}"
+        return "Monitor"
+    
+    def get_nome_completo(self):
+        """Retorna o nome completo baseado no tipo"""
+        tipo = getattr(self, 'tipo_monitor', None)
+        if tipo == 'BOMBEIRO' and self.militar:
+            return self.militar.nome_completo
+        elif tipo == 'OUTRA_FORCA':
+            return getattr(self, 'nome_outra_forca', None) or ''
+        elif tipo == 'CIVIL':
+            return getattr(self, 'nome_civil', None) or ''
+        # Fallback: se não tiver tipo_monitor, tentar inferir
+        elif self.militar:
+            return self.militar.nome_completo
+        elif hasattr(self, 'nome_outra_forca') and self.nome_outra_forca:
+            return self.nome_outra_forca
+        elif hasattr(self, 'nome_civil') and self.nome_civil:
+            return self.nome_civil
+        return ''
+    
+    def get_cpf(self):
+        """Retorna o CPF baseado no tipo"""
+        tipo = getattr(self, 'tipo_monitor', None)
+        if tipo == 'BOMBEIRO' and self.militar:
+            return self.militar.cpf or ''
+        elif tipo == 'OUTRA_FORCA':
+            return getattr(self, 'cpf_outra_forca', None) or ''
+        elif tipo == 'CIVIL':
+            return getattr(self, 'cpf_civil', None) or ''
+        # Fallback
+        elif self.militar:
+            return self.militar.cpf or ''
+        return ''
+    
+    def get_pessoa_nome(self):
+        """Retorna o nome da pessoa (compatibilidade com código antigo)"""
+        return self.get_nome_completo()
+    
+    def get_instrutor_vinculado(self):
+        """Retorna o instrutor vinculado (compatibilidade com código antigo)"""
+        return None
+
+
+def documento_monitor_upload_path(instance, filename):
+    """Define o caminho de upload para documentos do monitor"""
+    return f'ensino/monitores/documentos/{instance.monitor.pk}/{filename}'
+
+
+def documento_curso_upload_path(instance, filename):
+    """Define o caminho de upload para documentos do curso"""
+    return f'ensino/cursos/documentos/{instance.curso.pk}/{filename}'
+
+
+class DocumentoMonitorEnsino(models.Model):
+    """Documentos anexados aos monitores"""
+    
+    TIPO_CHOICES = [
+        ('CERTIFICADO', 'Certificado'),
+        ('DIPLOMA', 'Diploma'),
+        ('HABILITACAO', 'Habilitação'),
+        ('COMPROVANTE', 'Comprovante'),
+        ('CONTRATO', 'Contrato'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    monitor = models.ForeignKey(
+        MonitorEnsino,
+        on_delete=models.CASCADE,
+        related_name='documentos',
+        verbose_name="Monitor"
+    )
+    tipo = models.CharField(
+        max_length=20,
+        choices=TIPO_CHOICES,
+        default='OUTROS',
+        verbose_name="Tipo de Documento"
+    )
+    titulo = models.CharField(
+        max_length=200,
+        verbose_name="Título do Documento"
+    )
+    descricao = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Descrição"
+    )
+    arquivo = models.FileField(
+        upload_to=documento_monitor_upload_path,
+        verbose_name="Arquivo"
+    )
+    upload_por = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name="Upload por"
+    )
+    data_upload = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Data do Upload"
+    )
+    
+    class Meta:
+        verbose_name = "Documento do Monitor"
+        verbose_name_plural = "Documentos do Monitor"
+        ordering = ['-data_upload', 'tipo']
+    
+    def __str__(self):
+        return f"{self.get_tipo_display()} - {self.titulo}"
+
+
+class DocumentoCursoEnsino(models.Model):
+    """Documentos anexados aos cursos"""
+    
+    TIPO_CHOICES = [
+        ('CERTIFICADO', 'Certificado'),
+        ('DIPLOMA', 'Diploma'),
+        ('HABILITACAO', 'Habilitação'),
+        ('COMPROVANTE', 'Comprovante'),
+        ('CONTRATO', 'Contrato'),
+        ('PORTARIA', 'Portaria'),
+        ('DECRETO', 'Decreto'),
+        ('LEGISLACAO', 'Legislação'),
+        ('PLANO_CURSO', 'Plano de Curso'),
+        ('EMENTA', 'Ementa'),
+        ('PLANO_PEDAGOGICO', 'Plano Pedagógico'),
+        ('MATERIAL_DIDATICO', 'Material Didático'),
+        ('ARQUIVO_COMPLEMENTAR', 'Arquivo Complementar'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    curso = models.ForeignKey(
+        CursoEnsino,
+        on_delete=models.CASCADE,
+        related_name='documentos',
+        verbose_name="Curso"
+    )
+    tipo = models.CharField(
+        max_length=20,
+        choices=TIPO_CHOICES,
+        default='OUTROS',
+        verbose_name="Tipo de Documento"
+    )
+    titulo = models.CharField(
+        max_length=200,
+        verbose_name="Título do Documento"
+    )
+    descricao = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Descrição"
+    )
+    arquivo = models.FileField(
+        upload_to=documento_curso_upload_path,
+        verbose_name="Arquivo"
+    )
+    upload_por = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name="Upload por"
+    )
+    data_upload = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Data do Upload"
+    )
+    
+    class Meta:
+        verbose_name = "Documento do Curso"
+        verbose_name_plural = "Documentos do Curso"
+        ordering = ['-data_upload', 'tipo']
+    
+    def __str__(self):
+        return f"{self.get_tipo_display()} - {self.titulo}"
+
+
+class LinkUtilCurso(models.Model):
+    """Links úteis relacionados aos cursos"""
+    
+    curso = models.ForeignKey(
+        CursoEnsino,
+        on_delete=models.CASCADE,
+        related_name='links_uteis',
+        verbose_name="Curso"
+    )
+    titulo = models.CharField(
+        max_length=200,
+        verbose_name="Título do Link"
+    )
+    url = models.URLField(
+        verbose_name="URL"
+    )
+    descricao = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Descrição"
+    )
+    criado_por = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name="Criado por"
+    )
+    data_criacao = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Data de Criação"
+    )
+    
+    class Meta:
+        verbose_name = "Link Útil do Curso"
+        verbose_name_plural = "Links Úteis do Curso"
+        ordering = ['-data_criacao', 'titulo']
+    
+    def __str__(self):
+        return f"{self.titulo} - {self.curso.nome}"
+
+
+class AulaEnsino(models.Model):
+    """Modelo para aulas do ensino"""
+    
+    TIPO_LOCAL_CHOICES = [
+        ('SALA', 'Sala de Aula'),
+        ('AUDITORIO', 'Auditório'),
+        ('CAMPO', 'Campo'),
+        ('PISTA', 'Pista'),
+        ('LABORATORIO', 'Laboratório'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    disciplina = models.ForeignKey(
+        DisciplinaEnsino,
+        on_delete=models.CASCADE,
+        related_name='aulas',
+        verbose_name="Disciplina"
+    )
+    turma = models.ForeignKey(
+        TurmaEnsino,
+        on_delete=models.CASCADE,
+        related_name='aulas',
+        verbose_name="Turma"
+    )
+    data_aula = models.DateField(verbose_name="Data da Aula")
+    hora_inicio = models.TimeField(verbose_name="Hora de Início")
+    hora_fim = models.TimeField(verbose_name="Hora de Término")
+    instrutor = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='aulas_ministradas',
+        verbose_name="Instrutor"
+    )
+    local = models.CharField(max_length=100, verbose_name="Local")
+    tipo_local = models.CharField(max_length=20, choices=TIPO_LOCAL_CHOICES, default='SALA', verbose_name="Tipo de Local")
+    conteudo_ministrado = CKEditor5Field(config_name='default', verbose_name="Conteúdo Ministrado")
+    assinatura_instrutor = models.ImageField(
+        upload_to='ensino/aulas/assinaturas/',
+        blank=True,
+        null=True,
+        verbose_name="Assinatura do Instrutor"
+    )
+    qr_code = models.ImageField(
+        upload_to='ensino/aulas/qrcodes/',
+        blank=True,
+        null=True,
+        verbose_name="QR Code para Chamada"
+    )
+    registro_fotografico = models.ImageField(
+        upload_to='ensino/aulas/fotos/',
+        blank=True,
+        null=True,
+        verbose_name="Registro Fotográfico"
+    )
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Aula"
+        verbose_name_plural = "Aulas"
+        ordering = ['-data_aula', '-hora_inicio']
+    
+    def __str__(self):
+        return f"{self.disciplina.nome} - {self.data_aula} - {self.turma.identificacao}"
+    
+    def get_instrutor_display(self):
+        """Retorna o nome do instrutor seguindo a hierarquia: aula > disciplina > turma"""
+        # 1. Instrutor direto da aula (militar)
+        if self.instrutor:
+            return f"{self.instrutor.get_posto_graduacao_display()} {self.instrutor.nome_completo}"
+        
+        # 2. Instrutor responsável da disciplina (prioridade sobre turma)
+        if self.disciplina:
+            if self.disciplina.instrutor_responsavel_militar:
+                return f"{self.disciplina.instrutor_responsavel_militar.get_posto_graduacao_display()} {self.disciplina.instrutor_responsavel_militar.nome_completo}"
+            elif self.disciplina.instrutor_responsavel_externo:
+                nome = self.disciplina.instrutor_responsavel_externo.get_nome_completo()
+                return nome if nome else str(self.disciplina.instrutor_responsavel_externo)
+        
+        # 3. Instrutor chefe da turma
+        if self.turma:
+            if self.turma.instrutor_chefe_militar:
+                return f"{self.turma.instrutor_chefe_militar.get_posto_graduacao_display()} {self.turma.instrutor_chefe_militar.nome_completo}"
+            elif self.turma.instrutor_chefe_externo:
+                nome = self.turma.instrutor_chefe_externo.get_nome_completo()
+                return nome if nome else str(self.turma.instrutor_chefe_externo)
+        
+        return None
+
+
+class FrequenciaAula(models.Model):
+    """Modelo para frequência dos alunos nas aulas"""
+    
+    PRESENCA_CHOICES = [
+        ('PRESENTE', 'Presente'),
+        ('FALTA', 'Falta'),
+        ('FALTA_JUSTIFICADA', 'Falta Justificada'),
+        ('ATRASO', 'Atraso'),
+        ('SAIDA_ANTECIPADA', 'Saída Antecipada'),
+    ]
+    
+    aula = models.ForeignKey(
+        AulaEnsino,
+        on_delete=models.CASCADE,
+        related_name='frequencias',
+        verbose_name="Aula"
+    )
+    aluno = models.ForeignKey(
+        AlunoEnsino,
+        on_delete=models.CASCADE,
+        related_name='frequencias',
+        verbose_name="Aluno"
+    )
+    presenca = models.CharField(max_length=20, choices=PRESENCA_CHOICES, default='PRESENTE', verbose_name="Presença")
+    justificativa = models.TextField(blank=True, null=True, verbose_name="Justificativa")
+    hora_entrada = models.TimeField(blank=True, null=True, verbose_name="Hora de Entrada")
+    hora_saida = models.TimeField(blank=True, null=True, verbose_name="Hora de Saída")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    data_registro = models.DateTimeField(auto_now_add=True, verbose_name="Data do Registro")
+    
+    class Meta:
+        verbose_name = "Frequência"
+        verbose_name_plural = "Frequências"
+        unique_together = [['aula', 'aluno']]
+        ordering = ['aula', 'aluno']
+    
+    def __str__(self):
+        return f"{self.aluno.matricula} - {self.aula} - {self.get_presenca_display()}"
+
+
+class AproveitamentoDisciplina(models.Model):
+    """
+    Modelo para aproveitamento dos alunos por disciplina - ITE 01/2024
+    Inclui cálculos de frequência e classificação conforme ITE
+    """
+    
+    aluno = models.ForeignKey(
+        AlunoEnsino,
+        on_delete=models.CASCADE,
+        related_name='aproveitamentos',
+        verbose_name="Aluno"
+    )
+    disciplina = models.ForeignKey(
+        DisciplinaEnsino,
+        on_delete=models.CASCADE,
+        related_name='aproveitamentos',
+        verbose_name="Disciplina"
+    )
+    turma = models.ForeignKey(
+        TurmaEnsino,
+        on_delete=models.CASCADE,
+        related_name='aproveitamentos',
+        verbose_name="Turma"
+    )
+    frequencia_percentual = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0.00,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        verbose_name="Frequência (%)"
+    )
+    
+    # Frequência detalhada conforme ITE 10.7
+    faltas_nao_justificadas = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Faltas Não Justificadas",
+        help_text="Máximo 20% do total (ITE 10.7)"
+    )
+    faltas_justificadas = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Faltas Justificadas",
+        help_text="Máximo 30% do total (ITE 10.7)"
+    )
+    total_faltas = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Total de Faltas",
+        help_text="Somatório não pode ultrapassar 40% (ITE 10.7)"
+    )
+    carga_horaria_total_disciplina = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        verbose_name="Carga Horária Total da Disciplina"
+    )
+    
+    # Notas conforme ITE 15
+    nota_final = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        validators=[MinValueValidator(0), MaxValueValidator(10)],
+        verbose_name="Nota Final",
+        help_text="Nota final aproximada até décimos (ITE 15.7)"
+    )
+    
+    # Média Geral de Matéria (MGM) - ITE 18.2.1
+    media_geral_materia = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        validators=[MinValueValidator(0), MaxValueValidator(10)],
+        verbose_name="Média Geral de Matéria (MGM)",
+        help_text="Média aritmética das VCs da disciplina (ITE 18.2.1)"
+    )
+    
+    # Recuperação - ITE 15.9
+    fez_recuperacao = models.BooleanField(
+        default=False,
+        verbose_name="Fez Recuperação (2ª Época)"
+    )
+    nota_recuperacao = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        validators=[MinValueValidator(0), MaxValueValidator(10)],
+        verbose_name="Nota da Recuperação",
+        help_text="Nota mínima 6,0 na recuperação para aprovação (ITE 17.1.4)"
+    )
+    
+    aprovado = models.BooleanField(default=False, verbose_name="Aprovado")
+    aprovado_com_recuperacao = models.BooleanField(
+        default=False,
+        verbose_name="Aprovado com Recuperação"
+    )
+    
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Aproveitamento"
+        verbose_name_plural = "Aproveitamentos"
+        unique_together = [['aluno', 'disciplina', 'turma']]
+        ordering = ['aluno', 'disciplina']
+    
+    def __str__(self):
+        status = "Aprovado" if self.aprovado else "Reprovado"
+        return f"{self.aluno.matricula} - {self.disciplina.nome} - {status}"
+
+
+class AvaliacaoEnsino(models.Model):
+    """Modelo para avaliações do ensino - ITE 01/2024, item 15"""
+    
+    TIPO_AVALIACAO_CHOICES = [
+        ('PROVA_ESCRITA', 'Prova Escrita'),
+        ('PROVA_ORAL', 'Prova Oral'),
+        ('PROVA_GRAFICA', 'Prova Gráfica'),
+        ('PROVA_PRATICA', 'Prova Prática'),
+        ('TRABALHO_TECNICO_PROFISSIONAL', 'Trabalho Técnico-Profissional'),
+        ('RECUPERACAO', 'Recuperação'),
+    ]
+    
+    # Tipos de verificação conforme ITE 15.15
+    TIPO_VERIFICACAO_CHOICES = [
+        ('VI', 'Verificação Imediata (VI)'),
+        ('VE', 'Verificação de Estudo (VE)'),
+        ('VC', 'Verificação Corrente (VC)'),
+        ('VEsp', 'Verificação Especial (VEsp)'),
+        ('RECUPERACAO', 'Recuperação (2ª Época)'),
+    ]
+    
+    disciplina = models.ForeignKey(
+        DisciplinaEnsino,
+        on_delete=models.CASCADE,
+        related_name='avaliacoes',
+        verbose_name="Disciplina"
+    )
+    turma = models.ForeignKey(
+        TurmaEnsino,
+        on_delete=models.CASCADE,
+        related_name='avaliacoes',
+        verbose_name="Turma"
+    )
+    tipo = models.CharField(max_length=30, choices=TIPO_AVALIACAO_CHOICES, verbose_name="Tipo de Avaliação")
+    tipo_verificacao = models.CharField(
+        max_length=20,
+        choices=TIPO_VERIFICACAO_CHOICES,
+        blank=True,
+        null=True,
+        verbose_name="Tipo de Verificação (ITE 15.15)",
+        help_text="VI, VE, VC, VEsp conforme ITE 15.15"
+    )
+    nome = models.CharField(max_length=200, verbose_name="Nome da Avaliação")
+    descricao = models.TextField(blank=True, null=True, verbose_name="Descrição")
+    data_avaliacao = models.DateField(verbose_name="Data da Avaliação")
+    peso = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=1.00,
+        validators=[MinValueValidator(0.01)],
+        verbose_name="Peso",
+        help_text="Peso da avaliação no cálculo da nota final"
+    )
+    nota_maxima = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=10.00,
+        validators=[MinValueValidator(0.01)],
+        verbose_name="Nota Máxima"
+    )
+    criterios_aprovacao = models.TextField(blank=True, null=True, verbose_name="Critérios de Aprovação")
+    
+    # Campos específicos para Verificação Imediata (VI) - ITE 15.15.1
+    duracao_minutos = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        verbose_name="Duração (minutos)",
+        help_text="Para VI: não deve exceder 10 minutos (ITE 15.15.1)"
+    )
+    
+    # Campos específicos para Verificação Corrente (VC) - ITE 15.15.3
+    duracao_horas = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        verbose_name="Duração (horas)",
+        help_text="Para VC: não deve exceder 4 horas (ITE 15.15.3)"
+    )
+    
+    # Marcação prévia - ITE 15.15.5
+    marcacao_previa_horas = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        verbose_name="Marcação Prévia (horas)",
+        help_text="Máximo 72 horas antes da aplicação (ITE 15.15.5)"
+    )
+    data_marcacao = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Marcação",
+        help_text="Data em que a avaliação foi marcada"
+    )
+    
+    # Distribuição de dificuldade - ITE 15.15.6
+    percentual_questoes_faceis = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=20.00,
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        verbose_name="% Questões Fáceis",
+        help_text="20% de questões fáceis (ITE 15.15.6.1)"
+    )
+    percentual_questoes_medias = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=60.00,
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        verbose_name="% Questões Médias",
+        help_text="60% de questões médias (ITE 15.15.6.2)"
+    )
+    percentual_questoes_dificeis = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=20.00,
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        verbose_name="% Questões Difíceis",
+        help_text="20% de questões difíceis (ITE 15.15.6.3)"
+    )
+    
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Avaliação"
+        verbose_name_plural = "Avaliações"
+        ordering = ['-data_avaliacao', 'disciplina']
+    
+    def __str__(self):
+        return f"{self.nome} - {self.disciplina.nome} - {self.data_avaliacao}"
+
+
+class NotaAvaliacao(models.Model):
+    """Modelo para notas dos alunos nas avaliações"""
+    
+    avaliacao = models.ForeignKey(
+        AvaliacaoEnsino,
+        on_delete=models.CASCADE,
+        related_name='notas',
+        verbose_name="Avaliação"
+    )
+    aluno = models.ForeignKey(
+        AlunoEnsino,
+        on_delete=models.CASCADE,
+        related_name='notas',
+        verbose_name="Aluno"
+    )
+    nota = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+        verbose_name="Nota"
+    )
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    data_lancamento = models.DateTimeField(auto_now_add=True, verbose_name="Data de Lançamento")
+    lancado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='notas_lancadas',
+        verbose_name="Lançado por"
+    )
+    
+    class Meta:
+        verbose_name = "Nota de Avaliação"
+        verbose_name_plural = "Notas de Avaliação"
+        unique_together = [['avaliacao', 'aluno']]
+        ordering = ['avaliacao', 'aluno']
+    
+    def __str__(self):
+        return f"{self.aluno.matricula} - {self.avaliacao.nome} - {self.nota}"
+
+
+class PedidoRevisaoProva(models.Model):
+    STATUS_CHOICES = [
+        ('SOLICITADA', 'Solicitada'),
+        ('EM_ANALISE', 'Em análise'),
+        ('DEFERIDA', 'Deferida'),
+        ('INDEFERIDA', 'Indeferida'),
+    ]
+    ETAPA_CHOICES = [
+        ('ALUNO_SOLICITOU', 'Aluno solicitou'),
+        ('DESPACHADA_INSTRUTOR', 'Despachada ao instrutor'),
+        ('PARECER_INSTRUTOR', 'Parecer do instrutor'),
+        ('RECURSO_DIRETORIA', 'Recurso à diretoria'),
+        ('COMISSAO_NOMEADA', 'Comissão nomeada'),
+        ('PARECER_FINAL', 'Parecer final'),
+    ]
+    nota_avaliacao = models.ForeignKey(
+        NotaAvaliacao,
+        on_delete=models.CASCADE,
+        related_name='pedidos_revisao',
+        verbose_name="Nota Avaliação"
+    )
+    aluno = models.ForeignKey(
+        AlunoEnsino,
+        on_delete=models.CASCADE,
+        related_name='pedidos_revisao',
+        verbose_name="Aluno"
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='SOLICITADA', verbose_name="Status")
+    etapa = models.CharField(max_length=30, choices=ETAPA_CHOICES, default='ALUNO_SOLICITOU', verbose_name="Etapa")
+    instrutor_responsavel = models.ForeignKey('militares.InstrutorEnsino', on_delete=models.SET_NULL, null=True, blank=True, related_name='pedidos_revisao', verbose_name="Instrutor Responsável")
+    fundamentacao = models.TextField(blank=True, verbose_name="Fundamentação")
+    itens_solicitados = models.TextField(blank=True, null=True, verbose_name="Itens Solicitados (limitados à revisão)")
+    parecer_instrutor = models.CharField(max_length=20, choices=[('FAVORAVEL', 'Favorável'), ('DESFAVORAVEL', 'Desfavorável')], blank=True, null=True, verbose_name="Parecer do Instrutor")
+    parecer_instrutor_texto = models.TextField(blank=True, null=True, verbose_name="Parecer do Instrutor - Texto")
+    nova_nota_instrutor = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, verbose_name="Nova Nota (Instrutor)")
+    parecer_final_texto = models.TextField(blank=True, null=True, verbose_name="Parecer Final - Texto")
+    nova_nota_final = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, verbose_name="Nova Nota (Final)")
+    despacho_envio_instrutor_texto = models.TextField(blank=True, null=True, verbose_name="Despacho de envio ao instrutor")
+    despacho_envio_instrutor_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pedidos_revisao_despacho_instrutor',
+        verbose_name="Despachado por"
+    )
+    despacho_envio_instrutor_data = models.DateTimeField(blank=True, null=True, verbose_name="Data do despacho ao instrutor")
+    data_conhecimento_oficial = models.DateTimeField(blank=True, null=True, verbose_name="Data de Conhecimento Oficial da Nota")
+    prazo_limite_solicitacao = models.DateTimeField(blank=True, null=True, verbose_name="Prazo Limite para Solicitação (2 dias úteis)")
+    prazo_limite_instrutor = models.DateTimeField(blank=True, null=True, verbose_name="Prazo Limite do Instrutor (3 dias úteis)")
+    prazo_limite_comissao = models.DateTimeField(blank=True, null=True, verbose_name="Prazo Limite da Comissão (8 dias úteis)")
+    comissao = models.ForeignKey(
+        'militares.ComissaoPromocao',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pedidos_revisao_comissao',
+        verbose_name="Comissão"
+    )
+    data_solicitacao = models.DateTimeField(auto_now_add=True, verbose_name="Data da Solicitação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data da Atualização")
+
+    class Meta:
+        verbose_name = "Pedido de Revisão de Prova"
+        verbose_name_plural = "Pedidos de Revisão de Prova"
+        ordering = ['-data_solicitacao']
+        unique_together = [['nota_avaliacao', 'aluno']]
+
+    def __str__(self):
+        return f"Revisão - {self.aluno.matricula} - {self.nota_avaliacao.avaliacao.nome}"
+
+    def _add_business_days(self, start_dt, days):
+        from datetime import timedelta
+        if not start_dt:
+            return None
+        result = start_dt
+        added = 0
+        while added < days:
+            result += timedelta(days=1)
+            if result.weekday() < 5:
+                added += 1
+        return result
+
+    def set_prazo_solicitacao(self):
+        base = self.data_conhecimento_oficial
+        self.prazo_limite_solicitacao = self._add_business_days(base, 2)
+
+    def set_prazo_instrutor(self):
+        base = self.despacho_envio_instrutor_data
+        self.prazo_limite_instrutor = self._add_business_days(base, 3)
+
+    def set_prazo_comissao(self):
+        from django.utils import timezone
+        base = timezone.now()
+        self.prazo_limite_comissao = self._add_business_days(base, 8)
+
+    @property
+    def dentro_prazo_solicitacao(self):
+        if not self.prazo_limite_solicitacao or not self.data_solicitacao:
+            return True
+        return self.data_solicitacao <= self.prazo_limite_solicitacao
+
+
+class CertificadoEnsino(models.Model):
+    """Modelo para certificados/diplomas do ensino"""
+    
+    STATUS_CHOICES = [
+        ('RASCUNHO', 'Rascunho'),
+        ('GERADO', 'Gerado'),
+        ('ASSINADO', 'Assinado'),
+        ('ENTREGUE', 'Entregue'),
+        ('CANCELADO', 'Cancelado'),
+    ]
+    
+    aluno = models.ForeignKey(
+        AlunoEnsino,
+        on_delete=models.CASCADE,
+        related_name='certificados',
+        verbose_name="Aluno"
+    )
+    curso = models.ForeignKey(
+        CursoEnsino,
+        on_delete=models.CASCADE,
+        related_name='certificados',
+        verbose_name="Curso"
+    )
+    turma = models.ForeignKey(
+        TurmaEnsino,
+        on_delete=models.CASCADE,
+        related_name='certificados',
+        verbose_name="Turma"
+    )
+    numero = models.CharField(max_length=100, unique=True, verbose_name="Número do Certificado")
+    data_conclusao = models.DateField(verbose_name="Data de Conclusão")
+    carga_horaria_total = models.PositiveIntegerField(verbose_name="Carga Horária Total")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='RASCUNHO', verbose_name="Status")
+    arquivo_pdf = models.FileField(
+        upload_to='ensino/certificados/',
+        blank=True,
+        null=True,
+        verbose_name="Arquivo PDF"
+    )
+    assinado_por_comandante = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='certificados_assinados_comandante',
+        verbose_name="Assinado por (Comandante)"
+    )
+    assinado_por_diretor = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='certificados_assinados_diretor',
+        verbose_name="Assinado por (Diretor de Ensino)"
+    )
+    data_assinatura_comandante = models.DateTimeField(blank=True, null=True, verbose_name="Data de Assinatura (Comandante)")
+    data_assinatura_diretor = models.DateTimeField(blank=True, null=True, verbose_name="Data de Assinatura (Diretor)")
+    data_entrega = models.DateField(blank=True, null=True, verbose_name="Data de Entrega")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Certificado"
+        verbose_name_plural = "Certificados"
+        ordering = ['-data_conclusao', 'numero']
+    
+    def __str__(self):
+        return f"Certificado {self.numero} - {self.aluno.matricula}"
+
+
+class DocumentoAluno(models.Model):
+    """Modelo para documentos anexados aos alunos"""
+    
+    TIPO_DOCUMENTO_CHOICES = [
+        ('PROCESSO_DISCIPLINAR', 'Processo Disciplinar'),
+        ('TERMO_DESLIGAMENTO', 'Termo de Desligamento'),
+        ('NOTIFICACAO', 'Notificação'),
+        ('ADVERTENCIA', 'Advertência'),
+        ('SUSPENSAO', 'Suspensão'),
+        ('RELATORIO', 'Relatório'),
+        ('PARECER', 'Parecer'),
+        ('DECISAO', 'Decisão'),
+        ('PORTARIA', 'Portaria'),
+        ('OFICIO', 'Ofício'),
+        ('ATA', 'Ata'),
+        ('ATESTADO', 'Atestado Médico'),
+        ('LAUDO', 'Laudo'),
+        ('AUTORIZACAO', 'Autorização'),
+        ('DECLARACAO', 'Declaração'),
+        ('HISTORICO', 'Histórico Escolar'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    aluno = models.ForeignKey(
+        AlunoEnsino,
+        on_delete=models.CASCADE,
+        related_name='documentos',
+        verbose_name="Aluno"
+    )
+    tipo = models.CharField(max_length=20, choices=TIPO_DOCUMENTO_CHOICES, verbose_name="Tipo de Documento")
+    nome = models.CharField(max_length=200, verbose_name="Nome do Documento")
+    arquivo = models.FileField(
+        upload_to=documento_ensino_upload_path,
+        verbose_name="Arquivo"
+    )
+    descricao = models.TextField(blank=True, null=True, verbose_name="Descrição")
+    data_emissao = models.DateField(blank=True, null=True, verbose_name="Data de Emissão")
+    data_vencimento = models.DateField(blank=True, null=True, verbose_name="Data de Vencimento")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    data_upload = models.DateTimeField(auto_now_add=True, verbose_name="Data de Upload")
+    
+    class Meta:
+        verbose_name = "Documento do Aluno"
+        verbose_name_plural = "Documentos dos Alunos"
+        ordering = ['-data_upload']
+    
+    def __str__(self):
+        return f"{self.aluno.matricula} - {self.nome}"
+
+
+class OcorrenciaDisciplinar(models.Model):
+    """Modelo para ocorrências disciplinares dos alunos"""
+    
+    TIPO_OCORRENCIA_CHOICES = [
+        ('APRESENTACAO', 'Apresentação'),
+        ('ATRASO', 'Atraso'),
+        ('FALTA', 'Falta'),
+        ('PUNICAO', 'Punição'),
+        ('ADVERTENCIA', 'Advertência'),
+        ('SUSPENSAO', 'Suspensão'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    GRAVIDADE_CHOICES = [
+        ('LEVE', 'Leve'),
+        ('MEDIA', 'Média'),
+        ('GRAVE', 'Grave'),
+        ('GRAVISSIMA', 'Gravíssima'),
+    ]
+    
+    aluno = models.ForeignKey(
+        AlunoEnsino,
+        on_delete=models.CASCADE,
+        related_name='ocorrencias',
+        verbose_name="Aluno"
+    )
+    turma = models.ForeignKey(
+        TurmaEnsino,
+        on_delete=models.CASCADE,
+        related_name='ocorrencias',
+        verbose_name="Turma"
+    )
+    tipo = models.CharField(max_length=20, choices=TIPO_OCORRENCIA_CHOICES, verbose_name="Tipo de Ocorrência")
+    gravidade = models.CharField(max_length=20, choices=GRAVIDADE_CHOICES, default='LEVE', verbose_name="Gravidade")
+    data_ocorrencia = models.DateField(verbose_name="Data da Ocorrência")
+    descricao = models.TextField(verbose_name="Descrição")
+    medidas_adotadas = models.TextField(blank=True, null=True, verbose_name="Medidas Adotadas")
+    responsavel_registro = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='ocorrencias_registradas',
+        verbose_name="Responsável pelo Registro"
+    )
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    data_registro = models.DateTimeField(auto_now_add=True, verbose_name="Data do Registro")
+    
+    class Meta:
+        verbose_name = "Ocorrência Disciplinar"
+        verbose_name_plural = "Ocorrências Disciplinares"
+        ordering = ['-data_ocorrencia']
+    
+    def __str__(self):
+        return f"{self.aluno.matricula} - {self.get_tipo_display()} - {self.data_ocorrencia}"
+
+
+class EscalaInstrucao(models.Model):
+    """Modelo para escalas de instrução"""
+    
+    turma = models.ForeignKey(
+        TurmaEnsino,
+        on_delete=models.CASCADE,
+        related_name='escalas',
+        verbose_name="Turma"
+    )
+    data_escala = models.DateField(verbose_name="Data da Escala")
+    instrutor = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='escalas_instrucao',
+        verbose_name="Instrutor"
+    )
+    disciplina = models.ForeignKey(
+        DisciplinaEnsino,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='escalas',
+        verbose_name="Disciplina"
+    )
+    hora_inicio = models.TimeField(verbose_name="Hora de Início")
+    hora_fim = models.TimeField(verbose_name="Hora de Término")
+    local = models.CharField(max_length=100, verbose_name="Local")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    
+    class Meta:
+        verbose_name = "Escala de Instrução"
+        verbose_name_plural = "Escalas de Instrução"
+        ordering = ['data_escala', 'hora_inicio']
+    
+    def __str__(self):
+        return f"{self.turma.identificacao} - {self.data_escala} - {self.instrutor}"
+
+
+class HistoricoTrocaInstrutorDisciplina(models.Model):
+    """Histórico de trocas de instrutores em disciplinas de turmas"""
+    
+    disciplina = models.ForeignKey(
+        DisciplinaEnsino,
+        on_delete=models.CASCADE,
+        related_name='historicos_troca_instrutor',
+        verbose_name="Disciplina"
+    )
+    turma = models.ForeignKey(
+        TurmaEnsino,
+        on_delete=models.CASCADE,
+        related_name='historicos_troca_instrutor',
+        verbose_name="Turma"
+    )
+    
+    # Instrutor anterior
+    instrutor_anterior_militar = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='historicos_troca_instrutor_anterior',
+        verbose_name="Instrutor Anterior (Militar)"
+    )
+    instrutor_anterior_externo = models.ForeignKey(
+        InstrutorEnsino,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='historicos_troca_instrutor_anterior',
+        verbose_name="Instrutor Anterior (Externo)"
+    )
+    
+    # Instrutor novo
+    instrutor_novo_militar = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='historicos_troca_instrutor_novo',
+        verbose_name="Instrutor Novo (Militar)"
+    )
+    instrutor_novo_externo = models.ForeignKey(
+        InstrutorEnsino,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='historicos_troca_instrutor_novo',
+        verbose_name="Instrutor Novo (Externo)"
+    )
+    
+    data_inicio_anterior = models.DateField(blank=True, null=True, verbose_name="Data de Início do Instrutor Anterior")
+    data_fim_anterior = models.DateField(verbose_name="Data de Fim do Instrutor Anterior")
+    data_inicio_novo = models.DateField(verbose_name="Data de Início do Instrutor Novo")
+    motivo_troca = models.TextField(verbose_name="Motivo da Troca")
+    
+    usuario_que_trocou = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='historicos_troca_instrutor_realizados',
+        verbose_name="Usuário que Realizou a Troca"
+    )
+    
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    
+    class Meta:
+        verbose_name = "Histórico de Troca de Instrutor"
+        verbose_name_plural = "Históricos de Troca de Instrutor"
+        ordering = ['-data_fim_anterior', '-data_criacao']
+    
+    def __str__(self):
+        return f"Troca de Instrutor - {self.disciplina.nome} - {self.turma.identificacao} - {self.data_fim_anterior}"
+    
+    def get_instrutor_anterior_nome(self):
+        """Retorna o nome do instrutor anterior"""
+        if self.instrutor_anterior_militar:
+            return f"{self.instrutor_anterior_militar.get_posto_graduacao_display()} {self.instrutor_anterior_militar.nome_completo}"
+        elif self.instrutor_anterior_externo:
+            return self.instrutor_anterior_externo.get_nome_completo()
+        return "Não definido"
+    
+    def get_instrutor_novo_nome(self):
+        """Retorna o nome do instrutor novo"""
+        if self.instrutor_novo_militar:
+            return f"{self.instrutor_novo_militar.get_posto_graduacao_display()} {self.instrutor_novo_militar.nome_completo}"
+        elif self.instrutor_novo_externo:
+            return self.instrutor_novo_externo.get_nome_completo()
+        return "Não definido"
+
+
+class HistoricoTrocaMonitorDisciplina(models.Model):
+    """Histórico de trocas de monitores em disciplinas de turmas"""
+    
+    disciplina = models.ForeignKey(
+        DisciplinaEnsino,
+        on_delete=models.CASCADE,
+        related_name='historicos_troca_monitor',
+        verbose_name="Disciplina"
+    )
+    turma = models.ForeignKey(
+        TurmaEnsino,
+        on_delete=models.CASCADE,
+        related_name='historicos_troca_monitor',
+        verbose_name="Turma"
+    )
+    
+    # Monitor anterior
+    monitor_anterior_militar = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='historicos_troca_monitor_anterior',
+        verbose_name="Monitor Anterior (Militar)"
+    )
+    monitor_anterior_externo = models.ForeignKey(
+        MonitorEnsino,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='historicos_troca_monitor_anterior',
+        verbose_name="Monitor Anterior (Externo)"
+    )
+    
+    # Monitor novo
+    monitor_novo_militar = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='historicos_troca_monitor_novo',
+        verbose_name="Monitor Novo (Militar)"
+    )
+    monitor_novo_externo = models.ForeignKey(
+        MonitorEnsino,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='historicos_troca_monitor_novo',
+        verbose_name="Monitor Novo (Externo)"
+    )
+    
+    data_inicio_anterior = models.DateField(blank=True, null=True, verbose_name="Data de Início do Monitor Anterior")
+    data_fim_anterior = models.DateField(verbose_name="Data de Fim do Monitor Anterior")
+    data_inicio_novo = models.DateField(verbose_name="Data de Início do Monitor Novo")
+    motivo_troca = models.TextField(verbose_name="Motivo da Troca")
+    
+    usuario_que_trocou = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='historicos_troca_monitor_realizados',
+        verbose_name="Usuário que Realizou a Troca"
+    )
+    
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    
+    class Meta:
+        verbose_name = "Histórico de Troca de Monitor"
+        verbose_name_plural = "Históricos de Troca de Monitor"
+        ordering = ['-data_fim_anterior', '-data_criacao']
+    
+    def __str__(self):
+        return f"Troca de Monitor - {self.disciplina.nome} - {self.turma.identificacao} - {self.data_fim_anterior}"
+    
+    def get_monitor_anterior_nome(self):
+        """Retorna o nome do monitor anterior"""
+        if self.monitor_anterior_militar:
+            return f"{self.monitor_anterior_militar.get_posto_graduacao_display()} {self.monitor_anterior_militar.nome_completo}"
+        elif self.monitor_anterior_externo:
+            return self.monitor_anterior_externo.get_nome_completo()
+        return "Não definido"
+    
+    def get_monitor_novo_nome(self):
+        """Retorna o nome do monitor novo"""
+        if self.monitor_novo_militar:
+            return f"{self.monitor_novo_militar.get_posto_graduacao_display()} {self.monitor_novo_militar.nome_completo}"
+        elif self.monitor_novo_externo:
+            return self.monitor_novo_externo.get_nome_completo()
+        return "Não definido"
+
+
+class HistoricoEscolar(models.Model):
+    """Modelo para histórico escolar completo do aluno"""
+    
+    aluno = models.ForeignKey(
+        AlunoEnsino,
+        on_delete=models.CASCADE,
+        related_name='historicos',
+        verbose_name="Aluno"
+    )
+    curso = models.ForeignKey(
+        CursoEnsino,
+        on_delete=models.CASCADE,
+        related_name='historicos',
+        verbose_name="Curso"
+    )
+    turma = models.ForeignKey(
+        TurmaEnsino,
+        on_delete=models.CASCADE,
+        related_name='historicos',
+        verbose_name="Turma"
+    )
+    disciplina = models.ForeignKey(
+        DisciplinaEnsino,
+        on_delete=models.CASCADE,
+        related_name='historicos',
+        verbose_name="Disciplina"
+    )
+    frequencia_percentual = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0.00,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        verbose_name="Frequência (%)"
+    )
+    nota_final = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        validators=[MinValueValidator(0), MaxValueValidator(10)],
+        verbose_name="Nota Final"
+    )
+    aprovado = models.BooleanField(default=False, verbose_name="Aprovado")
+    carga_horaria_cursada = models.PositiveIntegerField(verbose_name="Carga Horária Cursada")
+    data_conclusao = models.DateField(blank=True, null=True, verbose_name="Data de Conclusão")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    data_registro = models.DateTimeField(auto_now_add=True, verbose_name="Data do Registro")
+    
+    class Meta:
+        verbose_name = "Histórico Escolar"
+        verbose_name_plural = "Históricos Escolares"
+        unique_together = [['aluno', 'curso', 'turma', 'disciplina']]
+        ordering = ['aluno', 'curso', 'disciplina']
+    
+    def __str__(self):
+        return f"{self.aluno.matricula} - {self.disciplina.nome} - {self.curso.nome}"
+
+
+class MaterialEscolar(models.Model):
+    """Modelo para controle de EPI e material escolar militar"""
+    
+    TIPO_MATERIAL_CHOICES = [
+        ('EPI', 'EPI - Equipamento de Proteção Individual'),
+        ('UNIFORME', 'Uniforme'),
+        ('MATERIAL_ESCRITA', 'Material de Escrita'),
+        ('LIVRO', 'Livro'),
+        ('APOSTILA', 'Apostila'),
+        ('EQUIPAMENTO', 'Equipamento'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    nome = models.CharField(max_length=200, verbose_name="Nome do Material")
+    codigo = models.CharField(max_length=50, unique=True, verbose_name="Código")
+    tipo = models.CharField(max_length=20, choices=TIPO_MATERIAL_CHOICES, verbose_name="Tipo de Material")
+    descricao = models.TextField(blank=True, null=True, verbose_name="Descrição")
+    quantidade_total = models.PositiveIntegerField(default=0, verbose_name="Quantidade Total")
+    quantidade_disponivel = models.PositiveIntegerField(default=0, verbose_name="Quantidade Disponível")
+    unidade_medida = models.CharField(max_length=20, default='UN', verbose_name="Unidade de Medida")
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Material Escolar"
+        verbose_name_plural = "Materiais Escolares"
+        ordering = ['tipo', 'nome']
+    
+    def __str__(self):
+        return f"{self.codigo} - {self.nome}"
+
+
+class CautelaMaterialEscolar(models.Model):
+    """Modelo para cautelas de material escolar"""
+    
+    STATUS_CHOICES = [
+        ('EMPRESTADO', 'Emprestado'),
+        ('DEVOLVIDO', 'Devolvido'),
+        ('DANIFICADO', 'Danificado'),
+        ('EXTRAVIADO', 'Extraviado'),
+    ]
+    
+    aluno = models.ForeignKey(
+        AlunoEnsino,
+        on_delete=models.CASCADE,
+        related_name='cautelas_material',
+        verbose_name="Aluno"
+    )
+    material = models.ForeignKey(
+        MaterialEscolar,
+        on_delete=models.CASCADE,
+        related_name='cautelas',
+        verbose_name="Material"
+    )
+    quantidade = models.PositiveIntegerField(verbose_name="Quantidade")
+    data_emprestimo = models.DateField(verbose_name="Data de Empréstimo")
+    data_devolucao_prevista = models.DateField(blank=True, null=True, verbose_name="Data de Devolução Prevista")
+    data_devolucao = models.DateField(blank=True, null=True, verbose_name="Data de Devolução")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='EMPRESTADO', verbose_name="Status")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
+    responsavel_emprestimo = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cautelas_emprestadas',
+        verbose_name="Responsável pelo Empréstimo"
+    )
+    data_registro = models.DateTimeField(auto_now_add=True, verbose_name="Data do Registro")
+    
+    class Meta:
+        verbose_name = "Cautela de Material Escolar"
+        verbose_name_plural = "Cautelas de Material Escolar"
+        ordering = ['-data_emprestimo']
+    
+    def __str__(self):
+        return f"{self.aluno.matricula} - {self.material.nome} - {self.get_status_display()}"
+
+
+class BlocoDisciplinaTurma(models.Model):
+    """Modelo para organizar disciplinas em blocos dentro de uma turma"""
+    
+    turma = models.ForeignKey(
+        TurmaEnsino,
+        on_delete=models.CASCADE,
+        related_name='blocos_disciplinas',
+        verbose_name="Turma"
+    )
+    disciplina = models.ForeignKey(
+        DisciplinaEnsino,
+        on_delete=models.CASCADE,
+        related_name='blocos_turmas',
+        verbose_name="Disciplina"
+    )
+    numero_bloco = models.PositiveIntegerField(
+        verbose_name="Número do Bloco",
+        help_text="Número sequencial do bloco (1, 2, 3, ...). Alunos devem ser aprovados em todas as disciplinas de um bloco para avançar ao próximo."
+    )
+    ordem_disciplina = models.PositiveIntegerField(
+        default=1,
+        verbose_name="Ordem da Disciplina no Bloco",
+        help_text="Ordem da disciplina dentro do bloco (para organização visual)"
+    )
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Bloco de Disciplina da Turma"
+        verbose_name_plural = "Blocos de Disciplinas das Turmas"
+        unique_together = [['turma', 'disciplina']]
+        ordering = ['turma', 'numero_bloco', 'ordem_disciplina']
+        indexes = [
+            models.Index(fields=['turma', 'numero_bloco']),
+        ]
+    
+    def __str__(self):
+        return f"Bloco {self.numero_bloco} - {self.turma.identificacao} - {self.disciplina.nome}"
+
+
+class QuadroTrabalhoSemanal(models.Model):
+    """Modelo para Quadro de Trabalho Semanal - representa uma semana completa de aulas"""
+    
+    turma = models.ForeignKey(
+        TurmaEnsino,
+        on_delete=models.CASCADE,
+        related_name='quadros_trabalho_semanal',
+        verbose_name="Turma"
+    )
+    numero_quadro = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        verbose_name="Número do Quadro",
+        help_text="Número sequencial do quadro (ex: Quadro de Trabalho Semanal Nº 5)"
+    )
+    data_inicio_semana = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Início da Semana",
+        help_text="Data de início da semana (geralmente segunda-feira)"
+    )
+    data_fim_semana = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Término da Semana",
+        help_text="Data de término da semana (geralmente sexta-feira)"
+    )
+    local = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name="Local",
+        help_text="Local onde será realizado o curso (ex: Teresina/PI)"
+    )
+    observacoes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações Gerais"
+    )
+    data_criacao = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Data de Criação"
+    )
+    data_atualizacao = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Data de Atualização"
+    )
+    
+    # Campos para rastrear aditamentos
+    quadro_original = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+        related_name='aditamentos',
+        verbose_name="Quadro Original",
+        help_text="QTS original do qual este é um aditamento"
+    )
+    numero_aditamento = models.CharField(
+        max_length=10,
+        blank=True,
+        null=True,
+        verbose_name="Número do Aditamento",
+        help_text="Número do aditamento (A01, A02, A03, etc.)"
+    )
+    
+    class Meta:
+        verbose_name = "Quadro de Trabalho Semanal"
+        verbose_name_plural = "Quadros de Trabalho Semanal"
+        ordering = ['-data_inicio_semana', '-numero_quadro']
+        # Removido unique_together para permitir aditamentos
+        # unique_together = [['turma', 'numero_quadro']]
+        indexes = [
+            models.Index(fields=['turma', 'data_inicio_semana']),
+        ]
+    
+    def get_numero_completo(self):
+        """Retorna o número completo do QTS, incluindo aditamento se houver"""
+        if self.numero_quadro:
+            if self.numero_aditamento:
+                return f"{self.numero_quadro}{self.numero_aditamento}"
+            return str(self.numero_quadro)
+        return "-"
+    
+    def __str__(self):
+        from django.utils import formats
+        data_str = formats.date_format(self.data_inicio_semana, "d/m/Y") if self.data_inicio_semana else ""
+        numero_completo = self.get_numero_completo()
+        return f"Quadro Nº {numero_completo} - {self.turma.identificacao} - {data_str}"
+    
+    def get_data_inicio_display(self):
+        """Retorna a data de início formatada"""
+        from django.utils import formats
+        return formats.date_format(self.data_inicio_semana, "d \d\e F \d\e Y")
+    
+    def get_data_fim_display(self):
+        """Retorna a data de fim formatada"""
+        from django.utils import formats
+        return formats.date_format(self.data_fim_semana, "d \d\e F \d\e Y")
+    
+    def tem_revisao(self):
+        """Verifica se o QTS tem assinatura de revisão"""
+        return self.assinaturas.filter(tipo_assinatura='REVISAO').exists()
+    
+    def tem_aprovacao(self):
+        """Verifica se o QTS tem assinatura de aprovação"""
+        return self.assinaturas.filter(tipo_assinatura='APROVACAO').exists()
+
+
+class AssinaturaQTS(models.Model):
+    """Assinaturas de um Quadro de Trabalho Semanal - permite múltiplas assinaturas"""
+    
+    TIPO_ASSINATURA_CHOICES = [
+        ('REVISAO', 'Revisão'),
+        ('APROVACAO', 'Aprovação'),
+    ]
+    
+    TIPO_MIDIA_CHOICES = [
+        ('FISICA', 'Física'),
+        ('ELETRONICA', 'Eletrônica'),
+    ]
+    
+    quadro = models.ForeignKey(
+        QuadroTrabalhoSemanal, 
+        on_delete=models.CASCADE, 
+        verbose_name="Quadro de Trabalho Semanal", 
+        related_name="assinaturas"
+    )
+    assinado_por = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Assinado por")
+    data_assinatura = models.DateTimeField(auto_now_add=True, verbose_name="Data da Assinatura")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações da Assinatura")
+    tipo_assinatura = models.CharField(
+        max_length=15, 
+        choices=TIPO_ASSINATURA_CHOICES, 
+        default='APROVACAO',
+        verbose_name="Tipo de Assinatura"
+    )
+    funcao_assinatura = models.CharField(
+        blank=True,
+        help_text="Função/cargo do usuário no momento da assinatura",
+        max_length=100,
+        null=True,
+        verbose_name="Função no momento da assinatura",
+    )
+    
+    # Campos para tipo de mídia da assinatura
+    tipo_midia = models.CharField(
+        max_length=10,
+        choices=TIPO_MIDIA_CHOICES,
+        default='FISICA',
+        verbose_name="Tipo de Mídia"
+    )
+    
+    # Campos para assinatura eletrônica
+    hash_documento = models.CharField(max_length=255, blank=True, null=True, verbose_name="Hash do Documento")
+    timestamp = models.CharField(max_length=100, blank=True, null=True, verbose_name="Timestamp da Assinatura")
+    assinatura_digital = models.TextField(blank=True, null=True, verbose_name="Assinatura Digital")
+    certificado = models.CharField(max_length=100, blank=True, null=True, verbose_name="Certificado Digital")
+    ip_assinatura = models.GenericIPAddressField(blank=True, null=True, verbose_name="IP da Assinatura")
+    user_agent = models.TextField(blank=True, null=True, verbose_name="User Agent")
+    
+    class Meta:
+        verbose_name = "Assinatura do Quadro de Trabalho Semanal"
+        verbose_name_plural = "Assinaturas dos Quadros de Trabalho Semanal"
+        ordering = ['-data_assinatura']
+        unique_together = ['quadro', 'assinado_por', 'tipo_assinatura']
+    
+    def __str__(self):
+        return f"QTS Nº {self.quadro.numero_quadro} - {self.assinado_por.get_full_name()} - {self.get_tipo_assinatura_display()}"
+
+
+class AulaQuadroTrabalhoSemanal(models.Model):
+    """Modelo para aulas dentro do Quadro de Trabalho Semanal"""
+    
+    DIA_SEMANA_CHOICES = [
+        ('SEGUNDA', 'Segunda-feira'),
+        ('TERCA', 'Terça-feira'),
+        ('QUARTA', 'Quarta-feira'),
+        ('QUINTA', 'Quinta-feira'),
+        ('SEXTA', 'Sexta-feira'),
+        ('SABADO', 'Sábado'),
+        ('DOMINGO', 'Domingo'),
+    ]
+    
+    TIPO_ATIVIDADE_CHOICES = [
+        ('AULA', 'Aula'),
+        ('INTERVALO', 'Intervalo'),
+        ('HORARIO_VAGO', 'Horário Vago'),
+        ('OUTRA_ACAO', 'Outra Ação'),
+    ]
+    
+    quadro = models.ForeignKey(
+        QuadroTrabalhoSemanal,
+        on_delete=models.CASCADE,
+        related_name='aulas',
+        verbose_name="Quadro de Trabalho Semanal"
+    )
+    tipo_atividade = models.CharField(
+        max_length=20,
+        choices=TIPO_ATIVIDADE_CHOICES,
+        default='AULA',
+        verbose_name="Tipo de Atividade"
+    )
+    disciplina = models.ForeignKey(
+        DisciplinaEnsino,
+        on_delete=models.CASCADE,
+        related_name='aulas_quadros_trabalho_semanal',
+        null=True,
+        blank=True,
+        verbose_name="Disciplina",
+        help_text="Obrigatório apenas para tipo 'Aula'"
+    )
+    instrutor_militar = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='aulas_quadros_trabalho_semanal_militar',
+        verbose_name="Instrutor (Militar)"
+    )
+    instrutor_externo = models.ForeignKey(
+        'InstrutorEnsino',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='aulas_quadros_trabalho_semanal_externo',
+        verbose_name="Instrutor (Externo)"
+    )
+    dia_semana = models.CharField(
+        max_length=10,
+        choices=DIA_SEMANA_CHOICES,
+        verbose_name="Dia da Semana"
+    )
+    data = models.DateField(
+        verbose_name="Data",
+        help_text="Data específica da aula"
+    )
+    hora_inicio = models.TimeField(
+        verbose_name="Hora de Início"
+    )
+    hora_fim = models.TimeField(
+        verbose_name="Hora de Término"
+    )
+    horas_aula = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        verbose_name="Horas/Aula",
+        help_text="Quantidade de horas/aula (calculado automaticamente)"
+    )
+    carga_horaria_total = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        verbose_name="Carga Horária Total",
+        help_text="Carga horária total da disciplina (ex: 18/20, 12/30)"
+    )
+    descricao = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name="Descrição",
+        help_text="Descrição para intervalos, horários vagos ou outras ações (ex: 'Intervalo para Almoço', 'Horário Livre', 'Reunião de Coordenação')"
+    )
+    observacoes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações",
+        help_text="Observações específicas da aula (ex: PROVA, À DISPOSIÇÃO DA DEIP)"
+    )
+    ordem = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Ordem",
+        help_text="Ordem de exibição no mesmo horário"
+    )
+    data_criacao = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Data de Criação"
+    )
+    data_atualizacao = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Data de Atualização"
+    )
+    
+    class Meta:
+        verbose_name = "Aula do Quadro de Trabalho Semanal"
+        verbose_name_plural = "Aulas dos Quadros de Trabalho Semanal"
+        ordering = ['quadro', 'dia_semana', 'hora_inicio', 'ordem']
+        indexes = [
+            models.Index(fields=['quadro', 'dia_semana', 'hora_inicio']),
+        ]
+    
+    def __str__(self):
+        from django.utils import formats
+        hora_str = formats.time_format(self.hora_inicio, "H:i") if self.hora_inicio else ""
+        if self.tipo_atividade == 'AULA' and self.disciplina:
+            return f"{self.quadro} - {self.get_dia_semana_display()} {hora_str} - {self.disciplina.nome}"
+        elif self.descricao:
+            return f"{self.quadro} - {self.get_dia_semana_display()} {hora_str} - {self.descricao}"
+        else:
+            return f"{self.quadro} - {self.get_dia_semana_display()} {hora_str} - {self.get_tipo_atividade_display()}"
+    
+    def calcular_horas_aula(self):
+        """
+        Calcula automaticamente as horas/aula baseado no horário de início e fim.
+        Considera que 1 hora/aula = 45 minutos (não 60 minutos).
+        """
+        from datetime import datetime, timedelta
+        
+        if self.hora_inicio and self.hora_fim:
+            inicio = datetime.combine(datetime.today(), self.hora_inicio)
+            fim = datetime.combine(datetime.today(), self.hora_fim)
+            
+            if fim < inicio:
+                fim += timedelta(days=1)
+            
+            # Calcular diferença em minutos
+            diferenca = fim - inicio
+            minutos_totais = diferenca.total_seconds() / 60
+            
+            # Converter para horas/aula (1 hora/aula = 45 minutos)
+            horas_aula = minutos_totais / 45
+            return round(horas_aula, 2)
+        
+        return 0
+    
+    def save(self, *args, **kwargs):
+        # Calcular horas/aula automaticamente se não foi informado
+        if not self.horas_aula or self.horas_aula == 0:
+            self.horas_aula = self.calcular_horas_aula()
+        super().save(*args, **kwargs)
+
+
+# ============================================================================
+# MODELOS BASEADOS NA ITE Nº 01/2024 - DEIP/CBMEPI
+# ============================================================================
+
+class PlanoGeralEnsino(models.Model):
+    """
+    Plano Geral de Ensino - ITE 01/2024, item 4.10 e 5.1
+    Define quais atividades de ensino (calendário de cursos), competições, 
+    eventos e congêneres serão realizadas no âmbito da Corporação no ano de exercício.
+    """
+    
+    STATUS_CHOICES = [
+        ('RASCUNHO', 'Rascunho'),
+        ('ENVIADO_HOMOLOGACAO', 'Enviado para Homologação'),
+        ('HOMOLOGADO', 'Homologado'),
+        ('PUBLICADO', 'Publicado'),
+        ('EM_EXECUCAO', 'Em Execução'),
+        ('CONCLUIDO', 'Concluído'),
+    ]
+    
+    ano_exercicio = models.PositiveIntegerField(
+        unique=True,
+        verbose_name="Ano de Exercício",
+        help_text="Ano para o qual o plano se refere"
+    )
+    data_elaboracao = models.DateField(
+        verbose_name="Data de Elaboração",
+        help_text="Data em que o plano foi elaborado (até final de novembro)"
+    )
+    data_envio_homologacao = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Envio para Homologação"
+    )
+    data_homologacao = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Homologação",
+        help_text="Data de homologação pelo Comandante-Geral"
+    )
+    data_publicacao = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Publicação",
+        help_text="Publicação do cronograma anual até segunda semana de dezembro"
+    )
+    status = models.CharField(
+        max_length=30,
+        choices=STATUS_CHOICES,
+        default='RASCUNHO',
+        verbose_name="Status"
+    )
+    observacoes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações"
+    )
+    link_google_drive = models.URLField(
+        blank=True,
+        null=True,
+        verbose_name="Link Google Drive",
+        help_text="Link para visualização do plano no Google Drive"
+    )
+    elaborado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='planos_gerais_elaborados',
+        verbose_name="Elaborado por"
+    )
+    homologado_por = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='planos_gerais_homologados',
+        verbose_name="Homologado por (Comandante-Geral)"
+    )
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Plano Geral de Ensino"
+        verbose_name_plural = "Planos Gerais de Ensino"
+        ordering = ['-ano_exercicio']
+    
+    def __str__(self):
+        return f"Plano Geral de Ensino {self.ano_exercicio} - {self.get_status_display()}"
+
+
+class ItemPlanoGeralEnsino(models.Model):
+    """
+    Itens do Plano Geral de Ensino - cursos, estágios, competições, eventos
+    """
+    
+    TIPO_ATIVIDADE_CHOICES = [
+        ('CURSO', 'Curso'),
+        ('ESTAGIO', 'Estágio'),
+        ('COMPETICAO', 'Competição'),
+        ('EVENTO', 'Evento'),
+        ('TREINAMENTO', 'Treinamento'),
+        ('NIVELAMENTO', 'Nivelamento Profissional'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    plano_geral = models.ForeignKey(
+        PlanoGeralEnsino,
+        on_delete=models.CASCADE,
+        related_name='itens',
+        verbose_name="Plano Geral de Ensino"
+    )
+    tipo_atividade = models.CharField(
+        max_length=20,
+        choices=TIPO_ATIVIDADE_CHOICES,
+        verbose_name="Tipo de Atividade"
+    )
+    curso = models.ForeignKey(
+        CursoEnsino,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='itens_plano_geral',
+        verbose_name="Curso",
+        help_text="Se for curso ou estágio, vincular aqui"
+    )
+    descricao = models.CharField(
+        max_length=500,
+        verbose_name="Descrição da Atividade"
+    )
+    periodo_realizacao = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name="Período de Realização",
+        help_text="Ex: Janeiro a Março de 2025"
+    )
+    local = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name="Local"
+    )
+    carga_horaria_prevista = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        verbose_name="Carga Horária Prevista"
+    )
+    numero_turmas_previstas = models.PositiveIntegerField(
+        default=1,
+        verbose_name="Número de Turmas Previstas"
+    )
+    numero_alunos_previstos = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        verbose_name="Número de Alunos Previstos"
+    )
+    custo_previsto = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        verbose_name="Custo Previsto"
+    )
+    prioridade = models.CharField(
+        max_length=20,
+        choices=[
+            ('ALTA', 'Alta'),
+            ('MEDIA', 'Média'),
+            ('BAIXA', 'Baixa'),
+        ],
+        default='MEDIA',
+        verbose_name="Prioridade"
+    )
+    observacoes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações"
+    )
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Item do Plano Geral de Ensino"
+        verbose_name_plural = "Itens do Plano Geral de Ensino"
+        ordering = ['plano_geral', 'tipo_atividade', 'descricao']
+    
+    def __str__(self):
+        return f"{self.plano_geral.ano_exercicio} - {self.get_tipo_atividade_display()} - {self.descricao}"
+
+
+class ProjetoPedagogico(models.Model):
+    """
+    Projeto Pedagógico - ITE 01/2024, item 4.11 e 6.1
+    Documento do arquivo permanente da DEIP norteador da realização dos cursos 
+    e estágios a serem realizados no âmbito do CBMEPI.
+    """
+    
+    STATUS_CHOICES = [
+        ('RASCUNHO', 'Rascunho'),
+        ('EM_REVISAO', 'Em Revisão'),
+        ('APROVADO', 'Aprovado'),
+        ('VIGENTE', 'Vigente'),
+        ('ARQUIVADO', 'Arquivado'),
+    ]
+    
+    curso = models.OneToOneField(
+        CursoEnsino,
+        on_delete=models.CASCADE,
+        related_name='projeto_pedagogico',
+        verbose_name="Curso",
+        help_text="Cada curso deve ter um Projeto Pedagógico"
+    )
+    versao = models.CharField(
+        max_length=20,
+        default='1.0',
+        verbose_name="Versão",
+        help_text="Versão do projeto pedagógico"
+    )
+    
+    # 6.1.1 - IDENTIFICAÇÃO DO CURSO (já no CursoEnsino)
+    
+    # 6.1.2 - APRESENTAÇÃO
+    apresentacao = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Apresentação",
+        help_text="Apresentação geral do curso"
+    )
+    
+    # 6.1.3 - JUSTIFICATIVA
+    justificativa = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Justificativa",
+        help_text="Justificativa para a realização do curso"
+    )
+    
+    # 6.1.4 - OBJETIVOS DO CURSO
+    objetivo_geral = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Objetivo Geral",
+        help_text="Objetivo geral do curso"
+    )
+    objetivos_especificos = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Objetivos Específicos",
+        help_text="Objetivos específicos do curso"
+    )
+    
+    # 6.1.5 - PERFIL DO EGRESSO
+    perfil_egresso_atitudes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Perfil do Egresso - Atitudes"
+    )
+    perfil_egresso_habilidades = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Perfil do Egresso - Habilidades"
+    )
+    perfil_egresso_conhecimentos = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Perfil do Egresso - Conhecimentos"
+    )
+    
+    # 6.1.6 - ÁREA DE ATUAÇÃO
+    area_atuacao = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Área de Atuação",
+        help_text="Área de atuação do egresso"
+    )
+    
+    # 6.1.7 - ESTRATÉGIAS PEDAGÓGICAS E ADMINISTRATIVAS
+    estrutura_gestao_curso = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Estrutura da Gestão do Curso"
+    )
+    estrategias_pedagogicas = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Estratégias Pedagógicas"
+    )
+    estrategias_administrativas = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Estratégias Administrativas"
+    )
+    
+    # 6.1.8 - CONCEPÇÃO E ORGANIZAÇÃO DA MATRIZ CURRICULAR
+    # (Matriz curricular já está no CursoEnsino)
+    matriz_curricular_por_area_tematica = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Matriz Curricular por Área Temática"
+    )
+    
+    # 6.1.9 - DO REGIME ESCOLAR
+    regime_escolar = models.CharField(
+        max_length=50,
+        choices=[
+            ('INTEGRAL', 'Tempo Integral'),
+            ('PARCIAL', 'Tempo Parcial'),
+            ('NOTURNO', 'Noturno'),
+            ('FINAIS_SEMANA', 'Finais de Semana'),
+        ],
+        default='INTEGRAL',
+        verbose_name="Regime Escolar"
+    )
+    
+    # 6.1.10 - RECURSOS HUMANOS, MATERIAIS E FINANCEIROS
+    recursos_humanos = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Recursos Humanos Necessários"
+    )
+    recursos_materiais = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Recursos Materiais Necessários"
+    )
+    recursos_financeiros = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Recursos Financeiros Necessários"
+    )
+    estrutura_fisica = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Estrutura Física Necessária"
+    )
+    
+    # 6.1.11 - CALENDÁRIO DO CURSO
+    calendario_curso = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Calendário do Curso"
+    )
+    
+    # 6.1.12 - AVALIAÇÃO DO CURSO, DO DOCENTE E DO DISCENTE
+    criterios_avaliacao_curso = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Critérios de Avaliação do Curso"
+    )
+    criterios_avaliacao_docente = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Critérios de Avaliação do Docente"
+    )
+    criterios_avaliacao_discente = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Critérios de Avaliação do Discente"
+    )
+    
+    # 6.1.13 - CERTIFICAÇÃO
+    criterios_certificacao = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Critérios de Certificação"
+    )
+    
+    # 6.1.14 - PRESCRIÇÕES DIVERSAS
+    prescricoes_diversas = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Prescrições Diversas"
+    )
+    
+    # 6.1.15 - REFERÊNCIAS
+    referencias = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Referências Bibliográficas e Normativas"
+    )
+    
+    # 6.1.16 - ANEXOS
+    arquivo_completo = models.FileField(
+        upload_to='ensino/projetos_pedagogicos/',
+        blank=True,
+        null=True,
+        verbose_name="Arquivo Completo do Projeto Pedagógico"
+    )
+    
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='RASCUNHO',
+        verbose_name="Status"
+    )
+    data_aprovacao = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Aprovação"
+    )
+    aprovado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='projetos_pedagogicos_aprovados',
+        verbose_name="Aprovado por"
+    )
+    observacoes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações"
+    )
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Projeto Pedagógico"
+        verbose_name_plural = "Projetos Pedagógicos"
+        ordering = ['curso', '-versao']
+        unique_together = [['curso', 'versao']]
+    
+    def __str__(self):
+        return f"Projeto Pedagógico - {self.curso.nome} - v{self.versao}"
+
+
+class PlanoCursoEstagio(models.Model):
+    """
+    Plano de Curso/Estágio - ITE 01/2024, item 4.12
+    Documento que especifica o planejamento de uma edição de curso ou estágio 
+    no âmbito do CBMEPI. Deve seguir o Projeto Pedagógico.
+    """
+    
+    STATUS_CHOICES = [
+        ('RASCUNHO', 'Rascunho'),
+        ('EM_REVISAO', 'Em Revisão'),
+        ('APROVADO', 'Aprovado'),
+        ('EM_EXECUCAO', 'Em Execução'),
+        ('CONCLUIDO', 'Concluído'),
+        ('CANCELADO', 'Cancelado'),
+    ]
+    
+    TIPO_CHOICES = [
+        ('CURSO', 'Curso'),
+        ('ESTAGIO', 'Estágio'),
+        ('NIVELAMENTO', 'Nivelamento Profissional'),
+    ]
+    
+    tipo = models.CharField(
+        max_length=20,
+        choices=TIPO_CHOICES,
+        verbose_name="Tipo"
+    )
+    projeto_pedagogico = models.ForeignKey(
+        ProjetoPedagogico,
+        on_delete=models.CASCADE,
+        related_name='planos_curso_estagio',
+        verbose_name="Projeto Pedagógico",
+        help_text="Plano deve seguir o Projeto Pedagógico"
+    )
+    turma = models.OneToOneField(
+        TurmaEnsino,
+        on_delete=models.CASCADE,
+        related_name='plano_curso_estagio',
+        null=True,
+        blank=True,
+        verbose_name="Turma",
+        help_text="Turma associada a este plano"
+    )
+    edicao = models.PositiveIntegerField(
+        default=1,
+        verbose_name="Edição",
+        help_text="Número da edição do curso/estágio"
+    )
+    ano_edicao = models.PositiveIntegerField(
+        verbose_name="Ano da Edição"
+    )
+    
+    # Período de desmobilização - ITE 4.13
+    data_inicio_desmobilizacao = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Início da Desmobilização",
+        help_text="Data de término do curso/estágio"
+    )
+    data_fim_desmobilizacao = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Término da Desmobilização",
+        help_text="Até 10 dias após o curso/estágio"
+    )
+    
+    # Coordenação e Supervisão
+    coordenador_geral = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='planos_coordenados_geral',
+        verbose_name="Coordenador Geral"
+    )
+    coordenador_curso = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='planos_coordenados_curso',
+        verbose_name="Coordenador do Curso"
+    )
+    supervisor_curso = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='planos_supervisionados_curso',
+        verbose_name="Supervisor do Curso"
+    )
+    
+    # Regime Escolar - ITE 7.1
+    regime_escolar = models.CharField(
+        max_length=50,
+        choices=[
+            ('INTEGRAL', 'Tempo Integral'),
+            ('PARCIAL', 'Tempo Parcial'),
+            ('NOTURNO', 'Noturno'),
+            ('FINAIS_SEMANA', 'Finais de Semana'),
+            ('FERIADOS', 'Feriados'),
+        ],
+        default='INTEGRAL',
+        verbose_name="Regime Escolar"
+    )
+    
+    # Carga horária semanal
+    carga_horaria_semanal = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        verbose_name="Carga Horária Semanal",
+        help_text="Carga horária semanal do curso/estágio"
+    )
+    
+    # Duração de cada tempo de aula - ITE 7.4
+    duracao_tempo_aula_minutos = models.PositiveIntegerField(
+        default=45,
+        verbose_name="Duração do Tempo de Aula (minutos)",
+        help_text="Padrão: 45 minutos (ITE 7.4)"
+    )
+    
+    # Aulas geminadas - ITE 7.5
+    max_tempos_consecutivos_teorica = models.PositiveIntegerField(
+        default=3,
+        verbose_name="Máximo de Tempos Consecutivos (Teórica)",
+        help_text="Máximo 3 tempos consecutivos para aulas teóricas (ITE 7.5)"
+    )
+    
+    # Intervalo entre aulas - ITE 7.6
+    intervalo_minutos = models.PositiveIntegerField(
+        default=15,
+        verbose_name="Intervalo entre Aulas (minutos)",
+        help_text="Mínimo 15 minutos (ITE 7.6)"
+    )
+    
+    # Recesso escolar - ITE 8.7
+    permite_recesso = models.BooleanField(
+        default=False,
+        verbose_name="Permite Recesso Escolar",
+        help_text="Para cursos com duração superior a 6 meses"
+    )
+    data_inicio_recesso = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Início do Recesso"
+    )
+    data_fim_recesso = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Término do Recesso"
+    )
+    
+    # Observações específicas
+    observacoes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações"
+    )
+    
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='RASCUNHO',
+        verbose_name="Status"
+    )
+    data_aprovacao = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Aprovação"
+    )
+    aprovado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='planos_curso_estagio_aprovados',
+        verbose_name="Aprovado por"
+    )
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Plano de Curso/Estágio"
+        verbose_name_plural = "Planos de Curso/Estágio"
+        ordering = ['-ano_edicao', '-edicao', 'tipo']
+        unique_together = [['projeto_pedagogico', 'edicao', 'ano_edicao']]
+    
+    def __str__(self):
+        return f"Plano {self.get_tipo_display()} - {self.projeto_pedagogico.curso.nome} - Edição {self.edicao}/{self.ano_edicao}"
+
+
+class PlanoDisciplina(models.Model):
+    """
+    Plano de Disciplina - ITE 01/2024, item 4.17
+    Documento que especifica o planejamento das ementas das Disciplinas 
+    previstas nos Projeto Pedagógico.
+    """
+    
+    STATUS_CHOICES = [
+        ('RASCUNHO', 'Rascunho'),
+        ('EM_REVISAO', 'Em Revisão'),
+        ('APROVADO', 'Aprovado'),
+        ('VIGENTE', 'Vigente'),
+    ]
+    
+    disciplina = models.ForeignKey(
+        DisciplinaEnsino,
+        on_delete=models.CASCADE,
+        related_name='planos_disciplina',
+        verbose_name="Disciplina"
+    )
+    projeto_pedagogico = models.ForeignKey(
+        ProjetoPedagogico,
+        on_delete=models.CASCADE,
+        related_name='planos_disciplinas',
+        verbose_name="Projeto Pedagógico"
+    )
+    versao = models.CharField(
+        max_length=20,
+        default='1.0',
+        verbose_name="Versão"
+    )
+    
+    # Ementa detalhada
+    ementa_detalhada = models.TextField(
+        verbose_name="Ementa Detalhada"
+    )
+    
+    # Conteúdo programático detalhado
+    conteudo_programatico_detalhado = models.TextField(
+        verbose_name="Conteúdo Programático Detalhado"
+    )
+    
+    # Objetivos específicos da disciplina
+    objetivos_especificos = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Objetivos Específicos"
+    )
+    
+    # Metodologia de ensino
+    metodologia_ensino = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Metodologia de Ensino"
+    )
+    
+    # Recursos didáticos
+    recursos_didaticos = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Recursos Didáticos"
+    )
+    
+    # Sistema de avaliação
+    sistema_avaliacao = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Sistema de Avaliação"
+    )
+    
+    # Bibliografia básica
+    bibliografia_basica = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Bibliografia Básica"
+    )
+    
+    # Bibliografia complementar
+    bibliografia_complementar = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Bibliografia Complementar"
+    )
+    
+    # Cronograma de atividades
+    cronograma_atividades = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Cronograma de Atividades"
+    )
+    
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='RASCUNHO',
+        verbose_name="Status"
+    )
+    data_aprovacao = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Aprovação"
+    )
+    aprovado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='planos_disciplina_aprovados',
+        verbose_name="Aprovado por"
+    )
+    observacoes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações"
+    )
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Plano de Disciplina"
+        verbose_name_plural = "Planos de Disciplina"
+        ordering = ['disciplina', '-versao']
+        unique_together = [['disciplina', 'projeto_pedagogico', 'versao']]
+    
+    def __str__(self):
+        return f"Plano de Disciplina - {self.disciplina.nome} - v{self.versao}"
+
+
+class PlanoPalestra(models.Model):
+    """
+    Plano de Palestra - ITE 01/2024, item 4.18
+    Documento que especifica o planejamento detalhado de uma palestra a ser 
+    ministrada por militar estadual ou professor contratado.
+    """
+    
+    STATUS_CHOICES = [
+        ('RASCUNHO', 'Rascunho'),
+        ('APROVADO', 'Aprovado'),
+        ('REALIZADA', 'Realizada'),
+        ('CANCELADA', 'Cancelada'),
+    ]
+    
+    # Finalidade
+    finalidade = models.TextField(
+        verbose_name="Finalidade",
+        help_text="Finalidade da palestra"
+    )
+    
+    # Referências
+    referencias = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Referências",
+        help_text="Referências bibliográficas e normativas"
+    )
+    
+    # Objetivos
+    objetivos = models.TextField(
+        verbose_name="Objetivos",
+        help_text="Objetivos da palestra"
+    )
+    
+    # Público
+    publico = models.TextField(
+        verbose_name="Público",
+        help_text="Público-alvo da palestra"
+    )
+    
+    # Local e data
+    local = models.CharField(
+        max_length=200,
+        verbose_name="Local"
+    )
+    data_palestra = models.DateField(
+        verbose_name="Data da Palestra"
+    )
+    hora_inicio = models.TimeField(
+        verbose_name="Hora de Início"
+    )
+    hora_fim = models.TimeField(
+        verbose_name="Hora de Término"
+    )
+    
+    # Carga horária
+    carga_horaria = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        verbose_name="Carga Horária (horas)"
+    )
+    
+    # Tema
+    tema = models.CharField(
+        max_length=500,
+        verbose_name="Tema"
+    )
+    
+    # Palestrante
+    palestrante_militar = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='palestras_ministradas',
+        verbose_name="Palestrante (Militar)"
+    )
+    palestrante_externo = models.ForeignKey(
+        'PessoaExterna',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='palestras_ministradas',
+        verbose_name="Palestrante (Externo)"
+    )
+    
+    # Formação do palestrante
+    formacao_palestrante = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Formação do Palestrante"
+    )
+    
+    # Especializações
+    especializacoes_palestrante = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Especializações do Palestrante"
+    )
+    
+    # Custo e recursos necessários
+    custo_previsto = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        verbose_name="Custo Previsto"
+    )
+    recursos_necessarios = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Recursos Necessários"
+    )
+    
+    # Vinculação com curso/turma (opcional)
+    curso = models.ForeignKey(
+        CursoEnsino,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='palestras',
+        verbose_name="Curso (se vinculada)"
+    )
+    turma = models.ForeignKey(
+        TurmaEnsino,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='palestras',
+        verbose_name="Turma (se vinculada)"
+    )
+    
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='RASCUNHO',
+        verbose_name="Status"
+    )
+    observacoes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações"
+    )
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Plano de Palestra"
+        verbose_name_plural = "Planos de Palestra"
+        ordering = ['-data_palestra', 'tema']
+    
+    def __str__(self):
+        return f"Palestra: {self.tema} - {self.data_palestra}"
+    
+    def get_palestrante(self):
+        """Retorna o palestrante (militar ou externo)"""
+        if self.palestrante_militar:
+            return self.palestrante_militar
+        elif self.palestrante_externo:
+            return self.palestrante_externo
+        return None
+
+
+class AtividadeTreinamentoCampo(models.Model):
+    """
+    Atividades de Treinamento de Campo (ATC) - ITE 01/2024, item 4.19
+    Serão desenvolvidas através de práticas profissionais supervisionadas, 
+    as quais objetivam uma interação de teoria e prática atendendo ao 
+    princípio da interdisciplinaridade.
+    """
+    
+    STATUS_CHOICES = [
+        ('PLANEJADA', 'Planejada'),
+        ('EM_EXECUCAO', 'Em Execução'),
+        ('CONCLUIDA', 'Concluída'),
+        ('CANCELADA', 'Cancelada'),
+    ]
+    
+    nome = models.CharField(
+        max_length=200,
+        verbose_name="Nome da Atividade"
+    )
+    descricao = models.TextField(
+        verbose_name="Descrição"
+    )
+    objetivos = models.TextField(
+        verbose_name="Objetivos",
+        help_text="Objetivos das atividades práticas profissionais"
+    )
+    
+    # Vinculação com curso/turma/disciplina
+    curso = models.ForeignKey(
+        CursoEnsino,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='atividades_treinamento_campo',
+        verbose_name="Curso"
+    )
+    turma = models.ForeignKey(
+        TurmaEnsino,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='atividades_treinamento_campo',
+        verbose_name="Turma"
+    )
+    disciplina = models.ForeignKey(
+        DisciplinaEnsino,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='atividades_treinamento_campo',
+        verbose_name="Disciplina"
+    )
+    
+    # Organização e coordenação
+    coordenador = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='atcs_coordenadas',
+        verbose_name="Coordenador"
+    )
+    supervisor = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='atcs_supervisionadas',
+        verbose_name="Supervisor"
+    )
+    
+    # Realização
+    data_realizacao = models.DateField(
+        verbose_name="Data de Realização"
+    )
+    local = models.CharField(
+        max_length=200,
+        verbose_name="Local"
+    )
+    carga_horaria = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        verbose_name="Carga Horária (horas)"
+    )
+    
+    # Avaliação
+    criterios_avaliacao = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Critérios de Avaliação"
+    )
+    
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='PLANEJADA',
+        verbose_name="Status"
+    )
+    observacoes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações"
+    )
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Atividade de Treinamento de Campo (ATC)"
+        verbose_name_plural = "Atividades de Treinamento de Campo (ATC)"
+        ordering = ['-data_realizacao', 'nome']
+    
+    def __str__(self):
+        return f"ATC - {self.nome} - {self.data_realizacao}"
+
+
+class AtividadeComplementarEnsino(models.Model):
+    """
+    Atividades Complementares de Ensino (ACE) - ITE 01/2024, item 4.20
+    Compreendem todas as atividades de complementação curricular, assim como 
+    oficinas, instruções gerais dentre outras.
+    """
+    
+    TIPO_CHOICES = [
+        ('OFICINA', 'Oficina'),
+        ('INSTRUCAO_GERAL', 'Instrução Geral'),
+        ('VISITA_TECNICA', 'Visita Técnica'),
+        ('VIAGEM_ESTUDO', 'Viagem de Estudo'),
+        ('SEMINARIO', 'Seminário'),
+        ('WORKSHOP', 'Workshop'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('PLANEJADA', 'Planejada'),
+        ('EM_EXECUCAO', 'Em Execução'),
+        ('CONCLUIDA', 'Concluída'),
+        ('CANCELADA', 'Cancelada'),
+    ]
+    
+    tipo = models.CharField(
+        max_length=20,
+        choices=TIPO_CHOICES,
+        verbose_name="Tipo de Atividade"
+    )
+    nome = models.CharField(
+        max_length=200,
+        verbose_name="Nome da Atividade"
+    )
+    descricao = models.TextField(
+        verbose_name="Descrição"
+    )
+    objetivos = models.TextField(
+        verbose_name="Objetivos"
+    )
+    
+    # Vinculação com curso/turma
+    curso = models.ForeignKey(
+        CursoEnsino,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='atividades_complementares',
+        verbose_name="Curso"
+    )
+    turma = models.ForeignKey(
+        TurmaEnsino,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='atividades_complementares',
+        verbose_name="Turma"
+    )
+    
+    # Realização
+    data_realizacao = models.DateField(
+        verbose_name="Data de Realização"
+    )
+    local = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name="Local"
+    )
+    carga_horaria = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        verbose_name="Carga Horária (horas)"
+    )
+    
+    # Responsável
+    responsavel = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='aces_responsaveis',
+        verbose_name="Responsável"
+    )
+    
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='PLANEJADA',
+        verbose_name="Status"
+    )
+    observacoes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações"
+    )
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Atividade Complementar de Ensino (ACE)"
+        verbose_name_plural = "Atividades Complementares de Ensino (ACE)"
+        ordering = ['-data_realizacao', 'nome']
+    
+    def __str__(self):
+        return f"ACE - {self.get_tipo_display()} - {self.nome} - {self.data_realizacao}"
+
+
+class TesteConhecimentosProfissionais(models.Model):
+    """
+    Teste de Conhecimentos Profissionais (TCP) - ITE 01/2024, item 4.14
+    Instruções de nivelamento e avaliação da tropa, convocadas pela DEIP 
+    para a totalidade ou fração do efetivo do CBMEPI, visando o nivelamento 
+    dos conhecimentos mínimos necessários para o desenvolvimento dos trabalhos 
+    gerais, de rotina ou de atividade/operação específica prevista.
+    """
+    
+    STATUS_CHOICES = [
+        ('PLANEJADO', 'Planejado'),
+        ('CONVOCADO', 'Convocado'),
+        ('EM_ANDAMENTO', 'Em Andamento'),
+        ('CONCLUIDO', 'Concluído'),
+        ('CANCELADO', 'Cancelado'),
+    ]
+    
+    TIPO_CHOICES = [
+        ('NIVELAMENTO', 'Nivelamento'),
+        ('AVALIACAO', 'Avaliação'),
+        ('NIVELAMENTO_AVALIACAO', 'Nivelamento e Avaliação'),
+    ]
+    
+    nome = models.CharField(
+        max_length=200,
+        verbose_name="Nome do TCP"
+    )
+    descricao = models.TextField(
+        verbose_name="Descrição"
+    )
+    tipo = models.CharField(
+        max_length=30,
+        choices=TIPO_CHOICES,
+        verbose_name="Tipo"
+    )
+    objetivo = models.TextField(
+        verbose_name="Objetivo",
+        help_text="Objetivo do nivelamento/avaliação"
+    )
+    
+    # Convocação
+    portaria_convocacao = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name="Portaria de Convocação"
+    )
+    data_convocacao = models.DateField(
+        verbose_name="Data de Convocação"
+    )
+    
+    # Aplicação
+    data_aplicacao = models.DateField(
+        verbose_name="Data de Aplicação"
+    )
+    local = models.CharField(
+        max_length=200,
+        verbose_name="Local"
+    )
+    
+    # Efetivo convocado
+    efetivo_total = models.BooleanField(
+        default=False,
+        verbose_name="Efetivo Total",
+        help_text="Se True, convoca todo o efetivo; se False, apenas fração"
+    )
+    unidades_envolvidas = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Unidades Envolvidas",
+        help_text="Lista de unidades envolvidas (se não for efetivo total)"
+    )
+    
+    # Área de conhecimento
+    area_conhecimento = models.TextField(
+        verbose_name="Área de Conhecimento",
+        help_text="Área de conhecimento avaliada/nivelada"
+    )
+    
+    # Coordenação
+    coordenador = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tcps_coordenados',
+        verbose_name="Coordenador"
+    )
+    
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='PLANEJADO',
+        verbose_name="Status"
+    )
+    observacoes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações"
+    )
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Teste de Conhecimentos Profissionais (TCP)"
+        verbose_name_plural = "Testes de Conhecimentos Profissionais (TCP)"
+        ordering = ['-data_aplicacao', 'nome']
+    
+    def __str__(self):
+        return f"TCP - {self.nome} - {self.data_aplicacao}"
+
+
+class PlanoEstagioNivelamentoProfissional(models.Model):
+    """
+    Plano de Estágio de Nivelamento Profissional - ITE 01/2024, item 4.16
+    Documento que especifica o planejamento de uma edição de estágio de 
+    nivelamento no âmbito do CBMEPI.
+    """
+    
+    STATUS_CHOICES = [
+        ('RASCUNHO', 'Rascunho'),
+        ('APROVADO', 'Aprovado'),
+        ('EM_EXECUCAO', 'Em Execução'),
+        ('CONCLUIDO', 'Concluído'),
+        ('CANCELADO', 'Cancelado'),
+    ]
+    
+    nome = models.CharField(
+        max_length=200,
+        verbose_name="Nome do Estágio de Nivelamento"
+    )
+    edicao = models.PositiveIntegerField(
+        default=1,
+        verbose_name="Edição"
+    )
+    ano_edicao = models.PositiveIntegerField(
+        verbose_name="Ano da Edição"
+    )
+    
+    # Objetivos
+    objetivo_geral = models.TextField(
+        verbose_name="Objetivo Geral"
+    )
+    objetivos_especificos = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Objetivos Específicos"
+    )
+    
+    # Período
+    data_inicio = models.DateField(
+        verbose_name="Data de Início"
+    )
+    data_fim = models.DateField(
+        verbose_name="Data de Término"
+    )
+    
+    # Local
+    local = models.CharField(
+        max_length=200,
+        verbose_name="Local"
+    )
+    
+    # Carga horária
+    carga_horaria = models.PositiveIntegerField(
+        verbose_name="Carga Horária Total (horas)"
+    )
+    
+    # Coordenação
+    coordenador = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='estagios_nivelamento_coordenados',
+        verbose_name="Coordenador"
+    )
+    supervisor = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='estagios_nivelamento_supervisionados',
+        verbose_name="Supervisor"
+    )
+    
+    # Conteúdo programático
+    conteudo_programatico = models.TextField(
+        verbose_name="Conteúdo Programático"
+    )
+    
+    # Metodologia
+    metodologia = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Metodologia"
+    )
+    
+    # Sistema de avaliação
+    sistema_avaliacao = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Sistema de Avaliação"
+    )
+    
+    # Público-alvo
+    publico_alvo = models.TextField(
+        verbose_name="Público-Alvo"
+    )
+    
+    # Número de vagas
+    numero_vagas = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        verbose_name="Número de Vagas"
+    )
+    
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='RASCUNHO',
+        verbose_name="Status"
+    )
+    observacoes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações"
+    )
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Plano de Estágio de Nivelamento Profissional"
+        verbose_name_plural = "Planos de Estágio de Nivelamento Profissional"
+        ordering = ['-ano_edicao', '-edicao', 'nome']
+        unique_together = [['nome', 'edicao', 'ano_edicao']]
+    
+    def __str__(self):
+        return f"Estágio de Nivelamento - {self.nome} - Edição {self.edicao}/{self.ano_edicao}"
+
+
+class RelatorioAnualDEIP(models.Model):
+    """
+    Relatório Anual da DEIP - ITE 01/2024, item 5.2
+    Anualmente deverá ser confeccionado o Relatório Anual da DEIP com todas 
+    as ações realizadas voltadas ao ensino e instrução, devendo ser finalizado 
+    até a segunda semana de janeiro do ano subsequente e publicado em 
+    Boletim do Comando Geral - BCG.
+    """
+    
+    STATUS_CHOICES = [
+        ('RASCUNHO', 'Rascunho'),
+        ('EM_ELABORACAO', 'Em Elaboração'),
+        ('FINALIZADO', 'Finalizado'),
+        ('PUBLICADO', 'Publicado'),
+    ]
+    
+    ano_referencia = models.PositiveIntegerField(
+        unique=True,
+        verbose_name="Ano de Referência",
+        help_text="Ano ao qual o relatório se refere"
+    )
+    data_elaboracao = models.DateField(
+        verbose_name="Data de Elaboração"
+    )
+    data_finalizacao = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Finalização",
+        help_text="Até segunda semana de janeiro do ano subsequente"
+    )
+    data_publicacao = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Publicação",
+        help_text="Data de publicação no BCG"
+    )
+    numero_bcg = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name="Número do BCG",
+        help_text="Número do Boletim do Comando Geral onde foi publicado"
+    )
+    
+    # Informações sintéticas (ITE 5.2.2)
+    periodo_realizacao = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name="Período de Realização",
+        help_text="Período geral de realização das atividades"
+    )
+    local = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name="Local"
+    )
+    
+    # Totais
+    total_cursos_realizados = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Total de Cursos Realizados"
+    )
+    total_alunos_cursos = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Total de Alunos que Frequentaram Cursos"
+    )
+    total_alunos_treinamentos = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Total de Alunos que Frequentaram Treinamentos"
+    )
+    total_alunos_outras_instituicoes = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Total de Alunos que Frequentaram Cursos e Treinamentos em Outras Instituições"
+    )
+    total_brigadistas_formados = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Quantitativo de Brigadistas Formados"
+    )
+    
+    # Custos
+    custo_total = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        verbose_name="Custo Total"
+    )
+    
+    # Modalidades de cursos realizados
+    modalidades_cursos = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Modalidades de Cursos Realizados",
+        help_text="Lista das modalidades de cursos realizados durante o ano"
+    )
+    
+    # Militares envolvidos
+    militares_coordenacao = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Militares Envolvidos na Coordenação, Supervisão ou Organização",
+        help_text="Lista dos militares envolvidos"
+    )
+    
+    # Alunos em outras instituições (detalhamento)
+    alunos_cbm_brasil = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Alunos em Corpos de Bombeiros Militares do Brasil"
+    )
+    alunos_pm_brasil = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Alunos em Policiais Militares do Brasil"
+    )
+    alunos_forcas_armadas = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Alunos em Forças Armadas"
+    )
+    alunos_seguranca_publica = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Alunos em Outras Instituições do Sistema de Segurança Pública"
+    )
+    alunos_outras_instituicoes = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Alunos em Outras Instituições"
+    )
+    
+    # Observações específicas
+    observacoes_especificas = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações Específicas"
+    )
+    
+    # Arquivo do relatório
+    arquivo_relatorio = models.FileField(
+        upload_to='ensino/relatorios_anuais/',
+        blank=True,
+        null=True,
+        verbose_name="Arquivo do Relatório"
+    )
+    
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='RASCUNHO',
+        verbose_name="Status"
+    )
+    elaborado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='relatorios_anuais_elaborados',
+        verbose_name="Elaborado por"
+    )
+    observacoes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações"
+    )
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Relatório Anual da DEIP"
+        verbose_name_plural = "Relatórios Anuais da DEIP"
+        ordering = ['-ano_referencia']
+    
+    def __str__(self):
+        return f"Relatório Anual DEIP {self.ano_referencia} - {self.get_status_display()}"
+
+
+class ProcessoSelecaoAlunos(models.Model):
+    """
+    Processo de Seleção de Alunos - ITE 01/2024, item 5.3
+    Processo que envolve a seleção de alunos para atividades de qualificação 
+    ofertadas pela DEIP, sejam elas próprias ou em outras Instituições de ensino.
+    """
+    
+    STATUS_CHOICES = [
+        ('RASCUNHO', 'Rascunho'),
+        ('ABERTO', 'Aberto'),
+        ('EM_ANALISE', 'Em Análise'),
+        ('HOMOLOGADO', 'Homologado'),
+        ('PUBLICADO', 'Publicado'),
+        ('FINALIZADO', 'Finalizado'),
+        ('CANCELADO', 'Cancelado'),
+    ]
+    
+    curso = models.ForeignKey(
+        CursoEnsino,
+        on_delete=models.CASCADE,
+        related_name='processos_selecao',
+        verbose_name="Curso/Estágio"
+    )
+    turma = models.ForeignKey(
+        TurmaEnsino,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='processos_selecao',
+        verbose_name="Turma"
+    )
+    edital = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name="Número do Edital/Portaria",
+        help_text="Edital ou portaria emitida pelo Comandante-Geral"
+    )
+    data_publicacao_edital = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Publicação do Edital"
+    )
+    
+    # Comissão de condução de trabalhos - ITE 5.3.2
+    comissao_conducao_trabalhos = models.ManyToManyField(
+        'Militar',
+        related_name='processos_selecao_comissao',
+        blank=True,
+        verbose_name="Comissão de Condução de Trabalhos",
+        help_text="Militares responsáveis por assessorar o processo decisório"
+    )
+    
+    # Critérios de seleção
+    criterios_selecao = models.TextField(
+        verbose_name="Critérios de Seleção"
+    )
+    numero_vagas = models.PositiveIntegerField(
+        verbose_name="Número de Vagas"
+    )
+    
+    # Período de inscrições
+    data_inicio_inscricoes = models.DateField(
+        verbose_name="Data de Início das Inscrições"
+    )
+    data_fim_inscricoes = models.DateField(
+        verbose_name="Data de Término das Inscrições"
+    )
+    
+    # Decisão do Diretor - ITE 5.3.7
+    data_homologacao_diretor = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Homologação pelo Diretor"
+    )
+    homologado_por = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='processos_selecao_homologados',
+        verbose_name="Homologado por (Diretor DEIP)"
+    )
+    
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='RASCUNHO',
+        verbose_name="Status"
+    )
+    observacoes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações"
+    )
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Processo de Seleção de Alunos"
+        verbose_name_plural = "Processos de Seleção de Alunos"
+        ordering = ['-data_criacao']
+    
+    def __str__(self):
+        return f"Processo de Seleção - {self.curso.nome} - {self.get_status_display()}"
+
+
+class InscricaoProcessoSelecao(models.Model):
+    """
+    Inscrição no Processo de Seleção - ITE 01/2024, item 5.3.3
+    """
+    
+    STATUS_CHOICES = [
+        ('INSCRITO', 'Inscrito'),
+        ('DEFERIDO', 'Deferido'),
+        ('INDEFERIDO', 'Indeferido'),
+        ('DESISTENTE', 'Desistente'),
+        ('CLASSIFICADO', 'Classificado'),
+        ('NAO_CLASSIFICADO', 'Não Classificado'),
+    ]
+    
+    processo = models.ForeignKey(
+        ProcessoSelecaoAlunos,
+        on_delete=models.CASCADE,
+        related_name='inscricoes',
+        verbose_name="Processo de Seleção"
+    )
+    militar = models.ForeignKey(
+        'Militar',
+        on_delete=models.CASCADE,
+        related_name='inscricoes_selecao',
+        verbose_name="Militar"
+    )
+    data_inscricao = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Data de Inscrição"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='INSCRITO',
+        verbose_name="Status"
+    )
+    
+    # Termo de desistência - ITE 5.3.4
+    termo_desistencia = models.FileField(
+        upload_to='ensino/processos_selecao/termos_desistencia/',
+        blank=True,
+        null=True,
+        verbose_name="Termo de Desistência"
+    )
+    data_desistencia = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Desistência"
+    )
+    motivo_desistencia = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Motivo da Desistência"
+    )
+    
+    # Classificação
+    classificacao = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        verbose_name="Classificação"
+    )
+    
+    observacoes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações"
+    )
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Inscrição no Processo de Seleção"
+        verbose_name_plural = "Inscrições no Processo de Seleção"
+        unique_together = [['processo', 'militar']]
+        ordering = ['processo', 'classificacao', 'militar']
+    
+    def __str__(self):
+        return f"Inscrição - {self.militar.nome_completo} - {self.processo.curso.nome}"
+
+
+class RecursoProcessoSelecao(models.Model):
+    """
+    Recurso no Processo de Seleção - ITE 01/2024, item 5.3.8 e 5.3.9
+    Recurso em primeira instância (Revisão de Ato) ou segunda instância 
+    (Comandante-Geral).
+    """
+    
+    TIPO_CHOICES = [
+        ('REVISAO_ATO', 'Revisão de Ato (1ª Instância)'),
+        ('RECURSO_COMANDANTE', 'Recurso ao Comandante-Geral (2ª Instância)'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('PENDENTE', 'Pendente'),
+        ('DEFERIDO', 'Deferido'),
+        ('INDEFERIDO', 'Indeferido'),
+    ]
+    
+    inscricao = models.ForeignKey(
+        InscricaoProcessoSelecao,
+        on_delete=models.CASCADE,
+        related_name='recursos',
+        verbose_name="Inscrição"
+    )
+    tipo = models.CharField(
+        max_length=30,
+        choices=TIPO_CHOICES,
+        verbose_name="Tipo de Recurso"
+    )
+    fundamentacao = models.TextField(
+        verbose_name="Fundamentação",
+        help_text="Fundamentação do recurso"
+    )
+    data_apresentacao = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Data de Apresentação"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='PENDENTE',
+        verbose_name="Status"
+    )
+    data_analise = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Análise"
+    )
+    parecer = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Parecer"
+    )
+    analisado_por = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='recursos_analisados',
+        verbose_name="Analisado por"
+    )
+    observacoes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações"
+    )
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Recurso no Processo de Seleção"
+        verbose_name_plural = "Recursos no Processo de Seleção"
+        ordering = ['-data_apresentacao']
+    
+    def __str__(self):
+        return f"Recurso - {self.inscricao.militar.nome_completo} - {self.get_tipo_display()}"
+
+
+class TrabalhoConclusaoCurso(models.Model):
+    """
+    Trabalho de Conclusão de Curso (TCC) - ITE 01/2024, item 19
+    Os Cursos poderão ter como exigência parcial para conclusão do curso a 
+    confecção e apresentação de um Trabalho de Conclusão de Curso – TCC 
+    (artigo científico, monografia ou projeto aplicativo).
+    """
+    
+    TIPO_CHOICES = [
+        ('ARTIGO_CIENTIFICO', 'Artigo Científico'),
+        ('MONOGRAFIA', 'Monografia'),
+        ('PROJETO_APLICATIVO', 'Projeto Aplicativo'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('EM_ELABORACAO', 'Em Elaboração'),
+        ('ORIENTACAO', 'Em Orientação'),
+        ('ENTREGUE', 'Entregue'),
+        ('EM_AVALIACAO', 'Em Avaliação'),
+        ('APROVADO', 'Aprovado'),
+        ('REPROVADO', 'Reprovado'),
+        ('APROVADO_COM_CORRECOES', 'Aprovado com Correções'),
+    ]
+    
+    aluno = models.ForeignKey(
+        AlunoEnsino,
+        on_delete=models.CASCADE,
+        related_name='trabalhos_conclusao',
+        verbose_name="Aluno"
+    )
+    curso = models.ForeignKey(
+        CursoEnsino,
+        on_delete=models.CASCADE,
+        related_name='trabalhos_conclusao',
+        verbose_name="Curso"
+    )
+    turma = models.ForeignKey(
+        TurmaEnsino,
+        on_delete=models.CASCADE,
+        related_name='trabalhos_conclusao',
+        verbose_name="Turma"
+    )
+    tipo = models.CharField(
+        max_length=30,
+        choices=TIPO_CHOICES,
+        verbose_name="Tipo de TCC"
+    )
+    titulo = models.CharField(
+        max_length=500,
+        verbose_name="Título do Trabalho"
+    )
+    resumo = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Resumo"
+    )
+    
+    # Orientador
+    orientador_militar = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tccs_orientados',
+        verbose_name="Orientador (Militar)"
+    )
+    orientador_externo = models.ForeignKey(
+        'PessoaExterna',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tccs_orientados',
+        verbose_name="Orientador (Externo)"
+    )
+    
+    # Banca examinadora
+    banca_examinadora = models.ManyToManyField(
+        'Militar',
+        related_name='tccs_banca',
+        blank=True,
+        verbose_name="Banca Examinadora"
+    )
+    
+    # Datas importantes
+    data_entrega = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Entrega"
+    )
+    data_apresentacao = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Apresentação"
+    )
+    
+    # Avaliação - ITE 19.2
+    nota_conteudo = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        validators=[MinValueValidator(0), MaxValueValidator(10)],
+        verbose_name="Nota - Conteúdo (50%)"
+    )
+    nota_normatizacao = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        validators=[MinValueValidator(0), MaxValueValidator(10)],
+        verbose_name="Nota - Normatização (20%)"
+    )
+    nota_defesa = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        validators=[MinValueValidator(0), MaxValueValidator(10)],
+        verbose_name="Nota - Defesa (30%)"
+    )
+    nota_final = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        validators=[MinValueValidator(0), MaxValueValidator(10)],
+        verbose_name="Nota Final"
+    )
+    
+    # Arquivos
+    arquivo_trabalho = models.FileField(
+        upload_to='ensino/tccs/trabalhos/',
+        blank=True,
+        null=True,
+        verbose_name="Arquivo do Trabalho"
+    )
+    arquivo_apresentacao = models.FileField(
+        upload_to='ensino/tccs/apresentacoes/',
+        blank=True,
+        null=True,
+        verbose_name="Arquivo da Apresentação"
+    )
+    
+    status = models.CharField(
+        max_length=30,
+        choices=STATUS_CHOICES,
+        default='EM_ELABORACAO',
+        verbose_name="Status"
+    )
+    observacoes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações"
+    )
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Trabalho de Conclusão de Curso (TCC)"
+        verbose_name_plural = "Trabalhos de Conclusão de Curso (TCC)"
+        ordering = ['-data_entrega', 'aluno']
+    
+    def __str__(self):
+        return f"TCC - {self.aluno.get_pessoa_nome()} - {self.titulo}"
+    
+    def calcular_nota_final(self):
+        """Calcula a nota final conforme ITE 19.2"""
+        if self.nota_conteudo and self.nota_normatizacao and self.nota_defesa:
+            nota = (
+                self.nota_conteudo * 0.50 +
+                self.nota_normatizacao * 0.20 +
+                self.nota_defesa * 0.30
+            )
+            return round(nota, 2)
+        return None
+
+
+class PlanoSeguranca(models.Model):
+    """
+    Plano de Segurança - ITE 01/2024, item 23
+    Compete à coordenação do curso, bem como os instrutores e monitores, o zelo 
+    pela segurança dos alunos, de forma que os riscos decorrentes das atividades 
+    práticas devam ser mensurados e constar na respectiva nota de instrução.
+    """
+    
+    TIPO_ATIVIDADE_CHOICES = [
+        ('AULA_PRATICA', 'Aula Prática'),
+        ('TREINAMENTO_CAMPO', 'Treinamento de Campo'),
+        ('ESTAGIO', 'Estágio'),
+        ('EXERCICIO_SIMULADO', 'Exercício Simulado'),
+        ('OUTROS', 'Outros'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('RASCUNHO', 'Rascunho'),
+        ('APROVADO', 'Aprovado'),
+        ('EM_EXECUCAO', 'Em Execução'),
+        ('CONCLUIDO', 'Concluído'),
+    ]
+    
+    nome = models.CharField(
+        max_length=200,
+        verbose_name="Nome do Plano de Segurança"
+    )
+    tipo_atividade = models.CharField(
+        max_length=30,
+        choices=TIPO_ATIVIDADE_CHOICES,
+        verbose_name="Tipo de Atividade"
+    )
+    
+    # Vinculação
+    curso = models.ForeignKey(
+        CursoEnsino,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='planos_seguranca',
+        verbose_name="Curso"
+    )
+    turma = models.ForeignKey(
+        TurmaEnsino,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='planos_seguranca',
+        verbose_name="Turma"
+    )
+    disciplina = models.ForeignKey(
+        DisciplinaEnsino,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='planos_seguranca',
+        verbose_name="Disciplina"
+    )
+    aula = models.ForeignKey(
+        AulaEnsino,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='planos_seguranca',
+        verbose_name="Aula"
+    )
+    
+    # Data e local
+    data_atividade = models.DateField(
+        verbose_name="Data da Atividade"
+    )
+    local = models.CharField(
+        max_length=200,
+        verbose_name="Local"
+    )
+    coordenadas_geograficas = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name="Coordenadas Geográficas",
+        help_text="Coordenadas GPS do local (se aplicável)"
+    )
+    
+    # Riscos identificados - ITE 23.1
+    riscos_identificados = models.TextField(
+        verbose_name="Riscos Identificados",
+        help_text="Riscos decorrentes das atividades práticas"
+    )
+    
+    # Medidas de segurança
+    medidas_seguranca = models.TextField(
+        verbose_name="Medidas de Segurança",
+        help_text="Medidas de segurança a serem adotadas"
+    )
+    
+    # EPIs necessários
+    epis_necessarios = models.TextField(
+        verbose_name="EPIs Necessários",
+        help_text="Equipamentos de Proteção Individual necessários"
+    )
+    
+    # Plano de emergências - ITE 23.2
+    plano_emergencias = models.TextField(
+        verbose_name="Plano de Emergências",
+        help_text="Plano de emergências para atividades de rotina"
+    )
+    
+    # Dispositivos de segurança
+    dispositivos_seguranca = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Dispositivos de Segurança",
+        help_text="Dispositivos previstos no plano"
+    )
+    
+    # Reconhecimento do local - ITE 23.3
+    reconhecimento_local_realizado = models.BooleanField(
+        default=False,
+        verbose_name="Reconhecimento do Local Realizado"
+    )
+    fotos_local = models.ImageField(
+        upload_to='ensino/planos_seguranca/fotos/',
+        blank=True,
+        null=True,
+        verbose_name="Fotos do Local"
+    )
+    observacoes_reconhecimento = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações do Reconhecimento"
+    )
+    
+    # Briefing - ITE 23.4
+    briefing_realizado = models.BooleanField(
+        default=False,
+        verbose_name="Briefing Realizado",
+        help_text="Briefing abordando objetivos e ações previstas no plano de segurança"
+    )
+    data_briefing = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="Data do Briefing"
+    )
+    
+    # Responsáveis
+    responsavel_coordenacao = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='planos_seguranca_coordenacao',
+        verbose_name="Responsável pela Coordenação"
+    )
+    responsavel_supervisao = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='planos_seguranca_supervisao',
+        verbose_name="Responsável pela Supervisão"
+    )
+    
+    # Aprovação
+    aprovado_por = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='planos_seguranca_aprovados',
+        verbose_name="Aprovado por (DEIP)"
+    )
+    data_aprovacao = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Data de Aprovação"
+    )
+    
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='RASCUNHO',
+        verbose_name="Status"
+    )
+    observacoes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações"
+    )
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Plano de Segurança"
+        verbose_name_plural = "Planos de Segurança"
+        ordering = ['-data_atividade', 'nome']
+    
+    def __str__(self):
+        return f"Plano de Segurança - {self.nome} - {self.data_atividade}"
+
+
+class ClassificacaoFinalCurso(models.Model):
+    """
+    Classificação Final do Curso - ITE 01/2024, item 18
+    A classificação final do aluno no curso será estabelecida mediante o 
+    levantamento da Média Final do Curso (MFC) em ordem decrescente, sendo 
+    primeiramente classificados os aprovados sem recuperação (2ª época), em 
+    seguida os aprovados com recuperação.
+    """
+    
+    aluno = models.ForeignKey(
+        AlunoEnsino,
+        on_delete=models.CASCADE,
+        related_name='classificacoes_finais',
+        verbose_name="Aluno"
+    )
+    curso = models.ForeignKey(
+        CursoEnsino,
+        on_delete=models.CASCADE,
+        related_name='classificacoes_finais',
+        verbose_name="Curso"
+    )
+    turma = models.ForeignKey(
+        TurmaEnsino,
+        on_delete=models.CASCADE,
+        related_name='classificacoes_finais',
+        verbose_name="Turma"
+    )
+    
+    # Média Final do Curso (MFC) - ITE 18.2.2
+    media_final_curso = models.DecimalField(
+        max_digits=6,
+        decimal_places=3,
+        blank=True,
+        null=True,
+        validators=[MinValueValidator(0), MaxValueValidator(10)],
+        verbose_name="Média Final do Curso (MFC)",
+        help_text="Média aritmética das MGM das disciplinas (ITE 18.2.2), aproximada até milésimo"
+    )
+    
+    # MFC ajustada para alunos em recuperação - ITE 18.2.3
+    media_final_curso_ajustada = models.DecimalField(
+        max_digits=6,
+        decimal_places=3,
+        blank=True,
+        null=True,
+        validators=[MinValueValidator(0), MaxValueValidator(10)],
+        verbose_name="MFC Ajustada (Recuperação)",
+        help_text="MFC ajustada para alunos em recuperação conforme ITE 18.2.3"
+    )
+    
+    # Classificação
+    classificacao = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        verbose_name="Classificação Final",
+        help_text="Classificação final no curso"
+    )
+    
+    # Tipo de aprovação
+    aprovado_direto = models.BooleanField(
+        default=False,
+        verbose_name="Aprovado Direto",
+        help_text="Aprovado sem recuperação (1ª época)"
+    )
+    aprovado_com_recuperacao = models.BooleanField(
+        default=False,
+        verbose_name="Aprovado com Recuperação",
+        help_text="Aprovado com recuperação (2ª época)"
+    )
+    
+    # MFC do último aprovado direto (para cálculo de ajuste)
+    mfc_ultimo_aprovado_direto = models.DecimalField(
+        max_digits=6,
+        decimal_places=3,
+        blank=True,
+        null=True,
+        validators=[MinValueValidator(0), MaxValueValidator(10)],
+        verbose_name="MFC do Último Aprovado Direto",
+        help_text="Usado para cálculo de ajuste de média (ITE 18.2.3)"
+    )
+    
+    # Contagem de disciplinas reprovadas
+    total_disciplinas_reprovadas = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Total de Disciplinas Reprovadas",
+        help_text="Número de disciplinas em que o aluno foi reprovado"
+    )
+    
+    # Desempate - ITE 18.5
+    criterio_desempate = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        verbose_name="Critério de Desempate",
+        help_text="Precedência hierárquica ou classificação do concurso (ITE 18.5)"
+    )
+    
+    observacoes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações"
+    )
+    data_criacao = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+    
+    class Meta:
+        verbose_name = "Classificação Final do Curso"
+        verbose_name_plural = "Classificações Finais dos Cursos"
+        unique_together = [['aluno', 'curso', 'turma']]
+        ordering = ['turma', 'classificacao', 'media_final_curso']
+        indexes = [
+            models.Index(fields=['turma', 'classificacao']),
+            models.Index(fields=['turma', 'media_final_curso']),
+        ]
+    
+    def __str__(self):
+        tipo = "Direto" if self.aprovado_direto else "Recuperação" if self.aprovado_com_recuperacao else "N/A"
+        return f"Classificação {self.classificacao} - {self.aluno.get_pessoa_nome()} - {tipo}"
+    
+    def calcular_mfc_ajustada(self):
+        """
+        Calcula a MFC ajustada para alunos em recuperação conforme ITE 18.2.3
+        
+        ITE 18.2.3.1.b: Se a MFC do aluno em recuperação for superior ou igual à do 
+        último aluno aprovado direto, será aplicada a seguinte fórmula de ajuste:
+        MFC ajustada = min (MFC calculada, MFC último aprovado direto − ϵ)
+        
+        Onde:
+        - MFC calculada: É a média aritmética das médias gerais das disciplinas cursadas pelo aluno em recuperação
+        - MFC do último aprovado direto: É a Média Final do Curso do último aluno aprovado sem recuperação
+        - ϵ: É uma pequena fração (definida como 0,01) que garante que a MFC ajustada do aluno 
+          em recuperação será ligeiramente inferior à do último aprovado direto
+        - A função min: retorna o menor valor entre a MFC calculada do aluno e a MFC do 
+          último aprovado direto, subtraída de uma pequena fração ϵ
+        """
+        if self.aprovado_com_recuperacao and self.media_final_curso and self.mfc_ultimo_aprovado_direto:
+            # ITE 18.2.3.1.b: Aplicar ajuste apenas se MFC for superior ou igual à do último aprovado direto
+            # A função min() já faz isso automaticamente:
+            # - Se MFC calculada < MFC último direto - epsilon: retorna MFC calculada (não precisa ajuste)
+            # - Se MFC calculada >= MFC último direto - epsilon: retorna MFC último direto - epsilon (aplica ajuste)
+            epsilon = Decimal('0.01')
+            mfc_ajustada = min(
+                self.media_final_curso,  # MFC calculada
+                self.mfc_ultimo_aprovado_direto - epsilon  # MFC último aprovado direto - ϵ
+            )
+            return round(mfc_ajustada, 3)
+        # Se não atender as condições, retornar MFC calculada sem ajuste
+        return self.media_final_curso
+    comissao = models.ForeignKey('militares.ComissaoPromocao', on_delete=models.SET_NULL, null=True, blank=True, related_name='pedidos_revisao_ensino', verbose_name="Comissão")
